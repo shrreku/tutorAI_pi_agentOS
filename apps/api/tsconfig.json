@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "composite": true, "rootDir": "src", "outDir": "dist" },
+  "references": [
+    { "path": "../../packages/config" },
+    { "path": "../../packages/db" },
+    { "path": "../../packages/observability" },
+    { "path": "../../packages/schemas" },
+    { "path": "../../packages/search" },
+    { "path": "../../packages/wiki-core" },
+    { "path": "../../packages/graph" },
+    { "path": "../../packages/agent-runtime" }
+  ],
+  "include": ["src/**/*.ts"]
+}

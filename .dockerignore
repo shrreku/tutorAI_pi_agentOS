@@ -1,0 +1,13 @@
+node_modules
+**/node_modules
+**/dist
+apps/web/dist
+.git
+coverage
+.turbo
+*.tsbuildinfo
+**/*.tsbuildinfo
+**/tsconfig.tsbuildinfo
+.env
+.env.*
+!.env.example

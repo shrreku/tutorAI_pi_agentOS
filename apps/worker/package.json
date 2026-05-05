@@ -1,0 +1,29 @@
+{
+  "name": "@studyagent/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -b",
+    "check": "tsc -b --pretty false"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.972.0",
+    "@studyagent/config": "workspace:*",
+    "@studyagent/db": "workspace:*",
+    "@studyagent/observability": "workspace:*",
+    "@studyagent/ingestion": "workspace:*",
+    "@studyagent/search": "workspace:*",
+    "@studyagent/graph": "workspace:*",
+    "@studyagent/wiki-core": "workspace:*",
+    "@studyagent/schemas": "workspace:*",
+    "bullmq": "^5.41.2",
+    "drizzle-orm": "^0.44.2",
+    "ioredis": "^5.5.0",
+    "zod": "latest"
+  },
+  "devDependencies": { "tsx": "latest" }
+}

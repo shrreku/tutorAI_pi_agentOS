@@ -1,0 +1,13 @@
+{
+  "name": "@studyagent/graph",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": { "build": "tsc -b", "check": "tsc -b --pretty false" },
+  "dependencies": {
+    "@studyagent/schemas": "workspace:*",
+    "neo4j-driver": "^5.28.0"
+  }
+}

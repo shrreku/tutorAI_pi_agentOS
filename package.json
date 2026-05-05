@@ -1,0 +1,24 @@
+{
+  "name": "studyagent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.0.0",
+  "scripts": {
+    "dev": "pnpm --parallel --filter './apps/*' dev",
+    "build": "tsc -b tsconfig.build.json && pnpm --filter @studyagent/web build",
+    "check": "tsc -b tsconfig.build.json --pretty false",
+    "test": "vitest run",
+    "format": "prettier --check .",
+    "db:generate": "pnpm --filter @studyagent/db generate",
+    "db:migrate": "pnpm --filter @studyagent/db migrate",
+    "db:seed": "pnpm --filter @studyagent/db seed"
+  },
+  "devDependencies": {
+    "@rolldown/binding-darwin-arm64": "1.0.0-rc.18",
+    "@types/node": "latest",
+    "prettier": "latest",
+    "typescript": "latest",
+    "vitest": "latest"
+  }
+}

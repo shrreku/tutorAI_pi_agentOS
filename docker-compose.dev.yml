@@ -1,0 +1,101 @@
+services:
+  api:
+    image: node:22-bookworm-slim
+    working_dir: /workspace
+    command:
+      [
+        "sh",
+        "-c",
+        "corepack enable && corepack prepare pnpm@10.0.0 --activate && pnpm install && pnpm --filter @studyagent/db migrate && pnpm --filter @studyagent/db seed && pnpm --filter @studyagent/api dev",
+      ]
+    environment:
+      DATABASE_URL: postgres://studyagent:studyagent@postgres:5432/studyagent
+      REDIS_URL: redis://redis:6379
+      API_PORT: "4000"
+      OBJECT_STORAGE_ENDPOINT: http://minio:9000
+      OBJECT_STORAGE_ACCESS_KEY: studyagent
+      OBJECT_STORAGE_SECRET_KEY: studyagent-local
+      OBJECT_STORAGE_BUCKET: studyagent-local
+      OBJECT_STORAGE_REGION: us-east-1
+      DISABLE_AUTH: "true"
+      DEV_USER_EMAIL: dev@studyagent.local
+      LOG_LEVEL: info
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
+      EMBEDDING_API_BASE_URL: ${EMBEDDING_API_BASE_URL:-}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-gemini-embedding-2}
+      EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-1536}
+      LLAMAPARSE_API_KEY: ${LLAMAPARSE_API_KEY:-}
+      LLAMAPARSE_API_BASE_URL: ${LLAMAPARSE_API_BASE_URL:-https://api.cloud.llamaindex.ai}
+      LLAMAPARSE_TIER: ${LLAMAPARSE_TIER:-cost_effective}
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USERNAME: neo4j
+      NEO4J_PASSWORD: studyagent-local
+    volumes:
+      - .:/workspace
+      - studyagent-node-modules:/workspace/node_modules
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:4000/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  worker:
+    image: node:22-bookworm-slim
+    working_dir: /workspace
+    command:
+      [
+        "sh",
+        "-c",
+        "corepack enable && corepack prepare pnpm@10.0.0 --activate && pnpm install && pnpm --filter @studyagent/worker dev",
+      ]
+    environment:
+      DATABASE_URL: postgres://studyagent:studyagent@postgres:5432/studyagent
+      REDIS_URL: redis://redis:6379
+      OBJECT_STORAGE_ENDPOINT: http://minio:9000
+      OBJECT_STORAGE_ACCESS_KEY: studyagent
+      OBJECT_STORAGE_SECRET_KEY: studyagent-local
+      OBJECT_STORAGE_BUCKET: studyagent-local
+      OBJECT_STORAGE_REGION: us-east-1
+      DISABLE_AUTH: "true"
+      DEV_USER_EMAIL: dev@studyagent.local
+      LOG_LEVEL: info
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
+      EMBEDDING_API_BASE_URL: ${EMBEDDING_API_BASE_URL:-}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-gemini-embedding-2}
+      EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-1536}
+      LLAMAPARSE_API_KEY: ${LLAMAPARSE_API_KEY:-}
+      LLAMAPARSE_API_BASE_URL: ${LLAMAPARSE_API_BASE_URL:-https://api.cloud.llamaindex.ai}
+      LLAMAPARSE_TIER: ${LLAMAPARSE_TIER:-cost_effective}
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USERNAME: neo4j
+      NEO4J_PASSWORD: studyagent-local
+    volumes:
+      - .:/workspace
+      - studyagent-node-modules:/workspace/node_modules
+
+  web:
+    image: node:22-bookworm-slim
+    working_dir: /workspace
+    command:
+      [
+        "sh",
+        "-c",
+        "corepack enable && corepack prepare pnpm@10.0.0 --activate && pnpm install && VITE_API_PROXY_TARGET=http://api:4000 pnpm --filter @studyagent/web dev -- --host 0.0.0.0 --port 5173",
+      ]
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/workspace
+      - studyagent-node-modules:/workspace/node_modules
+
+volumes:
+  studyagent-node-modules:

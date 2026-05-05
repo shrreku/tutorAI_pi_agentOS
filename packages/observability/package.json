@@ -1,0 +1,17 @@
+{
+  "name": "@studyagent/observability",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "check": "tsc -b --pretty false"
+  },
+  "dependencies": {
+    "@langfuse/otel": "^4.0.0-beta.3",
+    "@langfuse/tracing": "^4.0.0-beta.3",
+    "@opentelemetry/sdk-node": "^0.54.2"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/schemas" },
+    { "path": "./packages/db" },
+    { "path": "./packages/config" },
+    { "path": "./packages/observability" },
+    { "path": "./packages/ingestion" },
+    { "path": "./packages/wiki-core" },
+    { "path": "./packages/search" },
+    { "path": "./packages/graph" },
+    { "path": "./packages/tools" },
+    { "path": "./packages/agent-runtime" },
+    { "path": "./packages/ui" },
+    { "path": "./apps/api" },
+    { "path": "./apps/worker" }
+  ]
+}
