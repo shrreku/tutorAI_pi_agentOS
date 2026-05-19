@@ -1,0 +1,144 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`pi session runtime > snapshots Pi adapter metadata derived from tool contracts 1`] = `
+{
+  "description": "Runs fused wiki retrieval with provenance-aware snippets.",
+  "label": "wiki.search",
+  "name": "wiki.search",
+  "parameters": {
+    "properties": {
+      "conceptIds": {
+        "items": {
+          "type": "string",
+        },
+        "type": "array",
+      },
+      "includeGraphExpansion": {
+        "type": "boolean",
+      },
+      "maxResults": {
+        "type": "number",
+      },
+      "query": {
+        "type": "string",
+      },
+      "selectedNodeRefs": {
+        "items": {
+          "properties": {
+            "refId": {
+              "type": "string",
+            },
+            "refType": {
+              "type": "string",
+            },
+          },
+          "required": [
+            "refType",
+            "refId",
+          ],
+          "type": "object",
+        },
+        "type": "array",
+      },
+    },
+    "required": [
+      "query",
+    ],
+    "type": "object",
+  },
+}
+`;
+
+exports[`pi session runtime > snapshots Pi adapter metadata derived from tool contracts 2`] = `
+{
+  "description": "Creates a draft quiz artifact from notebook concepts and sources.",
+  "label": "artifact.create_quiz",
+  "name": "artifact.create_quiz",
+  "parameters": {
+    "properties": {
+      "conceptIds": {
+        "items": {
+          "type": "string",
+        },
+        "type": "array",
+      },
+      "deferGeneration": {
+        "type": "boolean",
+      },
+      "prompt": {
+        "type": "string",
+      },
+      "questionCount": {
+        "type": "number",
+      },
+      "questions": {
+        "items": {
+          "properties": {
+            "answer": {
+              "type": "string",
+            },
+            "choices": {
+              "items": {
+                "type": "string",
+              },
+              "type": "array",
+            },
+            "conceptIds": {
+              "items": {
+                "type": "string",
+              },
+              "type": "array",
+            },
+            "difficulty": {
+              "type": "string",
+            },
+            "explanation": {
+              "type": "string",
+            },
+            "prompt": {
+              "type": "string",
+            },
+            "referenceAnswer": {
+              "type": "string",
+            },
+          },
+          "required": [
+            "prompt",
+          ],
+          "type": "object",
+        },
+        "type": "array",
+      },
+      "resumeArtifactId": {
+        "type": "string",
+      },
+      "sourceNodeRefs": {
+        "items": {
+          "properties": {
+            "refId": {
+              "type": "string",
+            },
+            "refType": {
+              "type": "string",
+            },
+          },
+          "required": [
+            "refType",
+            "refId",
+          ],
+          "type": "object",
+        },
+        "type": "array",
+      },
+      "title": {
+        "type": "string",
+      },
+    },
+    "required": [
+      "title",
+      "prompt",
+    ],
+    "type": "object",
+  },
+}
+`;

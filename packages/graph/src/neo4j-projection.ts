@@ -112,6 +112,60 @@ export async function mergeSourceNode(
   );
 }
 
+export async function mergeTopicNode(
+  session: Session,
+  notebookId: string,
+  sourceId: string,
+  topicId: string,
+  title: string,
+): Promise<void> {
+  await session.run(
+    `MATCH (s:Source {id: $sourceId})
+     WHERE s.notebookId = $notebookId
+     MERGE (t:Topic {id: $topicId})
+     SET t.notebookId = $notebookId,
+         t.sourceId = $sourceId,
+         t.title = $title,
+         t.updatedAt = datetime()
+     MERGE (s)-[r:HAS_TOPIC]->(t)
+     SET r.notebookId = $notebookId,
+         r.updatedAt = datetime()`,
+    { notebookId, sourceId, topicId, title },
+  );
+}
+
+export async function linkTopicToConcept(
+  session: Session,
+  notebookId: string,
+  topicId: string,
+  conceptId: string,
+): Promise<void> {
+  await session.run(
+    `MATCH (t:Topic {id: $topicId}), (c:Concept {id: $conceptId})
+     WHERE t.notebookId = $notebookId AND c.notebookId = $notebookId
+     MERGE (t)-[r:CONTAINS_CONCEPT]->(c)
+     SET r.notebookId = $notebookId,
+         r.updatedAt = datetime()`,
+    { notebookId, topicId, conceptId },
+  );
+}
+
+export async function linkTopicToWikiPage(
+  session: Session,
+  notebookId: string,
+  topicId: string,
+  pageId: string,
+): Promise<void> {
+  await session.run(
+    `MATCH (t:Topic {id: $topicId}), (w:WikiPage {id: $pageId})
+     WHERE t.notebookId = $notebookId AND w.notebookId = $notebookId
+     MERGE (t)-[r:CONTAINS_PAGE]->(w)
+     SET r.notebookId = $notebookId,
+         r.updatedAt = datetime()`,
+    { notebookId, topicId, pageId },
+  );
+}
+
 export async function mergeCurriculumNode(
   session: Session,
   notebookId: string,

@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { idSchema } from "./ids.js";
+import { sourceLevelSchema } from "./learning-levels.js";
 
-export const sourceTypeSchema = z.enum(["pdf", "markdown", "text", "html", "pasted_note"]);
+export const sourceTypeSchema = z.enum(["pdf", "markdown", "text", "html", "pasted_note", "document", "presentation", "binary"]);
 
 export const sourceStatusSchema = z.enum([
   "uploaded",
@@ -25,6 +26,9 @@ export const sourceMetadataSchema = z.object({
   contentHash: z.string().optional(),
   originalFilename: z.string().optional(),
   mimeType: z.string().optional(),
+  sourceLevel: sourceLevelSchema.optional(),
+  sourceLevelConfidence: z.number().min(0).max(1).optional(),
+  sourceLevelReason: z.string().optional(),
 });
 
 export const sourceSchema = z.object({

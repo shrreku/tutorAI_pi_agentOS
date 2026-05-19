@@ -332,6 +332,17 @@ async function main() {
 
         const terminalStatus = pdfNeedsReview ? "needs_review" : tutoringGate ? "tutoring_ready" : "indexed";
 
+        const { inferSourceLevelFromSignals } = await import("@studyagent/schemas");
+        const inferred = inferSourceLevelFromSignals({
+          title: source.title,
+          metadata: { ...(source.metadataJson ?? {}), sourceId },
+        });
+        const inferredSourceLevel = {
+          sourceLevel: inferred.level,
+          sourceLevelConfidence: inferred.confidence ?? undefined,
+          sourceLevelReason: inferred.lastUpdatedReason,
+        };
+
         await dbClient.db
           .update(sources)
           .set({
@@ -339,6 +350,7 @@ async function main() {
             updatedAt: new Date(),
             metadataJson: {
               ...source.metadataJson,
+              ...inferredSourceLevel,
               ingestionWarnings: parsed.warnings,
               embeddingError: embeddingError ?? undefined,
               enrichmentOk,

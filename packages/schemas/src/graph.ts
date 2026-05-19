@@ -5,6 +5,7 @@ export const graphNodeTypeSchema = z.enum([
   "notebook",
   "source",
   "source_section",
+  "topic",
   "curriculum",
   "curriculum_module",
   "objective",
@@ -67,21 +68,14 @@ export type GraphRelationType = z.infer<typeof graphRelationTypeSchema>;
 export type GraphNode = z.infer<typeof graphNodeSchema>;
 export type GraphEdge = z.infer<typeof graphEdgeSchema>;
 
-// Canvas-facing shapes (normalised from Neo4j raw output)
-export const graphCanvasNodeSchema = z.object({
-  id: z.string(),
-  nodeType: z.string(),
-  labels: z.array(z.string()),
-  properties: z.record(z.string(), z.unknown()),
-});
-
-export const graphCanvasEdgeSchema = z.object({
-  id: z.string(),
-  source: z.string(),
-  target: z.string(),
-  relationType: z.string(),
-  properties: z.record(z.string(), z.unknown()),
-});
+export {
+  graphCanvasEdgeSchema,
+  graphCanvasNodeSchema,
+  type GraphCanvasEdge,
+  type GraphCanvasNode,
+} from "./graph-canvas.js";
+import { graphCanvasEdgeSchema, graphCanvasNodeSchema } from "./graph-canvas.js";
+import { workspaceGraphReadModelSchema } from "./workspace-read-model.js";
 
 export const graphQueryResponseSchema = z.object({
   name: z.string(),
@@ -92,8 +86,7 @@ export const graphQueryResponseSchema = z.object({
   conceptId: z.string().optional(),
   fromConceptId: z.string().optional(),
   toConceptId: z.string().optional(),
+  readModel: workspaceGraphReadModelSchema.optional(),
 });
 
-export type GraphCanvasNode = z.infer<typeof graphCanvasNodeSchema>;
-export type GraphCanvasEdge = z.infer<typeof graphCanvasEdgeSchema>;
 export type GraphQueryResponse = z.infer<typeof graphQueryResponseSchema>;

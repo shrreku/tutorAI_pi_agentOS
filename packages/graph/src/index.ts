@@ -18,6 +18,9 @@ export {
   mergeNotebookNode,
   mergeConceptRelation,
   mergeSourceNode,
+  mergeTopicNode,
+  linkTopicToConcept,
+  linkTopicToWikiPage,
   mergeCurriculumNode,
   mergeCurriculumModuleNode,
   mergeObjectiveListNode,
@@ -39,3 +42,27 @@ export {
 
 export { queryStudyMapSimple, querySourceWikiMapSimple } from "./neo4j-queries.js";
 export { queryConceptNeighborhood, queryConceptShortestPath, type ConceptNeighborhood, type ConceptPathResult } from "./neo4j-traverse.js";
+export {
+  buildSourceWikiTopicProjection,
+  normalizeNeo4jCanvasEdges,
+  normalizeNeo4jCanvasNodes,
+  type RawNeo4jCanvasEdge,
+  type RawNeo4jCanvasNode,
+} from "./canvas-projection.js";
+
+export {
+  buildProjectionPlan,
+  applyProjectionPlan,
+  loadCanonicalProjectionSnapshot,
+  projectGraphFromCanonical,
+  rebuildNotebookProjection,
+  rebuildSourceProjection,
+  loadNotebookProjectionHealth,
+  loadSourceProjectionHealth,
+  stableTopicId,
+  type CanonicalProjectionSnapshot,
+  type ProjectionPlan,
+  type ProjectionOp,
+  type ProjectGraphEnv,
+  type ProjectGraphResult,
+} from "./graph-projection/index.js";

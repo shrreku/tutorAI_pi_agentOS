@@ -39,6 +39,18 @@ function pushEdge(
   });
 }
 
+function dedupeEdges(
+  edges: Array<{ type: string; startId: string; endId: string; props: Record<string, unknown> }>,
+): Array<{ type: string; startId: string; endId: string; props: Record<string, unknown> }> {
+  const seen = new Set<string>();
+  return edges.filter((edge) => {
+    const key = `${edge.startId}\u0000${edge.type}\u0000${edge.endId}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 /** Study map: sources → curricula → modules → objective lists → session plans (+ study plan coverage when present). */
 export async function queryStudyMapSimple(
   session: Session,
@@ -133,7 +145,7 @@ export async function queryStudyMapSimple(
     }
   }
 
-  return { nodes: [...nodeById.values()], edges };
+  return { nodes: [...nodeById.values()], edges: dedupeEdges(edges) };
 }
 
 /** Source wiki map: source-linked wiki pages, concepts, and concept–concept edges. */
@@ -148,10 +160,17 @@ export async function querySourceWikiMapSimple(
 }> {
   const res = await session.run(
     `MATCH (source:Source {id: $sourceId, notebookId: $notebookId})
+     OPTIONAL MATCH (source)-[rst:HAS_TOPIC]->(topic:Topic {notebookId: $notebookId})
+     OPTIONAL MATCH (topic)-[rtc:CONTAINS_CONCEPT]->(tc:Concept {notebookId: $notebookId})
+     OPTIONAL MATCH (topic)-[rtp:CONTAINS_PAGE]->(twp:WikiPage {notebookId: $notebookId})
      OPTIONAL MATCH (wp:WikiPage {notebookId: $notebookId})-[:DERIVED_FROM]->(source)
      OPTIONAL MATCH (wp)-[rwc:COVERS]->(c:Concept {notebookId: $notebookId})
+     OPTIONAL MATCH (source)<-[rds:DERIVED_FROM]-(claim:Claim {notebookId: $notebookId})
+     OPTIONAL MATCH (claim)-[rcc:CITES]->(claimConcept:Concept {notebookId: $notebookId})
+     OPTIONAL MATCH (claimConcept)<-[rpc:COVERS]-(conceptPage:WikiPage {notebookId: $notebookId})
      OPTIONAL MATCH (c)-[rc:DEPENDS_ON|CONTRADICTS|COVERS|DERIVED_FROM]->(c2:Concept {notebookId: $notebookId})
-     RETURN source, wp, rwc, c, rc, c2
+     OPTIONAL MATCH (claimConcept)-[rcc2:DEPENDS_ON|CONTRADICTS|COVERS|DERIVED_FROM]->(claimConcept2:Concept {notebookId: $notebookId})
+     RETURN source, rst, topic, rtc, tc, rtp, twp, wp, rwc, c, rds, claim, rcc, claimConcept, rpc, conceptPage, rc, c2, rcc2, claimConcept2
      LIMIT $limit`,
     { notebookId, sourceId, limit: int(limit) },
   );
@@ -168,28 +187,78 @@ export async function querySourceWikiMapSimple(
 
   for (const rec of res.records) {
     const source = rec.get("source");
+    const topic = rec.get("topic");
+    const tc = rec.get("tc");
+    const twp = rec.get("twp");
     const wp = rec.get("wp");
     const c = rec.get("c");
+    const claim = rec.get("claim");
+    const claimConcept = rec.get("claimConcept");
+    const conceptPage = rec.get("conceptPage");
     const c2 = rec.get("c2");
+    const claimConcept2 = rec.get("claimConcept2");
+    const rst = rec.get("rst");
+    const rtc = rec.get("rtc");
+    const rtp = rec.get("rtp");
     const rwc = rec.get("rwc");
+    const rds = rec.get("rds");
+    const rcc = rec.get("rcc");
+    const rpc = rec.get("rpc");
     const rc = rec.get("rc");
+    const rcc2 = rec.get("rcc2");
 
     addNode(source);
+    addNode(topic);
+    addNode(tc);
+    addNode(twp);
     addNode(wp);
     addNode(c);
+    addNode(claim);
+    addNode(claimConcept);
+    addNode(conceptPage);
     addNode(c2);
+    addNode(claimConcept2);
 
+    const sourceN = serializeNode(source);
+    const topicN = serializeNode(topic);
+    const tcN = serializeNode(tc);
+    const twpN = serializeNode(twp);
     const wpN = serializeNode(wp);
     const cN = serializeNode(c);
+    const claimN = serializeNode(claim);
+    const claimConceptN = serializeNode(claimConcept);
+    const conceptPageN = serializeNode(conceptPage);
     const c2N = serializeNode(c2);
+    const claimConcept2N = serializeNode(claimConcept2);
 
+    if (rst instanceof Relationship && sourceN && topicN) {
+      pushEdge(edges, rst, sourceN.id, topicN.id);
+    }
+    if (rtc instanceof Relationship && topicN && tcN) {
+      pushEdge(edges, rtc, topicN.id, tcN.id);
+    }
+    if (rtp instanceof Relationship && topicN && twpN) {
+      pushEdge(edges, rtp, topicN.id, twpN.id);
+    }
     if (rwc instanceof Relationship && wpN && cN) {
       pushEdge(edges, rwc, wpN.id, cN.id);
+    }
+    if (rds instanceof Relationship && claimN && sourceN) {
+      pushEdge(edges, rds, claimN.id, sourceN.id);
+    }
+    if (rcc instanceof Relationship && claimN && claimConceptN) {
+      pushEdge(edges, rcc, claimN.id, claimConceptN.id);
+    }
+    if (rpc instanceof Relationship && conceptPageN && claimConceptN) {
+      pushEdge(edges, rpc, conceptPageN.id, claimConceptN.id);
     }
     if (rc instanceof Relationship && cN && c2N) {
       pushEdge(edges, rc, cN.id, c2N.id);
     }
+    if (rcc2 instanceof Relationship && claimConceptN && claimConcept2N) {
+      pushEdge(edges, rcc2, claimConceptN.id, claimConcept2N.id);
+    }
   }
 
-  return { nodes: [...nodeById.values()], edges };
+  return { nodes: [...nodeById.values()], edges: dedupeEdges(edges) };
 }

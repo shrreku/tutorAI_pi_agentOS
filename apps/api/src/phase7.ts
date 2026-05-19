@@ -1,14 +1,29 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, sql } from "drizzle-orm";
 import {
   appendEvent,
   artifacts,
   concepts,
+  coverageItems,
+  coverageRecords,
+  curricula,
+  curriculumModules,
   learningState,
+  objectiveLists,
+  objectives,
   quizAttempts,
+  sessionPlans,
   studyPlans,
   tutorSessions,
   type DbClient,
 } from "@studyagent/db";
+import {
+  buildAdaptivePlanSignals,
+  shouldApplyDurablePlanChange,
+  wrapRecommendationReasonJson,
+  type AdaptivePlanSignal,
+} from "@studyagent/schemas";
+import { buildMasteryEvidenceFromOutcome } from "./mastery-outcome-mapper.js";
+import { recordAndApplyMasteryEvidence } from "./mastery-pipeline.js";
 
 type ConceptSummary = {
   id: string;
@@ -36,6 +51,23 @@ type LearningOutcomeInput = RuntimeMeta & {
   metadata?: Record<string, unknown>;
 };
 
+type AdaptiveSessionPlanObjective = {
+  id: string;
+  title: string;
+  status: string;
+  targetConceptIds: string[];
+};
+
+type AdaptiveSessionPlanPatch = {
+  plannedObjectiveIds: string[];
+  sessionGoal: string | null;
+  recommendationReasonJson: Record<string, unknown>;
+};
+
+type ObjectiveProgressionDecision =
+  | { shouldComplete: false }
+  | { shouldComplete: true; reason: string };
+
 function clamp(value: number, min = 0, max = 1): number {
   return Math.min(max, Math.max(min, value));
 }
@@ -56,6 +88,7 @@ type TutorSessionDigestContext = {
   artifactProposalIds: string[];
   studyPlanSummary?: string;
   learnerStateSummary?: string;
+  learnerProgressSummary?: string;
   turnId?: string;
   status: "draft" | "ready";
 };
@@ -71,6 +104,7 @@ export function buildTutorSessionDigestPayload(input: TutorSessionDigestContext)
     currentObjective: input.currentObjective ?? null,
     studyPlanSummary: input.studyPlanSummary ?? null,
     learnerStateSummary: input.learnerStateSummary ?? null,
+    learnerProgressSummary: input.learnerProgressSummary ?? null,
     nextStep,
     provenance: {
       sourceIds: input.sourceIds,
@@ -81,21 +115,162 @@ export function buildTutorSessionDigestPayload(input: TutorSessionDigestContext)
   };
 }
 
+export function buildAdaptiveSessionPlanPatch(input: {
+  currentPlannedObjectiveIds: string[];
+  currentSessionGoal: string | null;
+  objectiveIdsOrdered: string[];
+  currentObjectiveId: string | null;
+  objectives: AdaptiveSessionPlanObjective[];
+  weakConceptIds: string[];
+  misconceptionConceptIds?: string[];
+  diagnosticConceptIds?: string[];
+  recentWeakConceptFrequencyById?: Record<string, number>;
+  nextModuleObjectiveIds?: string[];
+  timeBudgetMinutes?: number | null;
+  sourceCoverageGap?: boolean;
+  vagueLearnerMessage?: boolean;
+  adaptivePlanSignals?: AdaptivePlanSignal[];
+  masteryEvidenceIds?: string[];
+}): AdaptiveSessionPlanPatch | null {
+  const objectiveById = new Map(input.objectives.map((objective) => [objective.id, objective]));
+  const activeObjectiveIds = input.objectiveIdsOrdered.filter((id) => {
+    const objective = objectiveById.get(id);
+    if (!objective) return false;
+    return objective.status !== "completed" && objective.status !== "merged" && objective.status !== "superseded";
+  });
+
+  const moduleAdvancementReady =
+    activeObjectiveIds.length === 0 && (input.nextModuleObjectiveIds ?? []).length > 0;
+  const effectiveSignals =
+    input.adaptivePlanSignals ??
+    buildAdaptivePlanSignals({
+      weakConceptIds: input.weakConceptIds,
+      ...(input.misconceptionConceptIds !== undefined ? { misconceptionConceptIds: input.misconceptionConceptIds } : {}),
+      ...(input.diagnosticConceptIds !== undefined ? { diagnosticConceptIds: input.diagnosticConceptIds } : {}),
+      ...(input.recentWeakConceptFrequencyById !== undefined ? { recentWeakConceptFrequencyById: input.recentWeakConceptFrequencyById } : {}),
+      ...(input.sourceCoverageGap !== undefined ? { sourceCoverageGap: input.sourceCoverageGap } : {}),
+      ...(input.vagueLearnerMessage !== undefined ? { vagueLearnerMessage: input.vagueLearnerMessage } : {}),
+      moduleAdvancementReady,
+      ...(input.nextModuleObjectiveIds !== undefined ? { nextObjectiveIds: input.nextModuleObjectiveIds } : {}),
+    });
+
+  if (!shouldApplyDurablePlanChange(effectiveSignals)) {
+    return null;
+  }
+
+  const misconceptionIds = new Set(input.misconceptionConceptIds ?? []);
+  const diagnosticIds = new Set(input.diagnosticConceptIds ?? []);
+  const weakFrequencyById = input.recentWeakConceptFrequencyById ?? {};
+  const ranked = activeObjectiveIds
+    .map((id, index) => {
+      const objective = objectiveById.get(id)!;
+      const diagnosticTargetCount = objective.targetConceptIds.filter((conceptId) =>
+        diagnosticIds.has(conceptId),
+      ).length;
+      const weakTargetCount = objective.targetConceptIds.filter((conceptId) =>
+        input.weakConceptIds.includes(conceptId),
+      ).length;
+      const weakFrequencyScore = objective.targetConceptIds.reduce(
+        (sum, conceptId) => sum + (weakFrequencyById[conceptId] ?? 0),
+        0,
+      );
+      const misconceptionTargetCount = objective.targetConceptIds.filter((conceptId) =>
+        misconceptionIds.has(conceptId),
+      ).length;
+      return { id, index, weakTargetCount, weakFrequencyScore, misconceptionTargetCount, diagnosticTargetCount };
+    })
+    .sort((a, b) => {
+      if (a.id === input.currentObjectiveId) return -1;
+      if (b.id === input.currentObjectiveId) return 1;
+      if (b.diagnosticTargetCount !== a.diagnosticTargetCount) {
+        return b.diagnosticTargetCount - a.diagnosticTargetCount;
+      }
+      if (b.misconceptionTargetCount !== a.misconceptionTargetCount) {
+        return b.misconceptionTargetCount - a.misconceptionTargetCount;
+      }
+      if (b.weakTargetCount !== a.weakTargetCount) return b.weakTargetCount - a.weakTargetCount;
+      if (b.weakFrequencyScore !== a.weakFrequencyScore) return b.weakFrequencyScore - a.weakFrequencyScore;
+      return a.index - b.index;
+    });
+
+  const timeBudget = input.timeBudgetMinutes ?? null;
+  const objectiveCap = timeBudget !== null && timeBudget <= 25 ? 1 : timeBudget !== null && timeBudget <= 45 ? 2 : 3;
+  const plannedObjectiveIds = ranked.slice(0, objectiveCap).map((entry) => entry.id);
+  if (!plannedObjectiveIds.length && (input.nextModuleObjectiveIds ?? []).length) {
+    plannedObjectiveIds.push(...(input.nextModuleObjectiveIds ?? []).slice(0, objectiveCap));
+  }
+  if (!plannedObjectiveIds.length) {
+    return null;
+  }
+
+  const needsRemediation = ranked.some(
+    (entry) =>
+      entry.weakTargetCount > 0 ||
+      entry.misconceptionTargetCount > 0 ||
+      entry.diagnosticTargetCount > 0,
+  );
+  const sessionGoal = needsRemediation
+    ? "Repair misconceptions and stabilize weak concepts with targeted checkpoints."
+    : "Advance the current objective path with one focused checkpoint.";
+  const recommendationReasonJson = wrapRecommendationReasonJson({
+    signals: effectiveSignals,
+    patch: {
+      weakConceptCount: input.weakConceptIds.length,
+      misconceptionConceptCount: misconceptionIds.size,
+      diagnosticConceptCount: diagnosticIds.size,
+      timeBudgetMinutes: timeBudget,
+      objectiveCap,
+      prioritizedObjectiveIds: plannedObjectiveIds,
+    },
+    ...(input.masteryEvidenceIds?.length ? { masteryEvidenceIds: input.masteryEvidenceIds } : {}),
+  });
+
+  const unchanged =
+    JSON.stringify(plannedObjectiveIds) === JSON.stringify(input.currentPlannedObjectiveIds) &&
+    sessionGoal === input.currentSessionGoal;
+  if (unchanged) {
+    return null;
+  }
+
+  return { plannedObjectiveIds, sessionGoal, recommendationReasonJson };
+}
+
+export function decideObjectiveCompletion(input: {
+  objectiveTitle: string;
+  targetConceptIds: string[];
+  conceptMasteryById: Record<string, number>;
+}): ObjectiveProgressionDecision {
+  if (!input.targetConceptIds.length) return { shouldComplete: false };
+  const masteries = input.targetConceptIds
+    .map((conceptId) => input.conceptMasteryById[conceptId])
+    .filter((value): value is number => typeof value === "number");
+  if (!masteries.length) return { shouldComplete: false };
+  const avg = masteries.reduce((sum, value) => sum + value, 0) / masteries.length;
+  if (avg >= 0.74) {
+    return {
+      shouldComplete: true,
+      reason: `Objective "${input.objectiveTitle}" reached mastery threshold (${avg.toFixed(2)} avg).`,
+    };
+  }
+  return { shouldComplete: false };
+}
+
 export async function upsertTutorSessionDigestArtifact(
   dbClient: DbClient,
   input: DigestRuntimeMeta & TutorSessionDigestContext,
 ): Promise<{ artifactId: string; created: boolean }> {
-  const existing = await dbClient.db
+  const [existingMatchesSession] = await dbClient.db
     .select()
     .from(artifacts)
-    .where(and(eq(artifacts.notebookId, input.notebookId), eq(artifacts.artifactType, "session_digest")))
+    .where(
+      and(
+        eq(artifacts.notebookId, input.notebookId),
+        eq(artifacts.artifactType, "session_digest"),
+        sql`${artifacts.payloadJson}->>'sessionId' = ${input.sessionId}`,
+      ),
+    )
     .orderBy(desc(artifacts.updatedAt))
-    .limit(50);
-
-  const existingMatchesSession = existing.find((artifact) => {
-    const payload = artifact.payloadJson;
-    return typeof payload === "object" && payload !== null && (payload as Record<string, unknown>).sessionId === input.sessionId;
-  });
+    .limit(1);
   const payloadJson = buildTutorSessionDigestPayload(input);
   const now = new Date();
 
@@ -230,124 +405,25 @@ export async function applyLearningOutcome(
     return { updatedConceptStates: [], weakConceptIds: [] };
   }
 
-  const deltas: Record<LearningOutcomeInput["outcome"], { mastery: number; nextReviewDays: number }> = {
-    correct: { mastery: 0.14, nextReviewDays: 7 },
-    incorrect: { mastery: -0.2, nextReviewDays: 1 },
-    again: { mastery: -0.12, nextReviewDays: 1 },
-    hard: { mastery: -0.04, nextReviewDays: 2 },
-    good: { mastery: 0.08, nextReviewDays: 4 },
-    easy: { mastery: 0.14, nextReviewDays: 10 },
-  };
+  const evidence = buildMasteryEvidenceFromOutcome({
+    notebookId: input.notebookId,
+    userId: input.userId,
+    conceptIds,
+    outcome: input.outcome,
+    reason: input.reason,
+    ...(input.metadata !== undefined ? { metadata: input.metadata } : {}),
+    ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+    ...(input.runId ? { runId: input.runId } : {}),
+  });
+  const applied = await recordAndApplyMasteryEvidence(dbClient, evidence);
 
-  const delta = deltas[input.outcome];
-  const now = new Date();
-  const nextReviewAt = daysFromNow(delta.nextReviewDays);
-  const weakConceptIds: string[] = [];
-  const updatedConceptStates: Array<{ conceptId: string; masteryScore: number; nextReviewAt: string }> = [];
-
-  for (const conceptId of conceptIds) {
-    const [existing] = await dbClient.db
-      .select()
-      .from(learningState)
-      .where(
-        and(
-          eq(learningState.notebookId, input.notebookId),
-          eq(learningState.userId, input.userId),
-          eq(learningState.conceptId, conceptId),
-        ),
-      )
-      .limit(1);
-
-    const nextMastery = clamp((existing?.masteryScore ?? 0.35) + delta.mastery);
-    const nextConfidence = clamp((existing?.confidence ?? 0.5) + delta.mastery / 2);
-    const misconceptionJson =
-      input.outcome === "correct" || input.outcome === "good" || input.outcome === "easy"
-        ? existing?.misconceptionJson ?? null
-        : {
-            reason: input.reason,
-            observedAt: now.toISOString(),
-            ...(input.metadata ?? {}),
-          };
-
-    if (existing) {
-      await dbClient.db
-        .update(learningState)
-        .set({
-          masteryScore: nextMastery,
-          confidence: nextConfidence,
-          lastPracticedAt: now,
-          nextReviewAt,
-          misconceptionJson,
-          metadataJson: {
-            ...(existing.metadataJson ?? {}),
-            lastOutcome: input.outcome,
-            lastReason: input.reason,
-          },
-        })
-        .where(eq(learningState.id, existing.id));
-    } else {
-      await dbClient.db.insert(learningState).values({
-        id: `ls_${crypto.randomUUID().replaceAll("-", "")}`,
-        notebookId: input.notebookId,
-        userId: input.userId,
-        conceptId,
-        masteryScore: nextMastery,
-        confidence: nextConfidence,
-        lastPracticedAt: now,
-        nextReviewAt,
-        misconceptionJson,
-        metadataJson: {
-          lastOutcome: input.outcome,
-          lastReason: input.reason,
-        },
-      });
-    }
-
-    await appendEvent(dbClient, {
+  for (const state of applied.updatedConceptStates) {
+    await advanceCoverageLifecycleForConcept(dbClient, {
       notebookId: input.notebookId,
-      ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+      conceptId: state.conceptId,
+      masteryScore: state.masteryScore,
       ...(input.runId ? { runId: input.runId } : {}),
-      eventType: "learning.mastery.updated",
-      payload: {
-        conceptId,
-        masteryScore: nextMastery,
-        confidence: nextConfidence,
-        outcome: input.outcome,
-        reason: input.reason,
-      },
-    });
-
-    await appendEvent(dbClient, {
-      notebookId: input.notebookId,
       ...(input.sessionId ? { sessionId: input.sessionId } : {}),
-      ...(input.runId ? { runId: input.runId } : {}),
-      eventType: "learning.review.scheduled",
-      payload: {
-        conceptId,
-        nextReviewAt: nextReviewAt.toISOString(),
-        outcome: input.outcome,
-      },
-    });
-
-    if (nextMastery < 0.45) {
-      weakConceptIds.push(conceptId);
-      await appendEvent(dbClient, {
-        notebookId: input.notebookId,
-        ...(input.sessionId ? { sessionId: input.sessionId } : {}),
-        ...(input.runId ? { runId: input.runId } : {}),
-        eventType: "learning.weak_concept.added",
-        payload: {
-          conceptId,
-          masteryScore: nextMastery,
-          outcome: input.outcome,
-        },
-      });
-    }
-
-    updatedConceptStates.push({
-      conceptId,
-      masteryScore: nextMastery,
-      nextReviewAt: nextReviewAt.toISOString(),
     });
   }
 
@@ -358,35 +434,258 @@ export async function applyLearningOutcome(
     .limit(1);
 
   if (studyPlan) {
-    const nextWeak = new Set(studyPlan.weakConceptIds ?? []);
-    for (const conceptId of conceptIds) {
-      const state = updatedConceptStates.find((item) => item.conceptId === conceptId);
-      if (!state) continue;
-      if (state.masteryScore < 0.45) nextWeak.add(conceptId);
-      if (state.masteryScore >= 0.65) nextWeak.delete(conceptId);
-    }
+    const now = new Date();
 
-    await dbClient.db
-      .update(studyPlans)
-      .set({
-        weakConceptIds: [...nextWeak],
-        updatedAt: now,
+    if (studyPlan.currentObjectiveId) {
+    const [currentObjective] = await dbClient.db
+      .select({
+        id: objectives.id,
+        title: objectives.title,
+        status: objectives.status,
+        targetConceptIds: objectives.targetConceptIds,
       })
-      .where(eq(studyPlans.id, studyPlan.id));
+      .from(objectives)
+      .where(and(eq(objectives.notebookId, input.notebookId), eq(objectives.id, studyPlan.currentObjectiveId)))
+      .limit(1);
 
+    if (currentObjective && currentObjective.status !== "completed") {
+      const targetConceptIds = currentObjective.targetConceptIds ?? [];
+      const conceptMasteryById: Record<string, number> = {};
+      if (targetConceptIds.length > 0) {
+        const persistedTargetMasteries = await dbClient.db
+          .select({ conceptId: learningState.conceptId, masteryScore: learningState.masteryScore })
+          .from(learningState)
+          .where(and(eq(learningState.notebookId, input.notebookId), inArray(learningState.conceptId, targetConceptIds)));
+        for (const row of persistedTargetMasteries) {
+          conceptMasteryById[row.conceptId] = row.masteryScore;
+        }
+      }
+      for (const state of applied.updatedConceptStates) {
+        conceptMasteryById[state.conceptId] = state.masteryScore;
+      }
+      const shouldComplete = decideObjectiveCompletion({
+        objectiveTitle: currentObjective.title,
+        targetConceptIds,
+        conceptMasteryById,
+      });
+
+      if (shouldComplete.shouldComplete) {
+          await dbClient.db
+            .update(objectives)
+            .set({ status: "completed", updatedAt: now })
+            .where(eq(objectives.id, currentObjective.id));
+
+          const nextCompleted = [...new Set([...(studyPlan.completedObjectiveIds ?? []), currentObjective.id])];
+          const nextUpcoming = (studyPlan.upcomingObjectiveIds ?? []).filter((id) => id !== currentObjective.id);
+          let nextCurrentObjectiveId = nextUpcoming[0] ?? null;
+          let nextUpcomingObjectiveIds = nextUpcoming.slice(1);
+
+          if (!nextCurrentObjectiveId) {
+            const activeCurriculumCandidates = await dbClient.db
+              .select({ id: curricula.id, activeModuleId: curricula.activeModuleId, status: curricula.status })
+              .from(curricula)
+              .where(eq(curricula.notebookId, input.notebookId))
+              .orderBy(desc(curricula.updatedAt))
+              .limit(10);
+            const activeCurriculum =
+              activeCurriculumCandidates.find((curriculum) => curriculum.status === "active") ??
+              activeCurriculumCandidates[0];
+            if (activeCurriculum?.activeModuleId) {
+              const [activeModule] = await dbClient.db
+                .select({ orderIndex: curriculumModules.orderIndex })
+                .from(curriculumModules)
+                .where(and(eq(curriculumModules.notebookId, input.notebookId), eq(curriculumModules.id, activeCurriculum.activeModuleId)))
+                .limit(1);
+              if (activeModule) {
+                const [nextModule] = await dbClient.db
+                  .select({ id: curriculumModules.id })
+                  .from(curriculumModules)
+                  .where(
+                    and(
+                      eq(curriculumModules.notebookId, input.notebookId),
+                      eq(curriculumModules.curriculumId, activeCurriculum.id),
+                      gt(curriculumModules.orderIndex, activeModule.orderIndex),
+                    ),
+                  )
+                  .orderBy(curriculumModules.orderIndex)
+                  .limit(1);
+
+                if (nextModule) {
+                  await dbClient.db
+                    .update(curricula)
+                    .set({ activeModuleId: nextModule.id, updatedAt: now })
+                    .where(eq(curricula.id, activeCurriculum.id));
+
+                  const [nextObjectiveList] = await dbClient.db
+                    .select({
+                      id: objectiveLists.id,
+                      currentObjectiveId: objectiveLists.currentObjectiveId,
+                      objectiveIdsOrdered: objectiveLists.objectiveIdsOrdered,
+                    })
+                    .from(objectiveLists)
+                    .where(
+                      and(
+                        eq(objectiveLists.notebookId, input.notebookId),
+                        eq(objectiveLists.moduleId, nextModule.id),
+                      ),
+                    )
+                    .orderBy(desc(objectiveLists.updatedAt))
+                    .limit(1);
+
+                  if (nextObjectiveList) {
+                    nextCurrentObjectiveId = nextObjectiveList.currentObjectiveId ?? nextObjectiveList.objectiveIdsOrdered[0] ?? null;
+                    const ordered = nextObjectiveList.objectiveIdsOrdered ?? [];
+                    nextUpcomingObjectiveIds = nextCurrentObjectiveId
+                      ? ordered.filter((id) => id !== nextCurrentObjectiveId)
+                      : ordered;
+
+                    const [nextModuleSessionPlan] = await dbClient.db
+                      .select({ id: sessionPlans.id })
+                      .from(sessionPlans)
+                      .where(
+                        and(
+                          eq(sessionPlans.notebookId, input.notebookId),
+                          eq(sessionPlans.moduleId, nextModule.id),
+                        ),
+                      )
+                      .orderBy(desc(sessionPlans.updatedAt))
+                      .limit(1);
+                    if (nextModuleSessionPlan) {
+                      await dbClient.db
+                        .update(sessionPlans)
+                        .set({ status: "archived", updatedAt: now })
+                        .where(
+                          and(
+                            eq(sessionPlans.notebookId, input.notebookId),
+                            eq(sessionPlans.status, "active"),
+                          ),
+                        );
+                      await dbClient.db
+                        .update(sessionPlans)
+                        .set({ status: "active", updatedAt: now })
+                        .where(eq(sessionPlans.id, nextModuleSessionPlan.id));
+                    }
+
+                    await appendEvent(dbClient, {
+                      notebookId: input.notebookId,
+                      ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+                      ...(input.runId ? { runId: input.runId } : {}),
+                      eventType: "module.updated",
+                      payload: {
+                        moduleId: nextModule.id,
+                        status: "active",
+                        reason: "module_transition_after_objective_completion",
+                      },
+                    });
+                  }
+                }
+              }
+            }
+          }
+
+          await dbClient.db
+            .update(studyPlans)
+            .set({
+              currentObjectiveId: nextCurrentObjectiveId,
+              upcomingObjectiveIds: nextUpcomingObjectiveIds,
+              completedObjectiveIds: nextCompleted,
+              updatedAt: now,
+            })
+            .where(eq(studyPlans.id, studyPlan.id));
+
+          await appendEvent(dbClient, {
+            notebookId: input.notebookId,
+            ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+            ...(input.runId ? { runId: input.runId } : {}),
+            eventType: "objective.completed",
+            payload: {
+              objectiveId: currentObjective.id,
+              reason: shouldComplete.reason,
+            },
+          });
+
+          await appendEvent(dbClient, {
+            notebookId: input.notebookId,
+            ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+            ...(input.runId ? { runId: input.runId } : {}),
+            eventType: "study_plan.updated",
+            payload: {
+              studyPlanId: studyPlan.id,
+              currentObjectiveId: nextCurrentObjectiveId,
+              upcomingObjectiveIds: nextUpcomingObjectiveIds,
+              completedObjectiveIds: nextCompleted,
+            },
+          });
+        }
+      }
+    }
+  }
+
+  return {
+    updatedConceptStates: applied.updatedConceptStates,
+    weakConceptIds: applied.weakConceptIds,
+  };
+}
+
+async function advanceCoverageLifecycleForConcept(
+  dbClient: DbClient,
+  input: { notebookId: string; conceptId: string; masteryScore: number; runId?: string; sessionId?: string },
+): Promise<void> {
+  const desiredStatus = input.masteryScore >= 0.74 ? "mastered" : input.masteryScore < 0.45 ? "needs_review" : "checked";
+  const rows = await dbClient.db
+    .select({
+      id: coverageRecords.id,
+      coverageItemId: coverageRecords.coverageItemId,
+      notebookId: coverageRecords.notebookId,
+      curriculumId: coverageRecords.curriculumId,
+      moduleId: coverageRecords.moduleId,
+      objectiveListId: coverageRecords.objectiveListId,
+      sessionPlanId: coverageRecords.sessionPlanId,
+      evidenceJson: coverageRecords.evidenceJson,
+      updatedAt: coverageRecords.updatedAt,
+    })
+    .from(coverageRecords)
+    .innerJoin(coverageItems, eq(coverageItems.id, coverageRecords.coverageItemId))
+    .where(and(eq(coverageRecords.notebookId, input.notebookId), eq(coverageItems.conceptId, input.conceptId)));
+
+  for (const row of rows) {
+    await dbClient.db
+      .update(coverageRecords)
+      .set({
+        status: desiredStatus,
+        evidenceJson: {
+          ...(row.evidenceJson ?? {}),
+          lastConceptOutcomeDrivenAt: new Date().toISOString(),
+          conceptId: input.conceptId,
+          masteryScore: input.masteryScore,
+          drivenBy: "learning_outcome",
+        },
+        updatedAt: new Date(),
+      })
+      .where(eq(coverageRecords.id, row.id));
     await appendEvent(dbClient, {
       notebookId: input.notebookId,
       ...(input.sessionId ? { sessionId: input.sessionId } : {}),
       ...(input.runId ? { runId: input.runId } : {}),
-      eventType: "study_plan.updated",
+      eventType: "coverage.record.updated",
       payload: {
-        studyPlanId: studyPlan.id,
-        weakConceptIds: [...nextWeak],
+        coverageRecordId: row.id,
+        coverageItemId: row.coverageItemId,
+        status: desiredStatus,
+        curriculumId: row.curriculumId,
+        moduleId: row.moduleId,
+        objectiveListId: row.objectiveListId,
+        sessionPlanId: row.sessionPlanId,
+        evidenceJson: {
+          ...(row.evidenceJson ?? {}),
+          lastConceptOutcomeDrivenAt: new Date().toISOString(),
+          conceptId: input.conceptId,
+          masteryScore: input.masteryScore,
+          drivenBy: "learning_outcome",
+        },
       },
     });
   }
-
-  return { updatedConceptStates, weakConceptIds };
 }
 
 export async function recordQuizAttempt(
@@ -513,9 +812,15 @@ export async function crystallizeTutorSession(
     artifactProposalIds: string[];
     studyPlanSummary?: string;
     learnerStateSummary?: string;
+    learnerProgressSummary?: string;
   },
 ): Promise<{ artifactId: string }> {
   const now = new Date();
+  const [existingSession] = await dbClient.db
+    .select({ runtimeContextJson: tutorSessions.runtimeContextJson })
+    .from(tutorSessions)
+    .where(eq(tutorSessions.id, input.sessionId))
+    .limit(1);
 
   await appendEvent(dbClient, {
     notebookId: input.notebookId,
@@ -576,8 +881,12 @@ export async function crystallizeTutorSession(
       status: "completed",
       endedAt: now,
       runtimeContextJson: {
-        crystallizedArtifactId: digest.artifactId,
+        ...(isJsonRecordLocal(existingSession?.runtimeContextJson) ? existingSession.runtimeContextJson : {}),
+        status: "completed",
+        endedAt: now.toISOString(),
+        sessionDigestDraft: null,
         updatedAt: now.toISOString(),
+        crystallizedArtifactId: digest.artifactId,
       },
     })
     .where(eq(tutorSessions.id, input.sessionId));
@@ -594,4 +903,8 @@ export async function crystallizeTutorSession(
   });
 
   return { artifactId: digest.artifactId };
+}
+
+function isJsonRecordLocal(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

@@ -1,6 +1,11 @@
-import type { NodeRef, SideEffectClass, ToolContext } from "@studyagent/schemas";
-import { wikiSearchResultRowSchema } from "@studyagent/schemas";
+import type { NodeRef, ReducerResult, SideEffectClass, ToolContext } from "@studyagent/schemas";
+import { reducerResultSchema, wikiSearchResultRowSchema } from "@studyagent/schemas";
 import { z } from "zod";
+import {
+  WRITE_TOOL_CONTRACTS,
+  registerWriteToolsV1,
+  type RuntimeWriteToolProvider,
+} from "./writes.js";
 
 export type ToolDefinition<Input, Output> = {
   name: string;
@@ -10,6 +15,24 @@ export type ToolDefinition<Input, Output> = {
   sideEffectClass: SideEffectClass;
   timeoutMs: number;
   execute(input: Input, context: ToolContext): Promise<Output>;
+};
+
+export type ToolReducerExpectation = {
+  required: boolean;
+  mutationTypes?: readonly string[];
+};
+
+export type ToolContract<ProviderMethod extends string = string> = {
+  name: string;
+  description: string;
+  inputSchema: z.ZodSchema;
+  outputSchema: z.ZodSchema;
+  sideEffectClass: SideEffectClass;
+  operationKind: "read" | "write";
+  providerMethod: ProviderMethod;
+  runtimeExposure: "tutor_runtime_v1";
+  reducerExpectation: ToolReducerExpectation;
+  timeoutMs: number;
 };
 
 export type ToolExecutionEvent = {
@@ -60,6 +83,21 @@ export class ToolTimeoutError extends ToolError {
   constructor(toolName: string, timeoutMs: number) {
     super("tool_timeout", `Tool ${toolName} timed out after ${timeoutMs}ms`);
     this.name = "ToolTimeoutError";
+  }
+}
+
+export class ToolReducerValidationError extends ToolError {
+  constructor(toolName: string, details: unknown) {
+    super("tool_reducer_validation_error", `Invalid reducer result for tool ${toolName}`);
+    this.name = "ToolReducerValidationError";
+    this.cause = details;
+  }
+}
+
+export class ToolCatalogCoverageError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ToolCatalogCoverageError";
   }
 }
 
@@ -134,7 +172,7 @@ export async function executeTool(
   });
 
   try {
-    const parsedInput = tool.inputSchema.safeParse(rawInput);
+    const parsedInput = tool.inputSchema.safeParse(normalizeToolInputAliases(rawInput));
     if (!parsedInput.success) {
       throw new ToolValidationError(toolName, parsedInput.error.flatten());
     }
@@ -147,6 +185,15 @@ export async function executeTool(
     const parsedOutput = tool.outputSchema.safeParse(rawOutput);
     if (!parsedOutput.success) {
       throw new ToolValidationError(toolName, parsedOutput.error.flatten());
+    }
+
+    try {
+      validateToolReducerOutput(toolName, parsedOutput.data);
+    } catch (error) {
+      if (error instanceof ToolReducerValidationError) {
+        throw new ToolValidationError(toolName, error.cause);
+      }
+      throw error;
     }
 
     const latencyMs = now().getTime() - startedAtDate.getTime();
@@ -167,10 +214,63 @@ export async function executeTool(
       payload: {
         error: error instanceof Error ? error.message : String(error),
         code: error instanceof ToolError ? error.code : "tool_execution_error",
+        ...(error instanceof ToolValidationError ? { details: error.cause } : {}),
       },
     });
     throw error;
   }
+}
+
+export function normalizeToolInputAliases(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(normalizeToolInputAliases);
+  }
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+  const result: Record<string, unknown> = {};
+  for (const [key, child] of Object.entries(value)) {
+    result[snakeToCamel(key)] = normalizeToolInputAliases(child);
+  }
+  return result;
+}
+
+function snakeToCamel(value: string): string {
+  return value.replace(/_([a-z])/g, (_match, letter: string) => letter.toUpperCase());
+}
+
+function canonicalizeSourceSpanInput(value: unknown): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const input = { ...(value as Record<string, unknown>) };
+  const sourceNodeRef = input.sourceNodeRef;
+  if (sourceNodeRef && typeof sourceNodeRef === "object" && !Array.isArray(sourceNodeRef)) {
+    const ref = sourceNodeRef as Record<string, unknown>;
+    if (typeof ref.chunkId === "string" && !input.chunkId) input.chunkId = ref.chunkId;
+    if (typeof ref.refId === "string" && !input.chunkId && !input.sourceId) input[ref.refType === "source" ? "sourceId" : "chunkId"] = ref.refId;
+    if (typeof ref.sourceId === "string" && !input.sourceId) input.sourceId = ref.sourceId;
+    if (typeof ref.sourceVersionId === "string" && !input.sourceVersionId) input.sourceVersionId = ref.sourceVersionId;
+  }
+  for (const key of ["ref", "refId", "chunkRef"]) {
+    const raw = input[key];
+    if (typeof raw !== "string" || input.chunkId || input.sourceId) continue;
+    const id = raw.includes(":") ? raw.split(":").pop() : raw;
+    if (!id) continue;
+    input[id.startsWith("src_") ? "sourceId" : "chunkId"] = id;
+  }
+  if (typeof input.sourceId === "string" && input.sourceId.startsWith("chk_") && !input.chunkId) {
+    input.chunkId = input.sourceId;
+    delete input.sourceId;
+  }
+  return input;
+}
+
+function canonicalizeLearningStateInput(value: unknown): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const input = { ...(value as Record<string, unknown>) };
+  if (!Array.isArray(input.conceptIds) && Array.isArray(input.requestedConceptIds)) {
+    input.conceptIds = input.requestedConceptIds;
+  }
+  return input;
 }
 
 function summarizeToolOutput(output: unknown): string {
@@ -264,7 +364,7 @@ const wikiGetPageOutputSchema = z.object({
     .nullable(),
 });
 
-const sourceGetSpanInputSchema = z.object({
+const sourceGetSpanInputSchema = z.preprocess(canonicalizeSourceSpanInput, z.object({
   chunkId: z.string().min(1).optional(),
   sourceId: z.string().min(1).optional(),
   sourceVersionId: z.string().min(1).optional(),
@@ -272,7 +372,7 @@ const sourceGetSpanInputSchema = z.object({
   pageEnd: positiveIntSchema.optional(),
   charStart: nonNegativeIntSchema.optional(),
   charEnd: nonNegativeIntSchema.optional(),
-});
+}));
 
 const sourceGetSpanOutputSchema = z.object({
   text: z.string().default(""),
@@ -487,10 +587,10 @@ const studyPlanGetCurrentOutputSchema = z.object({
     .nullable(),
 });
 
-const learningGetStateInputSchema = z.object({
+const learningGetStateInputSchema = z.preprocess(canonicalizeLearningStateInput, z.object({
   conceptIds: z.array(z.string().min(1)).default([]),
   userId: z.string().min(1).optional(),
-});
+}));
 
 const learningGetStateOutputSchema = z.object({
   conceptStates: z.array(
@@ -534,116 +634,267 @@ export type RuntimeReadToolProvider = {
   learningGetState(input: z.infer<typeof learningGetStateInputSchema>, ctx: ToolContext): Promise<LearningGetStateToolOutput>;
 };
 
-export function registerReadToolsV1(registry: ToolRegistry, provider: RuntimeReadToolProvider): void {
-  registry.register({
+export const READ_TOOL_CONTRACTS = [
+  {
     name: "notebook.get_context",
     description: "Returns notebook context, selected node refs, and recent notebook activity.",
     inputSchema: notebookGetContextInputSchema,
     outputSchema: notebookGetContextOutputSchema,
     sideEffectClass: "read_only",
+    operationKind: "read",
+    providerMethod: "notebookGetContext",
+    runtimeExposure: "tutor_runtime_v1",
+    reducerExpectation: { required: false },
     timeoutMs: 4000,
-    execute: (input, ctx) => provider.notebookGetContext(input, ctx),
-  });
-
-  registry.register({
+  },
+  {
     name: "wiki.search",
     description: "Runs fused wiki retrieval with provenance-aware snippets.",
     inputSchema: wikiSearchInputSchema,
     outputSchema: wikiSearchOutputSchema,
     sideEffectClass: "read_only",
+    operationKind: "read",
+    providerMethod: "wikiSearch",
+    runtimeExposure: "tutor_runtime_v1",
+    reducerExpectation: { required: false },
     timeoutMs: 5000,
-    execute: (input, ctx) => provider.wikiSearch(input, ctx),
-  });
-
-  registry.register({
+  },
+  {
     name: "wiki.get_page",
     description: "Fetches a wiki page by id for reading in the current notebook.",
     inputSchema: wikiGetPageInputSchema,
     outputSchema: wikiGetPageOutputSchema,
     sideEffectClass: "read_only",
+    operationKind: "read",
+    providerMethod: "wikiGetPage",
+    runtimeExposure: "tutor_runtime_v1",
+    reducerExpectation: { required: false },
     timeoutMs: 4000,
-    execute: (input, ctx) => provider.wikiGetPage(input, ctx),
-  });
-
-  registry.register({
+  },
+  {
     name: "source.get_span",
     description: "Reads source text span and citation metadata from a source/chunk reference.",
     inputSchema: sourceGetSpanInputSchema,
     outputSchema: sourceGetSpanOutputSchema,
     sideEffectClass: "read_only",
+    operationKind: "read",
+    providerMethod: "sourceGetSpan",
+    runtimeExposure: "tutor_runtime_v1",
+    reducerExpectation: { required: false },
     timeoutMs: 4000,
-    execute: (input, ctx) => provider.sourceGetSpan(input, ctx),
-  });
-
-  registry.register({
+  },
+  {
     name: "graph.get_subgraph",
     description: "Returns a filtered graph neighborhood around selected node refs.",
     inputSchema: graphGetSubgraphInputSchema,
     outputSchema: graphPayloadSchema,
     sideEffectClass: "read_only",
+    operationKind: "read",
+    providerMethod: "graphGetSubgraph",
+    runtimeExposure: "tutor_runtime_v1",
+    reducerExpectation: { required: false },
     timeoutMs: 5000,
-    execute: (input, ctx) => provider.graphGetSubgraph(input, ctx),
-  });
-
-  registry.register({
+  },
+  {
     name: "graph.get_study_map",
     description: "Returns progression-focused graph map for objectives, sessions, and artifacts.",
     inputSchema: graphGetStudyMapInputSchema,
     outputSchema: graphPayloadSchema,
     sideEffectClass: "read_only",
+    operationKind: "read",
+    providerMethod: "graphGetStudyMap",
+    runtimeExposure: "tutor_runtime_v1",
+    reducerExpectation: { required: false },
     timeoutMs: 5000,
-    execute: (input, ctx) => provider.graphGetStudyMap(input, ctx),
-  });
-
-  registry.register({
+  },
+  {
     name: "graph.get_source_wiki_map",
     description: "Returns source to section to concept to wiki-page map subgraph.",
     inputSchema: graphGetSourceWikiMapInputSchema,
     outputSchema: graphPayloadSchema,
     sideEffectClass: "read_only",
+    operationKind: "read",
+    providerMethod: "graphGetSourceWikiMap",
+    runtimeExposure: "tutor_runtime_v1",
+    reducerExpectation: { required: false },
     timeoutMs: 5000,
-    execute: (input, ctx) => provider.graphGetSourceWikiMap(input, ctx),
-  });
-
-  registry.register({
+  },
+  {
     name: "curriculum.get",
     description: "Returns active or selected curriculum overview and objective links.",
     inputSchema: curriculumGetInputSchema,
     outputSchema: curriculumGetOutputSchema,
     sideEffectClass: "read_only",
+    operationKind: "read",
+    providerMethod: "curriculumGet",
+    runtimeExposure: "tutor_runtime_v1",
+    reducerExpectation: { required: false },
     timeoutMs: 4000,
-    execute: (input, ctx) => provider.curriculumGet(input, ctx),
-  });
-
-  registry.register({
+  },
+  {
     name: "student_profile.get",
     description: "Returns the learner profile for the active notebook and user.",
     inputSchema: studentProfileGetInputSchema,
     outputSchema: studentProfileOutputSchema,
     sideEffectClass: "read_only",
+    operationKind: "read",
+    providerMethod: "studentProfileGet",
+    runtimeExposure: "tutor_runtime_v1",
+    reducerExpectation: { required: false },
     timeoutMs: 4000,
-    execute: (input, ctx) => provider.studentProfileGet(input, ctx),
-  });
-
-  registry.register({
+  },
+  {
     name: "study_plan.get_current",
     description: "Returns current living study plan for a notebook/user.",
     inputSchema: studyPlanGetCurrentInputSchema,
     outputSchema: studyPlanGetCurrentOutputSchema,
     sideEffectClass: "read_only",
+    operationKind: "read",
+    providerMethod: "studyPlanGetCurrent",
+    runtimeExposure: "tutor_runtime_v1",
+    reducerExpectation: { required: false },
     timeoutMs: 4000,
-    execute: (input, ctx) => provider.studyPlanGetCurrent(input, ctx),
-  });
-
-  registry.register({
+  },
+  {
     name: "learning.get_state",
     description: "Returns mastery and weak-concept signals for requested concepts.",
     inputSchema: learningGetStateInputSchema,
     outputSchema: learningGetStateOutputSchema,
     sideEffectClass: "read_only",
+    operationKind: "read",
+    providerMethod: "learningGetState",
+    runtimeExposure: "tutor_runtime_v1",
+    reducerExpectation: { required: false },
     timeoutMs: 4000,
-    execute: (input, ctx) => provider.learningGetState(input, ctx),
-  });
+  },
+] as const satisfies readonly ToolContract<keyof RuntimeReadToolProvider & string>[];
+
+export const TOOL_CONTRACT_CATALOG = [
+  ...READ_TOOL_CONTRACTS,
+  ...WRITE_TOOL_CONTRACTS,
+] as const satisfies readonly ToolContract[];
+
+export function getToolContract(toolName: string): (typeof TOOL_CONTRACT_CATALOG)[number] | undefined {
+  return TOOL_CONTRACT_CATALOG.find((contract) => contract.name === toolName);
+}
+
+export function assertToolCatalogMatchesRegistry(registry: ToolRegistry): void {
+  const registered = registry.list().map((tool) => tool.name).sort();
+  const catalog = TOOL_CONTRACT_CATALOG.map((contract) => contract.name).sort();
+
+  const catalogNames = catalog as string[];
+  const missingContracts = registered.filter((name) => !catalogNames.includes(name));
+  if (missingContracts.length > 0) {
+    throw new ToolCatalogCoverageError(
+      `Registered tools missing from TOOL_CONTRACT_CATALOG: ${missingContracts.join(", ")}`,
+    );
+  }
+
+  const missingRegistrations = catalogNames.filter((name) => !registered.includes(name));
+  if (missingRegistrations.length > 0) {
+    throw new ToolCatalogCoverageError(
+      `TOOL_CONTRACT_CATALOG entries missing from registry: ${missingRegistrations.join(", ")}`,
+    );
+  }
+
+  if (new Set(catalog).size !== catalog.length) {
+    throw new ToolCatalogCoverageError("TOOL_CONTRACT_CATALOG contains duplicate tool names");
+  }
+}
+
+export function assertReadToolProviderCoverage(provider: RuntimeReadToolProvider): void {
+  for (const contract of READ_TOOL_CONTRACTS) {
+    assertProviderMethod(provider, contract);
+  }
+}
+
+export function assertWriteToolProviderCoverage(provider: RuntimeWriteToolProvider): void {
+  for (const contract of WRITE_TOOL_CONTRACTS) {
+    assertProviderMethod(provider, contract);
+  }
+}
+
+function assertProviderMethod(
+  provider: RuntimeReadToolProvider | RuntimeWriteToolProvider,
+  contract: ToolContract,
+): void {
+  const method = provider[contract.providerMethod as keyof typeof provider];
+  if (typeof method !== "function") {
+    throw new ToolCatalogCoverageError(
+      `Provider missing implementation for ${contract.name} (${contract.providerMethod})`,
+    );
+  }
+}
+
+export function validateToolReducerOutput(toolName: string, output: unknown): ReducerResult | undefined {
+  const contract = getToolContract(toolName);
+  if (!contract?.reducerExpectation.required) {
+    return undefined;
+  }
+
+  if (!output || typeof output !== "object") {
+    throw new ToolReducerValidationError(toolName, { message: "Write tool output must be an object" });
+  }
+
+  const reducerResult = (output as { reducerResult?: unknown }).reducerResult;
+  const parsed = reducerResultSchema.safeParse(reducerResult);
+  if (!parsed.success) {
+    throw new ToolReducerValidationError(toolName, parsed.error.flatten());
+  }
+
+  const expectedMutationTypes = "mutationTypes" in contract.reducerExpectation
+    ? contract.reducerExpectation.mutationTypes
+    : undefined;
+  if (
+    expectedMutationTypes?.length
+    && !(expectedMutationTypes as readonly string[]).includes(parsed.data.mutationType)
+  ) {
+    throw new ToolReducerValidationError(toolName, {
+      mutationType: `Expected one of: ${expectedMutationTypes.join(", ")}`,
+      received: parsed.data.mutationType,
+    });
+  }
+
+  return parsed.data;
+}
+
+export function extractValidatedReducerResult(output: unknown): Record<string, unknown> | undefined {
+  if (!output || typeof output !== "object") {
+    return undefined;
+  }
+
+  const reducerResult = (output as { reducerResult?: unknown }).reducerResult;
+  const parsed = reducerResultSchema.safeParse(reducerResult);
+  return parsed.success ? { ...parsed.data } : undefined;
+}
+
+export function extractValidatedReducerResultForTool(
+  toolName: string,
+  output: unknown,
+): Record<string, unknown> | undefined {
+  const validated = validateToolReducerOutput(toolName, output);
+  return validated ? { ...validated } : extractValidatedReducerResult(output);
+}
+
+export function registerRuntimeToolsV1(
+  registry: ToolRegistry,
+  provider: {
+    read: RuntimeReadToolProvider;
+    write: RuntimeWriteToolProvider;
+  },
+): void {
+  registerReadToolsV1(registry, provider.read);
+  registerWriteToolsV1(registry, provider.write);
+}
+
+export function registerReadToolsV1(registry: ToolRegistry, provider: RuntimeReadToolProvider): void {
+  for (const contract of READ_TOOL_CONTRACTS) {
+    const execute = provider[contract.providerMethod] as (input: unknown, ctx: ToolContext) => Promise<unknown>;
+    registry.register<unknown, unknown>({
+      ...contract,
+      execute,
+    });
+  }
 }
 
 export function createNoopRuntimeReadToolProvider(): RuntimeReadToolProvider {

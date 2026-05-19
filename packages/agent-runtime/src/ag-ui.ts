@@ -8,7 +8,6 @@ export function createAgUiEventMapper(run: StudyAgentRuntimeRun) {
   const messageId = createRuntimeId("msg");
   let messageStarted = false;
   let thinkingStarted = false;
-  let accumulatedText = "";
 
   return {
     map(event: PiAgentSessionEvent): AgUiEvent[] {
@@ -27,7 +26,6 @@ export function createAgUiEventMapper(run: StudyAgentRuntimeRun) {
             },
           ];
         case "message_delta":
-          accumulatedText += event.data.text;
           if (!messageStarted) {
             messageStarted = true;
             return [
@@ -42,7 +40,7 @@ export function createAgUiEventMapper(run: StudyAgentRuntimeRun) {
                 type: "TEXT_MESSAGE_CONTENT",
                 messageId,
                 delta: event.data.text,
-                content: accumulatedText,
+                content: event.data.text,
                 model,
                 timestamp,
               },
@@ -53,7 +51,7 @@ export function createAgUiEventMapper(run: StudyAgentRuntimeRun) {
               type: "TEXT_MESSAGE_CONTENT",
               messageId,
               delta: event.data.text,
-              content: accumulatedText,
+              content: event.data.text,
               model,
               timestamp,
             },

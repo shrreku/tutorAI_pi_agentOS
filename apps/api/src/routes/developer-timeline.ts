@@ -5,6 +5,7 @@ import {
   artifacts,
   claims,
   events,
+  masteryEvidence,
   notebooks,
   sources,
   toolCalls,
@@ -13,10 +14,16 @@ import {
   wikiPages,
 } from "@studyagent/db";
 import {
+  chatTraceResponseSchema,
   developerTimelineResponseSchema,
+  type ChatTraceResponse,
+  type ChatTraceRun,
+  type ChatTraceStateChange,
+  type ChatTraceToolCall,
   type DeveloperTimelineItem,
   type DeveloperTimelineResponse,
   type TraceUsage,
+  parseMasteryEvidence,
 } from "@studyagent/schemas";
 import { formatTraceUsage, normalizeTraceUsage } from "@studyagent/observability";
 import type { AppContext } from "../context.js";
@@ -43,7 +50,8 @@ export async function registerDeveloperTimelineRoutes(app: FastifyInstance, ctx:
         return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
       }
 
-      const [runRows, toolRows, eventRows, wikiRows, artifactRows, claimRows, sourceRows, turnRows] = await Promise.all([
+      const [runRows, toolRows, eventRows, wikiRows, artifactRows, claimRows, sourceRows, turnRows, masteryEvidenceRows] =
+        await Promise.all([
         ctx.db.db
           .select({
             id: agentRuns.id,
@@ -110,6 +118,20 @@ export async function registerDeveloperTimelineRoutes(app: FastifyInstance, ctx:
           .where(eq(tutorSessions.notebookId, notebookId))
           .orderBy(desc(tutorTurns.createdAt))
           .limit(limit),
+        ctx.db.db
+          .select({
+            id: masteryEvidence.id,
+            notebookId: masteryEvidence.notebookId,
+            sessionId: masteryEvidence.sessionId,
+            turnId: masteryEvidence.turnId,
+            runId: masteryEvidence.runId,
+            evidenceJson: masteryEvidence.evidenceJson,
+            createdAt: masteryEvidence.createdAt,
+          })
+          .from(masteryEvidence)
+          .where(eq(masteryEvidence.notebookId, notebookId))
+          .orderBy(desc(masteryEvidence.createdAt))
+          .limit(limit),
       ]);
 
       const runUsageById = buildRunUsageLookup(eventRows);
@@ -122,6 +144,7 @@ export async function registerDeveloperTimelineRoutes(app: FastifyInstance, ctx:
         ...claimRows.map(mapClaimRow),
         ...sourceRows.map(mapSourceRow),
         ...turnRows.map(mapTurnRow),
+        ...masteryEvidenceRows.map(mapMasteryEvidenceRow),
       ]
         .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
         .slice(0, limit);
@@ -135,6 +158,209 @@ export async function registerDeveloperTimelineRoutes(app: FastifyInstance, ctx:
       };
 
       return reply.send(developerTimelineResponseSchema.parse(response));
+    },
+  );
+
+  app.get<{ Params: { notebookId: string }; Querystring: { limit?: string; sessionId?: string } }>(
+    "/notebooks/:notebookId/tutor/trace",
+    async (request, reply) => {
+      const actor = await resolveActor(ctx, request);
+      const { notebookId } = request.params;
+      const limit = clampLimit(request.query.limit ?? "80");
+
+      const [owned] = await ctx.db.db
+        .select()
+        .from(notebooks)
+        .where(and(eq(notebooks.id, notebookId), eq(notebooks.ownerId, actor.id)))
+        .limit(1);
+
+      if (!owned) {
+        return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
+      }
+
+      const turnQuery = ctx.db.db
+        .select({
+          id: tutorTurns.id,
+          notebookId: tutorSessions.notebookId,
+          sessionId: tutorTurns.sessionId,
+          turnIndex: tutorTurns.turnIndex,
+          selectedNodeRefsJson: tutorTurns.selectedNodeRefsJson,
+          userMessage: tutorTurns.userMessage,
+          assistantMessage: tutorTurns.assistantMessage,
+          createdAt: tutorTurns.createdAt,
+        })
+        .from(tutorTurns)
+        .innerJoin(tutorSessions, eq(tutorTurns.sessionId, tutorSessions.id))
+        .where(
+          and(
+            eq(tutorSessions.notebookId, notebookId),
+            ...(request.query.sessionId ? [eq(tutorTurns.sessionId, request.query.sessionId)] : []),
+          ),
+        )
+        .orderBy(desc(tutorTurns.createdAt))
+        .limit(limit);
+
+      const runQuery = ctx.db.db
+        .select({
+          id: agentRuns.id,
+          notebookId: tutorSessions.notebookId,
+          sessionId: agentRuns.sessionId,
+          turnId: agentRuns.turnId,
+          runType: agentRuns.runType,
+          status: agentRuns.status,
+          modelConfigJson: agentRuns.modelConfigJson,
+          budgetJson: agentRuns.budgetJson,
+          traceId: agentRuns.traceId,
+          startedAt: agentRuns.startedAt,
+          completedAt: agentRuns.completedAt,
+        })
+        .from(agentRuns)
+        .innerJoin(tutorSessions, eq(agentRuns.sessionId, tutorSessions.id))
+        .where(
+          and(
+            eq(tutorSessions.notebookId, notebookId),
+            ...(request.query.sessionId ? [eq(agentRuns.sessionId, request.query.sessionId)] : []),
+          ),
+        )
+        .orderBy(desc(agentRuns.startedAt))
+        .limit(limit);
+
+      const [turnRows, runRows, toolRows, eventRows] = await Promise.all([
+        turnQuery,
+        runQuery,
+        ctx.db.db
+          .select({
+            id: toolCalls.id,
+            notebookId: tutorSessions.notebookId,
+            runId: toolCalls.runId,
+            sessionId: toolCalls.sessionId,
+            turnId: toolCalls.turnId,
+            toolName: toolCalls.toolName,
+            sideEffectClass: toolCalls.sideEffectClass,
+            inputJson: toolCalls.inputJson,
+            outputJson: toolCalls.outputJson,
+            status: toolCalls.status,
+            latencyMs: toolCalls.latencyMs,
+            reducerResultJson: toolCalls.reducerResultJson,
+            createdAt: toolCalls.createdAt,
+          })
+          .from(toolCalls)
+          .innerJoin(tutorSessions, eq(toolCalls.sessionId, tutorSessions.id))
+          .where(
+            and(
+              eq(tutorSessions.notebookId, notebookId),
+              ...(request.query.sessionId ? [eq(toolCalls.sessionId, request.query.sessionId)] : []),
+            ),
+          )
+          .orderBy(desc(toolCalls.createdAt))
+          .limit(limit * 4),
+        ctx.db.db
+          .select()
+          .from(events)
+          .where(
+            and(
+              eq(events.notebookId, notebookId),
+              ...(request.query.sessionId ? [eq(events.sessionId, request.query.sessionId)] : []),
+            ),
+          )
+          .orderBy(desc(events.createdAt))
+          .limit(limit * 6),
+      ]);
+
+      const usageByRunId = buildRunUsageLookup(eventRows);
+      const toolsByRunId = new Map<string, ChatTraceToolCall[]>();
+      for (const row of toolRows) {
+        const tool = mapChatTraceTool(row);
+        const tools = toolsByRunId.get(row.runId) ?? [];
+        tools.push(tool);
+        toolsByRunId.set(row.runId, tools);
+      }
+
+      const eventsByRunId = new Map<string, ChatTraceStateChange[]>();
+      const sessionEvents: ChatTraceStateChange[] = [];
+      for (const row of eventRows) {
+        const state = mapChatTraceStateChange(mapEventRow(row));
+        if (row.runId) {
+          const items = eventsByRunId.get(row.runId) ?? [];
+          items.push(state);
+          eventsByRunId.set(row.runId, items);
+        } else if (row.sessionId) {
+          sessionEvents.push(state);
+        }
+      }
+
+      const runsByTurnId = new Map<string, ChatTraceRun[]>();
+      for (const row of runRows) {
+        const runEvents = (eventsByRunId.get(row.id) ?? []).sort(byTimestampAsc);
+        const run: ChatTraceRun = {
+          id: row.id,
+          sessionId: row.sessionId,
+          turnId: row.turnId ?? null,
+          status: row.status,
+          runType: row.runType,
+          model: typeof row.modelConfigJson.model === "string" ? row.modelConfigJson.model : undefined,
+          promptVersion:
+            typeof row.modelConfigJson.promptTemplateVersion === "string"
+              ? row.modelConfigJson.promptTemplateVersion
+              : undefined,
+          traceId: row.traceId,
+          startedAt: row.startedAt.toISOString(),
+          completedAt: row.completedAt?.toISOString() ?? null,
+          durationMs: row.completedAt ? Math.max(0, row.completedAt.getTime() - row.startedAt.getTime()) : null,
+          usage: usageByRunId.get(row.id),
+          thinking: runEvents.filter((item) => isThinkingEvent(item.eventType)),
+          tools: (toolsByRunId.get(row.id) ?? []).sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
+          stateChanges: runEvents.filter((item) => isStateChangeEvent(item.eventType)),
+          rawEvents: runEvents,
+        };
+        if (!row.turnId) continue;
+        const runs = runsByTurnId.get(row.turnId) ?? [];
+        runs.push(run);
+        runsByTurnId.set(row.turnId, runs);
+      }
+
+      const response: ChatTraceResponse = {
+        notebookId,
+        generatedAt: new Date().toISOString(),
+        turns: turnRows
+          .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+          .map((turn) => ({
+            id: turn.id,
+            sessionId: turn.sessionId,
+            turnIndex: turn.turnIndex,
+            userMessage: turn.userMessage,
+            assistantMessage: turn.assistantMessage,
+            createdAt: turn.createdAt.toISOString(),
+            runs: (runsByTurnId.get(turn.id) ?? []).sort((a, b) => a.startedAt.localeCompare(b.startedAt)),
+          }))
+          .map((turn) => ({
+            ...turn,
+            runs:
+              turn.runs.length > 0
+                ? turn.runs
+                : sessionEvents.length
+                  ? [
+                      {
+                        id: `run_${turn.id}`,
+                        sessionId: turn.sessionId,
+                        turnId: turn.id,
+                        status: "no_run",
+                        runType: "session_activity",
+                        startedAt: turn.createdAt,
+                        completedAt: null,
+                        durationMs: null,
+                        traceId: null,
+                        thinking: [],
+                        tools: [],
+                        stateChanges: sessionEvents.filter((event) => isStateChangeEvent(event.eventType)),
+                        rawEvents: sessionEvents,
+                      },
+                    ]
+                  : [],
+          })),
+      };
+
+      return reply.send(chatTraceResponseSchema.parse(response));
     },
   );
 }
@@ -157,9 +383,9 @@ function buildRunUsageLookup(eventRows: Array<{ runId: string | null; eventType:
 }
 
 function summarizeTrace(items: DeveloperTimelineItem[]): DeveloperTimelineResponse["traceSummary"] {
-  const runs = items.filter((item) => item.kind === "agent_run");
-  const tools = items.filter((item) => item.kind === "tool_call");
-  const events = items.filter((item) => item.kind === "event");
+  const runs = items.filter((item) => item.id.startsWith("run:"));
+  const tools = items.filter((item) => item.id.startsWith("tool:"));
+  const events = items.filter((item) => item.id.startsWith("event:"));
   const usage = runs.reduce<TraceUsage | undefined>((acc, item) => {
     if (!item.usage) return acc;
     if (!acc) return item.usage;
@@ -257,6 +483,100 @@ function mapToolRow(row: {
   };
 }
 
+function mapChatTraceTool(row: {
+  id: string;
+  runId: string;
+  sessionId: string;
+  turnId: string | null;
+  toolName: string;
+  sideEffectClass: string;
+  inputJson: Record<string, unknown>;
+  outputJson: Record<string, unknown> | null;
+  status: string;
+  latencyMs: number | null;
+  reducerResultJson: Record<string, unknown> | null;
+  createdAt: Date;
+}): ChatTraceToolCall {
+  return {
+    id: row.id,
+    runId: row.runId,
+    sessionId: row.sessionId,
+    turnId: row.turnId,
+    toolName: row.toolName,
+    sideEffectClass: row.sideEffectClass,
+    status: row.status,
+    latencyMs: row.latencyMs,
+    input: row.inputJson,
+    output: row.outputJson,
+    reducerResult: row.reducerResultJson,
+    nodeRefs: nodeRefsFromPayload(row.inputJson, row.outputJson ?? undefined, row.reducerResultJson ?? undefined),
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
+function mapChatTraceStateChange(item: DeveloperTimelineItem): ChatTraceStateChange {
+  return {
+    id: item.id,
+    kind: item.kind,
+    title: item.title,
+    summary: item.summary,
+    eventType: item.eventType,
+    status: item.status,
+    nodeRefs: item.nodeRefs,
+    payload: item.payload,
+    timestamp: item.timestamp,
+  };
+}
+
+function mapMasteryEvidenceRow(row: {
+  id: string;
+  notebookId: string;
+  sessionId: string | null;
+  turnId: string | null;
+  runId: string | null;
+  evidenceJson: Record<string, unknown>;
+  createdAt: Date;
+}): DeveloperTimelineItem {
+  const evidence = parseMasteryEvidence(row.evidenceJson);
+  const summary = evidence
+    ? [
+        evidence.correctnessLabel,
+        `score ${evidence.overallScore.toFixed(2)}`,
+        `confidence ${evidence.confidence.toFixed(2)}`,
+        `uncertainty ${evidence.uncertainty.toFixed(2)}`,
+        evidence.tutoringIntervention,
+        evidence.triggerSource,
+      ].join(" · ")
+    : summarizePayload(row.evidenceJson);
+
+  return {
+    id: `mastery_evidence:${row.id}`,
+    kind: "mastery_evaluator",
+    title: "Mastery evaluator evidence",
+    summary,
+    timestamp: row.createdAt.toISOString(),
+    notebookId: row.notebookId,
+    ...(row.sessionId ? { sessionId: row.sessionId } : {}),
+    ...(row.runId ? { runId: row.runId } : {}),
+    eventType: "mastery.evidence.recorded",
+    nodeRefs: evidence?.conceptScores.map((entry) => ({ refType: "concept" as const, refId: entry.conceptId })) ?? [],
+    payload: {
+      masteryEvidenceId: row.id,
+      evidence: row.evidenceJson,
+      reducerTrace: evidence
+        ? {
+            conceptDeltas: evidence.conceptScores.map((entry) => ({
+              conceptId: entry.conceptId,
+              score: entry.score,
+              delta: entry.delta,
+            })),
+            evaluatorProvenance: evidence.evaluatorProvenance,
+          }
+        : undefined,
+    },
+  };
+}
+
 function mapEventRow(row: {
   id: string;
   notebookId: string;
@@ -271,7 +591,7 @@ function mapEventRow(row: {
     id: `event:${row.id}`,
     kind: classifyEventKind(row.eventType),
     title: row.eventType.replaceAll(".", " "),
-    summary: summarizePayload(row.payloadJson),
+    summary: summarizeLearningEventSummary(row.eventType, row.payloadJson),
     timestamp: row.createdAt.toISOString(),
     notebookId: row.notebookId,
     sessionId: row.sessionId ?? undefined,
@@ -360,6 +680,20 @@ function mapTurnRow(row: { id: string; notebookId: string; sessionId: string; tu
   };
 }
 
+function summarizeLearningEventSummary(eventType: string, payload: Record<string, unknown>): string {
+  if (eventType === "learning.mastery.updated") {
+    const masteryScore = typeof payload.masteryScore === "number" ? payload.masteryScore.toFixed(2) : "?";
+    const confidence = typeof payload.confidence === "number" ? payload.confidence.toFixed(2) : "?";
+    const evidenceId = typeof payload.masteryEvidenceId === "string" ? payload.masteryEvidenceId : "unknown";
+    return `reducer applied · mastery ${masteryScore} · confidence ${confidence} · evidence ${evidenceId}`;
+  }
+  if (eventType === "session_plan.updated" && payload.adaptiveRegeneration) {
+    const evidenceId = typeof payload.masteryEvidenceId === "string" ? payload.masteryEvidenceId : null;
+    return evidenceId ? `adaptive plan from evidence ${evidenceId}` : "adaptive plan regeneration";
+  }
+  return summarizePayload(payload);
+}
+
 function summarizePayload(payload: Record<string, unknown>): string {
   const parts: string[] = [];
   if (typeof payload.safeMessage === "string") parts.push(payload.safeMessage);
@@ -425,10 +759,50 @@ function dedupeRefs(refs: TimelineNodeRef[]): TimelineNodeRef[] {
 }
 
 function classifyEventKind(eventType: string): DeveloperTimelineItem["kind"] {
+  if (eventType.startsWith("mastery.") || eventType.startsWith("learning.mastery_evidence")) return "mastery_evaluator";
   if (eventType.startsWith("agent.run") || eventType.startsWith("tutor.")) return "agent_run";
   if (eventType.startsWith("agent.tool")) return "tool_call";
   if (eventType.startsWith("source.") || eventType.startsWith("ingestion.job.")) return "ingestion_job";
   if (eventType.startsWith("wiki.")) return "wiki_change";
   if (eventType.startsWith("artifact.")) return "artifact_change";
   return "event";
+}
+
+function byTimestampAsc(a: ChatTraceStateChange, b: ChatTraceStateChange): number {
+  return a.timestamp.localeCompare(b.timestamp);
+}
+
+function isThinkingEvent(eventType: string | undefined): boolean {
+  if (!eventType) return false;
+  return [
+    "session.context.selected",
+    "session.context.selection_failed",
+    "agent.compaction.started",
+    "agent.compaction.completed",
+    "agent.run.started",
+    "agent.run.completed",
+    "agent.run.failed",
+    "tutor.message.completed",
+  ].includes(eventType);
+}
+
+function isStateChangeEvent(eventType: string | undefined): boolean {
+  if (!eventType) return false;
+  if (eventType === "tutor.message.delta") return false;
+  if (eventType.startsWith("agent.tool.")) return false;
+  if (isThinkingEvent(eventType)) return false;
+  return (
+    eventType.startsWith("artifact.") ||
+    eventType.startsWith("wiki.") ||
+    eventType.startsWith("coverage.") ||
+    eventType.startsWith("curriculum.") ||
+    eventType.startsWith("module.") ||
+    eventType.startsWith("objective") ||
+    eventType.startsWith("study_plan.") ||
+    eventType.startsWith("session_plan.") ||
+    eventType.startsWith("source.") ||
+    eventType.startsWith("ingestion.") ||
+    eventType.startsWith("graph.") ||
+    eventType.startsWith("learning.")
+  );
 }

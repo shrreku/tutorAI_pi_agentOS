@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Whiteboard from "./Whiteboard.js";
 import TutorPanel from "./TutorPanel.js";
-import { DeveloperTimelinePanel } from "./DeveloperTimelinePanel.js";
 
 type NotebookRow = {
   id: string;
@@ -23,6 +22,41 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   tutoring_ready: { bg: "#d1fae5", text: "#065f46" },
   failed: { bg: "#fee2e2", text: "#991b1b" },
 };
+
+export const WORKSPACE_REFRESH_EVENT_TYPES = [
+  "curriculum.activated",
+  "module.updated",
+  "objective_list.updated",
+  "objective_list.reordered",
+  "objective_list.objective_split",
+  "objective_list.objectives_merged",
+  "session_plan.generated",
+  "session_plan.updated",
+  "coverage.record.updated",
+  "session.started",
+  "session.focus.updated",
+  "session.completed",
+  "session.crystallization.started",
+  "session.crystallization.completed",
+  "session.digest.draft.updated",
+  "learning.mastery_evidence.recorded",
+  "learning.mastery.updated",
+  "learning.weak_concept.added",
+  "learning.review.scheduled",
+  "study_plan.updated",
+  "objective.completed",
+  "artifact.ready",
+  "artifact.created",
+  "artifact.updated",
+  "artifact.proposed",
+  "artifact.approved",
+  "artifact.rejected",
+  "artifact.insert_into_tutor_context",
+] as const;
+
+export function shouldInvalidateArtifactsForEvent(eventType: (typeof WORKSPACE_REFRESH_EVENT_TYPES)[number]): boolean {
+  return eventType.startsWith("artifact.");
+}
 
 const api = (path: string, init?: RequestInit) => fetch(`/api/v1${path}`, init);
 
@@ -110,6 +144,19 @@ function SourcesBar({
       es.addEventListener("source.uploaded", (ev) => {
         handleNotebookEvent("source uploaded", ev, { refreshSources: true });
       });
+      const planningRefresh = (label: string, ev: Event) => {
+        handleNotebookEvent(label, ev, { refreshGraph: true });
+        void queryClient.invalidateQueries({ queryKey: ["whiteboard-study-state", notebookId] });
+      };
+      for (const eventType of WORKSPACE_REFRESH_EVENT_TYPES) {
+        es.addEventListener(eventType, (ev) => {
+          const label = eventType.replaceAll(".", " ").replaceAll("_", " ");
+          planningRefresh(label, ev);
+          if (shouldInvalidateArtifactsForEvent(eventType)) {
+            void queryClient.invalidateQueries({ queryKey: ["notebook-artifacts", notebookId] });
+          }
+        });
+      }
       es.onerror = () => setLastEvent("(stream error — reconnecting)");
     } catch {
       setLastEvent("EventSource unavailable");
@@ -297,16 +344,56 @@ function SourcesBar({
 }
 
 export function App() {
+  const [routePath, setRoutePath] = useState(() => window.location.pathname);
   const [notebooks, setNotebooks] = useState<NotebookRow[]>([]);
   const [title, setTitle] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [splitPercent, setSplitPercent] = useState<number>(35);
+  const [theme] = useState<"mist" | "atlas" | "folio">("mist");
   const [selectedNodeRefs, setSelectedNodeRefs] = useState<Array<{ refType: string; refId: string }>>([]);
   const [graphRefreshToken, setGraphRefreshToken] = useState(0);
-  const [showDeveloperTimeline, setShowDeveloperTimeline] = useState(false);
+  const queryClient = useQueryClient();
   const containerRef = useRef<HTMLDivElement>(null);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
   const isDragging = useRef(false);
+  const selectedNotebook = useMemo(
+    () => notebooks.find((notebook) => notebook.id === selectedId) ?? notebooks[0] ?? null,
+    [notebooks, selectedId],
+  );
+  const activeNotebookId = selectedId ?? selectedNotebook?.id ?? null;
+  const navigate = useCallback((path: string) => {
+    window.history.pushState(null, "", path);
+    setRoutePath(path);
+  }, []);
+  const routeNotebookId = useMemo(() => {
+    const match = routePath.match(/^\/notebooks\/([^/]+)/);
+    return match?.[1] ? decodeURIComponent(match[1]) : null;
+  }, [routePath]);
+
+  useEffect(() => {
+    const onPopState = () => setRoutePath(window.location.pathname);
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+  const { data: activeSources = [] } = useQuery({
+    queryKey: ["notebook-sources", activeNotebookId],
+    enabled: Boolean(activeNotebookId),
+    queryFn: async (): Promise<Source[]> => {
+      const res = await api(`/notebooks/${encodeURIComponent(activeNotebookId!)}/sources`);
+      if (!res.ok) {
+        throw new Error(`Failed to load sources (${res.status})`);
+      }
+      const data = (await res.json()) as { sources: Source[] };
+      return data.sources ?? [];
+    },
+  });
+  const sourceSummary = useMemo(() => {
+    const ready = activeSources.filter((source) => source.status === "tutoring_ready").length;
+    const processing = activeSources.filter((source) => !["tutoring_ready", "failed", "uploaded"].includes(source.status)).length;
+    const failed = activeSources.filter((source) => source.status === "failed").length;
+    return { total: activeSources.length, ready, processing, failed };
+  }, [activeSources]);
   const handleGraphProjectionUpdated = useCallback(() => {
     setGraphRefreshToken((t) => t + 1);
   }, []);
@@ -342,10 +429,14 @@ export function App() {
   }, [refresh]);
 
   useEffect(() => {
-    if (!selectedId && notebooks[0]) {
+    if (routeNotebookId && notebooks.some((notebook) => notebook.id === routeNotebookId)) {
+      setSelectedId(routeNotebookId);
+      return;
+    }
+    if (!selectedId && notebooks[0] && routePath !== "/notebooks") {
       setSelectedId(notebooks[0].id);
     }
-  }, [notebooks, selectedId]);
+  }, [notebooks, routeNotebookId, routePath, selectedId]);
 
   const createNotebook = async () => {
     setError(null);
@@ -360,6 +451,23 @@ export function App() {
     }
     setTitle("");
     await refresh();
+  };
+
+  const uploadSource = async (file: File) => {
+    if (!activeNotebookId) return;
+    setError(null);
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await api(`/notebooks/${encodeURIComponent(activeNotebookId)}/sources`, {
+      method: "POST",
+      body: fd,
+    });
+    if (!res.ok) {
+      setError(await res.text());
+      return;
+    }
+    await queryClient.invalidateQueries({ queryKey: ["notebook-sources", activeNotebookId] });
+    handleGraphProjectionUpdated();
   };
 
   const startDrag = (e: React.MouseEvent) => {
@@ -380,141 +488,142 @@ export function App() {
     window.addEventListener("mouseup", onUp);
   };
 
-  return (
-    <div style={{ fontFamily: "system-ui", maxWidth: 1400, margin: "0 auto", padding: "16px 24px" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, gap: 12, flexWrap: "wrap" }}>
-        <div>
-          <h1 style={{ fontSize: 20, margin: 0 }}>StudyAgent</h1>
-          <p style={{ color: "#6b7280", fontSize: 13, margin: "2px 0 0" }}>Personal learning workspace</p>
-        </div>
-
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <button
-            type="button"
-            onClick={() => setShowDeveloperTimeline((value) => !value)}
-            style={{ padding: "6px 12px", border: "1px solid #d1d5db", borderRadius: 6, background: showDeveloperTimeline ? "#eff6ff" : "white", color: showDeveloperTimeline ? "#1d4ed8" : "#374151", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
-          >
-            {showDeveloperTimeline ? "Hide timeline" : "Developer timeline"}
-          </button>
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && void createNotebook()}
-            placeholder="New notebook title…"
-            style={{ padding: "6px 10px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 13, width: 220 }}
-          />
-          <button
-            type="button"
-            onClick={() => void createNotebook()}
-            style={{ padding: "6px 14px", background: "#2563eb", color: "white", border: "none", borderRadius: 6, fontWeight: 600, fontSize: 13, cursor: "pointer" }}
-          >
-            Create
-          </button>
-        </div>
-      </div>
-
-      {error && (
-        <pre style={{ background: "#fff4f4", border: "1px solid #f0b4b4", padding: 12, overflow: "auto", borderRadius: 6, marginBottom: 12 }}>
-          {error}
-        </pre>
-      )}
-
-      {/* Notebook selector — horizontal pill list */}
-      {notebooks.length > 0 && (
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-          {notebooks.map((nb) => (
-            <button
-              key={nb.id}
-              type="button"
-              onClick={() => setSelectedId(nb.id)}
-              style={{
-                padding: "5px 14px",
-                border: selectedId === nb.id ? "2px solid #2563eb" : "1px solid #d1d5db",
-                borderRadius: 9999,
-                background: selectedId === nb.id ? "#eff6ff" : "white",
-                color: selectedId === nb.id ? "#1d4ed8" : "#374151",
-                fontWeight: selectedId === nb.id ? 600 : 400,
-                fontSize: 13,
-                cursor: "pointer",
-              }}
-            >
-              {nb.title}
-            </button>
-          ))}
-          <button
-            type="button"
-            onClick={() => void refresh()}
-            style={{ padding: "5px 12px", border: "1px solid #d1d5db", borderRadius: 9999, background: "white", fontSize: 12, color: "#6b7280", cursor: "pointer" }}
-          >
-            ↺
-          </button>
-        </div>
-      )}
-
-      {notebooks.length === 0 && (
-        <div style={{ color: "#9ca3af", fontSize: 13, marginBottom: 12 }}>
-          No notebooks yet — create one above.
-        </div>
-      )}
-
-      {selectedId && (
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            height: "calc(100vh - 130px)",
-            minHeight: 500,
-            border: "1px solid #e5e7eb",
-            borderRadius: 8,
-            overflow: "hidden",
-          }}
-        >
-          {/* Sources bar with SSE */}
-          <SourcesBar
-            notebookId={selectedId}
-            onGraphProjectionUpdated={handleGraphProjectionUpdated}
-          />
-
-          {showDeveloperTimeline && (
-            <DeveloperTimelinePanel notebookId={selectedId} onSelectNodeRefs={setSelectedNodeRefs} />
-          )}
-
-          {/* Left Tutor / Right Graph split */}
-          <div
-            ref={containerRef}
-            style={{
-              display: "flex",
-              flexDirection: "row",
-              flex: 1,
-              overflow: "hidden",
-              userSelect: isDragging.current ? "none" : "auto",
-            }}
-          >
-            <div style={{ width: `${splitPercent}%`, overflow: "hidden", flexShrink: 0 }}>
-              <TutorPanel notebookId={selectedId} selectedNodeRefs={selectedNodeRefs} />
+  if (routePath === "/" || routePath === "/notebooks" || (routePath === "/notebooks/" && !routeNotebookId)) {
+    return (
+      <div className="study-shell study-shell-index" data-theme={theme}>
+        <main className="notebook-page">
+          <header className="notebook-page-header">
+            <div>
+              <div className="study-brand-title">StudyAgent</div>
+              <h1 className="study-topbar-title">Notebooks</h1>
+              <div className="study-topbar-subtitle">Choose the material you want to study, then continue into the tutor workspace.</div>
             </div>
-            <div
-              onMouseDown={startDrag}
-              style={{
-                width: 5,
-                cursor: "col-resize",
-                background: "#e5e7eb",
-                flexShrink: 0,
-                transition: "background 150ms",
-              }}
-              onMouseEnter={(e) => ((e.currentTarget as HTMLDivElement).style.background = "#3b82f6")}
-              onMouseLeave={(e) => ((e.currentTarget as HTMLDivElement).style.background = "#e5e7eb")}
-            />
-            <div style={{ flex: 1, overflow: "hidden" }}>
-              <Whiteboard
-                notebookId={selectedId}
-                onSelectedNodeRefsChange={setSelectedNodeRefs}
-                externalRefreshToken={graphRefreshToken}
+            <div className="study-create notebook-create">
+              <input
+                className="study-input"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && void createNotebook()}
+                placeholder="New notebook title"
+                aria-label="New notebook title"
               />
+              <button type="button" className="study-primary-button" onClick={() => void createNotebook()}>
+                New notebook
+              </button>
+            </div>
+          </header>
+          {error && <pre className="study-error">{error}</pre>}
+          <section className="notebook-grid">
+            {notebooks.map((nb) => (
+              <article key={nb.id} className="notebook-card">
+                <div>
+                  <h2>{nb.title}</h2>
+                  <p>{nb.description ?? "Study workspace with tutor, sources, artifacts, and curriculum."}</p>
+                </div>
+                <div className="notebook-card-meta">
+                  <span>Updated {new Date(nb.updatedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>
+                </div>
+                <button type="button" className="study-primary-button" onClick={() => navigate(`/notebooks/${encodeURIComponent(nb.id)}`)}>
+                  Continue
+                </button>
+              </article>
+            ))}
+            {notebooks.length === 0 && (
+              <div className="study-empty">
+                <div>
+                  <div style={{ color: "var(--text-strong)", fontSize: 18, fontWeight: 850 }}>No notebooks yet</div>
+                  <div style={{ marginTop: 6 }}>Create one, then upload source material.</div>
+                </div>
+              </div>
+            )}
+          </section>
+        </main>
+      </div>
+    );
+  }
+
+	  return (
+	    <div className="study-shell" data-theme={theme}>
+	      <main className="study-main">
+        <header className="study-topbar">
+          <div className="study-topbar-heading">
+            <h1 className="study-topbar-title">{selectedNotebook?.title ?? "Resume lesson"}</h1>
+            <div className="study-topbar-subtitle">
+              {sourceSummary.total > 0
+                ? `${sourceSummary.ready}/${sourceSummary.total} sources ready`
+                : "No sources yet"}
+              {sourceSummary.processing > 0 ? ` · ${sourceSummary.processing} processing` : ""}
+              {sourceSummary.failed > 0 ? ` · ${sourceSummary.failed} failed` : ""}
+              {" · "}
+              {selectedNodeRefs.length ? `${selectedNodeRefs.length} graph item selected` : "Whole notebook context"}
             </div>
           </div>
-        </div>
-      )}
+          <div className="study-topbar-actions">
+            <input className="study-search" placeholder="Search notebook, Study Map, Source Wiki" aria-label="Search notebook" />
+            <button
+              type="button"
+              className="study-secondary-button"
+              onClick={() => navigate("/notebooks")}
+            >
+              Notebooks
+            </button>
+            <input
+              ref={uploadInputRef}
+              type="file"
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void uploadSource(file);
+                e.target.value = "";
+              }}
+            />
+            <button
+              type="button"
+              className="study-primary-button"
+              onClick={() => uploadInputRef.current?.click()}
+              disabled={!activeNotebookId}
+            >
+              Add source
+            </button>
+            <button type="button" className="study-icon-button" onClick={() => void refresh()} aria-label="Refresh notebooks">
+              ↻
+            </button>
+          </div>
+        </header>
+
+        <section className="study-workspace">
+          {error && <pre className="study-error">{error}</pre>}
+
+          {activeNotebookId ? (
+            <div className="study-shell-frame">
+              <div
+                ref={containerRef}
+                className="study-split"
+                style={{ userSelect: isDragging.current ? "none" : "auto" }}
+              >
+                <div className="study-split-pane" style={{ width: `${splitPercent}%`, flexShrink: 0 }}>
+                  <TutorPanel key={activeNotebookId} notebookId={activeNotebookId} selectedNodeRefs={selectedNodeRefs} />
+                </div>
+                <div className="study-divider" onMouseDown={startDrag} aria-hidden="true" />
+                <div className="study-split-pane" style={{ flex: 1 }}>
+                  <Whiteboard
+                    notebookId={activeNotebookId}
+                    onSelectedNodeRefsChange={setSelectedNodeRefs}
+                    externalRefreshToken={graphRefreshToken}
+                  />
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="study-empty">
+              <div>
+                <div style={{ color: "var(--text-strong)", fontSize: 18, fontWeight: 850 }}>No active notebook</div>
+                <div style={{ marginTop: 6 }}>Create a notebook, then add sources from the top bar.</div>
+              </div>
+            </div>
+          )}
+        </section>
+      </main>
     </div>
   );
 }

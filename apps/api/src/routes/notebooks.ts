@@ -1,27 +1,20 @@
 import { and, eq, desc } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
+import type { NodeRef } from "@studyagent/schemas";
 import { appendEvent, artifacts, claims, concepts, graphRelations, notebooks, wikiPages } from "@studyagent/db";
 import { lintNotebookWiki, type WikiLintIssue } from "@studyagent/wiki-core";
 import type { AppContext } from "../context.js";
+import {
+  applyArtifactLifecycleAction,
+  deriveArtifactLifecycleEventType,
+  normalizeArtifactLifecycleStatus,
+  validateArtifactTransition,
+} from "../artifact-lifecycle.js";
+import { mergeNoteArtifactPayload } from "@studyagent/schemas";
+import { buildLearningArtifactView } from "../artifact-view.js";
 import { resolveActor } from "../auth.js";
 import { recordFlashcardReview, recordQuizAttempt } from "../phase7.js";
 import { loadNotebookStudyState } from "../study-state.js";
-
-export function deriveArtifactLifecycleEventType(previousStatus: string, nextStatus: string): string | null {
-  if (nextStatus === "ready" && previousStatus !== "ready") {
-    return "artifact.approved";
-  }
-  if (nextStatus === "rejected") {
-    return "artifact.rejected";
-  }
-  if (nextStatus === "proposed") {
-    return "artifact.proposed";
-  }
-  if (nextStatus === "draft" && previousStatus === "proposed") {
-    return "artifact.updated";
-  }
-  return null;
-}
 
 export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
   app.get("/notebooks", async (request, reply) => {
@@ -177,10 +170,14 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
     const rows = await ctx.db.db
       .select({
         id: artifacts.id,
+        notebookId: artifacts.notebookId,
         title: artifacts.title,
         artifactType: artifacts.artifactType,
         status: artifacts.status,
         payloadJson: artifacts.payloadJson,
+        sourceNodeRefsJson: artifacts.sourceNodeRefsJson,
+        sourceClaimIds: artifacts.sourceClaimIds,
+        sourceChunkIds: artifacts.sourceChunkIds,
         updatedAt: artifacts.updatedAt,
         createdAt: artifacts.createdAt,
       })
@@ -188,14 +185,17 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
       .where(eq(artifacts.notebookId, notebookId))
       .orderBy(desc(artifacts.updatedAt));
 
+    const learnerReferenceArtifacts = rows.filter((artifact) => !["teaching_arc", "study_plan", "session_plan"].includes(artifact.artifactType));
+
     return reply.send({
-      artifacts: rows.map((artifact) => ({
+      artifacts: learnerReferenceArtifacts.map((artifact) => ({
         id: artifact.id,
         title: artifact.title,
         artifactType: artifact.artifactType,
         status: artifact.status,
         updatedAt: artifact.updatedAt.toISOString(),
         createdAt: artifact.createdAt.toISOString(),
+        view: buildLearningArtifactView(artifact),
         preview:
           typeof artifact.payloadJson?.markdown === "string"
             ? artifact.payloadJson.markdown.slice(0, 220)
@@ -252,6 +252,24 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
     }
 
     const previousStatus = artifact.status;
+    const sourceRefs = Array.isArray(artifact.sourceNodeRefsJson)
+      ? (artifact.sourceNodeRefsJson as NodeRef[])
+      : [];
+    const lifecycle = applyArtifactLifecycleAction({
+      action: "approve",
+      artifactType: artifact.artifactType,
+      currentStatus: previousStatus,
+      payload: (artifact.payloadJson ?? {}) as Record<string, unknown>,
+      sourceRefs,
+    });
+    if (!lifecycle.allowed) {
+      return reply.status(lifecycle.transition.valid ? 409 : 400).send({
+        code: lifecycle.transition.valid ? "artifact_quality_gate_failed" : "artifact_lifecycle_transition_invalid",
+        message: lifecycle.reason ?? "Artifact cannot be approved.",
+        issues: lifecycle.quality.issues,
+        developerDiagnostics: lifecycle.quality.developerDiagnostics,
+      });
+    }
     const nowIso = new Date().toISOString();
     const nextPayload = {
       ...(artifact.payloadJson ?? {}),
@@ -262,13 +280,21 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
 
     await ctx.db.db
       .update(artifacts)
-      .set({ status: "ready", payloadJson: nextPayload, updatedAt: new Date() })
+      .set({ status: lifecycle.nextStatus, payloadJson: nextPayload, updatedAt: new Date() })
       .where(eq(artifacts.id, artifactId));
 
     await appendEvent(ctx.db, {
       notebookId,
-      eventType: "artifact.approved",
-      payload: { artifactId, artifactType: artifact.artifactType, previousStatus, nextStatus: "ready", approvedBy: actor.id },
+      eventType: lifecycle.eventType ?? "artifact.approved",
+      payload: {
+        artifactId,
+        artifactType: artifact.artifactType,
+        previousStatus,
+        nextStatus: lifecycle.nextStatus,
+        approvedBy: actor.id,
+        visibility: lifecycle.visibility,
+        quality: lifecycle.quality,
+      },
     });
     await appendEvent(ctx.db, {
       notebookId,
@@ -295,6 +321,22 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
     }
 
     const previousStatus = artifact.status;
+    const sourceRefs = Array.isArray(artifact.sourceNodeRefsJson)
+      ? (artifact.sourceNodeRefsJson as NodeRef[])
+      : [];
+    const lifecycle = applyArtifactLifecycleAction({
+      action: "reject",
+      artifactType: artifact.artifactType,
+      currentStatus: previousStatus,
+      payload: (artifact.payloadJson ?? {}) as Record<string, unknown>,
+      sourceRefs,
+    });
+    if (!lifecycle.allowed) {
+      return reply.status(400).send({
+        code: "artifact_lifecycle_transition_invalid",
+        message: lifecycle.reason ?? "Artifact cannot be rejected from its current state.",
+      });
+    }
     const nowIso = new Date().toISOString();
     const nextPayload = {
       ...(artifact.payloadJson ?? {}),
@@ -305,13 +347,20 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
 
     await ctx.db.db
       .update(artifacts)
-      .set({ status: "rejected", payloadJson: nextPayload, updatedAt: new Date() })
+      .set({ status: lifecycle.nextStatus, payloadJson: nextPayload, updatedAt: new Date() })
       .where(eq(artifacts.id, artifactId));
 
     await appendEvent(ctx.db, {
       notebookId,
-      eventType: "artifact.rejected",
-      payload: { artifactId, artifactType: artifact.artifactType, previousStatus, nextStatus: "rejected", rejectedBy: actor.id },
+      eventType: lifecycle.eventType ?? "artifact.rejected",
+      payload: {
+        artifactId,
+        artifactType: artifact.artifactType,
+        previousStatus,
+        nextStatus: lifecycle.nextStatus,
+        rejectedBy: actor.id,
+        visibility: lifecycle.visibility,
+      },
     });
 
     const [updated] = await ctx.db.db.select().from(artifacts).where(eq(artifacts.id, artifactId)).limit(1);
@@ -451,7 +500,7 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
 
   app.patch<{
     Params: { notebookId: string; artifactId: string };
-    Body: Partial<{ title: string; noteMarkdown: string; status: string }>;
+    Body: Partial<{ title: string; noteMarkdown: string; status: string; clearPersonalization?: boolean }>;
   }>("/notebooks/:notebookId/artifacts/:artifactId", async (request, reply) => {
     const actor = await resolveActor(ctx, request);
     const { notebookId, artifactId } = request.params;
@@ -476,19 +525,37 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
     }
 
     const patch = request.body ?? {};
-    const nextPayload = { ...(artifact.payloadJson ?? {}) };
-    if (patch.noteMarkdown !== undefined) {
-      if (artifact.artifactType !== "note") {
-        return reply.status(400).send({ code: "bad_request", message: "Only note artifacts support markdown edits" });
-      }
-      nextPayload.markdown = patch.noteMarkdown;
-      nextPayload.blockOwnerType = "human";
+    if (patch.noteMarkdown !== undefined && artifact.artifactType !== "note") {
+      return reply.status(400).send({ code: "bad_request", message: "Only note artifacts support markdown edits" });
     }
+    const nextPayload =
+      artifact.artifactType === "note"
+        ? mergeNoteArtifactPayload((artifact.payloadJson ?? {}) as Record<string, unknown>, {
+            ...(patch.noteMarkdown !== undefined ? { noteMarkdown: patch.noteMarkdown } : {}),
+            ...(patch.clearPersonalization ? { clearPersonalization: true } : {}),
+          })
+        : { ...(artifact.payloadJson ?? {}) };
 
     const nextTitle = typeof patch.title === "string" && patch.title.trim() ? patch.title.trim() : artifact.title;
-    const nextStatus = typeof patch.status === "string" && patch.status.trim() ? patch.status.trim() : artifact.status;
+    const requestedStatus =
+      typeof patch.status === "string" && patch.status.trim() ? patch.status.trim() : artifact.status;
     const updatedAt = new Date();
     const previousStatus = artifact.status;
+    const normalizedPrevious =
+      normalizeArtifactLifecycleStatus(previousStatus) ?? (previousStatus as "draft");
+    const normalizedNext =
+      normalizeArtifactLifecycleStatus(requestedStatus) ??
+      (requestedStatus as "draft" | "proposed" | "ready" | "rejected" | "failed" | "archived");
+    if (patch.status !== undefined) {
+      const transition = validateArtifactTransition(normalizedPrevious, normalizedNext);
+      if (!transition.valid) {
+        return reply.status(400).send({
+          code: "artifact_lifecycle_transition_invalid",
+          message: transition.reason ?? "Artifact status transition is not allowed.",
+        });
+      }
+    }
+    const nextStatus = normalizedNext;
 
     await ctx.db.db
       .update(artifacts)
@@ -743,12 +810,26 @@ function isJsonRecord(value: unknown): value is Record<string, unknown> {
 
 function serializeArtifactDetail(artifact: ArtifactRow | null | undefined) {
   if (!artifact) return null;
+  const view = buildLearningArtifactView({
+    id: artifact.id,
+    notebookId: artifact.notebookId,
+    artifactType: artifact.artifactType,
+    title: artifact.title,
+    status: artifact.status,
+    payloadJson: artifact.payloadJson ?? {},
+    sourceNodeRefsJson: artifact.sourceNodeRefsJson ?? [],
+    sourceClaimIds: artifact.sourceClaimIds ?? [],
+    sourceChunkIds: artifact.sourceChunkIds ?? [],
+    createdAt: artifact.createdAt,
+    updatedAt: artifact.updatedAt,
+  });
   return {
     id: artifact.id,
     title: artifact.title,
     artifactType: artifact.artifactType,
     status: artifact.status,
     payload: artifact.payloadJson ?? {},
+    view,
     sourceNodeRefs: artifact.sourceNodeRefsJson ?? [],
     sourceClaimIds: artifact.sourceClaimIds ?? [],
     sourceChunkIds: artifact.sourceChunkIds ?? [],

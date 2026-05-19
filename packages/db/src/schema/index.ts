@@ -609,6 +609,28 @@ export const toolCalls = pgTable(
   (t) => [index("tool_calls_run_idx").on(t.runId)],
 );
 
+export const masteryEvidence = pgTable(
+  "mastery_evidence",
+  {
+    id: text("id").primaryKey(),
+    notebookId: text("notebook_id")
+      .notNull()
+      .references(() => notebooks.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    sessionId: text("session_id").references(() => tutorSessions.id, { onDelete: "set null" }),
+    turnId: text("turn_id").references(() => tutorTurns.id, { onDelete: "set null" }),
+    runId: text("run_id").references(() => agentRuns.id, { onDelete: "set null" }),
+    evidenceJson: jsonb("evidence_json").$type<Record<string, unknown>>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("mastery_evidence_notebook_created_idx").on(t.notebookId, t.createdAt),
+    index("mastery_evidence_session_idx").on(t.sessionId, t.createdAt),
+  ],
+);
+
 export const events = pgTable(
   "events",
   {
@@ -679,7 +701,35 @@ export const neo4jProjectionState = pgTable(
     projectionVersion: integer("projection_version").notNull().default(1),
     status: text("status").notNull().default("idle"),
     lagSeconds: integer("lag_seconds"),
+    lastProjectedAt: timestamp("last_projected_at", { withTimezone: true }),
+    lastFailureAt: timestamp("last_failure_at", { withTimezone: true }),
+    failureReason: text("failure_reason"),
+    canonicalUpdatedAt: timestamp("canonical_updated_at", { withTimezone: true }),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("neo4j_projection_state_notebook_unique").on(t.notebookId)],
+);
+
+export const neo4jSourceProjectionState = pgTable(
+  "neo4j_source_projection_state",
+  {
+    id: text("id").primaryKey(),
+    notebookId: text("notebook_id")
+      .notNull()
+      .references(() => notebooks.id, { onDelete: "cascade" }),
+    sourceId: text("source_id")
+      .notNull()
+      .references(() => sources.id, { onDelete: "cascade" }),
+    status: text("status").notNull().default("idle"),
+    lagSeconds: integer("lag_seconds"),
+    lastProjectedAt: timestamp("last_projected_at", { withTimezone: true }),
+    lastFailureAt: timestamp("last_failure_at", { withTimezone: true }),
+    failureReason: text("failure_reason"),
+    canonicalUpdatedAt: timestamp("canonical_updated_at", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("neo4j_source_projection_state_notebook_source_unique").on(t.notebookId, t.sourceId),
+    index("neo4j_source_projection_state_notebook_idx").on(t.notebookId),
+  ],
 );

@@ -7,7 +7,8 @@
   "scripts": {
     "dev": "pnpm --parallel --filter './apps/*' dev",
     "build": "tsc -b tsconfig.build.json && pnpm --filter @studyagent/web build",
-    "check": "tsc -b tsconfig.build.json --pretty false",
+    "check": "tsc -b tsconfig.build.json --pretty false && pnpm --filter @studyagent/web check",
+    "check:web": "pnpm --filter @studyagent/web check",
     "test": "vitest run",
     "format": "prettier --check .",
     "db:generate": "pnpm --filter @studyagent/db generate",

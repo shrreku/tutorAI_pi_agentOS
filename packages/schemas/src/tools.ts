@@ -29,6 +29,11 @@ export const reducerResultSchema = z.object({
   emittedEventIds: z.array(idSchema),
 });
 
+export function parseReducerResult(value: unknown): ReducerResult | undefined {
+  const parsed = reducerResultSchema.safeParse(value);
+  return parsed.success ? parsed.data : undefined;
+}
+
 export type SideEffectClass = z.infer<typeof sideEffectClassSchema>;
 export type ToolContext = z.infer<typeof toolContextSchema>;
 export type ReducerResult = z.infer<typeof reducerResultSchema>;

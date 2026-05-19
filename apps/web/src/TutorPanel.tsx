@@ -1,12 +1,9 @@
 import React, { useMemo, useRef, useState } from "react";
 import { fetchServerSentEvents, useChat } from "@tanstack/ai-react";
+import katex from "katex";
 import type { UIMessage } from "@tanstack/ai-client";
-
-type ToolState = {
-  toolCallId: string;
-  toolName: string;
-  status: "started" | "completed" | "failed";
-};
+import type { ChatTraceResponse, ChatTraceTurn } from "@studyagent/schemas";
+import { AgentTrace, type LiveTraceRun, updateLiveTraceRun } from "./AgentTrace.js";
 
 type SelectedNodeRef = { refType: string; refId: string };
 
@@ -48,11 +45,27 @@ type StudyState = {
     id: string;
     title: string;
     status: string;
+    activeSessionId: string | null;
     currentObjective: { id: string; title: string; status: string } | null;
     upcomingObjectives: Array<{ id: string; title: string; status: string }>;
     completedObjectives: Array<{ id: string; title: string; status: string }>;
     weakConcepts: Array<{ id: string; name: string }>;
   } | null;
+  tutorSession: {
+    active: { id: string; status: string; mode: string; startedAt: string; endedAt: string | null } | null;
+    last: { id: string; status: string; mode: string; startedAt: string; endedAt: string | null } | null;
+    canContinue: boolean;
+    suggestedAction: "upload_sources" | "build_curriculum" | "continue_session" | "start_session" | "review_completed";
+  };
+  coverage: {
+    total: number;
+    planned: number;
+    introduced: number;
+    checked: number;
+    mastered: number;
+    needsReview: number;
+    gaps: Array<{ coverageItemId: string; title: string; itemFamily: string; status: string }>;
+  };
 };
 
 type ArtifactSummary = {
@@ -71,11 +84,23 @@ type ArtifactDetail = {
   artifactType: string;
   status: string;
   payload: Record<string, unknown>;
+  view?: LearningArtifactView;
   sourceNodeRefs: Array<{ refType: string; refId: string }>;
   sourceClaimIds: string[];
   sourceChunkIds: string[];
   createdAt: string;
   updatedAt: string;
+};
+
+type LearningArtifactView = {
+  purpose: string;
+  studentAction: string;
+  status: string;
+  sourceRefs: Array<{ refType: string; refId: string }>;
+  objectiveRefs: Array<{ refType: string; refId: string }>;
+  confidence: number | null;
+  quality: { sourceBacked: boolean; needsReview: boolean; issues: string[] };
+  sections: Array<{ id: string; title: string; kind: string; content: unknown; emptyMessage?: string }>;
 };
 
 type QuizQuestion = {
@@ -100,25 +125,54 @@ type NotebookSettings = {
   };
 };
 
+export type TutorSessionInsights = {
+  turnCount: number;
+  summary: string;
+  taughtPoints: string[];
+  doubts: string[];
+  nextSteps: string[];
+};
+
 interface TutorPanelProps {
   notebookId: string;
   selectedNodeRefs?: SelectedNodeRef[];
 }
 
+const SELECTED_REF_LABELS: Record<string, string> = {
+  source: "source",
+  topic: "topic",
+  concept: "concept",
+  wiki_page: "wiki page",
+  artifact: "artifact",
+  session: "session",
+  curriculum: "curriculum",
+  curriculum_module: "module",
+  objective: "objective",
+  objective_list: "session objectives",
+  study_plan: "Live Plan",
+  session_plan: "session",
+};
+
 export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorPanelProps) {
   const [input, setInput] = useState("");
   const [mode, setMode] = useState<"learn" | "practice" | "revise" | "explore" | "wiki_maintenance">("learn");
   const [runStatus, setRunStatus] = useState<"idle" | "running" | "completed" | "failed">("idle");
-  const [toolStates, setToolStates] = useState<ToolState[]>([]);
+  const [liveTraceRun, setLiveTraceRun] = useState<LiveTraceRun | null>(null);
+  const [traceData, setTraceData] = useState<ChatTraceResponse | null>(null);
   const [studyState, setStudyState] = useState<StudyState | null>(null);
   const [artifacts, setArtifacts] = useState<ArtifactSummary[]>([]);
   const [settings, setSettings] = useState<NotebookSettings>({});
-  const [selectedArtifact, setSelectedArtifact] = useState<ArtifactDetail | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [historySearch, setHistorySearch] = useState("");
+  const [historyFilter, setHistoryFilter] = useState<"all" | "questions" | "answers">("all");
+  const [selectedHistorySessionId, setSelectedHistorySessionId] = useState<string | null>(null);
+  const [showStudyPlanModal, setShowStudyPlanModal] = useState(false);
   const [artifactTitleDraft, setArtifactTitleDraft] = useState("");
   const [artifactMarkdownDraft, setArtifactMarkdownDraft] = useState("");
   const [artifactError, setArtifactError] = useState<string | null>(null);
   const [isArtifactLoading, setIsArtifactLoading] = useState(false);
   const [isArtifactSaving, setIsArtifactSaving] = useState(false);
+  const [selectedArtifact, setSelectedArtifact] = useState<ArtifactDetail | null>(null);
   const [quizFeedback, setQuizFeedback] = useState<string | null>(null);
   const [flashcardIndex, setFlashcardIndex] = useState(0);
   const [flashcardRevealed, setFlashcardRevealed] = useState(false);
@@ -126,12 +180,39 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
   const [sessionStatus, setSessionStatus] = useState<"active" | "paused" | "completed" | null>(null);
   const [isSessionLifecycleLoading, setIsSessionLifecycleLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const traceRefreshTimerRef = useRef<number | null>(null);
+  const sessionStatusRef = useRef(sessionStatus);
+
+  React.useEffect(() => {
+    sessionStatusRef.current = sessionStatus;
+  }, [sessionStatus]);
 
   // Use a ref so the factory always reads the latest refs without recreating the connection
   const selectedNodeRefsRef = useRef(selectedNodeRefs);
   React.useEffect(() => {
-    selectedNodeRefsRef.current = selectedNodeRefs;
-  }, [selectedNodeRefs]);
+    selectedNodeRefsRef.current = buildTutorSelectedNodeRefs(selectedNodeRefs, selectedArtifact?.id ?? null);
+  }, [selectedNodeRefs, selectedArtifact?.id]);
+
+  React.useEffect(() => {
+    const handleDraftPrompt = (event: Event) => {
+      const detail = (event as CustomEvent<{ prompt?: unknown; mode?: unknown }>).detail;
+      if (!detail || typeof detail.prompt !== "string") return;
+      setInput(detail.prompt);
+      if (detail.mode === "wiki_maintenance") {
+        setMode("wiki_maintenance");
+      }
+    };
+    window.addEventListener("studyagent:tutor-draft-prompt", handleDraftPrompt);
+    return () => window.removeEventListener("studyagent:tutor-draft-prompt", handleDraftPrompt);
+  }, []);
+
+  const selectedSessionRefId = useMemo(() => selectedNodeRefs.find((ref) => ref.refType === "session")?.refId ?? null, [selectedNodeRefs]);
+
+  React.useEffect(() => {
+    if (!selectedSessionRefId) return;
+    setSessionId(selectedSessionRefId);
+    setSelectedHistorySessionId(selectedSessionRefId);
+  }, [selectedSessionRefId]);
 
   const modeRef = useRef(mode);
   React.useEffect(() => {
@@ -168,14 +249,26 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
       ]);
 
       if (studyRes.ok) {
-        setStudyState((await studyRes.json()) as StudyState);
+        const nextStudyState = (await studyRes.json()) as StudyState;
+        setStudyState(nextStudyState);
+        const activeSession = nextStudyState.tutorSession?.active;
+        if (selectedSessionRefId) {
+          setSessionId(selectedSessionRefId);
+          setSessionStatus(activeSession?.id === selectedSessionRefId ? (activeSession.status === "paused" ? "paused" : "active") : null);
+        } else if (activeSession && activeSession.status !== "completed") {
+          setSessionId(activeSession.id);
+          setSessionStatus(activeSession.status === "paused" ? "paused" : "active");
+        } else if (!activeSession && sessionStatusRef.current !== "completed") {
+          setSessionId(null);
+          setSessionStatus(null);
+        }
       } else {
         setStudyState(null);
       }
 
       if (artifactsRes.ok) {
         const payload = (await artifactsRes.json()) as { artifacts: ArtifactSummary[] };
-        setArtifacts(payload.artifacts ?? []);
+        setArtifacts((payload.artifacts ?? []).filter((artifact) => artifact.artifactType !== "teaching_arc"));
       } else {
         setArtifacts([]);
       }
@@ -191,7 +284,32 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
       setArtifacts([]);
       setSettings({});
     }
-  }, [notebookId]);
+  }, [notebookId, selectedSessionRefId]);
+
+  const loadTraceData = React.useCallback(async () => {
+    try {
+      const url = sessionId
+        ? `/api/v1/notebooks/${encodeURIComponent(notebookId)}/tutor/trace?limit=80&sessionId=${encodeURIComponent(sessionId)}`
+        : `/api/v1/notebooks/${encodeURIComponent(notebookId)}/tutor/trace?limit=80`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(await res.text());
+      setTraceData((await res.json()) as ChatTraceResponse);
+      setLiveTraceRun(null);
+    } catch {
+      setTraceData(null);
+    }
+  }, [notebookId, sessionId]);
+
+  const scheduleTraceDataRefresh = React.useCallback(() => {
+    void loadTraceData();
+    if (traceRefreshTimerRef.current != null) {
+      window.clearTimeout(traceRefreshTimerRef.current);
+    }
+    traceRefreshTimerRef.current = window.setTimeout(() => {
+      traceRefreshTimerRef.current = null;
+      void loadTraceData();
+    }, 900);
+  }, [loadTraceData]);
 
   const updateArtifactConsentSetting = async (key: "autoCreateLearnerArtifacts" | "autoCreateNotes", value: boolean) => {
     const previous = settings;
@@ -243,6 +361,8 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
     [notebookId],
   );
 
+  const openStudyPlanModal = () => setShowStudyPlanModal(true);
+  const closeStudyPlanModal = () => setShowStudyPlanModal(false);
   const closeArtifact = () => {
     setSelectedArtifact(null);
     setArtifactTitleDraft("");
@@ -341,55 +461,71 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
         setSessionId(chunkAny.sessionId);
         setSessionStatus("active");
       }
+      setLiveTraceRun((prev) => updateLiveTraceRun(prev, chunkAny));
       if (chunk.type === "RUN_STARTED") {
         setRunStatus("running");
-        setToolStates([]);
       } else if (chunk.type === "RUN_FINISHED") {
         tutorActionRef.current = "prompt";
         setRunStatus("completed");
         void loadSidebarData();
+        scheduleTraceDataRefresh();
       } else if (chunk.type === "RUN_ERROR") {
         tutorActionRef.current = "prompt";
         setRunStatus("failed");
         void loadSidebarData();
-      } else if (chunk.type === "TOOL_CALL_START") {
-        if (chunk.toolCallId && chunk.toolName) {
-          setToolStates((prev) => upsertToolState(prev, chunk.toolCallId!, chunk.toolName!, "started"));
-        }
-      } else if (chunk.type === "TOOL_CALL_END") {
-        if (chunk.toolCallId && chunk.toolName) {
-          setToolStates((prev) => upsertToolState(prev, chunk.toolCallId!, chunk.toolName!, "completed"));
-        }
+        scheduleTraceDataRefresh();
       }
     },
     onError() {
       setRunStatus("failed");
+      setLiveTraceRun((prev) => (prev ? { ...prev, status: "failed", completedAt: Date.now() } : prev));
     },
   });
 
   React.useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, traceData?.turns.length]);
+
+  React.useEffect(() => {
+    void loadTraceData();
+  }, [loadTraceData]);
 
   React.useEffect(() => {
     clear();
+    setInput("");
     setRunStatus("idle");
-    setToolStates([]);
+    setLiveTraceRun(null);
     setSessionId(null);
     setSessionStatus(null);
     closeArtifact();
     void loadSidebarData();
-  }, [clear, loadSidebarData, notebookId]);
+    void loadTraceData();
+    return () => {
+      if (traceRefreshTimerRef.current != null) {
+        window.clearTimeout(traceRefreshTimerRef.current);
+        traceRefreshTimerRef.current = null;
+      }
+    };
+  }, [notebookId]);
+
+  React.useEffect(() => {
+    void loadSidebarData();
+  }, [loadSidebarData]);
 
   const handleSend = async () => {
     if (!input.trim()) return;
+    setSelectedHistorySessionId(null);
     tutorActionRef.current = isLoading ? "steer" : "prompt";
     setRunStatus("running");
-    setToolStates([]);
+    setLiveTraceRun(null);
     setInput("");
     
     // sendMessage will use the connection which includes sessionId and action if available
     await sendMessage(input);
+  };
+
+  const handleSessionPrompt = (prompt: string) => {
+    setInput(prompt);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -406,6 +542,54 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
   const quizQuestions = toQuizQuestions(selectedArtifact?.payload.questions);
   const flashcards = toFlashcards(selectedArtifact?.payload.cards);
   const activeFlashcard = flashcards[flashcardIndex] ?? null;
+  const currentObjectiveTitle = studyState?.studyPlan?.currentObjective?.title ?? null;
+  const upcomingObjectiveTitle = studyState?.studyPlan?.upcomingObjectives[0]?.title ?? null;
+  const completedObjectiveCount = studyState?.studyPlan?.completedObjectives.length ?? 0;
+  const planStatusLabel =
+    currentObjectiveTitle ??
+    (studyState?.curriculum ? "Ready for a tutoring session" : "Add sources to build a course");
+  const sessionActionLabel =
+    studyState?.tutorSession?.suggestedAction === "continue_session"
+      ? studyState.tutorSession.active?.status === "paused"
+        ? "Resume session"
+        : "Continue session"
+      : studyState?.tutorSession?.suggestedAction === "review_completed"
+        ? "Start next lesson"
+        : studyState?.tutorSession?.suggestedAction === "build_curriculum"
+          ? "Plan course"
+          : "Start session";
+  const sessionPrompt =
+    studyState?.tutorSession?.suggestedAction === "continue_session"
+      ? studyState.tutorSession.active?.status === "paused"
+        ? "Resume the paused tutoring session from where we left off."
+        : "Continue the tutoring session from where we left off."
+      : studyState?.tutorSession?.suggestedAction === "review_completed"
+        ? "Start the next lesson based on my completed session and current study plan."
+        : studyState?.tutorSession?.suggestedAction === "build_curriculum"
+          ? "Build a curriculum from my uploaded sources and start with the best first topic."
+          : "Start a tutoring session for this notebook.";
+  const reviewLastSessionPrompt = "Review the last completed session and suggest what I should do next.";
+  const historySessions = useMemo(() => {
+    const query = historySearch.trim().toLowerCase();
+    return buildHistorySessions(traceData)
+      .filter((session) => {
+        if (!query) return true;
+        const question = session.firstUserMessage.toLowerCase();
+        const answer = session.latestAssistantMessage.toLowerCase();
+        if (historyFilter === "questions") return question.includes(query);
+        if (historyFilter === "answers") return answer.includes(query);
+        return question.includes(query) || answer.includes(query) || session.title.toLowerCase().includes(query);
+      })
+      .reverse();
+  }, [historyFilter, historySearch, traceData?.turns]);
+  const selectedHistoryTraceData = useMemo(() => traceDataForSession(traceData, selectedHistorySessionId), [selectedHistorySessionId, traceData]);
+  const activeTraceData = selectedHistoryTraceData ?? traceData;
+  const persistedMessages = useMemo(() => messagesFromTraceData(activeTraceData), [activeTraceData]);
+  const sessionInsights = useMemo(() => buildTutorSessionInsights(activeTraceData), [activeTraceData]);
+  const displayMessages = useMemo(
+    () => selectedHistoryTraceData ? persistedMessages : mergePersistedAndLiveMessages(persistedMessages, messages),
+    [messages, persistedMessages, selectedHistoryTraceData],
+  );
 
   const submitQuizAttempt = async (question: QuizQuestion, isCorrect: boolean) => {
     if (!selectedArtifact) return;
@@ -534,154 +718,127 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", minWidth: 300, borderRight: "1px solid #ddd", position: "relative" }}>
-      <div style={{ padding: 12, borderBottom: "1px solid #eee", background: "#f9f9f9" }}>
-        <strong>StudyAgent Tutor</strong>
-        <div style={{ marginTop: 8, fontSize: 12, display: "flex", gap: 8, alignItems: "center" }}>
-          <label>
-            Mode:{" "}
-            <select value={mode} onChange={(e) => setMode(e.target.value as any)} style={{ marginLeft: 4 }}>
+    <div className="tutor-shell" style={{ display: "flex", flexDirection: "column", height: "100%", minWidth: 300, position: "relative", color: "var(--text)" }}>
+      <div className="tutor-header">
+        <div className="tutor-compact-row">
+          <div style={{ minWidth: 0 }}>
+            <strong className="tutor-title">Tutor</strong>
+            <span className="tutor-subtitle">
+              {currentObjectiveTitle ?? planStatusLabel}
+            </span>
+          </div>
+          <div className="tutor-header-actions">
+            <button type="button" className="study-chip-button" data-active={showHistory} onClick={() => setShowHistory((value) => !value)}>
+              History
+            </button>
+            {sessionId && (
+              <div className="tutor-session-controls" aria-label={`Session ${sessionStatus ?? "idle"}`}>
+                <span className="tutor-session-dot" data-status={sessionStatus ?? "idle"} />
+                {sessionStatus === "active" && (
+                  <>
+                    <button type="button" onClick={() => void handlePauseSession()} disabled={isSessionLifecycleLoading} className="study-chip-button">
+                      Pause
+                    </button>
+                    <button type="button" onClick={() => void handleEndSession()} disabled={isSessionLifecycleLoading} className="study-chip-button" data-variant="danger">
+                      End
+                    </button>
+                  </>
+                )}
+                {sessionStatus === "paused" && (
+                  <>
+                    <button type="button" onClick={() => void handleResumeSession()} disabled={isSessionLifecycleLoading} className="study-chip-button">
+                      Resume
+                    </button>
+                    <button type="button" onClick={() => void handleEndSession()} disabled={isSessionLifecycleLoading} className="study-chip-button" data-variant="danger">
+                      End
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="tutor-control-row">
+          <label className="tutor-mode-select">
+            <span>Mode</span>
+            <select value={mode} onChange={(event) => setMode(event.target.value as typeof mode)}>
               <option value="learn">Learn</option>
               <option value="practice">Practice</option>
               <option value="revise">Revise</option>
               <option value="explore">Explore</option>
-              <option value="wiki_maintenance">Wiki</option>
+              <option value="wiki_maintenance">Source Wiki</option>
             </select>
           </label>
-          {sessionId && (
-            <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-              <span style={{ fontSize: 10, color: "#6b7280" }}>
-                {sessionStatus === "active" ? "🟢" : sessionStatus === "paused" ? "🟡" : sessionStatus === "completed" ? "⚫" : "○"} Session
-              </span>
-              {sessionStatus === "active" && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => void handlePauseSession()}
-                    disabled={isSessionLifecycleLoading}
-                    style={{ padding: "2px 6px", fontSize: 10, cursor: "pointer" }}
-                  >
-                    Pause
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleEndSession()}
-                    disabled={isSessionLifecycleLoading}
-                    style={{ padding: "2px 6px", fontSize: 10, cursor: "pointer", color: "#991b1b" }}
-                  >
-                    End
-                  </button>
-                </>
-              )}
-              {sessionStatus === "paused" && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => void handleResumeSession()}
-                    disabled={isSessionLifecycleLoading}
-                    style={{ padding: "2px 6px", fontSize: 10, cursor: "pointer" }}
-                  >
-                    Resume
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleEndSession()}
-                    disabled={isSessionLifecycleLoading}
-                    style={{ padding: "2px 6px", fontSize: 10, cursor: "pointer", color: "#991b1b" }}
-                  >
-                    End
-                  </button>
-                </>
-              )}
-            </div>
+          {studyState && (
+            <button
+              type="button"
+              onClick={() => handleSessionPrompt(sessionPrompt)}
+              className="study-primary-button tutor-start-button"
+            >
+              {sessionActionLabel}
+            </button>
+          )}
+          <button type="button" onClick={openStudyPlanModal} className="study-chip-button">
+            Plan
+          </button>
+          {studyState?.tutorSession?.suggestedAction === "review_completed" && (
+            <button type="button" onClick={() => handleSessionPrompt(reviewLastSessionPrompt)} className="study-chip-button">
+              Review
+            </button>
           )}
         </div>
-        {studyState && (studyState.studyPlan || studyState.curriculum || studyState.module || studyState.objectiveList || studyState.sessionPlan) && (
-          <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
-            <div style={{ fontSize: 11, color: "#374151" }}>
-              <strong>Current objective:</strong> {studyState.studyPlan?.currentObjective?.title ?? "No active objective"}
+        {showHistory && (
+          <div className="tutor-history-panel">
+            <div className="tutor-history-tools">
+              <input
+                value={historySearch}
+                onChange={(event) => setHistorySearch(event.target.value)}
+                placeholder="Search previous chats"
+                aria-label="Search previous chats"
+              />
+              <select value={historyFilter} onChange={(event) => setHistoryFilter(event.target.value as typeof historyFilter)} aria-label="Filter chat history">
+                <option value="all">All</option>
+                <option value="questions">Questions</option>
+                <option value="answers">Answers</option>
+              </select>
             </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, fontSize: 11 }}>
-              {studyState.curriculum && (
-                <span style={{ background: "#ffedd5", color: "#9a3412", padding: "2px 7px", borderRadius: 9999 }}>
-                  Curriculum: {studyState.curriculum.title}
-                </span>
+            <div className="tutor-history-list">
+              {historySessions.length > 0 ? (
+                historySessions.map((session) => (
+                  <button
+                    key={session.sessionId}
+                    type="button"
+                    className="tutor-history-item"
+                    data-active={selectedHistorySessionId === session.sessionId}
+                    onClick={() => {
+                      setSelectedHistorySessionId(session.sessionId);
+                      setShowHistory(false);
+                      setInput("");
+                    }}
+                  >
+                    <span>
+                      {new Date(session.startedAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                      {" · "}
+                      {session.turnCount} {session.turnCount === 1 ? "turn" : "turns"}
+                    </span>
+                    <strong>{session.title}</strong>
+                    {session.latestAssistantMessage && <em>{session.latestAssistantMessage}</em>}
+                  </button>
+                ))
+              ) : (
+                <div className="tutor-history-empty">{traceData ? "No matching sessions." : "No previous sessions loaded yet."}</div>
               )}
-              {studyState.module && (
-                <span style={{ background: "#dcfce7", color: "#166534", padding: "2px 7px", borderRadius: 9999 }}>
-                  Module: {studyState.module.title}
-                </span>
-              )}
-              {studyState.sessionPlan && (
-                <span style={{ background: "#e0f2fe", color: "#075985", padding: "2px 7px", borderRadius: 9999 }}>
-                  Session: {studyState.sessionPlan.title}
-                </span>
-              )}
-              {studyState.objectiveList && (
-                <span style={{ background: "#fef9c3", color: "#854d0e", padding: "2px 7px", borderRadius: 9999 }}>
-                  Objective list: {studyState.objectiveList.objectiveIdsOrdered.length} topics
-                </span>
-              )}
-              <span style={{ background: "#ede9fe", color: "#5b21b6", padding: "2px 7px", borderRadius: 9999 }}>
-                {studyState.studyPlan?.completedObjectives.length ?? 0} completed
-              </span>
-              {(studyState.studyPlan?.upcomingObjectives ?? []).slice(0, 2).map((objective) => (
-                <span key={objective.id} style={{ background: "#dbeafe", color: "#1d4ed8", padding: "2px 7px", borderRadius: 9999 }}>
-                  Next: {objective.title}
-                </span>
-              ))}
             </div>
-            {studyState.sessionPlan?.sessionGoal && (
-              <div style={{ fontSize: 11, color: "#475569", background: "#f8fafc", padding: 6, borderRadius: 8 }}>
-                <strong>Session goal:</strong> {studyState.sessionPlan.sessionGoal}
-              </div>
-            )}
-            {studyState.studentProfile && (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {studyState.studentProfile.goalSummary && (
-                  <span style={{ background: "#f5f3ff", color: "#5b21b6", padding: "2px 7px", borderRadius: 9999, fontSize: 11 }}>
-                    Goal: {studyState.studentProfile.goalSummary}
-                  </span>
-                )}
-                {studyState.studentProfile.pacePreference && (
-                  <span style={{ background: "#fef3c7", color: "#92400e", padding: "2px 7px", borderRadius: 9999, fontSize: 11 }}>
-                    Pace: {studyState.studentProfile.pacePreference}
-                  </span>
-                )}
-                {studyState.studentProfile.depthPreference && (
-                  <span style={{ background: "#e0f2fe", color: "#075985", padding: "2px 7px", borderRadius: 9999, fontSize: 11 }}>
-                    Depth: {studyState.studentProfile.depthPreference}
-                  </span>
-                )}
-              </div>
-            )}
-            {(studyState.studyPlan?.weakConcepts.length ?? 0) > 0 && (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {(studyState.studyPlan?.weakConcepts ?? []).slice(0, 4).map((concept) => (
-                  <span key={concept.id} style={{ background: "#fee2e2", color: "#991b1b", padding: "2px 7px", borderRadius: 9999, fontSize: 11 }}>
-                    Weak: {concept.name}
-                  </span>
-                ))}
-              </div>
-            )}
           </div>
         )}
         {selectedNodeRefs.length > 0 && (
-          <div
-            style={{
-              marginTop: 8,
-              padding: "4px 8px",
-              background: "#dbeafe",
-              borderRadius: 4,
-              fontSize: 11,
-              color: "#1e40af",
-            }}
-          >
-            Context: {selectedNodeRefs.length} node{selectedNodeRefs.length > 1 ? "s" : ""} selected —{" "}
-            {selectedNodeRefs.map((r) => r.refType).join(", ")}
+          <div className="tutor-selected-context">
+            Using selected {selectedNodeRefs.map((r) => SELECTED_REF_LABELS[r.refType] ?? r.refType.replace(/_/g, " ")).join(", ")}
           </div>
         )}
-        <div style={{ marginTop: 10, border: "1px solid #e5e7eb", borderRadius: 8, padding: 8, background: "#f9fafb" }}>
+        <details className="tutor-reference-options">
+          <summary>Reference options</summary>
+          <div style={{ marginTop: 8 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: "#374151", marginBottom: 6 }}>ARTIFACT CONSENT</div>
           <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 11, color: "#4b5563", marginBottom: 4 }}>
             <input
@@ -702,41 +859,9 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
           <div style={{ marginTop: 4, fontSize: 10, color: "#6b7280", lineHeight: 1.35 }}>
             When disabled, tutor-created learner aids stay proposed/draft until approved.
           </div>
-        </div>
-
-        {artifacts.length > 0 && (
-          <div style={{ marginTop: 10 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", marginBottom: 6 }}>RECENT ARTIFACTS</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 120, overflow: "auto" }}>
-              {artifacts.slice(0, 5).map((artifact) => (
-                <button
-                  key={artifact.id}
-                  type="button"
-                  onClick={() => void openArtifact(artifact.id)}
-                  style={{
-                    textAlign: "left",
-                    border: "1px solid #e5e7eb",
-                    background: "white",
-                    borderRadius: 6,
-                    padding: "6px 8px",
-                    cursor: "pointer",
-                  }}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 11 }}>
-                    <strong style={{ color: "#111827" }}>{artifact.title}</strong>
-                    <span style={{ color: "#6b7280" }}>{artifact.artifactType}</span>
-                  </div>
-                  {artifact.preview && (
-                    <div style={{ marginTop: 3, fontSize: 11, color: "#4b5563", lineHeight: 1.4 }}>
-                      {artifact.preview}
-                      {artifact.preview.length >= 220 ? "…" : ""}
-                    </div>
-                  )}
-                </button>
-              ))}
-            </div>
           </div>
-        )}
+        </details>
+
       </div>
 
       <div
@@ -747,46 +872,72 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
           display: "flex",
           flexDirection: "column",
           gap: 8,
+          background: "var(--panel)",
         }}
       >
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            style={{
-              padding: 8,
-              borderRadius: 6,
-              background: msg.role === "user" ? "#dbeafe" : "#f0fdf4",
-              textAlign: msg.role === "user" ? "right" : "left",
-              fontSize: 13,
-            }}
-          >
-            {renderMessage(msg)}
+        {displayMessages.length === 0 && (
+          <div className="tutor-empty-thread">
+            <strong>Start from the material, not a blank chat</strong>
+            <p>Ask for a plan, inspect a selected graph node, or have the tutor turn sources into a first lesson route.</p>
+            <div className="tutor-suggestion-list">
+              {[sessionPrompt, "Explain the current objective with evidence from my sources.", "Show me what is missing from this notebook."].map((prompt) => (
+                <button key={prompt} type="button" onClick={() => handleSessionPrompt(prompt)}>
+                  {prompt}
+                </button>
+              ))}
+            </div>
           </div>
-        ))}
+        )}
+        {selectedHistoryTraceData && (
+          <div className="tutor-history-viewing">
+            <span>Viewing previous session</span>
+            <button type="button" onClick={() => setSelectedHistorySessionId(null)}>
+              Back to current
+            </button>
+          </div>
+        )}
+        {sessionInsights.turnCount > 0 && (
+          <section style={{ border: "1px solid #e5e7eb", borderRadius: 10, background: "#fff", padding: 12, display: "grid", gap: 10 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline" }}>
+              <strong style={{ fontSize: 13, color: "#111827" }}>Session insights</strong>
+              <span style={{ fontSize: 11, color: "#6b7280" }}>{sessionInsights.summary}</span>
+            </div>
+            <div style={{ display: "grid", gap: 10 }}>
+              <SessionInsightList title="What was taught" items={sessionInsights.taughtPoints} emptyMessage="No teaching notes yet." />
+              <SessionInsightList title="Doubts and friction" items={sessionInsights.doubts} emptyMessage="No explicit doubts captured yet." />
+              <SessionInsightList title="Next steps" items={sessionInsights.nextSteps} emptyMessage="Continue the current session goal." />
+            </div>
+          </section>
+        )}
+        {displayMessages.map((msg, index) => {
+          const traceTurn = traceTurnForAssistantMessage(displayMessages, index, activeTraceData);
+          const latestUserIndex = latestUserMessageIndex(displayMessages);
+          const isLatestAssistant = msg.role !== "user" && index === latestAssistantMessageIndex(displayMessages);
+          const isActiveAssistantTurn = isLatestAssistant && index > latestUserIndex;
+          const showLiveForMessage = isActiveAssistantTurn && runStatus === "running";
+          return (
+            <div
+              key={msg.id}
+              className="tutor-message"
+              data-role={msg.role === "user" ? "user" : "assistant"}
+            >
+              {msg.role !== "user" && (
+                <AgentTrace
+                  traceTurn={showLiveForMessage ? null : traceTurn}
+                  liveRun={isActiveAssistantTurn ? liveTraceRun : null}
+                  runStatus={isActiveAssistantTurn ? runStatus : "idle"}
+                />
+              )}
+              {renderMessage(msg)}
+            </div>
+          );
+        })}
         {isLoading && (
-          <div style={{ fontSize: 12, color: "#888", fontStyle: "italic" }}>Tutor is responding...</div>
-        )}
-        {runStatus !== "idle" && (
-          <div style={{ fontSize: 12, color: runStatus === "failed" ? "#991b1b" : "#555" }}>
-            Run status: {runStatus}
-          </div>
-        )}
-        {toolStates.length > 0 && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            {toolStates.map((tool) => (
-              <div
-                key={tool.toolCallId}
-                style={{
-                  fontSize: 12,
-                  background: tool.status === "failed" ? "#fee2e2" : "#f3f4f6",
-                  color: tool.status === "failed" ? "#991b1b" : "#374151",
-                  padding: "4px 6px",
-                  borderRadius: 4,
-                }}
-              >
-                Tool {tool.toolName}: {tool.status}
-              </div>
-            ))}
+          <div>
+            <div style={{ fontSize: 12, color: "#888", fontStyle: "italic" }}>Tutor is responding...</div>
+            {latestAssistantMessageIndex(displayMessages) <= latestUserMessageIndex(displayMessages) && (
+              <AgentTrace traceTurn={null} liveRun={liveTraceRun} runStatus={runStatus} />
+            )}
           </div>
         )}
         {error && (
@@ -797,34 +948,18 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
         <div ref={messagesEndRef} />
       </div>
 
-      <div style={{ padding: 12, borderTop: "1px solid #eee", display: "flex", gap: 6, flexDirection: "column" }}>
+      <div className="tutor-composer">
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask the tutor... (Ctrl+Enter to send)"
-          style={{
-            flex: 1,
-            minHeight: 60,
-            padding: 8,
-            borderRadius: 4,
-            border: "1px solid #ddd",
-            fontFamily: "system-ui",
-            fontSize: 13,
-            resize: "none",
-          }}
+          placeholder="Ask the tutor..."
         />
         <button
           onClick={() => void handleSend()}
-          disabled={!input.trim()}          style={{
-            padding: "8px 12px",
-            background: isLoading ? "#7c3aed" : "#2563eb",
-            color: "#fff",
-            border: "none",
-            borderRadius: 4,
-            cursor: "pointer",
-            fontSize: 13,
-          }}
+          disabled={!input.trim()}
+          className="study-primary-button"
+          style={{ opacity: !input.trim() ? 0.55 : 1, cursor: !input.trim() ? "not-allowed" : "pointer" }}
         >
           {isLoading ? "Steer current response" : "Send"}
         </button>
@@ -898,6 +1033,7 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
             {artifactError && (
               <div style={{ fontSize: 12, color: "#991b1b", background: "#fee2e2", padding: 8, borderRadius: 6 }}>{artifactError}</div>
             )}
+            {selectedArtifact.view && <LearningArtifactOverview view={selectedArtifact.view} />}
 
             {selectedArtifact.artifactType === "note" ? (
               <>
@@ -1166,10 +1302,8 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
                 {typeof selectedArtifact.payload.summary === "string" && (
                   <div style={{ fontSize: 13, color: "#111827", lineHeight: 1.6 }}>{selectedArtifact.payload.summary}</div>
                 )}
-                <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 600 }}>ARTIFACT PAYLOAD</div>
-                <pre style={{ margin: 0, padding: 10, background: "#f9fafb", borderRadius: 6, fontSize: 11, overflow: "auto" }}>
-                  {JSON.stringify(selectedArtifact.payload, null, 2)}
-                </pre>
+                <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 600 }}>REFERENCE FIELDS</div>
+                <ReadableArtifactPayload payload={selectedArtifact.payload} />
               </>
             )}
             {quizFeedback && (
@@ -1178,11 +1312,575 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
           </div>
         </div>
       )}
+
+      {showStudyPlanModal && studyState && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 16,
+            zIndex: 25,
+            background: "white",
+            border: "1px solid #d1d5db",
+            borderRadius: 10,
+            boxShadow: "0 12px 28px rgba(0,0,0,0.18)",
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              padding: "10px 12px",
+              borderBottom: "1px solid #e5e7eb",
+              background: "#f8fafc",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#111827" }}>Live Plan</div>
+            <button
+              type="button"
+              onClick={closeStudyPlanModal}
+              style={{ border: "none", background: "none", fontSize: 18, cursor: "pointer", color: "#6b7280" }}
+            >
+              ×
+            </button>
+          </div>
+          <div style={{ padding: 12, overflow: "auto", display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ fontSize: 12, color: "#374151" }}>
+              <strong>Current objective:</strong> {studyState.studyPlan?.currentObjective?.title ?? "No active objective"}
+            </div>
+            <div style={{ fontSize: 12, color: "#475569" }}>
+              <strong>Session goal:</strong> {studyState.sessionPlan?.sessionGoal ?? "Not set"}
+            </div>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", marginBottom: 6 }}>UPCOMING OBJECTIVES</div>
+              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: "#111827", lineHeight: 1.5 }}>
+                {(studyState.studyPlan?.upcomingObjectives ?? []).map((objective) => (
+                  <li key={objective.id}>{objective.title}</li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", marginBottom: 6 }}>RECENTLY COMPLETED</div>
+              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: "#111827", lineHeight: 1.5 }}>
+                {(studyState.studyPlan?.completedObjectives ?? []).slice(-5).map((objective) => (
+                  <li key={objective.id}>{objective.title}</li>
+                ))}
+              </ul>
+            </div>
+            {(studyState.studyPlan?.weakConcepts.length ?? 0) > 0 && (
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", marginBottom: 6 }}>WEAK CONCEPTS</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {(studyState.studyPlan?.weakConcepts ?? []).map((concept) => (
+                    <span key={concept.id} style={{ background: "#fee2e2", color: "#991b1b", padding: "2px 8px", borderRadius: 9999, fontSize: 11 }}>
+                      {concept.name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
+export function buildTutorSelectedNodeRefs(baseRefs: SelectedNodeRef[], selectedArtifactId: string | null): SelectedNodeRef[] {
+  const merged = [...baseRefs];
+  if (selectedArtifactId) {
+    merged.push({ refType: "artifact", refId: selectedArtifactId });
+  }
+  const seen = new Set<string>();
+  return merged.filter((ref) => {
+    const key = `${ref.refType}:${ref.refId}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+export function buildTutorSessionInsights(traceData: ChatTraceResponse | null): TutorSessionInsights {
+  const turns = traceData?.turns ?? [];
+  const taughtPoints: string[] = [];
+  const doubts: string[] = [];
+  for (const turn of turns) {
+    if (turn.assistantMessage && taughtPoints.length < 4) {
+      const snippet = summarizeTutorInsight(turn.assistantMessage);
+      if (snippet && !taughtPoints.includes(snippet)) {
+        taughtPoints.push(snippet);
+      }
+    }
+    if (turn.userMessage && looksLikeTutorDoubt(turn.userMessage)) {
+      const snippet = summarizeTutorInsight(turn.userMessage);
+      if (snippet && !doubts.includes(snippet)) {
+        doubts.push(snippet);
+      }
+    }
+  }
+
+  const lastAssistantMessage = [...turns].reverse().find((turn) => typeof turn.assistantMessage === "string" && turn.assistantMessage.trim());
+  const nextSteps = lastAssistantMessage?.assistantMessage
+    ? [summarizeTutorInsight(lastAssistantMessage.assistantMessage, 160)].filter(Boolean)
+    : ["Continue the current session goal in tutor chat."];
+
+  return {
+    turnCount: turns.length,
+    summary: turns.length > 0 ? `${turns.length} turn${turns.length === 1 ? "" : "s"} captured` : "No turns recorded yet",
+    taughtPoints: taughtPoints.length > 0 ? taughtPoints : ["No teaching notes yet."],
+    doubts: doubts.length > 0 ? doubts : ["No explicit doubts captured yet."],
+    nextSteps,
+  };
+}
+
+function summarizeTutorInsight(text: string, maxLength = 140): string {
+  const normalized = text.trim().replace(/\s+/g, " ");
+  if (normalized.length <= maxLength) return normalized;
+  return `${normalized.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
+}
+
+function looksLikeTutorDoubt(text: string): boolean {
+  const normalized = text.trim().toLowerCase();
+  if (!normalized) return false;
+  return /\?|confus|stuck|unclear|don't understand|do not understand|why|how/.test(normalized);
+}
+
+function SessionInsightList({ title, items, emptyMessage }: { title: string; items: string[]; emptyMessage: string }) {
+  return (
+    <div style={{ display: "grid", gap: 6 }}>
+      <div style={{ fontSize: 12, fontWeight: 800, color: "#6b7280", textTransform: "uppercase" }}>{title}</div>
+      <div style={{ display: "grid", gap: 6 }}>
+        {items.map((item) => (
+          <div key={item} style={{ padding: "8px 10px", borderRadius: 8, background: "#f9fafb", border: "1px solid #e5e7eb", color: "#374151", lineHeight: 1.45 }}>
+            {item}
+          </div>
+        ))}
+        {items.length === 0 && <div style={{ color: "#6b7280" }}>{emptyMessage}</div>}
+      </div>
+    </div>
+  );
+}
+
+export function traceTurnForAssistantMessage(
+  messages: UIMessage[],
+  messageIndex: number,
+  traceData: ChatTraceResponse | null,
+): ChatTraceTurn | null {
+  if (!traceData || messages[messageIndex]?.role === "user") return null;
+  const userMessage = nearestPreviousUserMessageText(messages, messageIndex);
+  if (userMessage) {
+    const matchingTurns = traceData.turns.filter((turn) => turn.userMessage?.trim() === userMessage);
+    if (matchingTurns.length > 0) {
+      const priorMatchingAssistantMessages = messages
+        .slice(0, messageIndex + 1)
+        .filter((message, index) => message.role !== "user" && nearestPreviousUserMessageText(messages, index) === userMessage)
+        .length;
+      return matchingTurns[Math.min(priorMatchingAssistantMessages - 1, matchingTurns.length - 1)] ?? matchingTurns[matchingTurns.length - 1] ?? null;
+    }
+  }
+  const assistantIndex = messages.slice(0, messageIndex + 1).filter((message) => message.role !== "user").length - 1;
+  return traceData.turns[assistantIndex] ?? null;
+}
+
+export function latestAssistantMessageIndex(messages: UIMessage[]): number {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index]?.role !== "user") return index;
+  }
+  return -1;
+}
+
+export function latestUserMessageIndex(messages: UIMessage[]): number {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index]?.role === "user") return index;
+  }
+  return -1;
+}
+
+export function messagesFromTraceData(traceData: ChatTraceResponse | null): UIMessage[] {
+  if (!traceData) return [];
+  return traceData.turns.flatMap((turn) => {
+    const items: UIMessage[] = [];
+    if (turn.userMessage?.trim()) {
+      items.push({
+        id: `${turn.id}:user`,
+        role: "user",
+        parts: [{ type: "text", content: turn.userMessage }],
+      } as UIMessage);
+    }
+    if (turn.assistantMessage?.trim()) {
+      items.push({
+        id: `${turn.id}:assistant`,
+        role: "assistant",
+        parts: [{ type: "text", content: turn.assistantMessage }],
+      } as UIMessage);
+    }
+    return items;
+  });
+}
+
+export function mergePersistedAndLiveMessages(persisted: UIMessage[], live: UIMessage[]): UIMessage[] {
+  if (!live.length) return persisted;
+  if (!persisted.length) return live;
+  const latestLiveUser = [...live].reverse().find((message) => message.role === "user");
+  if (latestLiveUser) {
+    const latestLiveUserText = messageText(latestLiveUser).trim();
+    const persistedHasCompletedLiveTurn = persisted.some((message, index) => {
+      if (message.role !== "user" || messageText(message).trim() !== latestLiveUserText) return false;
+      return persisted.slice(index + 1).some((candidate) => candidate.role !== "user" && messageText(candidate).trim());
+    });
+    if (latestLiveUserText && persistedHasCompletedLiveTurn) return persisted;
+  }
+  if (live.length >= persisted.length) return live;
+  return [...persisted, ...live];
+}
+
+export function traceDataForTurn(traceData: ChatTraceResponse | null, turnId: string | null): ChatTraceResponse | null {
+  if (!traceData || !turnId) return null;
+  const turn = traceData.turns.find((item) => item.id === turnId);
+  return turn ? { ...traceData, turns: [turn] } : null;
+}
+
+type TutorHistorySession = {
+  sessionId: string;
+  startedAt: string;
+  turnCount: number;
+  title: string;
+  firstUserMessage: string;
+  latestAssistantMessage: string;
+};
+
+export function buildHistorySessions(traceData: ChatTraceResponse | null): TutorHistorySession[] {
+  if (!traceData) return [];
+  const sessions = new Map<string, ChatTraceResponse["turns"]>();
+  for (const turn of traceData.turns) {
+    const turns = sessions.get(turn.sessionId) ?? [];
+    turns.push(turn);
+    sessions.set(turn.sessionId, turns);
+  }
+  return [...sessions.entries()]
+    .map(([sessionId, turns]) => {
+      const sortedTurns = turns.slice().sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
+      const first = sortedTurns[0];
+      const latestAssistant = [...sortedTurns].reverse().find((turn) => turn.assistantMessage?.trim());
+      const firstUserMessage = first?.userMessage?.trim() ?? "";
+      return {
+        sessionId,
+        startedAt: first?.createdAt ?? new Date(0).toISOString(),
+        turnCount: sortedTurns.length,
+        title: compactHistoryTitle(firstUserMessage || latestAssistant?.assistantMessage || "Tutor session"),
+        firstUserMessage,
+        latestAssistantMessage: compactHistoryTitle(latestAssistant?.assistantMessage ?? ""),
+      };
+    })
+    .sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt));
+}
+
+export function traceDataForSession(traceData: ChatTraceResponse | null, sessionId: string | null): ChatTraceResponse | null {
+  if (!traceData || !sessionId) return null;
+  const turns = traceData.turns.filter((item) => item.sessionId === sessionId);
+  return turns.length ? { ...traceData, turns } : null;
+}
+
+function compactHistoryTitle(value: string): string {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  return normalized.length > 96 ? `${normalized.slice(0, 93)}...` : normalized;
+}
+
 function renderMessage(message: UIMessage): React.ReactNode {
+  const text = messageText(message);
+  if (!text) return null;
+  const normalized = message.role === "user" ? text : normalizeAssistantMessageText(text);
+  return <TutorMessageText text={normalized} />;
+}
+
+export function normalizeAssistantMessageText(text: string): string {
+  let normalized = text.replace(/\r\n/g, "\n").trim();
+  normalized = removeRepeatedPrefix(normalized);
+  normalized = normalized
+    .replace(/\b(?:chk|clm|src|trace|cnc|artifact|turn|run)_[a-z0-9_]+\b/gi, "")
+    .replace(/([a-z])(?=Let me\b)/g, "$1 ")
+    .replace(/\(\s*(?:,\s*)+\)/g, "")
+    .replace(/\(\s*(?:chunk|claim|source|trace)\s*\)/gi, "")
+    .replace(/`+\s*`+/g, "")
+    .replace(/[ \t]+/g, " ")
+    .replace(/(?<!\|)[ \t]*---[ \t]*(?!\|)/g, "\n\n")
+    .replace(/[ \t]+(#{2,4}\s+)/g, "\n\n$1")
+    .replace(/(#{2,4}\s+[^|\n]+?)\s+(\|)/g, "$1\n$2")
+    .replace(/\|\s+\|/g, "|\n|")
+    .replace(/\|\s+(\|[-: ]+\|)/g, "|\n$1")
+    .replace(/[ \t]+(\d+\.\s+\*\*)/g, "\n$1")
+    .replace(/[ \t]+([-*]\s+\*\*)/g, "\n$1")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/\b(note|notebook|material|anytime)(Now|Here|Great)\b/g, "$1 $2")
+    .trim();
+  return normalized;
+}
+
+function removeRepeatedPrefix(text: string): string {
+  const compact = text.replace(/\s+/g, " ");
+  const maxPrefix = Math.min(260, Math.floor(compact.length / 2));
+  for (let length = maxPrefix; length >= 48; length -= 1) {
+    const prefix = compact.slice(0, length);
+    const nextIndex = compact.indexOf(prefix, 12);
+    if (nextIndex >= length) {
+      return compact.slice(0, nextIndex).trim() + " " + compact.slice(nextIndex + length).trim();
+    }
+  }
+  return text;
+}
+
+function TutorMessageText({ text }: { text: string }) {
+  const blocks = React.useMemo(() => parseTutorTextBlocks(text), [text]);
+  return (
+    <div className="tutor-rich-text">
+      {blocks.map((block, index) => {
+        if (block.type === "heading") {
+          return <h4 key={index}>{renderInlineMarkdown(block.text)}</h4>;
+        }
+        if (block.type === "list") {
+          return (
+            <ul key={index}>
+              {block.items.map((item, itemIndex) => (
+                <li key={itemIndex}>{renderInlineMarkdown(item)}</li>
+              ))}
+            </ul>
+          );
+        }
+        if (block.type === "numbered-list") {
+          return (
+            <ol key={index}>
+              {block.items.map((item, itemIndex) => (
+                <li key={itemIndex}>{renderInlineMarkdown(item)}</li>
+              ))}
+            </ol>
+          );
+        }
+        if (block.type === "table") {
+          return (
+            <div key={index} className="tutor-table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    {block.headers.map((header, cellIndex) => (
+                      <th key={cellIndex}>{renderInlineMarkdown(header)}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {block.rows.map((row, rowIndex) => (
+                    <tr key={rowIndex}>
+                      {row.map((cell, cellIndex) => (
+                        <td key={cellIndex}>{renderInlineMarkdown(cell)}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        }
+        return <p key={index}>{renderInlineMarkdown(block.text)}</p>;
+      })}
+    </div>
+  );
+}
+
+type TutorTextBlock =
+  | { type: "paragraph"; text: string }
+  | { type: "heading"; text: string }
+  | { type: "list"; items: string[] }
+  | { type: "numbered-list"; items: string[] }
+  | { type: "table"; headers: string[]; rows: string[][] };
+
+export function parseTutorTextBlocks(text: string): TutorTextBlock[] {
+  const lines = repairTutorMarkdownLines(text).map((line) => line.trim()).filter(Boolean);
+  const blocks: TutorTextBlock[] = [];
+  let paragraph: string[] = [];
+  let list: string[] = [];
+  let numberedList: string[] = [];
+  let tableRows: string[][] = [];
+
+  const flushParagraph = () => {
+    if (!paragraph.length) return;
+    blocks.push({ type: "paragraph", text: cleanTutorInlineText(paragraph.join(" ")) });
+    paragraph = [];
+  };
+  const flushList = () => {
+    if (!list.length) return;
+    blocks.push({ type: "list", items: list.map(cleanTutorInlineText) });
+    list = [];
+  };
+  const flushNumberedList = () => {
+    if (!numberedList.length) return;
+    blocks.push({ type: "numbered-list", items: numberedList.map(cleanTutorInlineText) });
+    numberedList = [];
+  };
+  const flushTable = () => {
+    if (tableRows.length < 2) {
+      for (const row of tableRows) paragraph.push(row.join(" | "));
+      tableRows = [];
+      return;
+    }
+    const [headers, ...rows] = tableRows.filter((row) => !row.every((cell) => /^:?-{2,}:?$/.test(cell)));
+    if (!headers || rows.length === 0) {
+      tableRows = [];
+      return;
+    }
+    blocks.push({
+      type: "table",
+      headers: headers.map(cleanTutorInlineText),
+      rows: rows.map((row) => row.map(cleanTutorInlineText)),
+    });
+    tableRows = [];
+  };
+
+  for (const line of lines) {
+    const heading = line.match(/^#{1,4}\s+(.+)$/);
+    const bullet = line.match(/^[-*]\s+(.+)$/);
+    const numbered = line.match(/^\d+[.)]\s+(.+)$/);
+    const table = parseMarkdownTableRow(line);
+    if (heading) {
+      flushTable();
+      flushParagraph();
+      flushList();
+      flushNumberedList();
+      blocks.push({ type: "heading", text: cleanTutorInlineText(heading[1]!.trim()) });
+    } else if (table) {
+      flushParagraph();
+      flushList();
+      flushNumberedList();
+      tableRows.push(table);
+    } else if (bullet) {
+      flushTable();
+      flushParagraph();
+      flushNumberedList();
+      list.push(bullet[1]!.trim());
+    } else if (numbered) {
+      flushTable();
+      flushParagraph();
+      flushList();
+      numberedList.push(numbered[1]!.trim());
+    } else {
+      flushTable();
+      flushList();
+      flushNumberedList();
+      paragraph.push(line);
+    }
+  }
+  flushTable();
+  flushParagraph();
+  flushList();
+  flushNumberedList();
+  return blocks.length ? blocks : [{ type: "paragraph", text }];
+}
+
+function repairTutorMarkdownLines(text: string): string[] {
+  return text
+    .replace(/(?<!\|)[ \t]*---[ \t]*(?!\|)/g, "\n\n")
+    .replace(/[ \t]+(#{2,4}\s+)/g, "\n\n$1")
+    .replace(/(#{2,4}\s+[^|\n]+?)\s+(\|)/g, "$1\n$2")
+    .replace(/\|\s+\|/g, "|\n|")
+    .replace(/(\|[-: ]+\|)\s+(\|)/g, "$1\n$2")
+    .replace(/(\|[^|\n]+(?:\|[^|\n]+){1,}\|)\s+(?=\|)/g, "$1\n")
+    .replace(/\|\s+(\|[-: ]+\|)/g, "|\n$1")
+    .replace(/[ \t]+(\d+[.)]\s+\*\*)/g, "\n$1")
+    .replace(/[ \t]+([-*]\s+\*\*)/g, "\n$1")
+    .replace(/[ \t]+(\|[^|\n]+\|[^|\n]+\|)/g, "\n$1")
+    .split("\n");
+}
+
+function parseMarkdownTableRow(line: string): string[] | null {
+  const trimmed = line.trim();
+  if (!trimmed.includes("|")) return null;
+  const cells = trimmed
+    .replace(/^\|/, "")
+    .replace(/\|$/, "")
+    .split("|")
+    .map((cell) => cell.trim())
+    .filter((cell) => cell.length > 0);
+  return cells.length >= 2 ? cells : null;
+}
+
+function cleanTutorInlineText(text: string): string {
+  return text
+    .replace(/\b(?:chk|clm|src|trace|cnc|artifact|turn|run)_[a-z0-9_]+\b/gi, "")
+    .replace(/\(\s*(?:,\s*)+\)/g, "")
+    .replace(/\(\s*(?:chunk|claim|source|trace)\s*\)/gi, "")
+    .replace(/`+\s*`+/g, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+}
+
+function renderInlineMarkdown(text: string): React.ReactNode[] {
+  const nodes: React.ReactNode[] = [];
+  const pattern = /(\*\*[^*]+\*\*|`[^`]+`|\$\$[\s\S]+?\$\$|\$[^$\n]+\$)/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(text))) {
+    if (match.index > lastIndex) nodes.push(text.slice(lastIndex, match.index));
+    const token = match[0];
+    if (token.startsWith("**")) {
+      nodes.push(<strong key={nodes.length}>{token.slice(2, -2)}</strong>);
+    } else if (token.startsWith("$$")) {
+      nodes.push(<TutorMath key={nodes.length} formula={token.slice(2, -2)} displayMode />);
+    } else if (token.startsWith("$")) {
+      nodes.push(<TutorMath key={nodes.length} formula={token.slice(1, -1)} displayMode={false} />);
+    } else {
+      const value = token.slice(1, -1).trim();
+      if (value && !/^(?:chk|clm|src|trace|cnc|artifact|turn|run)_[a-z0-9_]+$/i.test(value)) {
+        nodes.push(<code key={nodes.length}>{value}</code>);
+      }
+    }
+    lastIndex = match.index + token.length;
+  }
+  if (lastIndex < text.length) nodes.push(text.slice(lastIndex));
+  return nodes;
+}
+
+function TutorMath({ formula, displayMode }: { formula: string; displayMode: boolean }) {
+  const html = React.useMemo(() => {
+    try {
+      return katex.renderToString(normalizeTutorLatex(formula), {
+        displayMode,
+        throwOnError: false,
+        strict: false,
+        trust: false,
+        output: "html",
+      });
+    } catch {
+      return null;
+    }
+  }, [displayMode, formula]);
+  if (!html) return <code>{formula}</code>;
+  return (
+    <span
+      className={displayMode ? "tutor-math tutor-math-display" : "tutor-math"}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+}
+
+function normalizeTutorLatex(value: string): string {
+  return value
+    .replace(/\\\\/g, "\\")
+    .replace(/\\text\{\s*W\/m\s*\}/g, "\\mathrm{W/m}")
+    .trim();
+}
+
+function nearestPreviousUserMessageText(messages: UIMessage[], messageIndex: number): string | null {
+  for (let index = messageIndex - 1; index >= 0; index -= 1) {
+    if (messages[index]?.role === "user") {
+      const text = messageText(messages[index]!).trim();
+      return text || null;
+    }
+  }
+  return null;
+}
+
+function messageText(message: UIMessage): string {
   const text = message.parts
     .map((part) => {
       if (part.type === "text") return part.content;
@@ -1191,21 +1889,106 @@ function renderMessage(message: UIMessage): React.ReactNode {
     .filter(Boolean)
     .join("\n");
 
-  return text || null;
+  return text;
 }
 
-function upsertToolState(
-  items: ToolState[],
-  toolCallId: string,
-  toolName: string,
-  status: ToolState["status"],
-): ToolState[] {
-  const idx = items.findIndex((item) => item.toolCallId === toolCallId);
-  if (idx === -1) {
-    return [...items, { toolCallId, toolName, status }];
+function ReadableArtifactPayload({ payload }: { payload: Record<string, unknown> }) {
+  const entries = Object.entries(payload).filter(([key, value]) => {
+    if (["debug", "raw", "metadata"].includes(key)) return false;
+    if (value === null || value === undefined) return false;
+    if (typeof value === "string") return value.trim().length > 0;
+    if (Array.isArray(value)) return value.length > 0;
+    if (typeof value === "object") return Object.keys(value as Record<string, unknown>).length > 0;
+    return true;
+  });
+  if (!entries.length) {
+    return <div style={{ fontSize: 12, color: "#6b7280" }}>No readable fields recorded yet.</div>;
   }
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {entries.slice(0, 8).map(([key, value]) => (
+        <div key={key} style={{ border: "1px solid #e5e7eb", borderRadius: 8, padding: 10, background: "#fff" }}>
+          <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 800, textTransform: "uppercase", marginBottom: 4 }}>{key.replace(/_/g, " ")}</div>
+          <ReadableValue value={value} />
+        </div>
+      ))}
+    </div>
+  );
+}
 
-  return items.map((item, index) => (index === idx ? { ...item, toolName, status } : item));
+function LearningArtifactOverview({ view }: { view: LearningArtifactView }) {
+  return (
+    <section style={{ border: "1px solid var(--line)", borderRadius: 8, background: "var(--panel-strong)", padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 10, alignItems: "start" }}>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 850, color: "var(--text-strong)" }}>{view.purpose}</div>
+          <div style={{ marginTop: 4, fontSize: 12, color: "var(--text-muted)", lineHeight: 1.45 }}>{view.studentAction}</div>
+        </div>
+        <span style={{ border: "1px solid var(--line)", borderRadius: 999, padding: "3px 8px", fontSize: 11, fontWeight: 800, color: view.quality.needsReview ? "var(--warning)" : "var(--success)" }}>
+          {view.quality.needsReview ? "needs review" : "ready"}
+        </span>
+      </div>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        <span style={{ background: "var(--accent-soft)", color: "var(--accent)", padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 750 }}>
+          {view.sourceRefs.length} evidence ref{view.sourceRefs.length === 1 ? "" : "s"}
+        </span>
+        {view.objectiveRefs.length > 0 && (
+          <span style={{ background: "#ecfdf5", color: "#047857", padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 750 }}>
+            {view.objectiveRefs.length} objective ref{view.objectiveRefs.length === 1 ? "" : "s"}
+          </span>
+        )}
+      </div>
+      {view.quality.issues.length > 0 && (
+        <div style={{ border: "1px solid #fde68a", background: "#fffbeb", color: "#92400e", borderRadius: 7, padding: 8, fontSize: 12, lineHeight: 1.45 }}>
+          {view.quality.issues.join(" ")}
+        </div>
+      )}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {view.sections.filter((section) => section.id !== "evidence").slice(0, 4).map((section) => (
+          <div key={section.id} style={{ borderTop: "1px solid var(--line)", paddingTop: 8 }}>
+            <div style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 850, textTransform: "uppercase", marginBottom: 4 }}>{section.title}</div>
+            <ReadableValue value={section.kind === "empty" ? section.emptyMessage ?? "No content yet." : section.content} />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ReadableValue({ value }: { value: unknown }) {
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return <div style={{ fontSize: 13, color: "#111827", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{String(value)}</div>;
+  }
+  if (Array.isArray(value)) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {value.slice(0, 8).map((entry, index) => (
+          <div key={index} style={{ fontSize: 12, color: "#374151", background: "#f9fafb", borderRadius: 6, padding: 8 }}>
+            <ReadableValue value={entry} />
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const title = record.title ?? record.prompt ?? record.front ?? record.term ?? null;
+    const body = record.body ?? record.answer ?? record.back ?? record.description ?? record.explanation ?? null;
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        {title ? <div style={{ fontSize: 13, fontWeight: 750, color: "#111827" }}>{String(title)}</div> : null}
+        {body ? <div style={{ fontSize: 12, color: "#4b5563", lineHeight: 1.5 }}>{String(body)}</div> : null}
+        {!title && !body ? (
+          Object.entries(record).slice(0, 6).map(([key, entry]) => (
+            <div key={key} style={{ fontSize: 12, color: "#4b5563" }}>
+              <strong>{key.replace(/_/g, " ")}:</strong> {typeof entry === "object" ? JSON.stringify(entry) : String(entry)}
+            </div>
+          ))
+        ) : null}
+      </div>
+    );
+  }
+  return <div style={{ fontSize: 12, color: "#6b7280" }}>No data.</div>;
 }
 
 function toQuizQuestions(value: unknown): QuizQuestion[] {

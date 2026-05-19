@@ -7,7 +7,12 @@
   "types": "./dist/index.d.ts",
   "scripts": { "build": "tsc -b", "check": "tsc -b --pretty false" },
   "dependencies": {
+    "@studyagent/db": "workspace:*",
     "@studyagent/schemas": "workspace:*",
+    "drizzle-orm": "^0.44.2",
     "neo4j-driver": "^5.28.0"
+  },
+  "devDependencies": {
+    "vitest": "latest"
   }
 }

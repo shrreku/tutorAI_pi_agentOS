@@ -74,7 +74,7 @@ export function lintNotebookWiki(input: WikiLintNotebookInput): WikiLintIssue[] 
     const md = p.markdown.trim();
     const citesClaimInBody = /`clm_[a-z0-9]+`/i.test(md) || /claim\s*`?clm_/i.test(md);
     const hasCitation = p.sourceClaimIds.length > 0 || citesClaimInBody;
-    if (md.length > 120 && !hasCitation && p.pageType !== "source_summary") {
+    if (md.length > 120 && !hasCitation && p.pageType !== "source_summary" && p.pageType !== "topic") {
       issues.push({
         code: "missing_citations",
         severity: "warn",

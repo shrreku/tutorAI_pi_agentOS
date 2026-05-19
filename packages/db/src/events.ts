@@ -1,4 +1,4 @@
-import { eq, max } from "drizzle-orm";
+import { eq, max, sql } from "drizzle-orm";
 import type { DbClient } from "./client.js";
 import { events } from "./schema/index.js";
 
@@ -15,6 +15,8 @@ export async function appendEvent(
   input: AppendEventInput,
 ): Promise<{ id: string; sequenceNo: number }> {
   return db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${input.notebookId}))`);
+
     const [row] = await tx
       .select({ m: max(events.sequenceNo) })
       .from(events)

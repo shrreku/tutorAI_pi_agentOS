@@ -1,28 +1,7 @@
 import React, { useEffect, useState } from "react";
+import type { EvidenceReadModel, EvidenceRef } from "@studyagent/schemas";
 
-interface ClaimRef {
-  id: string;
-  claimType: string;
-  claimText: string;
-  confidence: number;
-  status: string;
-}
-
-interface ChunkRef {
-  id: string;
-  chunkType: string;
-  text: string;
-  pageStart?: number | null;
-  pageEnd?: number | null;
-}
-
-interface ProvenanceData {
-  nodeId: string;
-  entityType: string | null;
-  entity: Record<string, unknown> | null;
-  claimRefs: ClaimRef[];
-  chunkRefs: ChunkRef[];
-}
+type ProvenanceData = EvidenceReadModel;
 
 interface ProvenanceDrawerProps {
   isOpen: boolean;
@@ -65,6 +44,22 @@ function ConfidenceBar({ value }: { value: number }) {
   );
 }
 
+export function isLearnerCanonicalClaim(claim: EvidenceRef): boolean {
+  return (
+    claim.kind === "claim" &&
+    claim.visibility === "learner" &&
+    (claim.statementKind === undefined || claim.statementKind === "source_backed")
+  );
+}
+
+export function isEvidenceChunk(ref: EvidenceRef): boolean {
+  return ref.kind === "chunk";
+}
+
+export function isDeveloperClaim(ref: EvidenceRef): boolean {
+  return ref.kind === "claim" && ref.visibility === "developer";
+}
+
 export const ProvenanceDrawer: React.FC<ProvenanceDrawerProps> = ({
   isOpen,
   onClose,
@@ -87,16 +82,20 @@ export const ProvenanceDrawer: React.FC<ProvenanceDrawerProps> = ({
     }
     setLoading(true);
     setFetchError(null);
-    fetch(`/api/v1/notebooks/${encodeURIComponent(notebookId)}/nodes/${encodeURIComponent(nodeId)}/provenance`)
+    const params = isDeveloperMode ? "?devMode=true" : "";
+    fetch(`/api/v1/notebooks/${encodeURIComponent(notebookId)}/nodes/${encodeURIComponent(nodeId)}/provenance${params}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then((data: ProvenanceData) => setProvenance(data))
       .catch((err: Error) => setFetchError(err.message))
       .finally(() => setLoading(false));
-  }, [isOpen, nodeId, notebookId]);
+  }, [isOpen, nodeId, notebookId, isDeveloperMode]);
 
   if (!isOpen) return null;
 
   const badge = BADGE_COLORS[nodeType ?? ""] ?? { bg: "#f3f4f6", text: "#374151" };
+  const learnerClaims = provenance?.learnerRefs.filter(isLearnerCanonicalClaim) ?? [];
+  const learnerChunks = provenance?.learnerRefs.filter(isEvidenceChunk) ?? [];
+  const reviewClaims = provenance?.developerRefs.filter(isDeveloperClaim) ?? [];
 
   return (
     <div
@@ -124,7 +123,7 @@ export const ProvenanceDrawer: React.FC<ProvenanceDrawerProps> = ({
             <span style={{ background: badge.bg, color: badge.text, padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700, textTransform: "capitalize" }}>
               {(nodeType ?? "node").replace(/_/g, " ")}
             </span>
-            <h2 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "#111827" }}>Provenance</h2>
+            <h2 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "#111827" }}>Evidence</h2>
           </div>
           {nodeTitle && <div style={{ fontSize: 13, color: "#6b7280" }}>{nodeTitle}</div>}
         </div>
@@ -143,66 +142,41 @@ export const ProvenanceDrawer: React.FC<ProvenanceDrawerProps> = ({
         )}
 
         {loading && (
-          <div style={{ color: "#6b7280", fontSize: 13, padding: "20px 0" }}>Loading provenance data…</div>
+          <div style={{ color: "#6b7280", fontSize: 13, padding: "20px 0" }}>Loading evidence…</div>
         )}
 
         {fetchError && (
           <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, padding: 10, fontSize: 12, color: "#991b1b", marginBottom: 12 }}>
-            Could not load provenance: {fetchError}
+            Could not load evidence: {fetchError}
           </div>
         )}
 
         {provenance && !loading && (
           <>
-            {/* Source claims */}
-            {provenance.claimRefs.length > 0 && (
-              <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", marginBottom: 8 }}>
-                  SOURCE CLAIMS ({provenance.claimRefs.length})
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {provenance.claimRefs.map((claim) => {
-                    const sc = STATUS_COLORS[claim.status] ?? { bg: "#f3f4f6", text: "#374151" };
-                    return (
-                      <div key={claim.id} style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 6, padding: "8px 10px" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                          <span style={{ fontSize: 11, fontWeight: 600, color: "#374151", textTransform: "capitalize" }}>
-                            {claim.claimType.replace(/_/g, " ")}
-                          </span>
-                          <span style={{ background: sc.bg, color: sc.text, padding: "1px 6px", borderRadius: 9999, fontSize: 10, fontWeight: 600 }}>
-                            {claim.status}
-                          </span>
-                        </div>
-                        <div style={{ fontSize: 12, color: "#1f2937", lineHeight: 1.5, marginBottom: 4 }}>{claim.claimText}</div>
-                        <ConfidenceBar value={claim.confidence} />
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
             {/* Source chunks */}
-            {provenance.chunkRefs.length > 0 && (
+            {learnerChunks.length > 0 && (
               <div style={{ marginBottom: 16 }}>
                 <div style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", marginBottom: 8 }}>
-                  SOURCE CHUNKS ({provenance.chunkRefs.length})
+                  SOURCE EXCERPTS ({learnerChunks.length})
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {provenance.chunkRefs.map((chunk) => (
+                  {learnerChunks.map((chunk) => (
                     <div key={chunk.id} style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 6, padding: "8px 10px" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                        <span style={{ fontSize: 10, fontWeight: 600, color: "#6b7280", textTransform: "uppercase" }}>
-                          {chunk.chunkType}
-                        </span>
+                        <span style={{ fontSize: 10, fontWeight: 600, color: "#6b7280", textTransform: "uppercase" }}>{chunk.chunkType ?? "chunk"}</span>
                         {(chunk.pageStart != null) && (
                           <span style={{ fontSize: 10, color: "#9ca3af" }}>
-                            p.{chunk.pageStart}{chunk.pageEnd && chunk.pageEnd !== chunk.pageStart ? `–${chunk.pageEnd}` : ""}
+                            p.{chunk.pageStart}{chunk.pageEnd && chunk.pageEnd !== chunk.pageStart ? `-${chunk.pageEnd}` : ""}
                           </span>
                         )}
                       </div>
-                      <div style={{ fontSize: 12, color: "#374151", lineHeight: 1.5, fontStyle: "italic" }}>
-                        "{chunk.text}{chunk.text.length >= 400 ? "…" : ""}"
+                      {chunk.sourceTitle && (
+                        <div style={{ fontSize: 11, color: "#4b5563", fontWeight: 600, marginBottom: 4 }}>
+                          {chunk.sourceTitle}
+                        </div>
+                      )}
+                      <div style={{ fontSize: 12, color: "#374151", lineHeight: 1.5 }}>
+                        {chunk.text}
                       </div>
                     </div>
                   ))}
@@ -210,10 +184,39 @@ export const ProvenanceDrawer: React.FC<ProvenanceDrawerProps> = ({
               </div>
             )}
 
-            {provenance.claimRefs.length === 0 && provenance.chunkRefs.length === 0 && (
+            {/* Source-backed supporting notes */}
+            {learnerClaims.length > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", marginBottom: 8 }}>
+                  SUPPORTING NOTES ({learnerClaims.length})
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {learnerClaims.map((claim) => {
+                    return (
+                      <div key={claim.id} style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 6, padding: "8px 10px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: "#374151", textTransform: "capitalize" }}>
+                          {claim.label.replace(/_/g, " ")}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 12, color: "#1f2937", lineHeight: 1.5, marginBottom: 4 }}>{claim.text}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {provenance.learnerRefs.length === 0 && provenance.developerRefs.length === 0 && (
               <div style={{ color: "#9ca3af", fontSize: 13, padding: "12px 0" }}>
-                No source claims or chunks found for this node.
+                No source excerpts or supporting notes found for this node.
                 {!provenance.entityType && " (Node may exist only in the graph projection.)"}
+              </div>
+            )}
+
+            {reviewClaims.length > 0 && !isDeveloperMode && (
+              <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 6, padding: 10, color: "#6b7280", fontSize: 12, lineHeight: 1.45 }}>
+                {reviewClaims.length} inferred, generated, draft, or low-confidence claim{reviewClaims.length === 1 ? "" : "s"} hidden from learner view. Enable Dev mode to inspect them.
               </div>
             )}
           </>
@@ -222,9 +225,35 @@ export const ProvenanceDrawer: React.FC<ProvenanceDrawerProps> = ({
         {/* Developer mode: raw IDs and metadata */}
         {isDeveloperMode && (
           <div style={{ marginTop: 16 }}>
+            {reviewClaims.length > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", marginBottom: 8 }}>
+                  DRAFT / DEBUG CLAIMS ({reviewClaims.length})
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {reviewClaims.map((claim) => {
+                    const sc = STATUS_COLORS[claim.status ?? ""] ?? { bg: "#f3f4f6", text: "#374151" };
+                    return (
+                      <div key={claim.id} style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 6, padding: "8px 10px" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                          <span style={{ fontSize: 11, fontWeight: 600, color: "#374151", textTransform: "capitalize" }}>
+                            {claim.label.replace(/_/g, " ")}
+                          </span>
+                          <span style={{ background: sc.bg, color: sc.text, padding: "1px 6px", borderRadius: 9999, fontSize: 10, fontWeight: 600 }}>
+                            {claim.statementKind?.replace(/_/g, " ") ?? claim.status}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: 12, color: "#1f2937", lineHeight: 1.5, marginBottom: 4 }}>{claim.text}</div>
+                        <ConfidenceBar value={claim.confidence ?? 0} />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             <div style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", marginBottom: 6 }}>DEVELOPER INFO</div>
             <pre style={{ background: "#1f2937", color: "#f3f4f6", padding: 12, borderRadius: 6, fontSize: 10, overflowX: "auto", margin: 0, lineHeight: 1.5 }}>
-              {JSON.stringify({ nodeId, nodeType, entityType: provenance?.entityType, entity: provenance?.entity, ...(metadata ?? {}) }, null, 2)}
+              {JSON.stringify({ nodeId, nodeType, entityType: provenance?.entityType, entity: provenance?.entity, learnerRefs: provenance?.learnerRefs.length ?? 0, developerRefs: provenance?.developerRefs.length ?? 0, ...(metadata ?? {}) }, null, 2)}
             </pre>
           </div>
         )}

@@ -36,4 +36,21 @@ describe("tutor intent routing", () => {
     expect(instruction).toContain("targeted help on weak concepts");
     expect(instruction).toContain("Understand linear combinations");
   });
+
+  it("detects explore intent for notebook navigation requests", () => {
+    expect(detectLearnerIntent("can we explore the map first?")).toEqual({
+      type: "explore",
+      keyword: "explore",
+    });
+  });
+
+  it("routes explore intent to objective-grounded overview when objective exists", () => {
+    const instruction = buildIntentRoutingInstruction(
+      { type: "explore", keyword: "explore" },
+      true,
+      "Understand linear combinations",
+    );
+    expect(instruction).toContain("objective-centered map");
+    expect(instruction).toContain("Understand linear combinations");
+  });
 });

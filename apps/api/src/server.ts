@@ -26,6 +26,7 @@ export async function buildServer(): Promise<{
 
   const app = Fastify({
     logger: { level: env.LOG_LEVEL },
+    disableRequestLogging: true,
   });
 
   await app.register(cors, {

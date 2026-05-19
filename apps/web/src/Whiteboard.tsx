@@ -1,9 +1,23 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import type { GraphQueryResponse } from "@studyagent/schemas";
+import type { GraphCanvasNode, GraphQueryResponse } from "@studyagent/schemas";
 import { GraphCanvas } from "./GraphCanvas.js";
 import { ProvenanceDrawer } from "./ProvenanceDrawer.js";
 import { NodeDetailPanel } from "./NodeDetailPanel.js";
+import FullPanelViewer from "./FullPanelViewer.js";
+import { DeveloperTimelinePanel } from "./DeveloperTimelinePanel.js";
+import {
+  buildCurriculumOutline,
+  resolveWorkspaceGraph,
+  topicsFromReadModel,
+  collapseObjectiveHistory,
+  limitLearnerGraphDensity,
+  promoteCurrentPathConcepts,
+  type CurriculumOutline,
+  type CurriculumObjectiveOutline,
+  type TopicLayer,
+} from "./whiteboard-utils.js";
+import { mapGraphNodeToNodeRef, mapGraphNodeTypeToRefType } from "./whiteboard-node-ref.js";
 
 interface WhiteboardProps {
   notebookId: string;
@@ -11,11 +25,11 @@ interface WhiteboardProps {
   externalRefreshToken?: number;
 }
 
-type ViewMode = "study_map" | "source_wiki_map";
-
+type ViewMode = "curriculum" | "study_map" | "source_wiki_map";
 const NODE_TYPES = [
   "source",
   "source_section",
+  "topic",
   "curriculum",
   "curriculum_module",
   "objective",
@@ -59,18 +73,30 @@ type StudyStateSummary = {
   objectiveList: { title: string; status: string; currentObjectiveId: string | null } | null;
   sessionPlan: { title: string; status: string; sessionGoal: string | null } | null;
   studyPlan: {
-    currentObjective: { title: string } | null;
+    currentObjective: { id: string; title: string } | null;
     upcomingObjectives: Array<{ title: string }>;
     completedObjectives: unknown[];
     weakConcepts: Array<{ name: string }>;
   } | null;
+  coverage: {
+    total: number;
+    planned: number;
+    introduced: number;
+    checked: number;
+    mastered: number;
+    needsReview: number;
+    gaps: Array<{ title: string; itemFamily: string; status: string }>;
+  };
 };
+
+type RightPanelMode = "workspace" | "viewer";
 
 export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, onSelectedNodeRefsChange, externalRefreshToken }) => {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("study_map");
   const [showProvenance, setShowProvenance] = useState(false);
   const [isDeveloperMode, setIsDeveloperMode] = useState(false);
+  const [rightPanelMode, setRightPanelMode] = useState<RightPanelMode>("workspace");
 
   // GF-0607: type + status filters
   const [activeTypeFilters, setActiveTypeFilters] = useState<Set<string>>(new Set());
@@ -131,15 +157,16 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, onSelectedNo
       notebookId,
       viewMode,
       viewMode === "source_wiki_map" ? selectedSourceId : "study_map",
+      isDeveloperMode,
       externalRefreshToken ?? 0,
     ],
-    enabled: viewMode === "study_map" || Boolean(selectedSourceId),
+    enabled: viewMode === "curriculum" || viewMode === "study_map" || Boolean(selectedSourceId),
     placeholderData: keepPreviousData,
     queryFn: async (): Promise<GraphQueryResponse> => {
       const body =
         viewMode === "source_wiki_map" && selectedSourceId
-          ? { name: viewMode, sourceId: selectedSourceId, limit: 80 }
-          : { name: "study_map", limit: 80 };
+          ? { name: viewMode, sourceId: selectedSourceId, limit: 80, devMode: isDeveloperMode }
+          : { name: "study_map", limit: 80, devMode: isDeveloperMode };
 
       const response = await fetch(`/api/v1/notebooks/${notebookId}/graph/query`, {
         method: "POST",
@@ -154,8 +181,25 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, onSelectedNo
     },
   });
 
+  const { data: curriculumReadModel } = useQuery({
+    queryKey: ["curriculum-outline", notebookId, externalRefreshToken ?? 0],
+    enabled: viewMode === "curriculum",
+    queryFn: async (): Promise<CurriculumOutline> => {
+      const response = await fetch(`/api/v1/notebooks/${notebookId}/curriculum-outline`);
+      if (!response.ok) {
+        throw new Error(`Failed to load curriculum outline (${response.status})`);
+      }
+      return (await response.json()) as CurriculumOutline;
+    },
+  });
+
   const error = graphError instanceof Error ? graphError.message : null;
   const isLoading = isGraphLoading && !graphData;
+
+  const topicLayer: TopicLayer[] =
+    graphData && viewMode === "source_wiki_map" && selectedSourceId
+      ? topicsFromReadModel(graphData, selectedSourceId)
+      : [];
 
   useEffect(() => {
     if (!selectedNodeId) return;
@@ -163,12 +207,22 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, onSelectedNo
     setSelectedNodeId(null);
   }, [graphData, selectedNodeId]);
 
+  useEffect(() => {
+    if (rightPanelMode === "viewer" && !selectedNodeId) {
+      setRightPanelMode("workspace");
+    }
+  }, [rightPanelMode, selectedNodeId]);
+
   const handleLayoutChange = async (nodeId: string, position: { x: number; y: number }, nodeType?: string) => {
     try {
       await fetch(`/api/v1/notebooks/${notebookId}/graph/layout/${nodeId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ position, nodeType: nodeType ?? "unknown", refType: "whiteboard_node" }),
+        body: JSON.stringify({
+          position,
+          nodeType: nodeType ?? "unknown",
+          refType: mapGraphNodeTypeToRefType(nodeType ?? "unknown"),
+        }),
       });
     } catch (err) {
       console.error("Failed to save layout:", err);
@@ -176,9 +230,13 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, onSelectedNo
   };
 
   // GF-0605: propagate selected node as nodeRef upward
+  // GF-1 (NEW): When clicking a node, enter viewer mode
   const handleNodeSelect = useCallback(
     (nodeId: string | null) => {
       setSelectedNodeId(nodeId);
+      if (nodeId) {
+        setRightPanelMode("viewer");
+      }
       if (!onSelectedNodeRefsChange) return;
       if (!nodeId) {
         onSelectedNodeRefsChange([]);
@@ -186,17 +244,34 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, onSelectedNo
       }
       const node = graphData?.nodes.find((n) => n.id === nodeId);
       if (node) {
-        onSelectedNodeRefsChange([{ refType: node.nodeType, refId: node.id }]);
+        onSelectedNodeRefsChange([mapGraphNodeToNodeRef(node)]);
       }
     },
     [graphData, onSelectedNodeRefsChange],
   );
 
+  // GF-1 (NEW): Return from viewer to workspace
+  const handleExitViewer = useCallback(() => {
+    setRightPanelMode("workspace");
+    // Keep node selected for reference but hide the viewer
+  }, []);
+
+  const handleDraftTutorPrompt = useCallback(
+    (prompt: string, node: GraphCanvasNode) => {
+      onSelectedNodeRefsChange?.([mapGraphNodeToNodeRef(node)]);
+      window.dispatchEvent(new CustomEvent("studyagent:tutor-draft-prompt", { detail: { prompt, mode: "wiki_maintenance" } }));
+    },
+    [onSelectedNodeRefsChange],
+  );
+
   const selectedNode = graphData?.nodes.find((n) => n.id === selectedNodeId) ?? null;
+  const curriculumOutline = curriculumReadModel ?? (graphData ? buildCurriculumOutline(graphData) : null);
 
   // GF-0607: filtered graph data (type + status)
+  // GF-3A: Promote current-path concepts in study_map mode
   const filteredGraphData: GraphQueryResponse | null = graphData
     ? (() => {
+        const byDefaultVisibility = resolveWorkspaceGraph(graphData, viewMode, isDeveloperMode);
         const nodePassesType = (n: GraphQueryResponse["nodes"][number]) =>
           activeTypeFilters.size === 0 || activeTypeFilters.has(n.nodeType);
         const nodePassesStatus = (n: GraphQueryResponse["nodes"][number]) => {
@@ -204,13 +279,42 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, onSelectedNo
           const status = typeof n.properties.status === "string" ? n.properties.status : undefined;
           return status !== undefined && activeStatusFilters.has(status);
         };
-        const filteredNodes = graphData.nodes.filter((n) => nodePassesType(n) && nodePassesStatus(n));
+        const filteredNodes = byDefaultVisibility.nodes.filter((n) => nodePassesType(n) && nodePassesStatus(n));
         const visibleIds = new Set(filteredNodes.map((n) => n.id));
         const filteredEdges =
           activeTypeFilters.size === 0 && activeStatusFilters.size === 0
-            ? graphData.edges
-            : graphData.edges.filter((e) => visibleIds.has(e.source) && visibleIds.has(e.target));
-        return { ...graphData, nodes: filteredNodes, edges: filteredEdges };
+            ? byDefaultVisibility.edges
+            : byDefaultVisibility.edges.filter((e) => visibleIds.has(e.source) && visibleIds.has(e.target));
+
+        if (viewMode === "study_map" && studyState?.studyPlan?.currentObjective) {
+          const readModelPathIds = graphData.readModel?.emphasis.currentPathConceptIds ?? [];
+          const currentObjectiveId = studyState.studyPlan.currentObjective.id;
+          const relatedConceptIds = new Set(
+            readModelPathIds.length > 0
+              ? readModelPathIds
+              : byDefaultVisibility.edges.flatMap((edge) => {
+                  if (edge.source === currentObjectiveId) {
+                    return byDefaultVisibility.nodes.some((node) => node.id === edge.target && node.nodeType === "concept")
+                      ? [edge.target]
+                      : [];
+                  }
+                  if (edge.target === currentObjectiveId) {
+                    return byDefaultVisibility.nodes.some((node) => node.id === edge.source && node.nodeType === "concept")
+                      ? [edge.source]
+                      : [];
+                  }
+                  return [];
+                }),
+          );
+          const currentPathIds = Array.from(relatedConceptIds);
+          const promoted = promoteCurrentPathConcepts(
+            { ...byDefaultVisibility, nodes: filteredNodes, edges: filteredEdges },
+            currentPathIds,
+          );
+          return isDeveloperMode ? promoted : limitLearnerGraphDensity(collapseObjectiveHistory(promoted), 80);
+        }
+        const filtered = { ...byDefaultVisibility, nodes: filteredNodes, edges: filteredEdges };
+        return viewMode === "study_map" && !isDeveloperMode ? limitLearnerGraphDensity(collapseObjectiveHistory(filtered), 80) : filtered;
       })()
     : null;
 
@@ -241,29 +345,15 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, onSelectedNo
     setLayoutVersion((v) => v + 1);
   };
 
-  const nodeTypeColor: Record<string, string> = {
-    concept: "#3b82f6",
-    source: "#10b981",
-    source_section: "#34d399",
-    artifact: "#f59e0b",
-    claim: "#8b5cf6",
-    curriculum: "#f97316",
-    objective: "#fb923c",
-    study_plan: "#a78bfa",
-    wiki_page: "#06b6d4",
-    tutor_session: "#6b7280",
-    weak_concept: "#ef4444",
-  };
-
-
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+    <div className="whiteboard-shell" style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
       {/* Header toolbar */}
       <div
+        className="whiteboard-toolbar"
         style={{
-          padding: "10px 12px",
-          borderBottom: "1px solid #e5e7eb",
-          backgroundColor: "#f9fafb",
+          padding: "12px 14px",
+          borderBottom: "1px solid var(--line)",
+          backgroundColor: "var(--panel-strong)",
           display: "flex",
           gap: 8,
           alignItems: "center",
@@ -271,24 +361,17 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, onSelectedNo
         }}
       >
         {/* GF-0608: View mode toggles */}
-        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: "#6b7280" }}>VIEW:</span>
-          {(["study_map", "source_wiki_map"] as const).map((mode) => (
+        <div className="whiteboard-mode-group">
+          <span className="whiteboard-toolbar-label">Mode</span>
+          {(["curriculum", "study_map", "source_wiki_map"] as const).map((mode) => (
             <button
               key={mode}
               onClick={() => setViewMode(mode)}
-              style={{
-                padding: "3px 9px",
-                backgroundColor: viewMode === mode ? "#3b82f6" : "white",
-                color: viewMode === mode ? "white" : "#1f2937",
-                border: "1px solid #d1d5db",
-                borderRadius: 4,
-                fontSize: 11,
-                fontWeight: 500,
-                cursor: "pointer",
-              }}
+              className="study-chip-button"
+              data-active={viewMode === mode}
+              style={{ padding: "6px 10px", fontSize: 11 }}
             >
-              {mode === "study_map" ? "Study Map" : "Source Wiki"}
+              {mode === "curriculum" ? "Curriculum" : mode === "study_map" ? "Study Map" : "Source Wiki"}
             </button>
           ))}
         </div>
@@ -298,7 +381,8 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, onSelectedNo
           <select
             value={selectedSourceId ?? ""}
             onChange={(e) => setSelectedSourceId(e.target.value)}
-            style={{ fontSize: 11, padding: "2px 6px", border: "1px solid #d1d5db", borderRadius: 4 }}
+            aria-label="Source Wiki source"
+            style={{ fontSize: 11, padding: "6px 8px", border: "1px solid var(--line)", borderRadius: 8, background: "var(--panel)", color: "var(--text)" }}
           >
             {sources.map((s) => (
               <option key={s.id} value={s.id}>
@@ -310,35 +394,77 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, onSelectedNo
 
         <div style={{ flex: 1 }} />
 
-        {/* GF-0607: Filters toggle */}
-        <button
-          onClick={() => setShowFilters(!showFilters)}
-          style={{
-            padding: "3px 9px",
-            backgroundColor: (activeTypeFilters.size + activeStatusFilters.size) > 0 ? "#2563eb" : showFilters ? "#e5e7eb" : "white",
-            color: (activeTypeFilters.size + activeStatusFilters.size) > 0 ? "white" : "#1f2937",
-            border: "1px solid #d1d5db",
-            borderRadius: 4,
-            fontSize: 11,
-            fontWeight: 500,
-            cursor: "pointer",
-          }}
-        >
-          Filter{(activeTypeFilters.size + activeStatusFilters.size) > 0 ? ` (${activeTypeFilters.size + activeStatusFilters.size})` : ""}
-        </button>
+        {/* GF-0608: Topic layer display for source_wiki_map */}
+        {viewMode === "source_wiki_map" && topicLayer.length > 0 && (
+          <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)" }}>Topics</span>
+            {topicLayer.map((topic) => (
+              <span key={topic.id} style={{ fontSize: 10, padding: "3px 7px", borderRadius: 999, background: "var(--accent-soft)", color: "var(--accent)" }}>
+                {topic.title} ({topic.conceptCount} concepts)
+              </span>
+            ))}
+          </div>
+        )}
+
+        <div className="whiteboard-filter-menu">
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="study-chip-button"
+            data-active={showFilters || (activeTypeFilters.size + activeStatusFilters.size) > 0}
+            aria-expanded={showFilters}
+          >
+            Filters{(activeTypeFilters.size + activeStatusFilters.size) > 0 ? ` (${activeTypeFilters.size + activeStatusFilters.size})` : ""}
+          </button>
+          {showFilters && (
+            <div className="whiteboard-filter-popover">
+              <details open>
+                <summary>Node type</summary>
+                <div className="whiteboard-filter-options">
+                  {NODE_TYPES.map((type) => {
+                    const active = activeTypeFilters.has(type);
+                    return (
+                      <button key={type} type="button" onClick={() => toggleTypeFilter(type)} data-active={active}>
+                        {type.replace(/_/g, " ")}
+                      </button>
+                    );
+                  })}
+                </div>
+              </details>
+              <details>
+                <summary>Status</summary>
+                <div className="whiteboard-filter-options">
+                  {STATUS_OPTIONS.map((status) => {
+                    const active = activeStatusFilters.has(status);
+                    return (
+                      <button key={status} type="button" onClick={() => toggleStatusFilter(status)} data-active={active}>
+                        {status.replace(/_/g, " ")}
+                      </button>
+                    );
+                  })}
+                </div>
+              </details>
+              {(activeTypeFilters.size > 0 || activeStatusFilters.size > 0) && (
+                <button
+                  type="button"
+                  className="whiteboard-filter-clear"
+                  onClick={() => { setActiveTypeFilters(new Set()); setActiveStatusFilters(new Set()); }}
+                >
+                  Clear filters
+                </button>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* GF-0607: Refresh graph */}
         <button
           onClick={() => void refetchGraph()}
           title="Reload graph data"
+          className="study-icon-button"
           style={{
-            padding: "3px 9px",
-            backgroundColor: "white",
-            color: "#1f2937",
-            border: "1px solid #d1d5db",
-            borderRadius: 4,
+            width: 32,
+            height: 32,
             fontSize: 11,
-            cursor: "pointer",
           }}
         >
           ↺
@@ -348,184 +474,76 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, onSelectedNo
         <button
           onClick={() => void handleClearLayout()}
           title="Clear all saved positions and reset to auto-layout"
+          className="study-secondary-button"
           style={{
-            padding: "3px 9px",
-            backgroundColor: "white",
-            color: "#6b7280",
-            border: "1px solid #d1d5db",
-            borderRadius: 4,
+            padding: "6px 10px",
             fontSize: 11,
-            cursor: "pointer",
           }}
         >
           Auto-layout
         </button>
 
-        {/* Provenance toggle */}
+        {/* Evidence toggle */}
         {selectedNode && (
           <button
             onClick={() => setShowProvenance(!showProvenance)}
+            className="study-chip-button"
+            data-active={showProvenance}
             style={{
-              padding: "3px 9px",
-              backgroundColor: showProvenance ? "#8b5cf6" : "white",
-              color: showProvenance ? "white" : "#1f2937",
-              border: "1px solid #d1d5db",
-              borderRadius: 4,
+              padding: "6px 10px",
               fontSize: 11,
-              cursor: "pointer",
             }}
           >
-            Provenance
+            Evidence
           </button>
         )}
 
         {/* Dev mode */}
         <button
           onClick={() => setIsDeveloperMode(!isDeveloperMode)}
+          className="study-chip-button"
+          data-active={isDeveloperMode}
           style={{
-            padding: "3px 9px",
-            backgroundColor: isDeveloperMode ? "#374151" : "white",
-            color: isDeveloperMode ? "white" : "#1f2937",
-            border: "1px solid #d1d5db",
-            borderRadius: 4,
+            padding: "6px 10px",
+            backgroundColor: isDeveloperMode ? "var(--text-strong)" : undefined,
+            color: isDeveloperMode ? "var(--panel)" : undefined,
             fontSize: 11,
-            cursor: "pointer",
           }}
         >
           Dev
         </button>
       </div>
 
-      {studyState && (
-        <div
-          style={{
-            padding: "8px 12px",
-            borderBottom: "1px solid #e5e7eb",
-            background: "linear-gradient(90deg, #fff7ed 0%, #f8fafc 100%)",
-            display: "flex",
-            gap: 6,
-            flexWrap: "wrap",
-            fontSize: 11,
-            alignItems: "center",
-          }}
-        >
-          {studyState.curriculum && <span style={{ padding: "2px 8px", borderRadius: 9999, background: "#ffedd5", color: "#9a3412" }}>Curriculum: {studyState.curriculum.title}</span>}
-          {studyState.module && <span style={{ padding: "2px 8px", borderRadius: 9999, background: "#dcfce7", color: "#166534" }}>Module: {studyState.module.title}</span>}
-          {studyState.sessionPlan && <span style={{ padding: "2px 8px", borderRadius: 9999, background: "#e0f2fe", color: "#075985" }}>Session: {studyState.sessionPlan.title}</span>}
-          {studyState.objectiveList && <span style={{ padding: "2px 8px", borderRadius: 9999, background: "#f5f3ff", color: "#5b21b6" }}>Objective list: {studyState.objectiveList.title}</span>}
-          {studyState.studentProfile?.goalSummary && <span style={{ padding: "2px 8px", borderRadius: 9999, background: "#fef3c7", color: "#92400e" }}>Goal: {studyState.studentProfile.goalSummary}</span>}
-          {studyState.studentProfile?.pacePreference && <span style={{ padding: "2px 8px", borderRadius: 9999, background: "#ecfeff", color: "#155e75" }}>Pace: {studyState.studentProfile.pacePreference}</span>}
-          {studyState.studyPlan && <span style={{ padding: "2px 8px", borderRadius: 9999, background: "#e0e7ff", color: "#3730a3" }}>Current: {studyState.studyPlan.currentObjective?.title ?? "No active objective"}</span>}
-        </div>
-      )}
-
-      {/* GF-0607: Filter panel */}
-      {showFilters && (
-        <div
-          style={{
-            padding: "8px 12px",
-            borderBottom: "1px solid #e5e7eb",
-            backgroundColor: "#f9fafb",
-            display: "flex",
-            flexDirection: "column",
-            gap: 8,
-          }}
-        >
-          {/* Node type filters */}
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-            <span style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", minWidth: 80 }}>NODE TYPE:</span>
-            {NODE_TYPES.map((type) => {
-              const active = activeTypeFilters.has(type);
-              const color = nodeTypeColor[type] ?? "#6b7280";
-              return (
-                <button
-                  key={type}
-                  onClick={() => toggleTypeFilter(type)}
-                  style={{
-                    padding: "2px 8px",
-                    borderRadius: 9999,
-                    border: `1px solid ${active ? color : "#d1d5db"}`,
-                    background: active ? color : "white",
-                    color: active ? "white" : "#374151",
-                    fontSize: 11,
-                    cursor: "pointer",
-                    fontWeight: active ? 600 : 400,
-                  }}
-                >
-                  {type.replace(/_/g, " ")}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Status filters */}
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-            <span style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", minWidth: 80 }}>STATUS:</span>
-            {STATUS_OPTIONS.map((status) => {
-              const active = activeStatusFilters.has(status);
-              return (
-                <button
-                  key={status}
-                  onClick={() => toggleStatusFilter(status)}
-                  style={{
-                    padding: "2px 8px",
-                    borderRadius: 9999,
-                    border: `1px solid ${active ? "#374151" : "#d1d5db"}`,
-                    background: active ? "#374151" : "white",
-                    color: active ? "white" : "#374151",
-                    fontSize: 11,
-                    cursor: "pointer",
-                    fontWeight: active ? 600 : 400,
-                  }}
-                >
-                  {status.replace(/_/g, " ")}
-                </button>
-              );
-            })}
-          </div>
-
-          {(activeTypeFilters.size > 0 || activeStatusFilters.size > 0) && (
-            <div>
-              <button
-                onClick={() => { setActiveTypeFilters(new Set()); setActiveStatusFilters(new Set()); }}
-                style={{ fontSize: 11, color: "#6b7280", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", padding: 0 }}
-              >
-                Clear all filters
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Graph stats bar */}
       {filteredGraphData && !isLoading && (
-        <div
-          style={{
-            padding: "4px 12px",
-            background: "#f3f4f6",
-            borderBottom: "1px solid #e5e7eb",
-            fontSize: 11,
-            color: "#6b7280",
-            display: "flex",
-            gap: 12,
-          }}
-        >
+        <div className="whiteboard-statusbar">
+          <strong>
+            {viewMode === "source_wiki_map" ? "Source Wiki" : viewMode === "study_map" ? "Study Map" : "Curriculum"}
+          </strong>
           <span>{filteredGraphData.nodes.length} nodes</span>
           <span>{filteredGraphData.edges.length} edges</span>
           {(activeTypeFilters.size + activeStatusFilters.size) > 0 && (
-            <span style={{ color: "#2563eb" }}>
+            <span style={{ color: "var(--accent)" }}>
               {graphData!.nodes.length - filteredGraphData.nodes.length} filtered
             </span>
           )}
           {selectedNode && (
-            <span style={{ color: "#7c3aed" }}>
+            <span style={{ color: "var(--accent)" }}>
               Selected: {(selectedNode.properties.title as string) ?? selectedNode.id.slice(0, 12)}
             </span>
+          )}
+          {studyState?.studyPlan?.currentObjective && !selectedNode && (
+            <span style={{ color: "var(--text)" }}>
+              Current: {studyState.studyPlan.currentObjective.title}
+            </span>
+          )}
+          {graphData?.readModel?.projectionWarning && (
+            <span style={{ color: "var(--warn, #9a6700)" }}>{graphData.readModel.projectionWarning}</span>
           )}
         </div>
       )}
 
-      {/* Main Canvas */}
+      {/* Main Canvas + Right Panel Mode */}
       <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
         {isLoading && (
           <div
@@ -605,33 +623,75 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, onSelectedNo
           </div>
         )}
 
-        {!isLoading && !error && filteredGraphData && (
-          <GraphCanvas
-            graphData={filteredGraphData}
-            selectedNodeId={selectedNodeId}
-            onNodeSelect={handleNodeSelect}
-            onLayoutChange={handleLayoutChange}
-            notebookId={notebookId}
-            layoutVersion={layoutVersion}
+        {viewMode === "curriculum" && rightPanelMode === "workspace" && !isLoading && !error && curriculumOutline && (
+          <CurriculumBrowser
+            outline={curriculumOutline}
+            studyState={studyState ?? null}
+            currentObjectiveId={studyState?.studyPlan?.currentObjective?.id ?? studyState?.objectiveList?.currentObjectiveId ?? null}
+            onOpenNode={(nodeId) => handleNodeSelect(nodeId)}
           />
         )}
 
-        {/* GF-0604: Node Detail Panel */}
-        {selectedNode && !showProvenance && (
-          <NodeDetailPanel
+        {/* GF-1 (NEW): Right panel mode state machine */}
+        {rightPanelMode === "workspace" && viewMode !== "curriculum" && (
+          <>
+            {!isLoading && !error && filteredGraphData && (
+              <GraphCanvas
+                graphData={filteredGraphData}
+                selectedNodeId={selectedNodeId}
+                onNodeSelect={handleNodeSelect}
+                onLayoutChange={handleLayoutChange}
+                notebookId={notebookId}
+                layoutVersion={layoutVersion}
+              />
+            )}
+            
+            {/* GF-0604: Node Detail Panel Overlay (workspace mode only) */}
+            {selectedNode && !showProvenance && (
+              <NodeDetailPanel
+                node={selectedNode}
+                onClose={() => handleNodeSelect(null)}
+                onLaunchTutor={(node) => {
+                  if (onSelectedNodeRefsChange) {
+                    onSelectedNodeRefsChange([mapGraphNodeToNodeRef(node)]);
+                  }
+                }}
+                onShowProvenance={() => setShowProvenance(true)}
+              />
+            )}
+          </>
+        )}
+
+        {/* GF-1 (NEW): Full-panel viewer mode */}
+        {rightPanelMode === "viewer" && selectedNode && (
+          <FullPanelViewer
+            notebookId={notebookId}
             node={selectedNode}
-            onClose={() => handleNodeSelect(null)}
+            onClose={handleExitViewer}
             onLaunchTutor={(node) => {
               if (onSelectedNodeRefsChange) {
-                onSelectedNodeRefsChange([{ refType: node.nodeType, refId: node.id }]);
+                onSelectedNodeRefsChange([mapGraphNodeToNodeRef(node)]);
               }
             }}
             onShowProvenance={() => setShowProvenance(true)}
+            onDraftTutorPrompt={handleDraftTutorPrompt}
           />
         )}
       </div>
 
-      {/* Provenance Drawer */}
+      {/* Evidence drawer - overlays both workspace and viewer modes */}
+      {isDeveloperMode && (
+        <div style={{ borderTop: "1px solid var(--line)", background: "var(--panel-strong)" }}>
+          <DeveloperTimelinePanel
+            notebookId={notebookId}
+            onSelectNodeRefs={(refs) => {
+              onSelectedNodeRefsChange?.(refs);
+            }}
+          />
+        </div>
+      )}
+
+      {/* Evidence drawer - overlays both workspace and viewer modes */}
       <ProvenanceDrawer
         isOpen={showProvenance}
         onClose={() => setShowProvenance(false)}
@@ -657,5 +717,213 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, onSelectedNo
     </div>
   );
 };
+
+function CurriculumBrowser({
+  outline,
+  studyState,
+  currentObjectiveId,
+  onOpenNode,
+}: {
+  outline: CurriculumOutline;
+  studyState: StudyStateSummary | null;
+  currentObjectiveId: string | null;
+  onOpenNode: (nodeId: string) => void;
+}) {
+  const objectives = outline.modules.flatMap((module) => module.objectives).concat(outline.orphanObjectives);
+  const completedCount = objectives.filter((objective) => objective.status === "completed" || objective.status === "mastered").length;
+
+  return (
+    <div style={{ height: "100%", overflow: "auto", background: "#fff", padding: "20px clamp(16px, 3vw, 40px)" }}>
+      <div style={{ maxWidth: 980, margin: "0 auto" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", paddingBottom: 16, marginBottom: 18, borderBottom: "1px solid #e5e7eb" }}>
+          <span style={{ color: "#6b7280", fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Course</span>
+          <strong style={{ fontSize: 18, lineHeight: 1.2, color: "#111827" }}>{outline.curriculum?.title ?? "Curriculum"}</strong>
+          <span style={{ padding: "3px 8px", background: "#f3f4f6", borderRadius: 9999, fontSize: 12 }}>{outline.modules.length} modules</span>
+          <span style={{ padding: "3px 8px", background: "#f3f4f6", borderRadius: 9999, fontSize: 12 }}>{objectives.length} objectives</span>
+          <span style={{ padding: "3px 8px", background: "#ecfdf5", color: "#047857", borderRadius: 9999, fontSize: 12 }}>{completedCount} completed</span>
+          {studyState?.coverage && (
+            <span style={{ display: "flex", gap: 8, flexWrap: "wrap", color: "#4b5563", fontSize: 12 }}>
+              <span>Planned <strong style={{ color: "#111827" }}>{studyState.coverage.planned}</strong></span>
+              <span>Introduced <strong style={{ color: "#111827" }}>{studyState.coverage.introduced}</strong></span>
+              <span>Checked <strong style={{ color: "#111827" }}>{studyState.coverage.checked}</strong></span>
+              <span>Review <strong style={{ color: "#111827" }}>{studyState.coverage.needsReview}</strong></span>
+            </span>
+          )}
+        </div>
+
+        <main style={{ minWidth: 0 }}>
+          <div style={{ color: "#6b7280", fontSize: 16, marginBottom: 20 }}>Course syllabus</div>
+          {outline.modules.length === 0 && outline.orphanObjectives.length === 0 ? (
+            <div style={{ border: "1px solid #e5e7eb", borderRadius: 8, padding: 18, color: "#6b7280", background: "#f9fafb" }}>
+              No curriculum path is available yet. The tutor chat can build the first plan after sources are ready.
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 30, borderLeft: "2px solid #e5e7eb", paddingLeft: 28 }}>
+              {outline.modules.map((module, moduleIndex) => (
+                <details key={module.id} open={module.objectives.some((objective) => objective.id === currentObjectiveId) || moduleIndex === 0} style={{ position: "relative" }}>
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: -38,
+                      top: 2,
+                      width: 18,
+                      height: 18,
+                      borderRadius: 9999,
+                      border: "3px solid #6b7280",
+                      background: "#fff",
+                    }}
+                  />
+                  <summary
+                    style={{
+                      cursor: "pointer",
+                      color: "#111827",
+                      listStyle: "none",
+                    }}
+                  >
+                    <div style={{ fontSize: 22, lineHeight: 1.25, fontWeight: 800 }}>
+                      Module {moduleIndex + 1}: {module.title}
+                    </div>
+                  </summary>
+                  <button type="button" onClick={() => onOpenNode(module.id)} style={{ marginTop: 6, border: "1px solid #d1d5db", background: "#fff", borderRadius: 999, padding: "2px 8px", color: "#374151", fontSize: 12, cursor: "pointer" }}>
+                    Open module
+                  </button>
+                  {module.summary && <p style={{ color: "#374151", fontSize: 15, lineHeight: 1.5, margin: "8px 0 16px" }}>{module.summary}</p>}
+                  <ObjectiveList objectives={module.objectives} currentObjectiveId={currentObjectiveId} onOpenNode={onOpenNode} />
+                </details>
+              ))}
+
+              {outline.orphanObjectives.length > 0 && (
+                <section style={{ position: "relative" }}>
+                  <div style={{ fontSize: 22, lineHeight: 1.25, fontWeight: 800 }}>Objectives</div>
+                  <ObjectiveList objectives={outline.orphanObjectives} currentObjectiveId={currentObjectiveId} onOpenNode={onOpenNode} />
+                </section>
+              )}
+            </div>
+          )}
+        </main>
+      </div>
+    </div>
+  );
+}
+
+function ObjectiveList({
+  objectives,
+  currentObjectiveId,
+  onOpenNode,
+}: {
+  objectives: CurriculumObjectiveOutline[];
+  currentObjectiveId: string | null;
+  onOpenNode: (nodeId: string) => void;
+}) {
+  if (objectives.length === 0) {
+    return <div style={{ color: "#9ca3af", fontSize: 14, marginTop: 12 }}>No objectives recorded.</div>;
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 14 }}>
+      {objectives.map((objective, index) => {
+        const isCurrent = objective.id === currentObjectiveId;
+        const isDone = objective.status === "completed" || objective.status === "mastered";
+        return (
+          <div
+            key={objective.id}
+            role="button"
+            tabIndex={0}
+            onClick={() => onOpenNode(objective.id)}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter" && event.key !== " ") return;
+              event.preventDefault();
+              onOpenNode(objective.id);
+            }}
+            style={{
+              display: "grid",
+              gridTemplateColumns: "28px minmax(0, 1fr) auto",
+              gap: 12,
+              alignItems: "start",
+              textAlign: "left",
+              background: isCurrent ? "#eff6ff" : "transparent",
+              border: isCurrent ? "1px solid #bfdbfe" : "1px solid transparent",
+              borderRadius: 8,
+              padding: "10px 12px",
+              cursor: "pointer",
+              color: "#111827",
+            }}
+          >
+            <span
+              style={{
+                width: 18,
+                height: 18,
+                borderRadius: 9999,
+                border: `2px solid ${isDone ? "#22c55e" : isCurrent ? "#2563eb" : "#d1d5db"}`,
+                background: isDone ? "#22c55e" : "#fff",
+                marginTop: 3,
+              }}
+            />
+            <span style={{ minWidth: 0 }}>
+              <span style={{ display: "block", fontSize: 16, fontWeight: 800 }}>
+                {index + 1}. {objective.title}
+              </span>
+              {objective.summary && <span style={{ display: "block", color: "#6b7280", marginTop: 3, lineHeight: 1.45 }}>{objective.summary}</span>}
+            </span>
+            <span style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end", color: "#6b7280", fontSize: 12 }}>
+              {isCurrent && <span style={{ color: "#1d4ed8", fontWeight: 700 }}>Current</span>}
+              <InlineNodeList label="session" nodeIds={objective.sessionIds} onOpenNode={onOpenNode} />
+              <InlineNodeList label="artifact" nodeIds={objective.artifactIds} onOpenNode={onOpenNode} />
+              <InlineNodeList label="concept" nodeIds={objective.conceptIds} onOpenNode={onOpenNode} />
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function InlineNodeList({ label, nodeIds, onOpenNode }: { label: string; nodeIds: string[]; onOpenNode: (nodeId: string) => void }) {
+  if (nodeIds.length === 0) return null;
+  const shown = nodeIds.slice(0, 3);
+  return (
+    <>
+      {shown.map((nodeId, index) => (
+        <InlineOpenButton
+          key={nodeId}
+          label={nodeIds.length === 1 ? label : `${label} ${index + 1}`}
+          nodeId={nodeId}
+          onOpenNode={onOpenNode}
+        />
+      ))}
+      {nodeIds.length > shown.length && <span style={{ color: "#6b7280", padding: "1px 0" }}>+{nodeIds.length - shown.length} more</span>}
+    </>
+  );
+}
+
+function InlineOpenButton({ label, nodeId, onOpenNode }: { label: string; nodeId: string; onOpenNode: (nodeId: string) => void }) {
+  return (
+    <span
+      role="button"
+      tabIndex={0}
+      onClick={(event) => {
+        event.stopPropagation();
+        onOpenNode(nodeId);
+      }}
+      onKeyDown={(event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        event.stopPropagation();
+        onOpenNode(nodeId);
+      }}
+      style={{
+        color: "#2563eb",
+        fontWeight: 700,
+        cursor: "pointer",
+        background: "#eff6ff",
+        border: "1px solid #bfdbfe",
+        borderRadius: 9999,
+        padding: "1px 7px",
+      }}
+    >
+      {label}
+    </span>
+  );
+}
 
 export default Whiteboard;

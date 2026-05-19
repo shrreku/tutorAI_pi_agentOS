@@ -32,7 +32,7 @@ export async function registerStudentProfileRoutes(app: FastifyInstance, ctx: Ap
     if (!(await ensureNotebookOwner(ctx, notebookId, actor.id))) {
       return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
     }
-    const parsed = studentProfileUpdatePreferencesInputSchema.safeParse(request.body ?? {});
+    const parsed = studentProfileUpdatePreferencesInputSchema.safeParse(normalizeStudentProfilePatch(request.body ?? {}));
 
     if (!parsed.success) {
       return reply.status(400).send({ code: "bad_request", message: parsed.error.flatten() });
@@ -46,4 +46,22 @@ export async function registerStudentProfileRoutes(app: FastifyInstance, ctx: Ap
 
     return reply.send({ studentProfile: result.profile });
   });
+}
+
+function normalizeStudentProfilePatch(body: unknown): unknown {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return body;
+  const input = body as Record<string, unknown>;
+  const normalized: Record<string, unknown> = { ...input };
+
+  if (normalized.examplePreferencesJson === undefined && input.examplePreference !== undefined) {
+    normalized.examplePreferencesJson = { preference: input.examplePreference };
+  }
+  if (normalized.assessmentPreferenceJson === undefined && input.assessmentPreference !== undefined) {
+    normalized.assessmentPreferenceJson = { preference: input.assessmentPreference };
+  }
+  if (normalized.constraintsJson === undefined && input.constraints !== undefined) {
+    normalized.constraintsJson = input.constraints;
+  }
+
+  return normalized;
 }

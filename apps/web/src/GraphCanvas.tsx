@@ -15,6 +15,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import type { GraphCanvasNode, GraphQueryResponse } from "@studyagent/schemas";
+import { buildIntentAwareLayout, collapseObjectiveHistory, getLearnerNodeTitle } from "./whiteboard-utils.js";
 
 interface GraphCanvasProps {
   graphData: GraphQueryResponse | null;
@@ -29,6 +30,7 @@ const NODE_COLORS: Record<string, string> = {
   concept: "#3b82f6",
   source: "#10b981",
   source_section: "#34d399",
+  topic: "#0ea5e9",
   artifact: "#f59e0b",
   claim: "#8b5cf6",
   sub_concept: "#06b6d4",
@@ -48,9 +50,26 @@ const NODE_COLORS: Record<string, string> = {
 
 const NODE_COLOR_DEFAULT = "#6b7280";
 
+const LEARNER_NODE_TYPE_LABELS: Record<string, string> = {
+  source: "Source",
+  topic: "Topic",
+  concept: "Concept",
+  wiki_page: "Wiki page",
+  artifact: "Artifact",
+  curriculum: "Curriculum",
+  curriculum_module: "Module",
+  objective: "Objective",
+  objective_list: "Session objectives",
+  study_plan: "Live Plan",
+  session_plan: "Session",
+};
+
 interface CustomNodeData {
   title: string;
   nodeType: string;
+  status: string | null;
+  summary: string | null;
+  meta: string | null;
   isSelected: boolean;
   isConnected: boolean;
   onSelect: () => void;
@@ -67,25 +86,83 @@ const StudyAgentNode: React.FC<{ data: CustomNodeData }> = ({ data }) => {
       <div
         onClick={data.onSelect}
         title={data.title}
+        className="graph-study-node"
+        data-selected={data.isSelected}
         style={{
-          padding: "6px 10px",
-          borderRadius: 6,
-          background: bgColor,
-          color: "white",
-          fontSize: 11,
-          fontWeight: data.isSelected ? 700 : 500,
-          cursor: "pointer",
-          border: data.isSelected ? "2px solid #fbbf24" : "2px solid transparent",
+          ["--node-color" as string]: bgColor,
+          borderColor: data.isSelected ? bgColor : undefined,
           opacity,
-          transition: "all 150ms",
-          whiteSpace: "nowrap",
-          maxWidth: 160,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          boxShadow: data.isSelected ? "0 0 0 3px rgba(251,191,36,0.4)" : "none",
         }}
       >
-        {data.title}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, marginBottom: 8 }}>
+          <span
+            style={{
+              maxWidth: 92,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              color: bgColor,
+              fontSize: 10,
+              fontWeight: 800,
+              textTransform: "uppercase",
+            }}
+          >
+            {LEARNER_NODE_TYPE_LABELS[data.nodeType] ?? data.nodeType.replace(/_/g, " ")}
+          </span>
+          {data.status && (
+            <span
+              style={{
+                maxWidth: 52,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                borderRadius: 999,
+                background: "var(--panel-muted)",
+                color: "var(--text-muted)",
+                padding: "1px 6px",
+                fontSize: 9,
+                fontWeight: 700,
+              }}
+            >
+              {data.status.replace(/_/g, " ")}
+            </span>
+          )}
+        </div>
+        <div
+          style={{
+            color: "var(--text-strong)",
+            fontSize: 13,
+            lineHeight: 1.2,
+            fontWeight: data.isSelected ? 800 : 750,
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+          }}
+        >
+          {data.title}
+        </div>
+        {data.summary && (
+          <div
+            style={{
+              color: "var(--text-muted)",
+              fontSize: 10,
+              lineHeight: 1.25,
+              marginTop: 6,
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+            }}
+          >
+            {data.summary}
+          </div>
+        )}
+        {data.meta && (
+          <div style={{ color: "var(--text)", fontSize: 10, fontWeight: 700, marginTop: 8 }}>
+            {data.meta}
+          </div>
+        )}
       </div>
       <Handle type="source" position={Position.Bottom} style={{ opacity: 0 }} />
     </>
@@ -93,17 +170,6 @@ const StudyAgentNode: React.FC<{ data: CustomNodeData }> = ({ data }) => {
 };
 
 const nodeTypes: NodeTypes = { studyagent: StudyAgentNode };
-
-function buildLayout(nodes: GraphCanvasNode[], savedPositions: Record<string, { x: number; y: number }>) {
-  return nodes.map((node, idx) => {
-    const saved = savedPositions[node.id];
-    const position = saved ?? {
-      x: (idx % 6) * 210,
-      y: Math.floor(idx / 6) * 160,
-    };
-    return { node, position };
-  });
-}
 
 export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   graphData,
@@ -134,9 +200,10 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       return;
     }
 
-    const laid = buildLayout(graphData.nodes, savedPositions);
+    const preparedGraph = collapseObjectiveHistory(graphData);
+    const laid = buildIntentAwareLayout({ graphData: preparedGraph, savedPositions });
 
-    const newEdges: Edge[] = graphData.edges.map((edge) => ({
+    const newEdges: Edge[] = preparedGraph.edges.map((edge) => ({
       id: edge.id,
       source: edge.source,
       target: edge.target,
@@ -163,12 +230,11 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       id: node.id,
       type: "studyagent",
       data: {
-        title:
-          (node.properties.title as string) ??
-          (node.properties.canonicalName as string) ??
-          (node.properties.canonical_name as string) ??
-          node.id.slice(0, 12),
+        title: getLearnerNodeTitle(node),
         nodeType: node.nodeType,
+        status: typeof node.properties.status === "string" ? node.properties.status : null,
+        summary: getCompactSummary(node),
+        meta: getCompactMeta(node),
         isSelected: node.id === selectedNodeId,
         isConnected: connectedNodeIds.has(node.id),
         onSelect: () => onNodeSelect(node.id),
@@ -219,20 +285,39 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         style={{
           width: "100%",
           height: "100%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: "#9ca3af",
+          display: "grid",
+          placeItems: "center",
+          color: "var(--text-muted)",
           fontSize: 14,
         }}
       >
-        No graph data yet. Ingest a source to build the graph.
+        <div style={{ textAlign: "center", maxWidth: 340 }}>
+          <div
+            aria-hidden="true"
+            style={{
+              width: 46,
+              height: 46,
+              borderRadius: 14,
+              display: "grid",
+              placeItems: "center",
+              margin: "0 auto 12px",
+              background: "var(--accent-soft)",
+              color: "var(--accent)",
+              fontSize: 22,
+              fontWeight: 900,
+            }}
+          >
+            ⌘
+          </div>
+          <div style={{ color: "var(--text-strong)", fontWeight: 850, marginBottom: 5 }}>Build the first study map</div>
+          <div style={{ lineHeight: 1.45 }}>Add a source from the top bar. Sources, wiki pages, objectives, and artifacts will appear here as connected nodes.</div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{ width: "100%", height: "100%" }}>
+    <div className="graph-canvas-surface" style={{ width: "100%", height: "100%", background: "var(--panel-strong)" }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -245,14 +330,49 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         fitViewOptions={{ padding: 0.15 }}
         minZoom={0.1}
         maxZoom={3}
+        style={{ background: "var(--panel-strong)" }}
       >
-        <Background color="#e5e7eb" gap={20} />
+        <Background color="oklch(88% 0.018 255)" gap={22} />
         <Controls />
         <MiniMap
           nodeColor={miniMapNodeColor}
-          style={{ backgroundColor: "#f9fafb", border: "1px solid #e5e7eb" }}
+          style={{ backgroundColor: "var(--panel-muted)", border: "1px solid var(--line)", borderRadius: 8 }}
         />
       </ReactFlow>
     </div>
   );
 };
+
+function getCompactSummary(node: GraphCanvasNode): string | null {
+  const properties = node.properties;
+  const value = properties.summary ?? properties.description ?? properties.sessionGoal ?? properties.preview;
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (/^bootstrap module generated from\b/i.test(trimmed)) return null;
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function getCompactMeta(node: GraphCanvasNode): string | null {
+  const properties = node.properties;
+  if (node.nodeType === "study_plan") {
+    const current = typeof properties.currentObjectiveId === "string" ? "current set" : "needs objective";
+    return `Live Plan: ${current}`;
+  }
+  if (node.nodeType === "session_plan" && typeof properties.sessionGoal === "string") {
+    return "lesson route";
+  }
+  if (node.nodeType === "objective_list") {
+    return "ordered path";
+  }
+  if (node.nodeType === "objective") {
+    const order = typeof properties.orderIndex === "number" ? `#${properties.orderIndex + 1}` : null;
+    return order;
+  }
+  if (node.nodeType === "artifact") {
+    return typeof properties.artifactType === "string" ? properties.artifactType.replace(/_/g, " ") : "reference";
+  }
+  if (node.nodeType === "source") {
+    return typeof properties.sourceType === "string" ? properties.sourceType : null;
+  }
+  return null;
+}

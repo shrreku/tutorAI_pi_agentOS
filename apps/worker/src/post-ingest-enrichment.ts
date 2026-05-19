@@ -4,7 +4,6 @@ import {
   appendEvent,
   coverageItems,
   coverageRecords,
-  claimConceptLinks,
   claims,
   concepts,
   curricula,
@@ -17,45 +16,21 @@ import {
   studyPlans,
   wikiPages,
 } from "@studyagent/db";
+import { projectGraphFromCanonical } from "@studyagent/graph";
 import {
-  createNeo4jDriver,
-  mergeCoverageItemNode,
-  mergeCoverageRecordNode,
-  mergeCurriculumModuleNode,
-  mergeObjectiveListNode,
-  linkSourceCoversCurriculum,
-  mergeClaimContradiction,
-  mergeClaimNode,
-  mergeClaimSupersedes,
-  mergeConceptNodes,
-  mergeConceptRelation,
-  mergeCurriculumNode,
-  mergeObjectiveNode,
-  mergeSessionPlanNode,
-  mergeSourceNode,
-  mergeStudyPlanAndObjectives,
-  mergeWikiPageForSource,
-  mergeWikiPageNode,
-  verifyNeo4jProjection,
-  type IngestConceptRelationKind,
-} from "@studyagent/graph";
-import {
-  buildPageConfidenceSummary,
-  combineConfidence,
-  extractHumanBlocks,
+  buildConceptLookup,
+  compileSourceToWikiChangeSet,
+  composeTeachingArc,
+  extractCoverageItems,
   lintNotebookWiki,
-  mergeAgentMarkdownWithHumanBlocks,
-  normalizeClaimText,
-  pickContradictionClaimPairs,
-  planCrossSourceSupersessions,
-  reinforcementSignalFromCount,
-  type ClaimLite,
+  registerConceptLookup,
+  resolveConceptId,
+  type SourceExtractionRelation,
 } from "@studyagent/wiki-core";
-import { and, eq, ne, notInArray, sql } from "drizzle-orm";
+import { and, desc, eq, ne, notInArray, sql } from "drizzle-orm";
 import { z } from "zod";
-
-const relationTypeSchema = z.enum(["depends_on", "supports", "example_of", "contradicts", "covers"]);
-type NormalizedRelationType = z.infer<typeof relationTypeSchema>;
+import { applyWikiChangeSet } from "./wiki-change-set-persistence.js";
+import { enqueueWikiPolishCandidates } from "./wiki-polish-enqueue.js";
 
 const extractionSchema = z.object({
   concepts: z
@@ -107,14 +82,45 @@ const focusedRelationSchema = z.object({
     .default([]),
 });
 
-type ConceptRelationCandidate = {
-  fromId: string;
-  toId: string;
-  relationType: NormalizedRelationType;
-  confidence: number;
-  sourceClaimIds: string[];
-  sourceChunkIds: string[];
-};
+const curriculumBootstrapPlanSchema = z.object({
+  curriculumTitle: z.string().min(1).max(140).optional(),
+  modules: z
+    .array(
+      z.object({
+        title: z.string().min(1).max(140),
+        summary: z.string().min(1).max(320),
+        objectiveTitles: z.array(z.string().min(1).max(140)).min(1).max(4),
+      }),
+    )
+    .min(1)
+    .max(3),
+});
+
+const sessionBootstrapPlanSchema = z.object({
+  sessionGoal: z.string().min(1).max(220),
+  plannedObjectiveIndexes: z.array(z.number().int().min(0).max(3)).min(1).max(2),
+});
+
+const coverageFamilyRefinementSchema = z.object({
+  refinements: z
+    .array(
+      z.object({
+        title: z.string().min(1),
+        itemFamily: z.enum([
+          "definition",
+          "formula",
+          "notation",
+          "distinction",
+          "procedure",
+          "example",
+          "application",
+          "historical_context",
+          "misconception",
+        ]),
+      }),
+    )
+    .max(40),
+});
 
 export type EnrichmentInput = {
   notebookId: string;
@@ -136,180 +142,81 @@ function trimCorpus(chunks: Array<{ id: string; text: string }>, maxChars: numbe
   return parts.join("\n\n");
 }
 
-function uniqueChunkIds(ids: string[]): string[] {
-  return [...new Set(ids.filter(Boolean))];
-}
-
-function mergeAliases(existing: string[], incoming: string[]): string[] {
-  const out = new Set<string>();
-  for (const alias of [...existing, ...incoming]) {
-    const trimmed = alias.trim();
-    if (trimmed) {
-      out.add(trimmed);
+function toExtractionRelations(
+  relations: Array<{ fromConcept: string; toConcept: string; relationType: string; confidence?: number | undefined }>,
+): SourceExtractionRelation[] {
+  return relations.map((relation) => {
+    const base: SourceExtractionRelation = {
+      fromConcept: relation.fromConcept,
+      toConcept: relation.toConcept,
+      relationType: relation.relationType,
+    };
+    if (relation.confidence !== undefined) {
+      return { ...base, confidence: relation.confidence };
     }
-  }
-  return [...out];
+    return base;
+  });
 }
 
-function singularizeToken(token: string): string {
-  if (token.endsWith("ies") && token.length > 4) return `${token.slice(0, -3)}y`;
-  if (token.endsWith("ses") && token.length > 4) return token.slice(0, -2);
-  if (token.endsWith("s") && !token.endsWith("ss") && token.length > 3) return token.slice(0, -1);
-  return token;
+function buildConceptGroundedFallbackModules(
+  sourceTitle: string,
+  conceptNames: string[],
+  moduleCount: number,
+): Array<{ title: string; summary: string; objectiveTitles: string[] }> {
+  const cleanConcepts = conceptNames.map((name) => name.trim()).filter(Boolean);
+  const safeModuleCount = Math.max(1, moduleCount);
+
+  return Array.from({ length: safeModuleCount }, (_, index) => {
+    const start = Math.floor((index / safeModuleCount) * cleanConcepts.length);
+    const end = Math.max(start + 1, Math.floor(((index + 1) / safeModuleCount) * cleanConcepts.length));
+    const moduleConcepts = cleanConcepts.slice(start, end);
+    const primary = moduleConcepts[0] ?? sourceTitle;
+    const secondary = moduleConcepts[1] ?? moduleConcepts[0] ?? sourceTitle;
+
+    return {
+      title: `Understand ${primary}`,
+      summary: moduleConcepts.length
+        ? `Build a source-grounded understanding of ${moduleConcepts.join(", ")}.`
+        : `Build a source-grounded understanding of ${sourceTitle}.`,
+      objectiveTitles: [
+        `Explain ${primary}`,
+        secondary === primary ? `Apply ${primary}` : `Connect ${primary} with ${secondary}`,
+      ],
+    };
+  });
 }
 
-function normalizeConceptKey(value: string): string {
-  return value
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/['’]/g, "")
-    .replace(/[^a-z0-9\s]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+function cleanLearnerTitle(value: string | null | undefined): string | null {
+  const trimmed = value?.replace(/\s+/g, " ").trim();
+  if (!trimmed) return null;
+  if (/^(objective|module|session)\s*\d*$/i.test(trimmed)) return null;
+  if (/^current teaching session$/i.test(trimmed)) return null;
+  if (/^(obj|mod|sess|cur|cnc|cov|clm|wp)_[a-z0-9_]+$/i.test(trimmed)) return null;
+  return trimmed;
 }
 
-function conceptKeyVariants(value: string): string[] {
-  const base = normalizeConceptKey(value);
-  if (!base) return [];
-  const singular = base
-    .split(" ")
-    .map((token) => singularizeToken(token))
-    .join(" ")
-    .trim();
-  return [...new Set([base, singular].filter(Boolean))];
+function conceptNameForId(conceptNamesById: Map<string, string>, conceptId: string): string {
+  return cleanLearnerTitle(conceptNamesById.get(conceptId)) ?? "source concept";
 }
 
-function registerConceptLookup(map: Map<string, string>, conceptId: string, names: string[]): void {
-  for (const name of names) {
-    for (const variant of conceptKeyVariants(name)) {
-      map.set(variant, conceptId);
-    }
-  }
+function objectiveTitleForIndex(
+  objectiveTitles: string[],
+  objectiveIndex: number,
+  sourceTitle: string,
+  conceptNames: string[],
+): string {
+  const planned = cleanLearnerTitle(objectiveTitles[objectiveIndex]);
+  if (planned) return planned;
+  const primary = cleanLearnerTitle(conceptNames[objectiveIndex]) ?? cleanLearnerTitle(conceptNames[0]) ?? cleanLearnerTitle(sourceTitle) ?? "the source";
+  return objectiveIndex === 0 ? `Explain ${primary}` : `Apply ${primary}`;
 }
 
-function resolveConceptId(map: Map<string, string>, rawName: string): string | null {
-  for (const variant of conceptKeyVariants(rawName)) {
-    const id = map.get(variant);
-    if (id) return id;
-  }
-  return null;
-}
-
-function normalizeRelationType(value: string): NormalizedRelationType | null {
-  const normalized = value.trim().toLowerCase().replace(/[\s-]+/g, "_");
-  switch (normalized) {
-    case "depends_on":
-    case "supports":
-    case "example_of":
-    case "contradicts":
-    case "covers":
-      return normalized;
-    case "related_to":
-    case "relates_to":
-    case "describes":
-    case "illustrates":
-      return "covers";
-    case "based_on":
-    case "requires":
-    case "prerequisite_for":
-      return "depends_on";
-    case "implies":
-    case "explains":
-      return "supports";
-    default:
-      return null;
-  }
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function normalizeTextForMatch(value: string): string {
-  return normalizeConceptKey(value);
-}
-
-function orderedConceptPairs(conceptIds: string[], conceptNames: Map<string, string>): Array<[string, string]> {
-  const uniq = [...new Set(conceptIds)];
-  const pairs: Array<[string, string]> = [];
-  for (let i = 0; i < uniq.length; i += 1) {
-    for (let j = 0; j < uniq.length; j += 1) {
-      if (i === j) continue;
-      const a = conceptNames.get(uniq[i]!);
-      const b = conceptNames.get(uniq[j]!);
-      if (!a || !b) continue;
-      pairs.push([uniq[i]!, uniq[j]!]);
-    }
-  }
-  return pairs;
-}
-
-function inferConceptRelationsFromClaims(
-  claimsMeta: Array<{ id: string; text: string; conceptIds: string[]; chunkIds: string[] }>,
-  conceptNames: Map<string, string>,
-): ConceptRelationCandidate[] {
-  const inferred: ConceptRelationCandidate[] = [];
-
-  for (const claim of claimsMeta) {
-    if (claim.conceptIds.length < 2) continue;
-    const text = normalizeTextForMatch(claim.text);
-
-    for (const [fromId, toId] of orderedConceptPairs(claim.conceptIds, conceptNames)) {
-      const fromName = conceptNames.get(fromId);
-      const toName = conceptNames.get(toId);
-      if (!fromName || !toName) continue;
-
-      const fromKey = escapeRegExp(normalizeTextForMatch(fromName));
-      const toKey = escapeRegExp(normalizeTextForMatch(toName));
-
-      const rules: Array<{ relationType: NormalizedRelationType; pattern: RegExp }> = [
-        { relationType: "depends_on", pattern: new RegExp(`\\b${fromKey}\\b.*\\bdepends on\\b.*\\b${toKey}\\b`) },
-        { relationType: "depends_on", pattern: new RegExp(`\\b${fromKey}\\b.*\\bis governed by\\b.*\\b${toKey}\\b`) },
-        { relationType: "depends_on", pattern: new RegExp(`\\b${toKey}\\b.*\\bgoverns\\b.*\\b${fromKey}\\b`) },
-        { relationType: "depends_on", pattern: new RegExp(`\\b${toKey}\\b.*\\bdefines\\b.*\\b${fromKey}\\b`) },
-        { relationType: "supports", pattern: new RegExp(`\\b${fromKey}\\b.*\\bimplies\\b.*\\b${toKey}\\b`) },
-        { relationType: "supports", pattern: new RegExp(`\\b${fromKey}\\b.*\\bindicates\\b.*\\b${toKey}\\b`) },
-        { relationType: "covers", pattern: new RegExp(`\\b${fromKey}\\b.*\\bapplies to\\b.*\\b${toKey}\\b`) },
-        { relationType: "example_of", pattern: new RegExp(`\\b${fromKey}\\b.*\\bis (?:an|a|the)\\b.*\\b${toKey}\\b`) },
-      ];
-
-      const matched = rules.find((rule) => rule.pattern.test(text));
-      if (!matched) continue;
-
-      inferred.push({
-        fromId,
-        toId,
-        relationType: matched.relationType,
-        confidence: 0.66,
-        sourceClaimIds: [claim.id],
-        sourceChunkIds: claim.chunkIds,
-      });
-    }
-  }
-
-  return inferred;
-}
-
-function upsertConceptRelationCandidate(
-  relationMap: Map<string, ConceptRelationCandidate>,
-  candidate: ConceptRelationCandidate,
-): void {
-  if (candidate.fromId === candidate.toId) return;
-  const key = `${candidate.fromId}|${candidate.relationType}|${candidate.toId}`;
-  const existing = relationMap.get(key);
-  if (!existing) {
-    relationMap.set(key, {
-      ...candidate,
-      sourceClaimIds: uniqueChunkIds(candidate.sourceClaimIds),
-      sourceChunkIds: uniqueChunkIds(candidate.sourceChunkIds),
-    });
-    return;
-  }
-
-  existing.confidence = Math.max(existing.confidence, candidate.confidence);
-  existing.sourceClaimIds = uniqueChunkIds([...existing.sourceClaimIds, ...candidate.sourceClaimIds]);
-  existing.sourceChunkIds = uniqueChunkIds([...existing.sourceChunkIds, ...candidate.sourceChunkIds]);
+function sessionTitleForObjectives(objectiveTitles: string[], sourceTitle: string): string {
+  const first = cleanLearnerTitle(objectiveTitles[0]);
+  const second = cleanLearnerTitle(objectiveTitles[1]);
+  if (first && second) return `${first} and ${second}`;
+  if (first) return first;
+  return cleanLearnerTitle(sourceTitle) ?? "First tutoring session";
 }
 
 async function openRouterJsonObject(
@@ -347,7 +254,36 @@ async function openRouterJsonObject(
   if (!text) {
     throw new Error("OpenRouter chat: empty message content");
   }
-  return JSON.parse(text) as unknown;
+  return parseLlmJsonObject(text);
+}
+
+export function parseLlmJsonObject(text: string): unknown {
+  const trimmed = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
+  const candidates = [trimmed];
+  const firstBrace = trimmed.indexOf("{");
+  const lastBrace = trimmed.lastIndexOf("}");
+  if (firstBrace >= 0 && lastBrace > firstBrace) {
+    candidates.push(trimmed.slice(firstBrace, lastBrace + 1));
+  }
+
+  for (const candidate of candidates) {
+    try {
+      return JSON.parse(candidate) as unknown;
+    } catch {
+      // Try the next repair path.
+    }
+    try {
+      return JSON.parse(escapeInvalidJsonBackslashes(candidate)) as unknown;
+    } catch {
+      // Keep the original JSON.parse error below for debuggability.
+    }
+  }
+
+  return JSON.parse(trimmed) as unknown;
+}
+
+function escapeInvalidJsonBackslashes(value: string): string {
+  return value.replace(/\\(?!["\\/bfnrtu])/g, "\\\\");
 }
 
 async function extractFocusedRelations(
@@ -387,6 +323,80 @@ async function extractFocusedRelations(
   }
 }
 
+async function planCurriculumBootstrapWithLLM(
+  env: StudyAgentEnv,
+  input: { sourceTitle: string; curriculumTitle?: string; conceptNames: string[] },
+): Promise<z.infer<typeof curriculumBootstrapPlanSchema> | null> {
+  try {
+    const raw = await openRouterJsonObject(
+      env,
+      [
+        "You design compact learning modules for a single source notebook.",
+        "Return ONLY a JSON object with keys: curriculumTitle?, modules.",
+        "Each module must include title, summary, objectiveTitles.",
+        "Keep output practical and ordered foundational -> applied.",
+      ].join("\n"),
+      [
+        `Source title: ${input.sourceTitle}`,
+        ...(input.curriculumTitle ? [`Existing curriculum title: ${input.curriculumTitle}`] : []),
+        `Concepts: ${input.conceptNames.slice(0, 18).join(", ") || "none"}`,
+      ].join("\n"),
+    );
+    return curriculumBootstrapPlanSchema.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+async function planSessionBootstrapWithLLM(
+  env: StudyAgentEnv,
+  input: { sourceTitle: string; moduleTitle: string; objectiveTitles: string[] },
+): Promise<z.infer<typeof sessionBootstrapPlanSchema> | null> {
+  try {
+    const raw = await openRouterJsonObject(
+      env,
+      [
+        "You create a first tutoring session plan from objectives.",
+        "Return ONLY a JSON object with keys: sessionGoal, plannedObjectiveIndexes.",
+        "plannedObjectiveIndexes must point into provided objectiveTitles.",
+      ].join("\n"),
+      [
+        `Source title: ${input.sourceTitle}`,
+        `Module: ${input.moduleTitle}`,
+        ...input.objectiveTitles.map((title, index) => `objective[${index}]: ${title}`),
+      ].join("\n"),
+    );
+    return sessionBootstrapPlanSchema.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+async function refineCoverageFamiliesWithLLM(
+  env: StudyAgentEnv,
+  items: Array<{ title: string; itemFamily: string; description?: string | null }>,
+): Promise<Map<string, z.infer<typeof coverageFamilyRefinementSchema>["refinements"][number]["itemFamily"]>> {
+  if (!env.OPENROUTER_API_KEY || items.length === 0) return new Map();
+  try {
+    const raw = await openRouterJsonObject(
+      env,
+      [
+        "You refine pedagogical coverage-item families for tutoring artifacts.",
+        "Return ONLY JSON object with key refinements.",
+        "Use one of: definition, formula, notation, distinction, procedure, example, application, historical_context, misconception.",
+      ].join("\n"),
+      items
+        .slice(0, 30)
+        .map((item) => `title: ${item.title}\ncurrentFamily: ${item.itemFamily}\ndescription: ${item.description ?? ""}`)
+        .join("\n---\n"),
+    );
+    const parsed = coverageFamilyRefinementSchema.parse(raw);
+    return new Map(parsed.refinements.map((entry) => [entry.title, entry.itemFamily]));
+  } catch {
+    return new Map();
+  }
+}
+
 export async function runPostIngestEnrichment(
   env: StudyAgentEnv,
   dbClient: DbClient,
@@ -406,13 +416,14 @@ export async function runPostIngestEnrichment(
     "- concepts: array of { name, conceptType?, aliases? }",
     "- claims: array of { claimText, claimType?, conceptNames, evidenceChunkId? }",
     "- relations?: array of { fromConcept, toConcept, relationType, confidence? }",
-    "- sourceSummaryMarkdown: string (short markdown overview of the source)",
+    "- sourceSummaryMarkdown: string (rich markdown overview of the source with sections: what this source covers, key ideas, formulas/notation, examples/applications, misconceptions, and practice prompts)",
     "- curriculumTitle?: string",
     "Prefer canonical noun phrases for concepts and avoid near-duplicate concepts when one concept can be expressed as an alias of another.",
     "Prefer 'Phenomenological Law' over shortened forms like 'Phenomenological' when the law itself is the concept.",
     "relationType must be one of: depends_on, supports, example_of, contradicts, covers.",
     "relations must use concept names from your concepts list (exact strings).",
     "Each claim must cite evidenceChunkId using one of the chunk ids from the evidence section when possible.",
+    "Wiki markdown must be useful to a student: no placeholders, no one-line summaries, and no generic study advice unless tied to the source.",
     "conceptNames on claims must reference concept names you listed in concepts (or close variants).",
   ].join("\n");
 
@@ -439,222 +450,13 @@ export async function runPostIngestEnrichment(
     parsed.claims.map((claim) => ({ claimText: claim.claimText.trim(), conceptNames: claim.conceptNames })),
   );
 
-  const normalizedRelations = [...parsed.relations, ...focusedRelations]
-    .map((relation) => {
-      const relationType = normalizeRelationType(relation.relationType);
-      if (!relationType) {
-        return null;
-      }
-      return {
-        ...relation,
-        relationType,
-      };
-    })
-    .filter(Boolean) as Array<{
-    fromConcept: string;
-    toConcept: string;
-    relationType: NormalizedRelationType;
-    confidence?: number;
-  }>;
-
   const now = new Date();
-  const chunkIds = new Set(input.chunks.map((c) => c.id));
-
-  await dbClient.db.delete(claims).where(eq(claims.sourceId, input.sourceId));
-  await dbClient.db
-    .delete(graphRelations)
-    .where(
-      and(
-        eq(graphRelations.notebookId, input.notebookId),
-        sql`(${graphRelations.metadataJson}->>'ingestionSourceId') = ${input.sourceId}`,
-      ),
-    );
-
-  const conceptIdByName = new Map<string, string>();
-  const conceptLookup = new Map<string, string>();
+  const sourceSummaryPageKey = `source:${input.sourceId}`;
 
   const existingConcepts = await dbClient.db
     .select()
     .from(concepts)
     .where(eq(concepts.notebookId, input.notebookId));
-
-  const conceptsById = new Map(existingConcepts.map((concept) => [concept.id, concept]));
-  for (const concept of existingConcepts) {
-    registerConceptLookup(conceptLookup, concept.id, [concept.canonicalName, ...(concept.aliases ?? [])]);
-  }
-
-  for (const c of parsed.concepts) {
-    const canonicalName = c.name.trim();
-    const incomingAliases = mergeAliases([], c.aliases ?? []);
-    const existingId = resolveConceptId(conceptLookup, canonicalName);
-    if (existingId) {
-      conceptIdByName.set(canonicalName, existingId);
-      const existing = conceptsById.get(existingId);
-      if (existing) {
-        const mergedAliases = mergeAliases(existing.aliases ?? [], incomingAliases);
-        if (mergedAliases.length !== (existing.aliases ?? []).length) {
-          await dbClient.db.update(concepts).set({ aliases: mergedAliases, updatedAt: now }).where(eq(concepts.id, existingId));
-          const updated = { ...existing, aliases: mergedAliases };
-          conceptsById.set(existingId, updated);
-          registerConceptLookup(conceptLookup, existingId, [updated.canonicalName, ...mergedAliases, canonicalName]);
-        } else {
-          registerConceptLookup(conceptLookup, existingId, [existing.canonicalName, ...mergedAliases, canonicalName]);
-        }
-      }
-      continue;
-    }
-    const id = `cnc_${crypto.randomUUID().replaceAll("-", "")}`;
-    conceptIdByName.set(canonicalName, id);
-    registerConceptLookup(conceptLookup, id, [canonicalName, ...incomingAliases]);
-    await dbClient.db.insert(concepts).values({
-      id,
-      notebookId: input.notebookId,
-      canonicalName,
-      aliases: incomingAliases,
-      conceptType: c.conceptType ?? "term",
-      description: null,
-      confidence: 0.75,
-      metadataJson: { ingestionSourceId: input.sourceId },
-      createdAt: now,
-      updatedAt: now,
-    });
-    conceptsById.set(id, {
-      id,
-      notebookId: input.notebookId,
-      canonicalName,
-      aliases: incomingAliases,
-      conceptType: c.conceptType ?? "term",
-      description: null,
-      confidence: 0.75,
-      metadataJson: { ingestionSourceId: input.sourceId },
-      createdAt: now,
-      updatedAt: now,
-    });
-  }
-
-  const conceptNamesById = new Map([...conceptsById.values()].map((concept) => [concept.id, concept.canonicalName]));
-
-  const insertedClaimMeta: Array<{
-    id: string;
-    text: string;
-    conceptIds: string[];
-    chunkIds: string[];
-    confidence: number;
-    confidenceComponents: {
-      sourceSupport: number;
-      extractionConfidence: number;
-      recency: number;
-      contradictionPenalty: number;
-      humanApproval: number;
-      reinforcementSignal: number;
-    };
-  }> = [];
-
-  for (const cl of parsed.claims) {
-    const claimId = `clm_${crypto.randomUUID().replaceAll("-", "")}`;
-    const ev = cl.evidenceChunkId && chunkIds.has(cl.evidenceChunkId) ? cl.evidenceChunkId : input.chunks[0]!.id;
-    const chunkList = ev ? [ev] : [];
-
-    const hadChunkEvidence = Boolean(cl.evidenceChunkId && chunkIds.has(cl.evidenceChunkId));
-    const confComponents = {
-      sourceSupport: hadChunkEvidence ? 0.76 : 0.58,
-      extractionConfidence: 0.68,
-      recency: 0.88,
-      contradictionPenalty: 0,
-      humanApproval: 0,
-      reinforcementSignal: reinforcementSignalFromCount(0),
-    };
-    const confidence = combineConfidence(confComponents);
-
-    await dbClient.db.insert(claims).values({
-      id: claimId,
-      notebookId: input.notebookId,
-      sourceId: input.sourceId,
-      sourceVersionId: input.sourceVersionId,
-      claimType: cl.claimType ?? "fact",
-      claimText: cl.claimText.trim(),
-      status: "candidate",
-      confidence,
-      qualityScore: confidence,
-      supportScore: confComponents.sourceSupport,
-      confidenceComponentsJson: confComponents,
-      sourceSpanJson: { evidenceChunkId: ev },
-      sourceChunkIds: chunkList,
-      metadataJson: {},
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    const linkedConceptIds = cl.conceptNames
-      .map((cn) => resolveConceptId(conceptLookup, cn.trim()) ?? conceptIdByName.get(cn.trim()) ?? null)
-      .filter(Boolean) as string[];
-    insertedClaimMeta.push({
-      id: claimId,
-      text: cl.claimText.trim(),
-      conceptIds: linkedConceptIds,
-      chunkIds: chunkList,
-      confidence,
-      confidenceComponents: confComponents,
-    });
-
-    for (const cn of cl.conceptNames) {
-      const cid = resolveConceptId(conceptLookup, cn.trim()) ?? conceptIdByName.get(cn.trim());
-      if (!cid) continue;
-      await dbClient.db.insert(claimConceptLinks).values({
-        claimId,
-        conceptId: cid,
-        role: "subject",
-        confidence,
-      });
-    }
-  }
-
-  const relationCandidates = new Map<string, ConceptRelationCandidate>();
-  for (const rel of normalizedRelations) {
-    const fromId = resolveConceptId(conceptLookup, rel.fromConcept.trim()) ?? conceptIdByName.get(rel.fromConcept.trim());
-    const toId = resolveConceptId(conceptLookup, rel.toConcept.trim()) ?? conceptIdByName.get(rel.toConcept.trim());
-    if (!fromId || !toId || fromId === toId) {
-      continue;
-    }
-    upsertConceptRelationCandidate(relationCandidates, {
-      fromId,
-      toId,
-      relationType: rel.relationType,
-      confidence: rel.confidence ?? 0.72,
-      sourceClaimIds: [],
-      sourceChunkIds: [],
-    });
-  }
-
-  const heuristicRelations = inferConceptRelationsFromClaims(
-    insertedClaimMeta.map((claim) => ({
-      id: claim.id,
-      text: claim.text,
-      conceptIds: claim.conceptIds,
-      chunkIds: claim.chunkIds,
-    })),
-    conceptNamesById,
-  );
-  for (const relation of heuristicRelations) {
-    upsertConceptRelationCandidate(relationCandidates, relation);
-  }
-
-  for (const relation of relationCandidates.values()) {
-    const gid = `gre_${crypto.randomUUID().replaceAll("-", "")}`;
-    await dbClient.db.insert(graphRelations).values({
-      id: gid,
-      notebookId: input.notebookId,
-      sourceNodeType: "concept",
-      sourceNodeId: relation.fromId,
-      targetNodeType: "concept",
-      targetNodeId: relation.toId,
-      relationType: relation.relationType,
-      confidence: relation.confidence,
-      sourceClaimIds: relation.sourceClaimIds,
-      sourceChunkIds: relation.sourceChunkIds,
-      metadataJson: { ingestionSourceId: input.sourceId },
-    });
-  }
 
   const excludedClaimStatuses = ["superseded", "deprecated", "archived"] as const;
   const existingClaimsRows = await dbClient.db
@@ -663,6 +465,7 @@ export async function runPostIngestEnrichment(
       sourceId: claims.sourceId,
       claimText: claims.claimText,
       createdAt: claims.createdAt,
+      status: claims.status,
     })
     .from(claims)
     .where(
@@ -673,114 +476,8 @@ export async function runPostIngestEnrichment(
       ),
     );
 
-  const existingLites: ClaimLite[] = existingClaimsRows.map((c) => ({
-    id: c.id,
-    sourceId: c.sourceId,
-    normalized: normalizeClaimText(c.claimText),
-    createdAtMs: c.createdAt.getTime(),
-  }));
-
-  const newLites: ClaimLite[] = insertedClaimMeta.map((m) => ({
-    id: m.id,
-    sourceId: input.sourceId,
-    normalized: normalizeClaimText(m.text),
-    createdAtMs: now.getTime(),
-  }));
-
-  const supersedePlans = planCrossSourceSupersessions(newLites, existingLites);
-  for (const p of supersedePlans) {
-    await dbClient.db
-      .update(claims)
-      .set({ status: "superseded", supersededByClaimId: p.winnerId, updatedAt: now })
-      .where(eq(claims.id, p.olderId));
-    await dbClient.db.insert(graphRelations).values({
-      id: `gre_${crypto.randomUUID().replaceAll("-", "")}`,
-      notebookId: input.notebookId,
-      sourceNodeType: "claim",
-      sourceNodeId: p.winnerId,
-      targetNodeType: "claim",
-      targetNodeId: p.olderId,
-      relationType: "supersedes",
-      confidence: 0.9,
-      sourceClaimIds: [p.winnerId, p.olderId],
-      sourceChunkIds: [],
-      metadataJson: { wikiLifecycle: "supersedes", ingestionSourceId: input.sourceId },
-    });
-    await appendEvent(dbClient, {
-      notebookId: input.notebookId,
-      eventType: "wiki.claim.superseded",
-      payload: { loserClaimId: p.olderId, winnerClaimId: p.winnerId },
-    });
-  }
-
-  const contradictRels = normalizedRelations
-    .map((r) => {
-      if (r.relationType !== "contradicts") return null;
-      const fromConceptId =
-        resolveConceptId(conceptLookup, r.fromConcept.trim()) ?? conceptIdByName.get(r.fromConcept.trim());
-      const toConceptId = resolveConceptId(conceptLookup, r.toConcept.trim()) ?? conceptIdByName.get(r.toConcept.trim());
-      if (!fromConceptId || !toConceptId) return null;
-      return { fromConceptId, toConceptId, relationType: "contradicts" as const };
-    })
-    .filter(Boolean) as Array<{ fromConceptId: string; toConceptId: string; relationType: "contradicts" }>;
-
-  const contradictionPairs = pickContradictionClaimPairs({
-    relations: contradictRels,
-    claims: insertedClaimMeta.map((m) => ({ id: m.id, conceptIds: m.conceptIds })),
-  });
-
-  for (const pair of contradictionPairs) {
-    const a = pair.a;
-    const b = pair.b;
-    await dbClient.db.insert(graphRelations).values({
-      id: `gre_${crypto.randomUUID().replaceAll("-", "")}`,
-      notebookId: input.notebookId,
-      sourceNodeType: "claim",
-      sourceNodeId: a,
-      targetNodeType: "claim",
-      targetNodeId: b,
-      relationType: "contradicts",
-      confidence: 0.65,
-      sourceClaimIds: [a, b],
-      sourceChunkIds: [],
-      metadataJson: { wikiLifecycle: "claim_contradiction", ingestionSourceId: input.sourceId },
-    });
-
-    for (const cid of [a, b]) {
-      const [row] = await dbClient.db.select().from(claims).where(eq(claims.id, cid)).limit(1);
-      if (!row || row.status === "superseded") continue;
-      const prev = (row.confidenceComponentsJson ?? {}) as Record<string, unknown>;
-      const components = {
-        sourceSupport: Number(prev.sourceSupport ?? 0.72),
-        extractionConfidence: Number(prev.extractionConfidence ?? 0.68),
-        recency: Number(prev.recency ?? 0.88),
-        humanApproval: Number(prev.humanApproval ?? 0),
-        reinforcementSignal: Number(prev.reinforcementSignal ?? 0),
-        contradictionPenalty: Math.min(1, Number(prev.contradictionPenalty ?? 0) + 0.35),
-      };
-      const confidence = combineConfidence(components);
-      await dbClient.db
-        .update(claims)
-        .set({
-          status: "contradicted",
-          confidence,
-          qualityScore: confidence,
-          confidenceComponentsJson: components,
-          updatedAt: now,
-        })
-        .where(eq(claims.id, cid));
-    }
-
-    await appendEvent(dbClient, {
-      notebookId: input.notebookId,
-      eventType: "wiki.claim.contradicted",
-      payload: { claimIds: [a, b] },
-    });
-  }
-
-  const sourceSummaryPageKey = `source:${input.sourceId}`;
   const priorConceptPages = await dbClient.db
-    .select()
+    .select({ pageKey: wikiPages.pageKey, pageType: wikiPages.pageType, markdown: wikiPages.markdown })
     .from(wikiPages)
     .where(
       and(
@@ -791,7 +488,7 @@ export async function runPostIngestEnrichment(
     );
 
   const [priorSummary] = await dbClient.db
-    .select()
+    .select({ pageKey: wikiPages.pageKey, pageType: wikiPages.pageType, markdown: wikiPages.markdown })
     .from(wikiPages)
     .where(
       and(
@@ -802,115 +499,118 @@ export async function runPostIngestEnrichment(
     )
     .limit(1);
 
-  const humanBlocksByConceptPageKey = new Map<string, ReturnType<typeof extractHumanBlocks>>();
-  for (const row of priorConceptPages) {
-    humanBlocksByConceptPageKey.set(row.pageKey, extractHumanBlocks(row.markdown));
-  }
-  const humanBlocksSourceSummary = priorSummary ? extractHumanBlocks(priorSummary.markdown) : [];
+  const compilation = compileSourceToWikiChangeSet({
+    notebookId: input.notebookId,
+    sourceId: input.sourceId,
+    sourceVersionId: input.sourceVersionId,
+    sourceTitle: input.sourceTitle,
+    chunkIds: input.chunks.map((c) => c.id),
+    maxConceptPages: 6,
+    extraction: {
+      concepts: parsed.concepts.map((c) => ({
+        name: c.name,
+        ...(c.conceptType ? { conceptType: c.conceptType } : {}),
+        ...(c.aliases ? { aliases: c.aliases } : {}),
+      })),
+      claims: parsed.claims.map((c) => ({
+        claimText: c.claimText,
+        ...(c.claimType ? { claimType: c.claimType } : {}),
+        conceptNames: c.conceptNames,
+        ...(c.evidenceChunkId ? { evidenceChunkId: c.evidenceChunkId } : {}),
+      })),
+      relations: toExtractionRelations(parsed.relations),
+      sourceSummaryMarkdown: parsed.sourceSummaryMarkdown,
+    },
+    existingConcepts: existingConcepts.map((c) => ({
+      id: c.id,
+      canonicalName: c.canonicalName,
+      aliases: c.aliases,
+    })),
+    existingClaims: existingClaimsRows.map((c) => ({
+      id: c.id,
+      sourceId: c.sourceId,
+      claimText: c.claimText,
+      createdAtMs: c.createdAt.getTime(),
+      status: c.status,
+    })),
+    priorWikiPages: [
+      ...priorConceptPages,
+      ...(priorSummary
+        ? [{ pageKey: priorSummary.pageKey, pageType: priorSummary.pageType, markdown: priorSummary.markdown }]
+        : []),
+    ],
+    focusedRelations: toExtractionRelations(focusedRelations),
+    now,
+  });
 
-  await dbClient.db
-    .delete(wikiPages)
-    .where(
-      and(
-        eq(wikiPages.notebookId, input.notebookId),
-        eq(wikiPages.pageType, "concept"),
-        sql`(${wikiPages.structuredJson}->>'bootstrapSourceId') = ${input.sourceId}`,
-      ),
-    );
+  if (!compilation.ok) {
+    await appendEvent(dbClient, {
+      notebookId: input.notebookId,
+      eventType: "wiki.compilation.failed",
+      payload: {
+        sourceId: input.sourceId,
+        reasons: compilation.reasons,
+      },
+    });
+    return { ok: false, reason: compilation.reasons.map((r) => r.message).join("; ") };
+  }
+
+  const changeSet = compilation.changeSet;
+  await applyWikiChangeSet(dbClient, {
+    changeSet,
+    extractionModel: env.DEFAULT_EXTRACTION_MODEL,
+  });
+
+  await enqueueWikiPolishCandidates(dbClient, {
+    notebookId: input.notebookId,
+    sourceId: input.sourceId,
+    targetConceptIds: changeSet.concepts.map((concept) => concept.id),
+    maxCandidates: 5,
+  });
+
+  const { lookup: conceptLookup, byId: conceptsById } = buildConceptLookup(
+    existingConcepts.map((c) => ({ id: c.id, canonicalName: c.canonicalName, aliases: c.aliases })),
+  );
+  const conceptIdByName = new Map<string, string>();
+  for (const concept of existingConcepts) {
+    conceptIdByName.set(concept.canonicalName, concept.id);
+  }
+  for (const concept of changeSet.concepts) {
+    conceptIdByName.set(concept.canonicalName, concept.id);
+    if (concept.action === "create") {
+      conceptsById.set(concept.id, {
+        id: concept.id,
+        canonicalName: concept.canonicalName,
+        aliases: concept.aliases,
+      });
+      registerConceptLookup(conceptLookup, concept.id, [concept.canonicalName, ...concept.aliases]);
+    } else {
+      const existing = conceptsById.get(concept.id);
+      if (existing) {
+        conceptsById.set(concept.id, { ...existing, aliases: concept.aliases });
+        registerConceptLookup(conceptLookup, concept.id, [concept.canonicalName, ...concept.aliases]);
+      }
+    }
+  }
+  for (const c of parsed.concepts) {
+    const name = c.name.trim();
+    if (!conceptIdByName.has(name)) {
+      const id = resolveConceptId(conceptLookup, name);
+      if (id) conceptIdByName.set(name, id);
+    }
+  }
+
+  const conceptNamesById = new Map(
+    [...conceptsById.values()].map((concept) => [concept.id, concept.canonicalName]),
+  );
+
+  const sourceSummaryPage = changeSet.wikiPages.find((p) => p.pageType === "source_summary");
+  const pageId = sourceSummaryPage?.id ?? `wp_${crypto.randomUUID().replaceAll("-", "")}`;
+  const pageKey = sourceSummaryPage?.pageKey ?? sourceSummaryPageKey;
 
   const [nb] = await dbClient.db.select().from(notebooks).where(eq(notebooks.id, input.notebookId)).limit(1);
   if (!nb) {
     return { ok: false, reason: "notebook_missing" };
-  }
-
-  const pageKey = sourceSummaryPageKey;
-  const pageId = `wp_${crypto.randomUUID().replaceAll("-", "")}`;
-  const sourceSummaryChunkIds = uniqueChunkIds(insertedClaimMeta.flatMap((m) => m.chunkIds));
-
-  await dbClient.db
-    .delete(wikiPages)
-    .where(
-      and(
-        eq(wikiPages.notebookId, input.notebookId),
-        eq(wikiPages.pageType, "source_summary"),
-        eq(wikiPages.pageKey, pageKey),
-      ),
-    );
-
-  await dbClient.db.insert(wikiPages).values({
-    id: pageId,
-    notebookId: input.notebookId,
-    pageType: "source_summary",
-    pageKey,
-    title: `Source · ${input.sourceTitle}`,
-    version: 1,
-    status: "draft",
-    structuredJson: { sourceId: input.sourceId, sourceVersionId: input.sourceVersionId },
-    markdown: mergeAgentMarkdownWithHumanBlocks(parsed.sourceSummaryMarkdown, humanBlocksSourceSummary),
-    sourceClaimIds: insertedClaimMeta.map((m) => m.id),
-    sourceChunkIds: sourceSummaryChunkIds.length ? sourceSummaryChunkIds : input.chunks.map((c) => c.id),
-    confidenceSummaryJson: {
-      ...buildPageConfidenceSummary({
-        claimConfidences: insertedClaimMeta.map((m) => m.confidence),
-        claimComponentSamples: insertedClaimMeta.map((m) => m.confidenceComponents),
-      }),
-      extractionModel: env.DEFAULT_EXTRACTION_MODEL,
-    },
-    qualityScore: 0.7,
-    createdAt: now,
-    updatedAt: now,
-  });
-
-  await appendEvent(dbClient, {
-    notebookId: input.notebookId,
-    eventType: "wiki.page.compiled",
-    payload: { pageId, pageType: "source_summary", pageKey, sourceId: input.sourceId },
-  });
-
-  for (const c of parsed.concepts) {
-    const cid = conceptIdByName.get(c.name.trim());
-    if (!cid) continue;
-    const relatedClaims = insertedClaimMeta.filter((m) => m.conceptIds.includes(cid));
-    const bullets =
-      relatedClaims.length > 0
-        ? relatedClaims.map((m) => `- ${m.text} _(claim \`${m.id}\`)_`).join("\n")
-        : "_No extracted claims linked to this concept yet._";
-    const conceptChunkIds = uniqueChunkIds(relatedClaims.flatMap((m) => m.chunkIds));
-    const conceptMdBase = `## ${c.name.trim()}\n\n${bullets}\n`;
-    const conceptPageKey = `concept:${cid}`;
-    const conceptMd = mergeAgentMarkdownWithHumanBlocks(
-      conceptMdBase,
-      humanBlocksByConceptPageKey.get(conceptPageKey) ?? [],
-    );
-    const conceptPageId = `wp_${crypto.randomUUID().replaceAll("-", "")}`;
-    await dbClient.db.insert(wikiPages).values({
-      id: conceptPageId,
-      notebookId: input.notebookId,
-      pageType: "concept",
-      pageKey: conceptPageKey,
-      title: `Concept · ${c.name.trim()}`,
-      version: 1,
-      status: "draft",
-      structuredJson: { conceptId: cid, bootstrapSourceId: input.sourceId },
-      markdown: conceptMd,
-      sourceClaimIds: relatedClaims.map((m) => m.id),
-      sourceChunkIds: conceptChunkIds,
-      confidenceSummaryJson: {
-        ...buildPageConfidenceSummary({
-          claimConfidences: relatedClaims.map((m) => m.confidence),
-          claimComponentSamples: relatedClaims.map((m) => m.confidenceComponents),
-        }),
-        extractionModel: env.DEFAULT_EXTRACTION_MODEL,
-      },
-      qualityScore: 0.65,
-      createdAt: now,
-      updatedAt: now,
-    });
-    await appendEvent(dbClient, {
-      notebookId: input.notebookId,
-      eventType: "wiki.page.compiled",
-      payload: { pageId: conceptPageId, pageType: "concept", pageKey: conceptPageKey, conceptId: cid },
-    });
   }
 
   const [existingPlan] = await dbClient.db
@@ -924,7 +624,6 @@ export async function runPostIngestEnrichment(
   let objectiveListId: string | undefined;
   let sessionPlanId: string | undefined;
   let objectiveIdsOrdered: string[] = [];
-  let coverageProjectionItems: Array<{ itemId: string; recordId: string; title: string; itemFamily: string; status: string }> = [];
   let planId: string | undefined;
   let currentObjectiveId: string | undefined;
 
@@ -933,7 +632,7 @@ export async function runPostIngestEnrichment(
     await dbClient.db.insert(curricula).values({
       id: curriculumId,
       notebookId: input.notebookId,
-      title: parsed.curriculumTitle ?? `Learning track · ${input.sourceTitle}`,
+      title: cleanLearnerTitle(parsed.curriculumTitle) ?? cleanLearnerTitle(input.sourceTitle) ?? "Source-based course",
       curriculumType: "from_sources",
       scopeJson: { sourceIds: [input.sourceId] },
       status: "draft",
@@ -943,56 +642,183 @@ export async function runPostIngestEnrichment(
       createdAt: now,
       updatedAt: now,
     });
+    await appendEvent(dbClient, {
+      notebookId: input.notebookId,
+      eventType: "curriculum.generated",
+      payload: {
+        curriculumId,
+        sourceId: input.sourceId,
+      },
+    });
 
-    const objectiveIds: string[] = [];
-    const objectiveTitles = ["Orient and skim the source", "Solidify core terms", "Apply ideas with self-check"];
     const seedConceptIds = parsed.concepts
       .map((c) => conceptIdByName.get(c.name.trim()))
       .filter(Boolean) as string[];
+    const llmCurriculumPlan = await planCurriculumBootstrapWithLLM(env, {
+      sourceTitle: input.sourceTitle,
+      ...(parsed.curriculumTitle ? { curriculumTitle: parsed.curriculumTitle } : {}),
+      conceptNames: parsed.concepts.map((c) => c.name.trim()),
+    });
+    await appendEvent(dbClient, {
+      notebookId: input.notebookId,
+      eventType: "curriculum.bootstrap.planned",
+      payload: {
+        curriculumId,
+        planner: llmCurriculumPlan ? "llm_curated" : "deterministic_fallback",
+        sourceId: input.sourceId,
+        conceptCount: parsed.concepts.length,
+      },
+    });
+    if (llmCurriculumPlan?.curriculumTitle) {
+      await dbClient.db
+        .update(curricula)
+        .set({ title: cleanLearnerTitle(llmCurriculumPlan.curriculumTitle) ?? cleanLearnerTitle(input.sourceTitle) ?? "Source-based course", updatedAt: now })
+        .where(eq(curricula.id, curriculumId));
+    }
+    const fallbackModuleCount = Math.min(3, Math.max(2, Math.ceil(seedConceptIds.length / 5)));
+    const curriculumModulesPlan =
+      llmCurriculumPlan?.modules?.length
+        ? llmCurriculumPlan.modules
+        : buildConceptGroundedFallbackModules(input.sourceTitle, parsed.concepts.map((c) => c.name.trim()), fallbackModuleCount);
 
     moduleId = `mod_${crypto.randomUUID().replaceAll("-", "")}`;
     objectiveListId = `objlist_${crypto.randomUUID().replaceAll("-", "")}`;
     sessionPlanId = `sessplan_${crypto.randomUUID().replaceAll("-", "")}`;
+    const moduleIds: string[] = [];
+    const moduleObjectives: string[][] = [];
 
-    for (let i = 0; i < objectiveTitles.length; i += 1) {
-      const oid = `obj_${crypto.randomUUID().replaceAll("-", "")}`;
-      objectiveIds.push(oid);
-      await dbClient.db.insert(objectives).values({
-        id: oid,
+    for (let m = 0; m < curriculumModulesPlan.length; m += 1) {
+      const modId = `mod_${crypto.randomUUID().replaceAll("-", "")}`;
+      moduleIds.push(modId);
+      const prevModuleId: string | undefined = m > 0 ? moduleIds[m - 1] : undefined;
+      const start = Math.floor((m / curriculumModulesPlan.length) * seedConceptIds.length);
+      const end = Math.floor(((m + 1) / curriculumModulesPlan.length) * seedConceptIds.length);
+      const modConcepts = seedConceptIds.slice(start, end);
+      const modulePlan = curriculumModulesPlan[m]!;
+      const moduleConceptNames = modConcepts.map((conceptId) => conceptNameForId(conceptNamesById, conceptId));
+      const moduleTitle = cleanLearnerTitle(modulePlan.title) ?? `Understand ${moduleConceptNames[0] ?? input.sourceTitle}`;
+
+      await dbClient.db.insert(curriculumModules).values({
+        id: modId,
         notebookId: input.notebookId,
-        curriculumId: curriculumId!,
-        title: objectiveTitles[i]!,
-        status: "not_started",
-        orderIndex: i,
-        prerequisiteConceptIds: [],
-        targetConceptIds: i === 0 ? seedConceptIds.slice(0, 5) : [],
-        successCriteriaJson: { minClaimsReviewed: Math.min(3, parsed.claims.length) },
+        curriculumId,
+        title: moduleTitle,
+        summary: modulePlan.summary,
+        orderIndex: m,
+        status: m === 0 ? "active" : "not_started",
         sourceRefsJson: [{ sourceId: input.sourceId }],
-        suggestedMode: "explore",
-        readinessScore: 0.6,
+        targetConceptIds: modConcepts,
+        prerequisiteModuleIds: prevModuleId ? [prevModuleId] : [],
+        estimatedSessionCount: Math.max(2, Math.ceil(modConcepts.length / 3)),
+        coverageRequirementsJson: { conceptCount: modConcepts.length, claimCount: Math.min(5, parsed.claims.length) },
+        masteryGateJson: { minObjectivesCompleted: 1 },
         createdAt: now,
         updatedAt: now,
       });
+      await appendEvent(dbClient, {
+        notebookId: input.notebookId,
+        eventType: "module.generated",
+        payload: {
+          moduleId: modId,
+          curriculumId,
+          orderIndex: m,
+          status: m === 0 ? "active" : "not_started",
+        },
+      });
+
+      const objIds: string[] = [];
+      for (let i = 0; i < modulePlan.objectiveTitles.length; i += 1) {
+        const oid = `obj_${crypto.randomUUID().replaceAll("-", "")}`;
+        const objectiveTitle = objectiveTitleForIndex(
+          modulePlan.objectiveTitles,
+          i,
+          input.sourceTitle,
+          modConcepts.map((conceptId) => conceptNameForId(conceptNamesById, conceptId)),
+        );
+        objIds.push(oid);
+        await dbClient.db.insert(objectives).values({
+          id: oid,
+          notebookId: input.notebookId,
+          curriculumId,
+          title: objectiveTitle,
+          status: "not_started",
+          orderIndex: i,
+          prerequisiteConceptIds: [],
+          targetConceptIds: modConcepts.slice(0, 3),
+          successCriteriaJson: { minClaimsReviewed: Math.min(3, parsed.claims.length) },
+          sourceRefsJson: [{ sourceId: input.sourceId }],
+          suggestedMode: "explore",
+          readinessScore: 0.6,
+          createdAt: now,
+          updatedAt: now,
+        });
+        await appendEvent(dbClient, {
+          notebookId: input.notebookId,
+          eventType: "objective.generated",
+          payload: {
+            objectiveId: oid,
+            moduleId: modId,
+            curriculumId,
+            orderIndex: i,
+            title: objectiveTitle,
+          },
+        });
+      }
+      moduleObjectives.push(objIds);
     }
 
-    await dbClient.db.insert(curriculumModules).values({
-      id: moduleId,
-      notebookId: input.notebookId,
-      curriculumId,
-      title: `${parsed.curriculumTitle ?? `Learning track · ${input.sourceTitle}`}`,
-      summary: `Bootstrap module generated from ${input.sourceTitle}`,
-      orderIndex: 0,
-      status: "active",
-      sourceRefsJson: [{ sourceId: input.sourceId }],
-      targetConceptIds: seedConceptIds.slice(0, 8),
-      prerequisiteModuleIds: [],
-      estimatedSessionCount: 3,
-      coverageRequirementsJson: { conceptCount: Math.max(3, seedConceptIds.length), claimCount: Math.min(5, parsed.claims.length) },
-      masteryGateJson: { minObjectivesCompleted: 2 },
-      createdAt: now,
-      updatedAt: now,
+    // Set first module as active
+    moduleId = moduleIds[0] ?? moduleId;
+    const objectiveIds = moduleObjectives[0] ?? [];
+    const firstModulePlan = curriculumModulesPlan[0];
+    const firstModuleObjectiveTitles = firstModulePlan?.objectiveTitles ?? [];
+    const llmSessionPlan = await planSessionBootstrapWithLLM(env, {
+      sourceTitle: input.sourceTitle,
+      moduleTitle: firstModulePlan?.title ?? `Module 1 · ${input.sourceTitle}`,
+      objectiveTitles: firstModuleObjectiveTitles,
     });
-
+    const llmPlannedObjectiveIds =
+      llmSessionPlan?.plannedObjectiveIndexes
+        .map((index) => objectiveIds[index])
+        .filter((value): value is string => typeof value === "string")
+        .slice(0, 2) ?? [];
+    const plannedObjectiveIds = llmPlannedObjectiveIds.length > 0 ? llmPlannedObjectiveIds : objectiveIds.slice(0, 2);
+    const teachingArcDrafts = plannedObjectiveIds.map((objectiveId) => {
+      const objectiveTitle =
+        objectiveTitleForIndex(
+          firstModuleObjectiveTitles,
+          objectiveIds.indexOf(objectiveId),
+          input.sourceTitle,
+          seedConceptIds.map((conceptId) => conceptNameForId(conceptNamesById, conceptId)),
+        );
+      return composeTeachingArc({
+        objectiveId,
+        objectiveTitle,
+        targetConceptNames: parsed.concepts.map((c) => c.name.trim()).slice(0, 4),
+      });
+    });
+    await appendEvent(dbClient, {
+      notebookId: input.notebookId,
+      eventType: "session_plan.bootstrap.planned",
+      payload: {
+        sessionPlanId,
+        planner: llmSessionPlan ? "llm_curated" : "deterministic_fallback",
+        plannedObjectiveIds,
+      },
+    });
+    if (teachingArcDrafts.length > 0) {
+      await appendEvent(dbClient, {
+        notebookId: input.notebookId,
+        eventType: "teaching_arc.bootstrap.embedded",
+        payload: {
+          sessionPlanId,
+          objectiveCount: teachingArcDrafts.length,
+          arcIds: teachingArcDrafts.map((arc) => arc.id),
+        },
+      });
+    }
+    // Create objective list for first module
+    objectiveListId = `objlist_${crypto.randomUUID().replaceAll("-", "")}`;
     await dbClient.db.insert(objectiveLists).values({
       id: objectiveListId,
       notebookId: input.notebookId,
@@ -1007,6 +833,16 @@ export async function runPostIngestEnrichment(
       createdAt: now,
       updatedAt: now,
     });
+    await appendEvent(dbClient, {
+      notebookId: input.notebookId,
+      eventType: "objective_list.generated",
+      payload: {
+        objectiveListId,
+        curriculumId,
+        moduleId,
+        currentObjectiveId: objectiveIds[0] ?? null,
+      },
+    });
 
     await dbClient.db.insert(sessionPlans).values({
       id: sessionPlanId,
@@ -1014,40 +850,159 @@ export async function runPostIngestEnrichment(
       curriculumId,
       moduleId,
       objectiveListId,
-      title: "Current teaching session",
+      title: sessionTitleForObjectives(
+        plannedObjectiveIds.map((objectiveId) =>
+          objectiveTitleForIndex(
+            firstModuleObjectiveTitles,
+            objectiveIds.indexOf(objectiveId),
+            input.sourceTitle,
+            seedConceptIds.map((conceptId) => conceptNameForId(conceptNamesById, conceptId)),
+          ),
+        ),
+        input.sourceTitle,
+      ),
       status: "active",
-      sessionGoal: `Learn the essentials of ${input.sourceTitle}`,
-      plannedObjectiveIds: objectiveIds,
-      openerJson: { mode: "bootstrap" },
+      sessionGoal: llmSessionPlan?.sessionGoal ?? `Learn the essentials of ${input.sourceTitle}`,
+      plannedObjectiveIds,
+      openerJson: {},
       diagnosticQuestionIds: [],
       teachingArcIds: [],
       artifactRefsJson: [],
-      exitCriteriaJson: { minObjectivesAddressed: 1 },
-      recommendationReasonJson: { reason: "bootstrap_after_ingestion" },
+      exitCriteriaJson: {},
+      recommendationReasonJson: {
+        reason: "bootstrap_after_ingestion",
+        planner: llmCurriculumPlan ? "llm_curated" : "deterministic_fallback",
+        sessionPlanner: llmSessionPlan ? "llm_curated" : "deterministic_fallback",
+        teachingArcDrafts: teachingArcDrafts.map((arc) => ({
+          id: arc.id,
+          objectiveId: arc.objectiveId,
+          title: arc.title,
+          blockCount: arc.blocks.length,
+        })),
+      },
       createdByRunId: null,
       createdAt: now,
       updatedAt: now,
     });
+    await appendEvent(dbClient, {
+      notebookId: input.notebookId,
+      eventType: "session_plan.generated",
+      payload: {
+        sessionPlanId,
+        objectiveListId,
+        curriculumId,
+        moduleId,
+        plannedObjectiveIds,
+      },
+    });
+    // Validate session plan persistence and planned objective consistency
+    try {
+      const [persisted] = await dbClient.db
+        .select()
+        .from(sessionPlans)
+        .where(eq(sessionPlans.id, sessionPlanId))
+        .limit(1);
 
-    const coverageSeedItems = [
-      ...seedConceptIds.map((conceptId) => ({
-        itemFamily: "concept",
-        title: `Concept coverage: ${conceptId}`,
-        conceptId,
-        claimId: null as string | null,
+      if (!persisted) {
+        await appendEvent(dbClient, {
+          notebookId: input.notebookId,
+          eventType: "session_plan.persistence_failed",
+          payload: { sessionPlanId, reason: "missing_after_insert" },
+        });
+      } else {
+        const planned: string[] = Array.isArray(persisted.plannedObjectiveIds) ? persisted.plannedObjectiveIds : [];
+        const missing = planned.filter((id) => !objectiveIds.includes(id));
+        if (missing.length) {
+          await appendEvent(dbClient, {
+            notebookId: input.notebookId,
+            eventType: "session_plan.inconsistent_planned_objectives",
+            payload: { sessionPlanId, missingPlannedObjectiveIds: missing },
+          });
+        }
+      }
+    } catch (e) {
+      await appendEvent(dbClient, {
+        notebookId: input.notebookId,
+        eventType: "session_plan.persistence_check_error",
+        payload: { sessionPlanId, error: e instanceof Error ? e.message : String(e) },
+      });
+    }
+    // Update curriculum with active module
+    await dbClient.db.update(curricula).set({ activeModuleId: moduleId }).where(eq(curricula.id, curriculumId));
+
+    const extractedCoverageSeedItems = input.chunks.flatMap((chunk) =>
+      extractCoverageItems({
+        notebookId: input.notebookId,
+        sourceId: input.sourceId,
+        sourceVersionId: input.sourceVersionId,
+        chunkText: chunk.text,
+      }),
+    );
+
+    const llmCoverageRefinements = await refineCoverageFamiliesWithLLM(
+      env,
+      extractedCoverageSeedItems.map((item) => ({
+        title: item.title.slice(0, 160),
+        itemFamily: item.itemFamily,
+        description: item.description ?? null,
       })),
-      ...parsed.claims.slice(0, 5).map((claim) => ({
-        itemFamily: "claim",
-        title: claim.claimText.slice(0, 120),
-        conceptId: null as string | null,
-        claimId: null as string | null,
-      })),
+    );
+
+    const coverageSeedItems =
+      extractedCoverageSeedItems.length > 0
+        ? extractedCoverageSeedItems.map((item) => ({
+            itemFamily: item.itemFamily,
+            title: item.title.slice(0, 160),
+            description: item.description ?? null,
+            conceptId: item.conceptId ?? null,
+            claimId: item.claimId ?? null,
+            metadataJson: {
+              ...item.metadataJson,
+              seededBy: "coverage_family_extractor",
+              ...(llmCoverageRefinements.has(item.title.slice(0, 160))
+                ? {
+                    llmFamilyRefinedFrom: item.itemFamily,
+                    llmFamilyRefinedTo: llmCoverageRefinements.get(item.title.slice(0, 160)),
+                  }
+                : {}),
+            } as Record<string, unknown>,
+            ...(llmCoverageRefinements.has(item.title.slice(0, 160))
+              ? { itemFamily: llmCoverageRefinements.get(item.title.slice(0, 160)) ?? item.itemFamily }
+              : {}),
+          }))
+        : [
+            ...seedConceptIds.map((conceptId) => ({
+              itemFamily: "definition",
+              title: `Core concept: ${conceptNameForId(conceptNamesById, conceptId)}`,
+              description: null as string | null,
+              conceptId,
+              claimId: null as string | null,
+              metadataJson: { seededBy: "post_ingest_bootstrap_fallback" } as Record<string, unknown>,
+            })),
+            ...parsed.claims.slice(0, 5).map((claim) => ({
+              itemFamily: "example",
+              title: claim.claimText.slice(0, 120),
+              description: null as string | null,
+              conceptId: null as string | null,
+              claimId: null as string | null,
+              metadataJson: { seededBy: "post_ingest_bootstrap_fallback" } as Record<string, unknown>,
+            })),
+          ];
+
+    const objectiveCoverageFamilies: Array<string[]> = [
+      ["definition", "notation", "distinction", "historical_context"],
+      ["formula", "procedure", "example"],
+      ["application", "misconception"],
     ];
+    const coverageByFamily = new Map<string, string[]>();
+    const conceptIdsByObjective = objectiveIds.map(() => new Set<string>());
 
     for (const item of coverageSeedItems) {
       const coverageItemId = `cov_${crypto.randomUUID().replaceAll("-", "")}`;
       const coverageRecordId = `covrec_${crypto.randomUUID().replaceAll("-", "")}`;
-      coverageProjectionItems.push({ itemId: coverageItemId, recordId: coverageRecordId, title: item.title, itemFamily: item.itemFamily, status: "planned" });
+      const familyItems = coverageByFamily.get(item.itemFamily) ?? [];
+      familyItems.push(coverageItemId);
+      coverageByFamily.set(item.itemFamily, familyItems);
       await dbClient.db.insert(coverageItems).values({
         id: coverageItemId,
         notebookId: input.notebookId,
@@ -1055,11 +1010,11 @@ export async function runPostIngestEnrichment(
         sourceVersionId: input.sourceVersionId,
         itemFamily: item.itemFamily,
         title: item.title,
-        description: null,
+        description: item.description,
         conceptId: item.conceptId,
         claimId: item.claimId,
         sourceRefsJson: [{ sourceId: input.sourceId }],
-        metadataJson: { seededBy: "post_ingest_bootstrap" },
+        metadataJson: item.metadataJson,
         createdAt: now,
         updatedAt: now,
       });
@@ -1078,6 +1033,40 @@ export async function runPostIngestEnrichment(
         createdAt: now,
         updatedAt: now,
       });
+
+      if (item.conceptId) {
+        for (let objectiveIndex = 0; objectiveIndex < objectiveCoverageFamilies.length; objectiveIndex += 1) {
+          const families = objectiveCoverageFamilies[objectiveIndex]!;
+          if (families.includes(item.itemFamily)) {
+            conceptIdsByObjective[objectiveIndex]!.add(item.conceptId);
+          }
+        }
+      }
+    }
+
+    for (let i = 0; i < objectiveIds.length; i += 1) {
+      const objectiveId = objectiveIds[i]!;
+      const mustCoverCoverageItemIds = (objectiveCoverageFamilies[i] ?? []).flatMap(
+        (family) => coverageByFamily.get(family) ?? [],
+      );
+      const targetConceptIds = [
+        ...new Set([
+          ...Array.from(conceptIdsByObjective[i] ?? []),
+          ...(i === 0 ? seedConceptIds.slice(0, 5) : []),
+        ]),
+      ];
+      await dbClient.db
+        .update(objectives)
+        .set({
+          targetConceptIds,
+          successCriteriaJson: {
+            minClaimsReviewed: Math.min(3, parsed.claims.length),
+            mustCoverCoverageItemIds: mustCoverCoverageItemIds.slice(0, 24),
+            coverageFamilies: objectiveCoverageFamilies[i] ?? [],
+          },
+          updatedAt: now,
+        })
+        .where(eq(objectives.id, objectiveId));
     }
 
     planId = `spl_${crypto.randomUUID().replaceAll("-", "")}`;
@@ -1107,229 +1096,200 @@ export async function runPostIngestEnrichment(
       .update(curricula)
       .set({ activeModuleId: moduleId, updatedAt: now })
       .where(eq(curricula.id, curriculumId));
+  } else {
+    planId = existingPlan.id;
+    currentObjectiveId = existingPlan.currentObjectiveId ?? undefined;
+    objectiveIdsOrdered = [
+      ...(existingPlan.currentObjectiveId ? [existingPlan.currentObjectiveId] : []),
+      ...(existingPlan.upcomingObjectiveIds ?? []),
+    ];
+
+    const [activeCurriculum] = await dbClient.db
+      .select({ id: curricula.id, activeModuleId: curricula.activeModuleId })
+      .from(curricula)
+      .where(and(eq(curricula.notebookId, input.notebookId), eq(curricula.status, "active")))
+      .orderBy(desc(curricula.updatedAt))
+      .limit(1);
+    curriculumId = activeCurriculum?.id;
+    moduleId = activeCurriculum?.activeModuleId ?? undefined;
+
+    if (moduleId) {
+      const [activeObjectiveList] = await dbClient.db
+        .select({ id: objectiveLists.id })
+        .from(objectiveLists)
+        .where(
+          and(
+            eq(objectiveLists.notebookId, input.notebookId),
+            eq(objectiveLists.moduleId, moduleId),
+            eq(objectiveLists.status, "active"),
+          ),
+        )
+        .orderBy(desc(objectiveLists.updatedAt))
+        .limit(1);
+      objectiveListId = activeObjectiveList?.id;
+      if (objectiveListId) {
+        const [activeSessionPlan] = await dbClient.db
+          .select({ id: sessionPlans.id })
+          .from(sessionPlans)
+          .where(
+            and(
+              eq(sessionPlans.notebookId, input.notebookId),
+              eq(sessionPlans.objectiveListId, objectiveListId),
+              eq(sessionPlans.status, "active"),
+            ),
+          )
+          .orderBy(desc(sessionPlans.updatedAt))
+          .limit(1);
+        sessionPlanId = activeSessionPlan?.id;
+      }
+    }
+  }
+
+  if (existingPlan) {
+    const extractedCoverageSeedItems = input.chunks.flatMap((chunk) =>
+      extractCoverageItems({
+        notebookId: input.notebookId,
+        sourceId: input.sourceId,
+        sourceVersionId: input.sourceVersionId,
+        chunkText: chunk.text,
+      }),
+    );
+
+    const llmCoverageRefinements = await refineCoverageFamiliesWithLLM(
+      env,
+      extractedCoverageSeedItems.map((item) => ({
+        title: item.title.slice(0, 160),
+        itemFamily: item.itemFamily,
+        description: item.description ?? null,
+      })),
+    );
+
+    const coverageSeedItems =
+      extractedCoverageSeedItems.length > 0
+        ? extractedCoverageSeedItems.map((item) => ({
+          itemFamily: item.itemFamily,
+          title: item.title.slice(0, 160),
+          description: item.description ?? null,
+          conceptId: item.conceptId ?? null,
+          claimId: item.claimId ?? null,
+          metadataJson: {
+            ...item.metadataJson,
+            seededBy: "coverage_family_extractor",
+            ...(llmCoverageRefinements.has(item.title.slice(0, 160))
+              ? {
+                  llmFamilyRefinedFrom: item.itemFamily,
+                  llmFamilyRefinedTo: llmCoverageRefinements.get(item.title.slice(0, 160)),
+                }
+              : {}),
+          } as Record<string, unknown>,
+          ...(llmCoverageRefinements.has(item.title.slice(0, 160))
+            ? { itemFamily: llmCoverageRefinements.get(item.title.slice(0, 160)) ?? item.itemFamily }
+            : {}),
+          }))
+        : [];
+
+    const objectiveCoverageFamilies: Array<string[]> = [
+      ["definition", "notation", "distinction", "historical_context"],
+      ["formula", "procedure", "example"],
+      ["application", "misconception"],
+    ];
+    const coverageByFamily = new Map<string, string[]>();
+
+    for (const item of coverageSeedItems) {
+    const coverageItemId = `cov_${crypto.randomUUID().replaceAll("-", "")}`;
+    const coverageRecordId = `covrec_${crypto.randomUUID().replaceAll("-", "")}`;
+    const familyItems = coverageByFamily.get(item.itemFamily) ?? [];
+    familyItems.push(coverageItemId);
+    coverageByFamily.set(item.itemFamily, familyItems);
+    await dbClient.db.insert(coverageItems).values({
+      id: coverageItemId,
+      notebookId: input.notebookId,
+      sourceId: input.sourceId,
+      sourceVersionId: input.sourceVersionId,
+      itemFamily: item.itemFamily,
+      title: item.title,
+      description: item.description,
+      conceptId: item.conceptId,
+      claimId: item.claimId,
+      sourceRefsJson: [{ sourceId: input.sourceId }],
+      metadataJson: item.metadataJson,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await dbClient.db.insert(coverageRecords).values({
+      id: coverageRecordId,
+      notebookId: input.notebookId,
+      coverageItemId,
+      curriculumId: curriculumId ?? null,
+      moduleId: moduleId ?? null,
+      objectiveListId: objectiveListId ?? null,
+      sessionPlanId: sessionPlanId ?? null,
+      status: "planned",
+      evidenceJson: { sourceId: input.sourceId },
+      updatedByRunId: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    }
+
+    for (let i = 0; i < objectiveIdsOrdered.length; i += 1) {
+      const objectiveId = objectiveIdsOrdered[i];
+      if (!objectiveId) continue;
+      const mustCoverCoverageItemIds = (objectiveCoverageFamilies[i] ?? []).flatMap(
+        (family) => coverageByFamily.get(family) ?? [],
+      );
+      if (mustCoverCoverageItemIds.length === 0) continue;
+      await dbClient.db
+        .update(objectives)
+        .set({
+          successCriteriaJson: {
+            minClaimsReviewed: Math.min(3, parsed.claims.length),
+            mustCoverCoverageItemIds: mustCoverCoverageItemIds.slice(0, 24),
+            coverageFamilies: objectiveCoverageFamilies[i] ?? [],
+          },
+          updatedAt: now,
+        })
+        .where(eq(objectives.id, objectiveId));
+    }
   }
 
   if (env.NEO4J_URI && env.NEO4J_PASSWORD) {
-    try {
-      const driver = createNeo4jDriver(env.NEO4J_URI, env.NEO4J_USERNAME, env.NEO4J_PASSWORD);
-      const session = driver.session();
-      try {
-        const verified = await verifyNeo4jProjection(session);
-        if (!verified.ok) {
-          throw new Error(verified.message);
-        }
+    const projectionResult = await projectGraphFromCanonical(
+      dbClient,
+      {
+        neo4jUri: env.NEO4J_URI,
+        neo4jUsername: env.NEO4J_USERNAME,
+        neo4jPassword: env.NEO4J_PASSWORD,
+      },
+      {
+        notebookId: input.notebookId,
+        scope: "source",
+        sourceId: input.sourceId,
+        rebuild: true,
+      },
+    );
 
-        await mergeSourceNode(session, input.notebookId, input.sourceId, input.sourceTitle);
-
-        const neoConcepts = parsed.concepts
-          .map((c) => {
-            const id = resolveConceptId(conceptLookup, c.name.trim()) ?? conceptIdByName.get(c.name.trim());
-            return id ? { id, name: c.name.trim() } : null;
-          })
-          .filter(Boolean) as Array<{ id: string; name: string }>;
-        if (neoConcepts.length) {
-          await mergeConceptNodes(session, input.notebookId, neoConcepts);
-        }
-
-        for (const relation of relationCandidates.values()) {
-          const fromId = relation.fromId;
-          const toId = relation.toId;
-          if (!fromId || !toId || fromId === toId) continue;
-          await mergeConceptRelation(
-            session,
-            input.notebookId,
-            fromId,
-            toId,
-            relation.relationType as IngestConceptRelationKind,
-            relation.confidence ?? null,
-          );
-        }
-
-        if (curriculumId) {
-          await mergeCurriculumNode(
-            session,
-            input.notebookId,
-            curriculumId,
-            parsed.curriculumTitle ?? `Learning track · ${input.sourceTitle}`,
-          );
-          await linkSourceCoversCurriculum(session, input.notebookId, input.sourceId, curriculumId);
-
-          if (moduleId) {
-            await mergeCurriculumModuleNode(
-              session,
-              input.notebookId,
-              moduleId,
-              curriculumId,
-              parsed.curriculumTitle ?? `Learning track · ${input.sourceTitle}`,
-              `Bootstrap module generated from ${input.sourceTitle}`,
-              0,
-              "active",
-            );
-          }
-
-          if (moduleId && objectiveListId) {
-            await mergeObjectiveListNode(
-              session,
-              input.notebookId,
-              objectiveListId,
-              curriculumId,
-              moduleId,
-              "Active objective list",
-              "active",
-            );
-          }
-
-          if (moduleId && objectiveListId && sessionPlanId) {
-            await mergeSessionPlanNode(
-              session,
-              input.notebookId,
-              sessionPlanId,
-              curriculumId,
-              moduleId,
-              objectiveListId,
-              "Current teaching session",
-              "active",
-              `Learn the essentials of ${input.sourceTitle}`,
-            );
-          }
-
-          const objectiveTitles = ["Orient and skim the source", "Solidify core terms", "Apply ideas with self-check"];
-          for (let i = 0; i < objectiveIdsOrdered.length; i += 1) {
-            const oid = objectiveIdsOrdered[i]!;
-            await mergeObjectiveNode(
-              session,
-              input.notebookId,
-              curriculumId,
-              oid,
-              objectiveTitles[i] ?? `Objective ${i + 1}`,
-              i,
-              "not_started",
-            );
-            if (objectiveListId) {
-              await session.run(
-                `MATCH (ol:objective_list {id: $objectiveListId}), (o:Objective {id: $oid})
-                 WHERE ol.notebookId = $notebookId AND o.notebookId = $notebookId
-                 MERGE (ol)-[r:PLANS]->(o)
-                 SET r.notebookId = $notebookId,
-                     r.orderIndex = $orderIndex,
-                     r.updatedAt = datetime()`,
-                { objectiveListId, oid, notebookId: input.notebookId, orderIndex: i },
-              );
-            }
-            if (sessionPlanId) {
-              await session.run(
-                `MATCH (sp:session_plan {id: $sessionPlanId}), (o:Objective {id: $oid})
-                 WHERE sp.notebookId = $notebookId AND o.notebookId = $notebookId
-                 MERGE (sp)-[r:PLANS]->(o)
-                 SET r.notebookId = $notebookId,
-                     r.orderIndex = $orderIndex,
-                     r.updatedAt = datetime()`,
-                { sessionPlanId, oid, notebookId: input.notebookId, orderIndex: i },
-              );
-            }
-          }
-        }
-
-        if (planId && objectiveIdsOrdered.length) {
-          await mergeStudyPlanAndObjectives(
-            session,
-            input.notebookId,
-            planId,
-            "Living study plan",
-            objectiveIdsOrdered,
-            currentObjectiveId ?? objectiveIdsOrdered[0]!,
-          );
-
-          for (const coverageItem of coverageProjectionItems) {
-            await mergeCoverageItemNode(session, input.notebookId, coverageItem.itemId, coverageItem.title, coverageItem.itemFamily);
-            await mergeCoverageRecordNode(
-              session,
-              input.notebookId,
-              coverageItem.recordId,
-              coverageItem.itemId,
-              coverageItem.status,
-            );
-          }
-        }
-
-        for (const meta of insertedClaimMeta) {
-          const primaryConcept = meta.conceptIds[0] ?? null;
-          await mergeClaimNode(
-            session,
-            input.notebookId,
-            meta.id,
-            meta.text.length > 200 ? `${meta.text.slice(0, 197)}…` : meta.text,
-            input.sourceId,
-            primaryConcept,
-          );
-        }
-
-        for (const p of supersedePlans) {
-          await mergeClaimSupersedes(session, input.notebookId, p.winnerId, p.olderId);
-        }
-        for (const pair of contradictionPairs) {
-          await mergeClaimContradiction(session, input.notebookId, pair.a, pair.b);
-        }
-
-        await mergeWikiPageNode(
-          session,
-          input.notebookId,
-          pageId,
-          `Source · ${input.sourceTitle}`,
-          pageKey,
-          "source_summary",
-          null,
-        );
-        await mergeWikiPageForSource(session, input.notebookId, pageId, input.sourceId);
-
-        for (const c of parsed.concepts) {
-          const cid = resolveConceptId(conceptLookup, c.name.trim()) ?? conceptIdByName.get(c.name.trim());
-          if (!cid) continue;
-          const conceptPageKey = `concept:${cid}`;
-          const [row] = await dbClient.db
-            .select({ id: wikiPages.id })
-            .from(wikiPages)
-            .where(
-              and(
-                eq(wikiPages.notebookId, input.notebookId),
-                eq(wikiPages.pageType, "concept"),
-                eq(wikiPages.pageKey, conceptPageKey),
-              ),
-            )
-            .limit(1);
-          if (!row) continue;
-          await mergeWikiPageNode(
-            session,
-            input.notebookId,
-            row.id,
-            `Concept · ${c.name.trim()}`,
-            conceptPageKey,
-            "concept",
-            cid,
-          );
-        }
-
-        await appendEvent(dbClient, {
-          notebookId: input.notebookId,
-          eventType: "graph.neo4j_projection.updated",
-          payload: {
-            sourceId: input.sourceId,
-            curriculumId: curriculumId ?? null,
-            conceptCount: neoConcepts.length,
-            relationCount: relationCandidates.size,
-          },
-        });
-      } finally {
-        await session.close();
-        await driver.close();
-      }
-    } catch (e) {
+    if (projectionResult.ok) {
+      await appendEvent(dbClient, {
+        notebookId: input.notebookId,
+        eventType: "graph.neo4j_projection.updated",
+        payload: {
+          sourceId: input.sourceId,
+          curriculumId: curriculumId ?? null,
+          operationCount: projectionResult.operationCount,
+          scope: "source",
+        },
+      });
+    } else {
       await appendEvent(dbClient, {
         notebookId: input.notebookId,
         eventType: "graph.neo4j_projection.failed",
         payload: {
           sourceId: input.sourceId,
-          message: e instanceof Error ? e.message : String(e),
+          code: projectionResult.error.code,
+          message: projectionResult.error.message,
         },
       });
     }

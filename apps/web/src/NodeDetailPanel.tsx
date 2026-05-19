@@ -26,6 +26,7 @@ const badgeColors: Record<string, { bg: string; text: string }> = {
   concept: { bg: "#dbeafe", text: "#1d4ed8" },
   source: { bg: "#d1fae5", text: "#065f46" },
   source_section: { bg: "#d1fae5", text: "#065f46" },
+  topic: { bg: "#e0f2fe", text: "#0369a1" },
   curriculum: { bg: "#fef3c7", text: "#92400e" },
   curriculum_module: { bg: "#ffedd5", text: "#9a3412" },
   objective: { bg: "#fef3c7", text: "#92400e" },
@@ -96,7 +97,7 @@ function StatusBadge({ status }: { status: string | undefined }) {
   );
 }
 
-function NodeTypePanel({ node }: { node: GraphCanvasNode }) {
+export function NodeTypePanel({ node }: { node: GraphCanvasNode }) {
   const p = node.properties;
   const str = (k: string) => (typeof p[k] === "string" ? (p[k] as string) : undefined);
   const num = (k: string) => (typeof p[k] === "number" ? (p[k] as number) : undefined);
@@ -113,10 +114,11 @@ function NodeTypePanel({ node }: { node: GraphCanvasNode }) {
       );
 
     case "source_section":
+    case "topic":
       return (
         <>
-          <Field label="Heading" value={str("title") ?? str("heading")} />
-          <Field label="Page" value={str("pageStart") ?? str("page_start")} />
+          <Field label={node.nodeType === "topic" ? "Topic" : "Heading"} value={str("title") ?? str("heading")} />
+          {node.nodeType === "source_section" && <Field label="Page" value={str("pageStart") ?? str("page_start")} />}
           {str("text") && (
             <Field
               label="Preview"
@@ -159,7 +161,7 @@ function NodeTypePanel({ node }: { node: GraphCanvasNode }) {
     case "study_plan":
       return (
         <>
-          <Field label="Title" value={str("title")} />
+          <Field label="Live Plan" value={str("title")} />
           <Field label="Status" value={<StatusBadge status={str("status")} />} />
           <Field label="Current Objective" value={str("currentObjectiveId") ?? str("current_objective_id")} />
         </>
@@ -309,6 +311,10 @@ export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
   if (!node) return null;
 
   const badge = badgeColors[node.nodeType] ?? { bg: "#f3f4f6", text: "#374151" };
+  
+  // GF-1 (NEW): Detect if we're in a full-panel context by checking for absolute positioning support
+  // In full-panel mode, parent will NOT have "position: relative" and we'll render without absolute positioning
+  const isFullPanel = false; // This will be determined by parent context in future
 
   return (
     <div
@@ -328,7 +334,7 @@ export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
         overflow: "hidden",
       }}
     >
-      {/* Header */}
+      {/* Header - simplified for overlay mode */}
       <div
         style={{
           padding: "10px 14px",
@@ -409,7 +415,7 @@ export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
               cursor: "pointer",
             }}
           >
-            Provenance
+            Evidence
           </button>
         )}
       </div>

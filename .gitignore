@@ -7,5 +7,5 @@ coverage
 *.tsbuildinfo
 .pnpm-store/
 
-greenfield-studyagent/
 testResources/
+greenfield-studyagent

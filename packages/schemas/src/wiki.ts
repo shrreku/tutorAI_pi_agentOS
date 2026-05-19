@@ -54,12 +54,14 @@ export const claimSchema = z.object({
 export const wikiPageTypeSchema = z.enum([
   "concept",
   "source_summary",
+  "topic",
   "comparison",
   "misconception",
   "session_digest",
   "study_guide",
   "formula_sheet",
   "worked_example",
+  "teaching_arc",
 ]);
 
 export const wikiPageSchema = z.object({

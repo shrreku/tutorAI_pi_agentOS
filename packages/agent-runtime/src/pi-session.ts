@@ -9,7 +9,6 @@ import {
   defineTool,
   type AgentSessionEvent,
 } from "@mariozechner/pi-coding-agent";
-
 /** Payload fragment persisted on tutor/agent events (GF-0501 / observability). */
 export function runTelemetryPayload(run: StudyAgentRuntimeRun): Record<string, unknown> {
   return {
@@ -28,6 +27,152 @@ export type TutorAppendEventInput = {
   eventType: string;
   payload: Record<string, unknown>;
 };
+
+type JsonSchema = {
+  type?: string | string[];
+  properties?: Record<string, JsonSchema>;
+  required?: string[];
+  items?: JsonSchema;
+  anyOf?: JsonSchema[];
+  oneOf?: JsonSchema[];
+  description?: string;
+  default?: unknown;
+  additionalProperties?: boolean | JsonSchema;
+};
+
+type JsonSchemaLike = JsonSchema & Record<string, unknown>;
+
+export type PiToolMetadata = {
+  name: string;
+  label: string;
+  description: string;
+  parameters: PiToolParameters;
+};
+
+export function getPiToolParameters(toolName: string): PiToolParameters {
+  const contract = getToolContract(toolName);
+  if (!contract) {
+    return Type.Object({}, { additionalProperties: true });
+  }
+  return zodSchemaToPiToolParameters(contract.inputSchema);
+}
+
+export function getPiToolMetadata(toolName: string): PiToolMetadata {
+  const contract = getToolContract(toolName);
+  if (!contract) {
+    return {
+      name: toolName,
+      label: toolName,
+      description: toolName,
+      parameters: Type.Object({}, { additionalProperties: true }),
+    };
+  }
+
+  return {
+    name: contract.name,
+    label: contract.name,
+    description: contract.description,
+    parameters: getPiToolParameters(toolName),
+  };
+}
+
+function zodSchemaToPiToolParameters(schema: { toJSONSchema?: () => unknown }): PiToolParameters {
+  const jsonSchema = schema.toJSONSchema?.();
+  const piSchema = jsonSchemaToPiSchema(jsonSchema);
+  if (!isJsonSchemaObject(piSchema) || piSchema.type !== "object") {
+    return Type.Object({}, { additionalProperties: true });
+  }
+  return piSchema as unknown as PiToolParameters;
+}
+
+function jsonSchemaToPiSchema(schema: unknown): JsonSchemaLike {
+  if (!isJsonSchemaObject(schema)) {
+    return {};
+  }
+
+  const unionMember = firstConcreteUnionMember(schema);
+  if (unionMember) {
+    return jsonSchemaToPiSchema(unionMember);
+  }
+
+  const type = Array.isArray(schema.type)
+    ? schema.type.find((candidate) => candidate !== "null")
+    : schema.type;
+
+  switch (type) {
+    case "object":
+      return jsonObjectSchemaToPiSchema(schema);
+    case "array": {
+      const result: JsonSchemaLike = {
+        type: "array",
+        items: jsonSchemaToPiSchema(schema.items),
+      };
+      copyDescription(schema, result);
+      return result;
+    }
+    case "string": {
+      const result: JsonSchemaLike = { type: "string" };
+      copyDescription(schema, result);
+      return result;
+    }
+    case "integer":
+    case "number": {
+      const result: JsonSchemaLike = { type: "number" };
+      copyDescription(schema, result);
+      return result;
+    }
+    case "boolean": {
+      const result: JsonSchemaLike = { type: "boolean" };
+      copyDescription(schema, result);
+      return result;
+    }
+    default:
+      return {};
+  }
+}
+
+function jsonObjectSchemaToPiSchema(schema: JsonSchema): JsonSchemaLike {
+  const properties: Record<string, JsonSchemaLike> = {};
+  for (const [propertyName, propertySchema] of Object.entries(schema.properties ?? {})) {
+    properties[propertyName] = jsonSchemaToPiSchema(propertySchema);
+  }
+
+  const required = (schema.required ?? []).filter((propertyName) => {
+    const propertySchema = schema.properties?.[propertyName];
+    return !isJsonSchemaObject(propertySchema) || !("default" in propertySchema);
+  });
+
+  const result: JsonSchemaLike = {
+    type: "object",
+    properties,
+  };
+  if (required.length > 0) {
+    result.required = required;
+  }
+  if (schema.additionalProperties === true || isJsonSchemaObject(schema.additionalProperties)) {
+    result.additionalProperties = true;
+  }
+  copyDescription(schema, result);
+  return result;
+}
+
+function firstConcreteUnionMember(schema: JsonSchema): JsonSchema | undefined {
+  const candidates = schema.anyOf ?? schema.oneOf;
+  return candidates?.find((candidate) => {
+    const type = Array.isArray(candidate.type) ? candidate.type : [candidate.type];
+    return !type.includes("null");
+  });
+}
+
+function copyDescription(source: JsonSchema, target: JsonSchemaLike): void {
+  if (typeof source.description === "string" && source.description.length > 0) {
+    target.description = source.description;
+  }
+}
+
+function isJsonSchemaObject(value: unknown): value is JsonSchemaLike {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
 
 function appendEventBase(run: StudyAgentRuntimeRun): { notebookId: string; runId: string; sessionId?: string } {
   const base: { notebookId: string; runId: string; sessionId?: string } = {
@@ -71,20 +216,30 @@ export function mapPiSessionEventToAppendInput(
       return {
         ...base,
         eventType: "agent.tool.started",
-        payload: { toolName: event.data.toolName, toolCallId: event.data.toolCallId, rawRuntimeEventType: event.type, ...t },
+        payload: {
+          toolName: event.data.toolName,
+          toolCallId: event.data.toolCallId,
+          args: event.data.args,
+          rawRuntimeEventType: event.type,
+          ...t,
+        },
       };
-    case "tool_call_complete":
+    case "tool_call_complete": {
+      const reducerResult = extractValidatedReducerResult(event.data.result);
       return {
         ...base,
         eventType: "agent.tool.completed",
         payload: {
           toolName: event.data.toolName,
           toolCallId: event.data.toolCallId,
+          args: event.data.args,
           result: event.data.result,
+          ...(reducerResult ? { reducerResult } : {}),
           rawRuntimeEventType: event.type,
           ...t,
         },
       };
+    }
     case "run_complete":
       return {
         ...base,
@@ -106,7 +261,16 @@ import {
   buildStudyAgentSystemPrompt,
   createRuntimeId,
 } from "./index.js";
-import { executeTool, type ToolRegistry } from "@studyagent/tools";
+import {
+  executeTool,
+  extractValidatedReducerResult,
+  getToolContract,
+  normalizeToolInputAliases,
+  ToolError,
+  ToolValidationError,
+  TOOL_CONTRACT_CATALOG,
+  type ToolRegistry,
+} from "@studyagent/tools";
 import { classifyRuntimeError } from "./failure.js";
 
 export type PiAgentSessionConfig = {
@@ -160,6 +324,7 @@ export type ToolLifecycleEvent =
       latencyMs: number;
       code: string;
       error: string;
+      details?: unknown;
     };
 
 export type PiAgentSessionEvent =
@@ -170,6 +335,8 @@ export type PiAgentSessionEvent =
   | { type: "tool_call_complete"; data: { toolName: string; toolCallId: string; args?: unknown; result: unknown } }
   | { type: "run_complete"; data: { runId: string; usage?: unknown; model?: string; promptTemplateVersion?: string } }
   | { type: "run_error"; data: { error: string; code: string } };
+
+type PiToolParameters = ReturnType<typeof Type.Object>;
 
 type CachedPiSession = {
   session: {
@@ -187,9 +354,11 @@ export type StudyAgentRuntimeBinding = {
   notebookId: string;
   sessionId: string;
   userId: string;
+  activeMode: StudyAgentRuntimeRun["activeMode"];
+  selectedNodeRefsFingerprint: string;
   promptTemplateVersion: string;
   replacedAt: string;
-  reason: "created" | "notebook_changed" | "session_changed" | "user_changed" | "prompt_changed" | "manual";
+  reason: "created" | "notebook_changed" | "session_changed" | "user_changed" | "mode_changed" | "selected_refs_changed" | "prompt_changed" | "manual";
 };
 
 const livePiSessions = new Map<string, CachedPiSession>();
@@ -218,11 +387,15 @@ export async function replaceStudyAgentTutorRuntime(input: {
   const previousSessionId = input.previousSessionId ?? nextSessionId;
   const existing = livePiSessions.get(previousSessionId);
   const existingBinding = existing?.binding;
+  const nextSelectedNodeRefsFingerprint = fingerprintSelectedNodeRefs(input.nextRun.selectedNodeRefs);
   const materialChange =
     input.reason === "manual" ||
     previousSessionId !== nextSessionId ||
     existingBinding?.notebookId !== input.nextRun.notebookId ||
     existingBinding?.userId !== input.nextRun.userId ||
+    (existingBinding?.activeMode !== undefined && existingBinding.activeMode !== input.nextRun.activeMode) ||
+    (existingBinding?.selectedNodeRefsFingerprint !== undefined &&
+      existingBinding.selectedNodeRefsFingerprint !== nextSelectedNodeRefsFingerprint) ||
     existingBinding?.promptTemplateVersion !== input.nextRun.modelConfig.promptTemplateVersion;
 
   if (!existing || !materialChange) {
@@ -238,9 +411,24 @@ export async function replaceStudyAgentTutorRuntime(input: {
       notebookId: input.nextRun.notebookId,
       sessionId: nextSessionId,
       userId: input.nextRun.userId,
+      activeMode: input.nextRun.activeMode,
+      selectedNodeRefsFingerprint: nextSelectedNodeRefsFingerprint,
       promptTemplateVersion: input.nextRun.modelConfig.promptTemplateVersion,
       replacedAt: new Date().toISOString(),
-      reason: input.reason ?? (previousSessionId !== nextSessionId ? "session_changed" : "notebook_changed"),
+      reason:
+        input.reason
+        ?? (previousSessionId !== nextSessionId
+          ? "session_changed"
+          : existingBinding?.notebookId !== input.nextRun.notebookId
+            ? "notebook_changed"
+            : existingBinding?.userId !== input.nextRun.userId
+              ? "user_changed"
+            : existingBinding?.activeMode !== undefined && existingBinding.activeMode !== input.nextRun.activeMode
+                ? "mode_changed"
+                : existingBinding?.selectedNodeRefsFingerprint !== undefined &&
+                    existingBinding.selectedNodeRefsFingerprint !== nextSelectedNodeRefsFingerprint
+                  ? "selected_refs_changed"
+                  : "prompt_changed"),
     },
   };
 }
@@ -257,6 +445,7 @@ export async function* runStudyAgentTutorSession(input: PiAgentSessionInput): As
   const { queue, push, end, iterate } = createEventQueue<PiAgentSessionEvent>();
   let assistantText = "";
   let completed = false;
+  let toolCallCount = 0;
 
   const toolContext = {
     userId: run.userId,
@@ -280,73 +469,131 @@ export async function* runStudyAgentTutorSession(input: PiAgentSessionInput): As
   const loader = new DefaultResourceLoader({
     cwd: process.cwd(),
     agentDir: `${process.cwd()}/.studyagent-pi`,
-    systemPromptOverride: () => systemPrompt,
+    noExtensions: true,
+    noSkills: true,
+    noPromptTemplates: true,
+    noThemes: true,
+    noContextFiles: true,
+    systemPrompt,
+    extensionsOverride: (base) => ({ ...base, extensions: [], errors: [] }),
+    skillsOverride: () => ({ skills: [], diagnostics: [] }),
+    promptsOverride: () => ({ prompts: [], diagnostics: [] }),
+    themesOverride: () => ({ themes: [], diagnostics: [] }),
+    agentsFilesOverride: () => ({ agentsFiles: [] }),
+    appendSystemPromptOverride: () => [],
   });
   await loader.reload();
 
   const modelId = input.config?.model ?? run.modelConfig.model;
   const baseModel = getModel("openrouter", modelId as never);
   const model = input.config?.baseUrl ? { ...baseModel, baseUrl: input.config.baseUrl } : baseModel;
-  const customTools = toolRegistry
-    .list()
-    .map((tool) =>
-      defineTool({
-        name: tool.name,
-        label: tool.name,
-        description: tool.description,
-        parameters: Type.Object({}, { additionalProperties: true }),
-        execute: async (toolCallId, params) => {
-          const startedAt = new Date();
-          await input.onToolLifecycleEvent?.({
-            phase: "started",
-            toolCallId,
-            toolName: tool.name,
-            sideEffectClass: tool.sideEffectClass,
-            input: params,
-            startedAt: startedAt.toISOString(),
-          });
-
-          try {
-            const result = await executeTool(toolRegistry, tool.name, params, toolContext);
-            const latencyMs = Date.now() - startedAt.getTime();
+  const catalogNames = new Set<string>(TOOL_CONTRACT_CATALOG.map((contract) => contract.name));
+  const customTools = toolRegistry.list().filter((tool) => catalogNames.has(tool.name)).map((tool) => {
+    const metadata = getPiToolMetadata(tool.name);
+    return defineTool({
+      name: metadata.name,
+      label: metadata.label,
+      description: metadata.description,
+      parameters: metadata.parameters,
+      execute: async (toolCallId, params) => {
+        const startedAt = new Date();
+        const lifecycleInput = normalizeToolInputAliases(params);
+        try {
+          toolCallCount = reserveRuntimeToolCallBudget(toolCallCount, run.budgets.maxToolCalls);
+        } catch (error) {
+          const failure = classifyRuntimeError(error);
+          const resumableDraft = await createResumableQuizDraftForBudgetExhaustion(
+            toolRegistry,
+            tool.name,
+            lifecycleInput,
+            toolContext,
+          );
+          if (resumableDraft) {
+            await input.onToolLifecycleEvent?.({
+              phase: "started",
+              toolCallId,
+              toolName: tool.name,
+              sideEffectClass: tool.sideEffectClass,
+              input: { ...asRecord(lifecycleInput), deferGeneration: true },
+              startedAt: startedAt.toISOString(),
+            });
             await input.onToolLifecycleEvent?.({
               phase: "completed",
               toolCallId,
               toolName: tool.name,
               sideEffectClass: tool.sideEffectClass,
-              input: params,
-              output: result,
-              startedAt: startedAt.toISOString(),
-              latencyMs,
-            });
-
-            return {
-              content: [
-                {
-                  type: "text",
-                  text: JSON.stringify(truncateToolResult(result)),
-                },
-              ],
-              details: result,
-            };
-          } catch (error) {
-            const failure = classifyRuntimeError(error);
-            await input.onToolLifecycleEvent?.({
-              phase: "failed",
-              toolCallId,
-              toolName: tool.name,
-              sideEffectClass: tool.sideEffectClass,
-              input: params,
+              input: { ...asRecord(lifecycleInput), deferGeneration: true },
+              output: resumableDraft,
               startedAt: startedAt.toISOString(),
               latencyMs: Date.now() - startedAt.getTime(),
-              code: failure.code,
-              error: failure.safeMessage,
             });
-            throw new Error(failure.safeMessage);
+            return resumableDraft as never;
           }
-        },
-      }),
-    );
+          await input.onToolLifecycleEvent?.({
+            phase: "failed",
+            toolCallId,
+            toolName: tool.name,
+            sideEffectClass: tool.sideEffectClass,
+            input: lifecycleInput,
+            startedAt: startedAt.toISOString(),
+            latencyMs: Date.now() - startedAt.getTime(),
+            code: failure.code,
+            error: failure.safeMessage,
+            ...(error instanceof ToolValidationError ? { details: error.cause } : {}),
+          });
+          throw new Error(failure.safeMessage);
+        }
+        await input.onToolLifecycleEvent?.({
+          phase: "started",
+          toolCallId,
+          toolName: tool.name,
+          sideEffectClass: tool.sideEffectClass,
+          input: lifecycleInput,
+          startedAt: startedAt.toISOString(),
+        });
+
+        try {
+          const result = await executeTool(toolRegistry, tool.name, lifecycleInput, toolContext);
+          const latencyMs = Date.now() - startedAt.getTime();
+          await input.onToolLifecycleEvent?.({
+            phase: "completed",
+            toolCallId,
+            toolName: tool.name,
+            sideEffectClass: tool.sideEffectClass,
+            input: lifecycleInput,
+            output: result,
+            startedAt: startedAt.toISOString(),
+            latencyMs,
+          });
+
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(truncateToolResult(result)),
+              },
+            ],
+            details: result,
+          };
+        } catch (error) {
+          const failure = classifyRuntimeError(error);
+          await input.onToolLifecycleEvent?.({
+            phase: "failed",
+            toolCallId,
+            toolName: tool.name,
+            sideEffectClass: tool.sideEffectClass,
+            input: lifecycleInput,
+            startedAt: startedAt.toISOString(),
+            latencyMs: Date.now() - startedAt.getTime(),
+            code: failure.code,
+            error: failure.safeMessage,
+            ...(error instanceof ToolValidationError ? { details: error.cause } : {}),
+          });
+          throw new Error(failure.safeMessage);
+        }
+      },
+    });
+  });
 
   const cachedSession = run.sessionId ? livePiSessions.get(run.sessionId) : undefined;
   const session = cachedSession?.session
@@ -362,7 +609,7 @@ export async function* runStudyAgentTutorSession(input: PiAgentSessionInput): As
         resourceLoader: loader,
         sessionManager: SessionManager.inMemory(),
         settingsManager: SettingsManager.inMemory({
-          compaction: { enabled: false },
+          compaction: { enabled: true, reserveTokens: Math.max(1000, Math.floor(run.budgets.maxContextTokens * 0.1)) },
           retry: { enabled: false, maxRetries: 0 },
         }),
       })
@@ -375,6 +622,8 @@ export async function* runStudyAgentTutorSession(input: PiAgentSessionInput): As
         notebookId: run.notebookId,
         sessionId: run.sessionId,
         userId: run.userId,
+        activeMode: run.activeMode,
+        selectedNodeRefsFingerprint: fingerprintSelectedNodeRefs(run.selectedNodeRefs),
         promptTemplateVersion: run.modelConfig.promptTemplateVersion,
         replacedAt: new Date().toISOString(),
         reason: "created",
@@ -405,8 +654,21 @@ export async function* runStudyAgentTutorSession(input: PiAgentSessionInput): As
         : session.prompt.bind(session);
 
   void dispatch(userMessage)
-    .then(() => {
+    .then(async () => {
+      if (action !== "prompt" && assistantText.trim().length === 0) {
+        await session.prompt(userMessage);
+      }
       const finalText = assistantText || extractAssistantTextFromMessages(session.messages);
+      if (finalText.trim().length === 0) {
+        push({
+          type: "run_error",
+          data: {
+            error: "Model completed without assistant text or tool calls",
+            code: "empty_model_response",
+          },
+        });
+        return;
+      }
       const finalAssistantMessage = extractLastAssistantMessage(session.messages);
       push({
         type: "message_complete",
@@ -459,6 +721,40 @@ export async function* runStudyAgentTutorSession(input: PiAgentSessionInput): As
   }
 }
 
+function fingerprintSelectedNodeRefs(
+  refs: Array<{ refType: string; refId: string }>,
+): string {
+  return JSON.stringify(
+    refs
+      .map((ref) => `${ref.refType}:${ref.refId}`)
+      .sort(),
+  );
+}
+
+function reserveRuntimeToolCallBudget(currentCount: number, maxToolCalls: number): number {
+  if (currentCount >= maxToolCalls) {
+    throw new ToolError(
+      "tool_budget_exceeded",
+      `Runtime tool budget exceeded: attempted more than ${maxToolCalls} tool calls`,
+    );
+  }
+  return currentCount + 1;
+}
+
+async function createResumableQuizDraftForBudgetExhaustion(
+  toolRegistry: ToolRegistry,
+  toolName: string,
+  args: unknown,
+  toolContext: Parameters<typeof executeTool>[3],
+): Promise<unknown | null> {
+  if (toolName !== "artifact.create_quiz") return null;
+  return executeTool(toolRegistry, toolName, { ...asRecord(args), deferGeneration: true }, toolContext);
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
 export function promptStudyAgentTutorSession(input: PiAgentSessionInput): AsyncGenerator<PiAgentSessionEvent> {
   return runStudyAgentTutorSession({ ...input, action: "prompt" });
 }
@@ -474,6 +770,7 @@ export function followUpStudyAgentTutorSession(input: PiAgentSessionInput): Asyn
 async function* runMockStudyAgentTutorSession(input: PiAgentSessionInput): AsyncGenerator<PiAgentSessionEvent> {
   const { run, promptContext, userMessage, toolRegistry, onToolLifecycleEvent } = input;
   const action = input.action ?? "prompt";
+  let toolCallCount = 0;
 
   buildStudyAgentSystemPrompt(promptContext);
   if (run.sessionId && !livePiSessions.has(run.sessionId)) {
@@ -488,6 +785,8 @@ async function* runMockStudyAgentTutorSession(input: PiAgentSessionInput): Async
         notebookId: run.notebookId,
         sessionId: run.sessionId,
         userId: run.userId,
+        activeMode: run.activeMode,
+        selectedNodeRefsFingerprint: fingerprintSelectedNodeRefs(run.selectedNodeRefs),
         promptTemplateVersion: run.modelConfig.promptTemplateVersion,
         replacedAt: new Date().toISOString(),
         reason: "created",
@@ -525,6 +824,74 @@ async function* runMockStudyAgentTutorSession(input: PiAgentSessionInput): Async
     }
 
     const startedAt = new Date();
+    try {
+      toolCallCount = reserveRuntimeToolCallBudget(toolCallCount, run.budgets.maxToolCalls);
+    } catch (error) {
+      const failure = classifyRuntimeError(error);
+      const toolContext = {
+        userId: run.userId,
+        notebookId: run.notebookId,
+        ...(run.sessionId ? { sessionId: run.sessionId } : {}),
+        runId: run.runId,
+        traceId: run.traceId,
+        selectedNodeRefs: run.selectedNodeRefs,
+        permissions: { read: true, write: true },
+      } as const;
+      const resumableDraft = await createResumableQuizDraftForBudgetExhaustion(
+        toolRegistry,
+        step.toolName,
+        step.args,
+        toolContext,
+      );
+      if (resumableDraft) {
+        const resumableArgs = { ...asRecord(step.args), deferGeneration: true };
+        await onToolLifecycleEvent?.({
+          phase: "started",
+          toolCallId: step.toolCallId,
+          toolName: step.toolName,
+          sideEffectClass: toolDef.sideEffectClass,
+          input: resumableArgs,
+          startedAt: startedAt.toISOString(),
+        });
+        yield {
+          type: "tool_call_start",
+          data: { toolName: step.toolName, toolCallId: step.toolCallId, args: resumableArgs },
+        };
+        await onToolLifecycleEvent?.({
+          phase: "completed",
+          toolCallId: step.toolCallId,
+          toolName: step.toolName,
+          sideEffectClass: toolDef.sideEffectClass,
+          input: resumableArgs,
+          output: resumableDraft,
+          startedAt: startedAt.toISOString(),
+          latencyMs: Date.now() - startedAt.getTime(),
+        });
+        yield {
+          type: "tool_call_complete",
+          data: { toolName: step.toolName, toolCallId: step.toolCallId, args: resumableArgs, result: resumableDraft },
+        };
+        const followup = renderToolResultText(step.toolName, resumableDraft, promptContext);
+        if (followup) {
+          textChunks.push(followup);
+          yield { type: "message_delta", data: { text: followup } };
+        }
+        continue;
+      }
+      await onToolLifecycleEvent?.({
+        phase: "failed",
+        toolCallId: step.toolCallId,
+        toolName: step.toolName,
+        sideEffectClass: toolDef.sideEffectClass,
+        input: step.args,
+        startedAt: startedAt.toISOString(),
+        latencyMs: Date.now() - startedAt.getTime(),
+        code: failure.code,
+        error: failure.safeMessage,
+      });
+      yield { type: "run_error", data: { error: failure.safeMessage, code: failure.code } };
+      return;
+    }
     await onToolLifecycleEvent?.({
       phase: "started",
       toolCallId: step.toolCallId,
@@ -644,6 +1011,29 @@ function planMockTutorSession(
             conceptIds: context.selectedNodeRefs.filter((ref) => ref.refType === "concept").map((ref) => ref.refId),
             sourceNodeRefs: context.selectedNodeRefs,
             cardCount: 8,
+          },
+        },
+      ],
+    };
+  }
+
+  if (lower.includes("concept card") || lower.includes("concept reference")) {
+    return {
+      steps: [
+        { type: "text", content: "I’ll create a compact concept card with source grounding. " },
+        {
+          type: "tool_call",
+          toolName: "artifact.create_concept_card",
+          toolCallId: toolCallId(),
+          args: {
+            title: `${context.notebookTitle} concept card`,
+            prompt: userMessage,
+            definition: "A source-grounded definition for the selected concept.",
+            whenToUse: "Use this card to recall the idea before practice or review.",
+            commonConfusion: "Do not confuse the named concept with a nearby formula or example.",
+            examples: ["Connect the definition to one source-backed example."],
+            conceptIds: context.selectedNodeRefs.filter((ref) => ref.refType === "concept").map((ref) => ref.refId),
+            sourceNodeRefs: context.selectedNodeRefs,
           },
         },
       ],
@@ -796,7 +1186,7 @@ function renderToolResultText(
     if (!plan) {
       return "There isn't an active study plan yet, so I’ll stay grounded in the current notebook context. ";
     }
-    return `I found the active study plan "${plan.title ?? "Study Plan"}"${plan.currentObjectiveId ? ` with current objective ${plan.currentObjectiveId}` : ""}. `;
+    return `I found the active Live Plan "${plan.title ?? "Live Plan"}"${plan.currentObjectiveId ? ` with current objective ${plan.currentObjectiveId}` : ""}. `;
   }
 
   if (toolName === "curriculum.get") {
@@ -811,7 +1201,13 @@ function renderToolResultText(
 
   if (toolName === "artifact.create_quiz") {
     const artifactId = (result as { artifactId?: string }).artifactId;
-    return artifactId ? `I created a quiz draft (${artifactId}) through the governed artifact tool. ` : undefined;
+    const warnings = (result as { warnings?: Array<{ code?: string }> }).warnings ?? [];
+    const isResumable = warnings.some((warning) => warning.code === "quiz_generation_deferred" || warning.code === "quiz_generation_resume_pending");
+    return artifactId
+      ? isResumable
+        ? `I saved a resumable quiz draft (${artifactId}) so it can be finished from the saved artifact. `
+        : `I created a quiz draft (${artifactId}) through the governed artifact tool. `
+      : undefined;
   }
 
   if (toolName === "artifact.create_flashcards") {

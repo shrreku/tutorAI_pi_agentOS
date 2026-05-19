@@ -1,11 +1,15 @@
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { z } from "zod";
 import {
   chunks,
   curricula,
+  curriculumModules,
   events,
   learningState,
   notebooks,
+  objectiveLists,
   objectives,
+  sessionPlans,
   sourceVersions,
   sources,
   studentProfiles,
@@ -14,7 +18,8 @@ import {
   type DbClient,
 } from "@studyagent/db";
 import { createNeo4jDriver, queryConceptNeighborhood, querySourceWikiMapSimple, queryStudyMapSimple } from "@studyagent/graph";
-import type { GraphRelationType, GraphNodeType } from "@studyagent/schemas";
+import type { GraphRelationType, GraphNodeType, SourceScopePolicy } from "@studyagent/schemas";
+import { parseSourceScopePolicy } from "@studyagent/schemas";
 import {
   embedTextsOpenRouter,
   expandRetrievalChunksWithParents,
@@ -64,8 +69,31 @@ export type TutorContextSelection = {
   weakConceptNames: string[];
   selectedChunkIds: string[];
   selectedSourceIds: string[];
+  objectivePathConceptIds: string[];
+  recentMistakeConceptIds: string[];
+  sourceScopePolicy: SourceScopePolicy;
+  usedSourceScopeFallback: boolean;
+  sourceCoverageGap: boolean;
   reason: string;
 };
+
+export type TutorContextSelectionPlan = {
+  query: string;
+  strategy: TutorContextSelection["strategy"];
+  objectiveTitle: string | null;
+  weakConceptNames: string[];
+  selectedNodeRefs: Array<{ refType: string; refId: string }>;
+  selectedSourceIds: string[];
+  objectivePathConceptIds: string[];
+  openArtifactSummary: string | null;
+  recentMistakeConceptIds: string[];
+};
+
+const tutorContextRefinementSchema = z.object({
+  query: z.string().min(1).max(800).optional(),
+  strategyHint: z.enum(["selected-first", "objective-first"]).optional(),
+  reasoning: z.string().max(280).optional(),
+});
 
 export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadToolProvider {
   return {
@@ -282,10 +310,12 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
         }
 
         const maps = await Promise.all(
-          sourceIds.map((sourceId) => querySourceWikiMapSimple(session, toolCtx.notebookId, sourceId, 80)),
+          sourceIds.map((sourceId: string) => querySourceWikiMapSimple(session, toolCtx.notebookId, sourceId, 80)),
         );
 
-        return mergeGraphPayloads(maps.map((map) => simpleGraphToPayload(toolCtx.notebookId, map)));
+        return mergeGraphPayloads(
+          maps.map((map: Awaited<ReturnType<typeof querySourceWikiMapSimple>>) => simpleGraphToPayload(toolCtx.notebookId, map)),
+        );
       });
     },
 
@@ -376,6 +406,38 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
     async studyPlanGetCurrent(input, toolCtx) {
       const studyState = await loadNotebookStudyState(appCtx.db, toolCtx.notebookId, input.userId ?? toolCtx.userId);
       const studyPlan = studyState.studyPlan;
+      const [curriculumRow] =
+        studyState.curriculum
+          ? await appCtx.db.db
+              .select()
+              .from(curricula)
+              .where(and(eq(curricula.id, studyState.curriculum.id), eq(curricula.notebookId, toolCtx.notebookId)))
+              .limit(1)
+          : [null];
+      const [moduleRow] =
+        studyState.module
+          ? await appCtx.db.db
+              .select()
+              .from(curriculumModules)
+              .where(and(eq(curriculumModules.id, studyState.module.id), eq(curriculumModules.notebookId, toolCtx.notebookId)))
+              .limit(1)
+          : [null];
+      const [objectiveListRow] =
+        studyState.objectiveList
+          ? await appCtx.db.db
+              .select()
+              .from(objectiveLists)
+              .where(and(eq(objectiveLists.id, studyState.objectiveList.id), eq(objectiveLists.notebookId, toolCtx.notebookId)))
+              .limit(1)
+          : [null];
+      const [sessionPlanRow] =
+        studyState.sessionPlan
+          ? await appCtx.db.db
+              .select()
+              .from(sessionPlans)
+              .where(and(eq(sessionPlans.id, studyState.sessionPlan.id), eq(sessionPlans.notebookId, toolCtx.notebookId)))
+              .limit(1)
+          : [null];
       return {
         studentProfile: studyState.studentProfile
           ? {
@@ -398,10 +460,10 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
               id: studyState.curriculum.id,
               notebookId: toolCtx.notebookId,
               title: studyState.curriculum.title,
-              curriculumType: "unknown",
+              curriculumType: curriculumRow?.curriculumType ?? "structured",
               status: studyState.curriculum.status,
               activeModuleId: studyState.curriculum.activeModuleId,
-              sourceIds: [],
+              sourceIds: curriculumRow?.sourceIds ?? [],
               objectiveIds: [],
             }
           : null,
@@ -412,16 +474,16 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
               curriculumId: studyState.curriculum?.id ?? "",
               title: studyState.module.title,
               summary: studyState.module.summary,
-              orderIndex: 0,
+              orderIndex: moduleRow?.orderIndex ?? 0,
               status: studyState.module.status,
-              sourceRefsJson: [],
-              targetConceptIds: [],
-              prerequisiteModuleIds: [],
-              estimatedSessionCount: 1,
-              coverageRequirementsJson: {},
-              masteryGateJson: {},
-              createdAt: new Date(0).toISOString(),
-              updatedAt: new Date(0).toISOString(),
+              sourceRefsJson: moduleRow?.sourceRefsJson ?? [],
+              targetConceptIds: moduleRow?.targetConceptIds ?? [],
+              prerequisiteModuleIds: moduleRow?.prerequisiteModuleIds ?? [],
+              estimatedSessionCount: moduleRow?.estimatedSessionCount ?? 1,
+              coverageRequirementsJson: moduleRow?.coverageRequirementsJson ?? {},
+              masteryGateJson: moduleRow?.masteryGateJson ?? {},
+              createdAt: moduleRow?.createdAt.toISOString() ?? new Date().toISOString(),
+              updatedAt: moduleRow?.updatedAt.toISOString() ?? new Date().toISOString(),
             }
           : null,
         objectiveList: studyState.objectiveList
@@ -434,10 +496,10 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
               status: studyState.objectiveList.status,
               currentObjectiveId: studyState.objectiveList.currentObjectiveId,
               objectiveIdsOrdered: studyState.objectiveList.objectiveIdsOrdered,
-              coverageSnapshotJson: {},
-              createdByRunId: null,
-              createdAt: new Date(0).toISOString(),
-              updatedAt: new Date(0).toISOString(),
+              coverageSnapshotJson: objectiveListRow?.coverageSnapshotJson ?? {},
+              createdByRunId: objectiveListRow?.createdByRunId ?? null,
+              createdAt: objectiveListRow?.createdAt.toISOString() ?? new Date().toISOString(),
+              updatedAt: objectiveListRow?.updatedAt.toISOString() ?? new Date().toISOString(),
             }
           : null,
         sessionPlan: studyState.sessionPlan
@@ -451,15 +513,15 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
               status: studyState.sessionPlan.status,
               sessionGoal: studyState.sessionPlan.sessionGoal,
               plannedObjectiveIds: studyState.sessionPlan.plannedObjectiveIds,
-              openerJson: {},
-              diagnosticQuestionIds: [],
-              teachingArcIds: [],
-              artifactRefsJson: [],
-              exitCriteriaJson: {},
-              recommendationReasonJson: {},
-              createdByRunId: null,
-              createdAt: new Date(0).toISOString(),
-              updatedAt: new Date(0).toISOString(),
+              openerJson: sessionPlanRow?.openerJson ?? {},
+              diagnosticQuestionIds: sessionPlanRow?.diagnosticQuestionIds ?? [],
+              teachingArcIds: sessionPlanRow?.teachingArcIds ?? [],
+              artifactRefsJson: sessionPlanRow?.artifactRefsJson ?? [],
+              exitCriteriaJson: sessionPlanRow?.exitCriteriaJson ?? {},
+              recommendationReasonJson: sessionPlanRow?.recommendationReasonJson ?? {},
+              createdByRunId: sessionPlanRow?.createdByRunId ?? null,
+              createdAt: sessionPlanRow?.createdAt.toISOString() ?? new Date().toISOString(),
+              updatedAt: sessionPlanRow?.updatedAt.toISOString() ?? new Date().toISOString(),
             }
           : null,
         studyPlan: studyPlan
@@ -544,74 +606,323 @@ export async function selectContextForTutor(
     message?: string;
     selectedNodeRefs: Array<{ refType: string; refId: string }>;
     studyState?: Awaited<ReturnType<typeof loadNotebookStudyState>> | null;
+    openArtifact?: { id: string; artifactType: string; title: string; status: string } | null;
+    previousRuntimeContext?: Record<string, unknown> | null;
     maxChunks?: number;
+    sourceScopePolicy?: SourceScopePolicy;
   },
 ) {
   const notebookId = input.notebookId;
   const selectedNodeRefs = dedupeRefs(input.selectedNodeRefs ?? []);
   const maxChunks = input.maxChunks ?? 6;
-
-  const objectiveTitle = input.studyState?.studyPlan?.currentObjective?.title ?? "";
-  const weakConceptNames = (input.studyState?.studyPlan?.weakConcepts ?? []).map((c) => c.name);
-  const weakConcepts = weakConceptNames.join(" ");
-
-  const queryParts: string[] = [];
-  if (input.message) queryParts.push(input.message);
-  if (objectiveTitle) queryParts.push(`objective: ${objectiveTitle}`);
-  if (weakConcepts) queryParts.push(`weak concepts: ${weakConcepts}`);
-  if (selectedNodeRefs.length) queryParts.push(`selected refs: ${selectedNodeRefs.map((r) => `${r.refType}:${r.refId}`).join(", ")}`);
-
-  const query = queryParts.filter(Boolean).join(" | ") || "";
+  const sourceScopePolicy = parseSourceScopePolicy(input.sourceScopePolicy);
+  const objectivePathConceptIds = await loadObjectivePathConceptIds(appCtx.db, notebookId, input.studyState ?? null);
+  const plan = buildTutorContextSelectionPlan({
+    ...(input.message ? { message: input.message } : {}),
+    selectedNodeRefs,
+    studyState: input.studyState ?? null,
+    objectivePathConceptIds,
+    openArtifact: input.openArtifact ?? null,
+    previousRuntimeContext: input.previousRuntimeContext ?? null,
+  });
+  const llmPlan = await maybeRefineTutorContextPlan(appCtx, plan, input.message ?? "");
+  const effectivePlan: TutorContextSelectionPlan = llmPlan
+    ? {
+        ...plan,
+        query: llmPlan.query || plan.query,
+        strategy:
+          llmPlan.strategyHint === "selected-first"
+            ? "selected-nodes-current-objective-weak-concepts-notebook"
+            : llmPlan.strategyHint === "objective-first"
+              ? "objective-weak-concepts-notebook"
+              : plan.strategy,
+      }
+    : plan;
 
   let rows = [] as any[];
   const retrievalMode: TutorContextSelection["retrievalMode"] = appCtx.env.OPENROUTER_API_KEY ? "hybrid" : "lexical";
   try {
     if (retrievalMode === "hybrid") {
-      rows = await hybridSearchNotebook(appCtx.db, notebookId, query, maxChunks, buildEmbeddingOptions(appCtx), buildHybridContext(selectedNodeRefs, []));
+      rows = await hybridSearchNotebook(
+        appCtx.db,
+        notebookId,
+        effectivePlan.query,
+        maxChunks * 2,
+        buildEmbeddingOptions(appCtx),
+        buildHybridContext(selectedNodeRefs, effectivePlan.objectivePathConceptIds),
+      );
     } else {
-      rows = await lexicalSearchNotebook(appCtx.db, notebookId, query, maxChunks);
+      rows = await lexicalSearchNotebook(appCtx.db, notebookId, effectivePlan.query, maxChunks * 2);
     }
     rows = await expandRetrievalChunksWithParents(appCtx.db, rows);
   } catch (err) {
     return {
-      strategy: selectedNodeRefs.length ? "selected-nodes-current-objective-weak-concepts-notebook" : "objective-weak-concepts-notebook",
-      query,
+      strategy: effectivePlan.strategy,
+      query: effectivePlan.query,
       retrievalMode,
       maxChunks,
-      selectedNodeRefs,
-      objectiveTitle: objectiveTitle || null,
-      weakConceptNames,
+      selectedNodeRefs: effectivePlan.selectedNodeRefs,
+      objectiveTitle: effectivePlan.objectiveTitle,
+      weakConceptNames: effectivePlan.weakConceptNames,
       selectedChunkIds: [],
       selectedSourceIds: [],
+      objectivePathConceptIds: effectivePlan.objectivePathConceptIds,
+      recentMistakeConceptIds: effectivePlan.recentMistakeConceptIds,
+      sourceScopePolicy,
+      usedSourceScopeFallback: false,
+      sourceCoverageGap: false,
       reason: `Failed to run retrieval: ${err instanceof Error ? err.message : String(err)}`,
     };
   }
 
-  const chunkIds = rows.map((r) => r.id).filter(Boolean);
-  const sourceIds = rows.map((r) => r.sourceId).filter(Boolean);
+  const { effectiveRows: scopedEffectiveRows, usedSourceScopeFallback: usedFallbackRows, sourceCoverageGap } =
+    resolveScopedRetrievalRows(rows, effectivePlan.selectedSourceIds, sourceScopePolicy);
+  const effectiveRows = scopedEffectiveRows.slice(0, maxChunks);
+  const chunkIds = effectiveRows.map((r) => r.id).filter(Boolean);
+  const sourceIds = effectiveRows.map((r) => r.sourceId).filter(Boolean);
 
-  const reasonParts: string[] = [];
-  reasonParts.push(`Strategy: ${selectedNodeRefs.length ? "selected nodes first" : "objective/weak concepts first"}, then notebook context`);
-  if (selectedNodeRefs.length) {
-    reasonParts.push(`Prioritized selected node refs: ${selectedNodeRefs.map((r) => `${r.refType}:${r.refId}`).join(", ")}`);
-  }
-  if (objectiveTitle) reasonParts.push(`Used current objective: ${objectiveTitle}`);
-  if (weakConcepts) reasonParts.push(`Included weak concepts: ${weakConcepts}`);
-  if (query) reasonParts.push(`Search query: ${query}`);
-  reasonParts.push(`Retrieved ${chunkIds.length} chunks (capped at ${maxChunks}).`);
+  const reason = buildTutorContextSelectionReason({
+    plan: effectivePlan,
+    maxChunks,
+    selectedChunkCount: chunkIds.length,
+    usedSourceScopeFallback: usedFallbackRows,
+    sourceCoverageGap,
+    sourceScopePolicy,
+    sourceIds: Array.from(new Set(sourceIds)),
+  });
 
   return {
-    strategy: selectedNodeRefs.length ? "selected-nodes-current-objective-weak-concepts-notebook" : "objective-weak-concepts-notebook",
-    query,
+    strategy: effectivePlan.strategy,
+    query: effectivePlan.query,
     retrievalMode,
     maxChunks,
-    selectedNodeRefs,
-    objectiveTitle: objectiveTitle || null,
-    weakConceptNames,
+    selectedNodeRefs: effectivePlan.selectedNodeRefs,
+    objectiveTitle: effectivePlan.objectiveTitle,
+    weakConceptNames: effectivePlan.weakConceptNames,
     selectedChunkIds: chunkIds,
     selectedSourceIds: Array.from(new Set(sourceIds)),
-    reason: reasonParts.join("; "),
+    objectivePathConceptIds: effectivePlan.objectivePathConceptIds,
+    recentMistakeConceptIds: effectivePlan.recentMistakeConceptIds,
+    sourceScopePolicy,
+    usedSourceScopeFallback: usedFallbackRows,
+    sourceCoverageGap,
+    reason: llmPlan?.reasoning ? `${reason}; LLM planner rationale: ${llmPlan.reasoning}` : reason,
   };
+}
+
+async function maybeRefineTutorContextPlan(
+  appCtx: AppContext,
+  plan: TutorContextSelectionPlan,
+  message: string,
+): Promise<z.infer<typeof tutorContextRefinementSchema> | null> {
+  if (!appCtx.env.OPENROUTER_API_KEY || !message.trim()) return null;
+  try {
+    const raw = await openRouterJsonObject(
+      appCtx,
+      [
+        "You refine retrieval query plans for a tutoring assistant.",
+        "Return ONLY a JSON object with optional keys: query, strategyHint, reasoning.",
+        "Keep query concise and focused on objective, weak concepts, mistakes, and selected refs.",
+      ].join("\n"),
+      [
+        `Student message: ${message}`,
+        `Current query: ${plan.query}`,
+        `Current strategy: ${plan.strategy}`,
+      ].join("\n"),
+    );
+    return tutorContextRefinementSchema.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+async function openRouterJsonObject(appCtx: AppContext, system: string, user: string): Promise<unknown> {
+  const base = appCtx.env.OPENROUTER_BASE_URL.replace(/\/+$/, "");
+  const model = appCtx.env.DEFAULT_EXTRACTION_MODEL;
+  const response = await fetch(`${base}/chat/completions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${appCtx.env.OPENROUTER_API_KEY}`,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      temperature: 0.15,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+    }),
+  });
+  const body = (await response.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+    error?: { message?: string };
+  };
+  if (!response.ok) {
+    throw new Error(`OpenRouter failed (${response.status}): ${body.error?.message ?? "unknown_error"}`);
+  }
+  const text = body.choices?.[0]?.message?.content;
+  if (!text) throw new Error("OpenRouter returned empty content");
+  return JSON.parse(text) as unknown;
+}
+
+export function buildTutorContextSelectionPlan(input: {
+  message?: string;
+  selectedNodeRefs: Array<{ refType: string; refId: string }>;
+  studyState?: Awaited<ReturnType<typeof loadNotebookStudyState>> | null;
+  objectivePathConceptIds?: string[];
+  openArtifact?: { id: string; artifactType: string; title: string; status: string } | null;
+  previousRuntimeContext?: Record<string, unknown> | null;
+}): TutorContextSelectionPlan {
+  const objectiveTitle = input.studyState?.studyPlan?.currentObjective?.title ?? null;
+  const weakConceptNames = (input.studyState?.studyPlan?.weakConcepts ?? []).map((c) => c.name);
+  const weakConcepts = weakConceptNames.join(" ");
+  const openArtifactSummary = input.openArtifact
+    ? `${input.openArtifact.title} (${input.openArtifact.artifactType}, ${input.openArtifact.status})`
+    : null;
+  const recentMistakeConceptIds = Array.isArray(input.previousRuntimeContext?.recentMistakeConceptIds)
+    ? input.previousRuntimeContext.recentMistakeConceptIds
+        .filter((value): value is string => typeof value === "string" && value.length > 0)
+        .slice(0, 8)
+    : [];
+  const selectedSourceIds = dedupeStrings(
+    input.selectedNodeRefs.filter((ref) => ref.refType === "source").map((ref) => ref.refId),
+  );
+  const queryParts: string[] = [];
+  if (input.message?.trim()) queryParts.push(input.message.trim());
+  if (objectiveTitle) queryParts.push(`objective: ${objectiveTitle}`);
+  if (weakConcepts) queryParts.push(`weak concepts: ${weakConcepts}`);
+  if ((input.objectivePathConceptIds ?? []).length) {
+    queryParts.push(`objective path concepts: ${(input.objectivePathConceptIds ?? []).join(", ")}`);
+  }
+  if (recentMistakeConceptIds.length) {
+    queryParts.push(`recent mistakes: ${recentMistakeConceptIds.join(", ")}`);
+  }
+  if (openArtifactSummary) {
+    queryParts.push(`open artifact: ${openArtifactSummary}`);
+  }
+  if (input.selectedNodeRefs.length) {
+    queryParts.push(
+      `selected refs: ${input.selectedNodeRefs.map((r) => `${r.refType}:${r.refId}`).join(", ")}`,
+    );
+  }
+
+  return {
+    query: queryParts.join(" | "),
+    strategy: input.selectedNodeRefs.length
+      ? "selected-nodes-current-objective-weak-concepts-notebook"
+      : "objective-weak-concepts-notebook",
+    objectiveTitle,
+    weakConceptNames,
+    selectedNodeRefs: input.selectedNodeRefs,
+    selectedSourceIds,
+    objectivePathConceptIds: input.objectivePathConceptIds ?? [],
+    openArtifactSummary,
+    recentMistakeConceptIds,
+  };
+}
+
+export function filterRowsBySelectedSources<T extends { sourceId?: string | null }>(
+  rows: T[],
+  selectedSourceIds: string[],
+): T[] {
+  if (!selectedSourceIds.length) return rows;
+  const allowed = new Set(selectedSourceIds);
+  return rows.filter((row) => typeof row.sourceId === "string" && allowed.has(row.sourceId));
+}
+
+export function resolveScopedRetrievalRows<T extends { sourceId?: string | null }>(
+  rows: T[],
+  selectedSourceIds: string[],
+  sourceScopePolicy: SourceScopePolicy,
+): {
+  effectiveRows: T[];
+  usedSourceScopeFallback: boolean;
+  sourceCoverageGap: boolean;
+} {
+  const scopedRows = filterRowsBySelectedSources(rows, selectedSourceIds);
+  const hasSelectedSources = selectedSourceIds.length > 0;
+  const usedSourceScopeFallback =
+    hasSelectedSources && scopedRows.length === 0 && sourceScopePolicy === "soft_source_scope";
+  const sourceCoverageGap =
+    hasSelectedSources && scopedRows.length === 0 && sourceScopePolicy === "strict_source_scope";
+  return {
+    effectiveRows: usedSourceScopeFallback ? rows : scopedRows,
+    usedSourceScopeFallback,
+    sourceCoverageGap,
+  };
+}
+
+export function buildTutorContextSelectionReason(input: {
+  plan: TutorContextSelectionPlan;
+  maxChunks: number;
+  selectedChunkCount: number;
+  usedSourceScopeFallback: boolean;
+  sourceCoverageGap?: boolean;
+  sourceScopePolicy?: SourceScopePolicy;
+  sourceIds: string[];
+}): string {
+  const reasonParts: string[] = [];
+  reasonParts.push(
+    `Strategy: ${
+      input.plan.selectedNodeRefs.length ? "selected nodes first" : "objective/weak concepts first"
+    }, then notebook context`,
+  );
+  if (input.plan.selectedNodeRefs.length) {
+    reasonParts.push(
+      `Prioritized selected node refs: ${input.plan.selectedNodeRefs
+        .map((r) => `${r.refType}:${r.refId}`)
+        .join(", ")}`,
+    );
+  }
+  if (input.plan.selectedSourceIds.length) {
+    reasonParts.push(
+      `Applied selected source scope (${input.sourceScopePolicy ?? "soft_source_scope"}): ${input.plan.selectedSourceIds.join(", ")}`,
+    );
+  }
+  if (input.plan.objectiveTitle) reasonParts.push(`Used current objective: ${input.plan.objectiveTitle}`);
+  if (input.plan.weakConceptNames.length) {
+    reasonParts.push(`Included weak concepts: ${input.plan.weakConceptNames.join(", ")}`);
+  }
+  if (input.plan.objectivePathConceptIds.length) {
+    reasonParts.push(`Bounded retrieval by objective-path concepts: ${input.plan.objectivePathConceptIds.join(", ")}`);
+  }
+  if (input.plan.recentMistakeConceptIds.length) {
+    reasonParts.push(`Included recent mistake concepts: ${input.plan.recentMistakeConceptIds.join(", ")}`);
+  }
+  if (input.plan.openArtifactSummary) {
+    reasonParts.push(`Included open artifact context: ${input.plan.openArtifactSummary}`);
+  }
+  if (input.plan.query) reasonParts.push(`Search query: ${input.plan.query}`);
+  if (input.usedSourceScopeFallback) {
+    reasonParts.push("No rows matched selected source scope; fell back to notebook-wide retrieval");
+  }
+  if (input.sourceCoverageGap) {
+    reasonParts.push("Strict source scope blocked notebook-wide fallback; surfaced a source coverage gap");
+  }
+  reasonParts.push(
+    `Retrieved ${input.selectedChunkCount} chunks (capped at ${input.maxChunks}) across sources: ${
+      input.sourceIds.join(", ") || "none"
+    }.`,
+  );
+  return reasonParts.join("; ");
+}
+
+async function loadObjectivePathConceptIds(
+  dbClient: DbClient,
+  notebookId: string,
+  studyState: Awaited<ReturnType<typeof loadNotebookStudyState>> | null,
+): Promise<string[]> {
+  const currentObjectiveId = studyState?.studyPlan?.currentObjective?.id;
+  if (!currentObjectiveId) return [];
+  const [row] = await dbClient.db
+    .select({ targetConceptIds: objectives.targetConceptIds })
+    .from(objectives)
+    .where(and(eq(objectives.notebookId, notebookId), eq(objectives.id, currentObjectiveId)))
+    .limit(1);
+  return row?.targetConceptIds ?? [];
 }
 
 function dedupeRefs(refs: Array<{ refType: string; refId: string }>): Array<{ refType: string; refId: string }> {
@@ -799,14 +1110,14 @@ function applyGraphFilters(
 ): GraphPayloadToolOutput {
   const allowed = new Set(relationTypes.map((value) => value.trim().toLowerCase()).filter(Boolean));
   const edges = allowed.size
-    ? payload.edges.filter((edge) => allowed.has(edge.relationType) || allowed.has(String(edge.metadata.originalRelationType ?? "").toLowerCase()))
+    ? payload.edges.filter((edge: GraphPayloadToolOutput["edges"][number]) => allowed.has(edge.relationType) || allowed.has(String(edge.metadata.originalRelationType ?? "").toLowerCase()))
     : payload.edges;
 
   const nodes = payload.nodes.slice(0, maxNodes);
-  const allowedNodeIds = new Set(nodes.map((node) => node.id));
+  const allowedNodeIds = new Set(nodes.map((node: GraphPayloadToolOutput["nodes"][number]) => node.id));
   return {
     nodes,
-    edges: edges.filter((edge) => allowedNodeIds.has(edge.sourceNodeId) && allowedNodeIds.has(edge.targetNodeId)),
+    edges: edges.filter((edge: GraphPayloadToolOutput["edges"][number]) => allowedNodeIds.has(edge.sourceNodeId) && allowedNodeIds.has(edge.targetNodeId)),
     warnings: payload.warnings,
   };
 }
@@ -1016,7 +1327,7 @@ function pickNodeTitle(props: Record<string, unknown>, nodeType: GraphNodeType, 
   const name = typeof props.name === "string" ? props.name : undefined;
   if (title) return title;
   if (name) return name;
-  if (nodeType === "study_plan") return "Study Plan";
+  if (nodeType === "study_plan") return "Live Plan";
   return fallbackId;
 }
 

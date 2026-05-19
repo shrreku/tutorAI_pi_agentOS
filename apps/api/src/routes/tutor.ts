@@ -1,36 +1,33 @@
 import type { FastifyInstance } from "fastify";
-import { and, desc, eq, max } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import type { AppContext } from "../context.js";
-import { agentRuns, appendEvent, claims, notebooks, toolCalls, tutorSessions, tutorTurns } from "@studyagent/db";
+import { appendEvent, artifacts, claims, concepts, curricula, curriculumModules, notebooks, objectiveLists, objectives, sessionPlans, sources, studyPlans, tutorSessions, wikiPages } from "@studyagent/db";
 import {
-  createAgUiEventMapper,
-  classifyRuntimeError,
-  compactStudyAgentContext,
   createRuntimeRun,
   createRuntimeToolRegistry,
   disposeStudyAgentTutorSession,
-  runStudyAgentTutorSession,
-  mapPiSessionEventToAppendInput,
-  runTelemetryPayload,
+  replaceStudyAgentTutorRuntime,
   serializeAgUiEventToSse,
   type StudyAgentPromptContext,
 } from "@studyagent/agent-runtime";
-import { combineConfidence, extractClaimIdsFromText, reinforcementSignalFromCount } from "@studyagent/wiki-core";
-import { nodeRefSchema } from "@studyagent/schemas";
-import { startActiveObservation } from "@studyagent/observability";
+import { nodeRefSchema, sourceScopePolicySchema, type NodeRef } from "@studyagent/schemas";
 import { z } from "zod";
 import { resolveActor } from "../auth.js";
 import { buildIntentRoutingInstruction, detectLearnerIntent } from "../tutor-intent.js";
 import { createTutorReadToolProvider, selectContextForTutor } from "../tutor-tool-provider.js";
 import type { TutorContextSelection } from "../tutor-tool-provider.js";
 import { createTutorWriteToolProvider } from "../tutor-write-provider.js";
-import { crystallizeTutorSession, upsertTutorSessionDigestArtifact } from "../phase7.js";
+import { formatLearnerProgressForDigest } from "../learner-progress.js";
 import { formatLearnerStateSummary, formatStudyPlanSummary, loadNotebookStudyState } from "../study-state.js";
+import { completeTutorSessionLifecycle } from "../tutor-session-lifecycle.js";
+import { buildMasterySnapshot, maybeRunRuntimeMasteryEvaluation } from "../mastery-session.js";
+import { executeTutorTurn } from "../tutor-turn.js";
 
 const tutorSessionInputSchema = z.object({
   message: z.string().min(1),
   activeMode: z.enum(["learn", "practice", "revise", "explore", "wiki_maintenance"]).default("learn"),
   selectedNodeRefs: z.array(nodeRefSchema).default([]),
+  sourceScopePolicy: sourceScopePolicySchema.default("soft_source_scope"),
 });
 
 const tutorChatRequestSchema = z.object({
@@ -41,11 +38,13 @@ const tutorChatRequestSchema = z.object({
       selectedNodeRefs: z.array(nodeRefSchema).default([]),
       sessionId: z.string().min(1).optional(),
       action: z.enum(["prompt", "steer", "followUp"]).default("prompt"),
+      sourceScopePolicy: sourceScopePolicySchema.default("soft_source_scope"),
     })
     .default({
       activeMode: "learn",
       selectedNodeRefs: [],
       action: "prompt",
+      sourceScopePolicy: "soft_source_scope",
     }),
 });
 
@@ -88,7 +87,8 @@ export async function registerTutorRoutes(app: FastifyInstance, ctx: AppContext)
       }
 
       const activeMode = data.activeMode;
-      const selectedNodeRefs = data.selectedNodeRefs;
+      const sourceScopePolicy = data.sourceScopePolicy;
+      const selectedNodeRefs = await filterSelectedNodeRefsForNotebook(ctx, notebookId, data.selectedNodeRefs);
       const action = data.action;
       const session = await getOrCreateTutorSession(ctx, {
         notebookId,
@@ -99,20 +99,16 @@ export async function registerTutorRoutes(app: FastifyInstance, ctx: AppContext)
       });
       const sessionId = session.id;
 
-      const run = createRuntimeRun({
-        notebookId,
-        sessionId,
-        userId: actor.id,
-        selectedNodeRefs,
-        activeMode,
-      });
-
       const studyState = await loadNotebookStudyState(ctx.db, notebookId, actor.id);
+      const openArtifact = await loadSelectedArtifactContext(ctx, notebookId, selectedNodeRefs);
+      const previousRuntimeContext = isJsonRecord(session.runtimeContextJson) ? session.runtimeContextJson : null;
       const promptContext = createPromptContext({
         notebookTitle: notebook.title || "Untitled",
         activeMode,
         selectedNodeRefs,
         studyState,
+        openArtifact,
+        previousRuntimeContext,
       });
 
       // Detect intent and add routing instructions if curriculum-ready
@@ -136,8 +132,18 @@ export async function registerTutorRoutes(app: FastifyInstance, ctx: AppContext)
           message,
           selectedNodeRefs,
           studyState,
+          openArtifact,
+          previousRuntimeContext,
           maxChunks: 6,
+          sourceScopePolicy,
         });
+        if (sourceScopePolicy === "strict_source_scope") {
+          promptContext.additionalInstructions = [
+            ...(promptContext.additionalInstructions ?? []),
+            "[Source scope]",
+            "Stay within the selected sources. If support is missing, qualify the answer and surface a source coverage gap instead of inventing source-specific claims.",
+          ];
+        }
         if (contextSelection?.reason) {
           promptContext.additionalInstructions = [
             ...(promptContext.additionalInstructions ?? []),
@@ -148,36 +154,29 @@ export async function registerTutorRoutes(app: FastifyInstance, ctx: AppContext)
             promptContext.additionalInstructions.push(`[Selected chunks] ${contextSelection.selectedChunkIds.join(", ")}`);
           }
         }
-      } catch {
+      } catch (error) {
         contextSelection = undefined;
+        await appendEvent(ctx.db, {
+          notebookId,
+          sessionId,
+          eventType: "session.context.selection_failed",
+          payload: {
+            message: error instanceof Error ? error.message : String(error),
+          },
+        });
       }
+      const effectiveSelectedNodeRefs = mergeSelectedNodeRefs(selectedNodeRefs, contextSelection);
+      promptContext.selectedNodeRefs = effectiveSelectedNodeRefs;
 
-      const toolRegistry = createRuntimeToolRegistry({
-        readProvider: createTutorReadToolProvider(ctx),
-        writeProvider: createTutorWriteToolProvider(ctx),
-      });
-
-      const [existingTurn] = await ctx.db.db.select({ maxTurnIndex: max(tutorTurns.turnIndex) }).from(tutorTurns).where(eq(tutorTurns.sessionId, sessionId));
-      const turnIndex = (existingTurn?.maxTurnIndex ?? -1) + 1;
-      const turnId = `turn_${crypto.randomUUID().replaceAll("-", "")}`;
-
-      await ctx.db.db.insert(tutorTurns).values({
-        id: turnId,
+      const run = createRuntimeRun({
+        notebookId,
         sessionId,
-        turnIndex,
-        userMessage: message,
-        selectedNodeRefsJson: selectedNodeRefs as unknown[],
-      });
-
-      await ctx.db.db.insert(agentRuns).values({
-        id: run.runId,
-        sessionId,
-        turnId,
-        runType: "tutor_turn",
-        status: "running",
-        modelConfigJson: run.modelConfig,
-        budgetJson: run.budgets,
-        traceId: run.traceId,
+        userId: actor.id,
+        selectedNodeRefs: effectiveSelectedNodeRefs,
+        activeMode,
+        modelConfig: {
+          model: ctx.env.DEFAULT_TUTOR_MODEL,
+        },
       });
 
       reply.raw.writeHead(200, {
@@ -189,157 +188,66 @@ export async function registerTutorRoutes(app: FastifyInstance, ctx: AppContext)
         "X-StudyAgent-Run-Id": run.runId,
       });
 
-      // Send session metadata as first event so client can capture sessionId
-      reply.raw.write(
-        serializeAgUiEventToSse({
-          type: "SESSION_STARTED",
-          sessionId,
-          runId: run.runId,
-          timestamp: Date.now(),
-        }),
-      );
-
-      const agui = createAgUiEventMapper(run);
-      let lastAssistantText = "";
-      let streamedRunFailure: { error: string; code: string } | undefined;
-      const toolSummary: Array<{ toolCallId: string; toolName: string; status: string; latencyMs?: number }> = [];
-      const artifactProposalIds: string[] = [];
-
       try {
-        for await (const sessionEvent of runStudyAgentTutorSession({
-          run,
-          promptContext,
-          userMessage: message,
-          toolRegistry,
-          action,
-          config: {
-            ...(ctx.env.OPENROUTER_API_KEY ? { providerApiKey: ctx.env.OPENROUTER_API_KEY } : {}),
-            baseUrl: ctx.env.OPENROUTER_BASE_URL,
-          },
-          onToolLifecycleEvent: async (event) => {
-            if (event.phase === "started") {
-              await ctx.db.db.insert(toolCalls).values({
-                id: event.toolCallId,
-                runId: run.runId,
-                sessionId,
-                turnId,
-                toolName: event.toolName,
-                sideEffectClass: event.sideEffectClass,
-                inputJson: toJsonRecord(event.input),
-                status: "started",
-              });
-              upsertToolSummary(toolSummary, {
-                toolCallId: event.toolCallId,
-                toolName: event.toolName,
-                status: "started",
-              });
-              return;
-            }
-
-            if (event.phase === "completed") {
-              await ctx.db.db
-                .update(toolCalls)
-                .set({
-                  outputJson: toJsonRecord(event.output),
-                  status: "completed",
-                  latencyMs: event.latencyMs,
-                  reducerResultJson: extractReducerResult(event.output),
-                })
-                .where(eq(toolCalls.id, event.toolCallId));
-              upsertToolSummary(toolSummary, {
-                toolCallId: event.toolCallId,
-                toolName: event.toolName,
-                status: "completed",
-                latencyMs: event.latencyMs,
-              });
-              const artifactId = extractArtifactProposalId(event.output);
-              if (artifactId) artifactProposalIds.push(artifactId);
-              return;
-            }
-
-            await ctx.db.db
-              .update(toolCalls)
-              .set({
-                status: "failed",
-                latencyMs: event.latencyMs,
-                outputJson: { error: event.error, code: event.code },
-              })
-              .where(eq(toolCalls.id, event.toolCallId));
-            upsertToolSummary(toolSummary, {
-              toolCallId: event.toolCallId,
-              toolName: event.toolName,
-              status: "failed",
-              latencyMs: event.latencyMs,
-            });
-          },
-        })) {
-          if (sessionEvent.type === "message_complete") {
-            lastAssistantText = sessionEvent.data.text;
-          }
-          if (sessionEvent.type === "run_error") {
-            streamedRunFailure = sessionEvent.data;
-          }
-
-          const appendInput = mapPiSessionEventToAppendInput(sessionEvent, run);
-          if (appendInput) {
-            await appendEvent(ctx.db, appendInput);
-          }
-
-          for (const chunk of agui.map(sessionEvent)) {
-            reply.raw.write(serializeAgUiEventToSse(chunk));
-          }
-        }
-
-        if (streamedRunFailure) {
-          await ctx.db.db
-            .update(agentRuns)
-            .set({
-              status: "failed",
-              completedAt: new Date(),
-            })
-            .where(eq(agentRuns.id, run.runId));
-          await ctx.db.db
-            .update(tutorTurns)
-            .set({
-              assistantMessage: lastAssistantText || streamedRunFailure.error,
-              toolSummaryJson: { tools: toolSummary },
-            })
-            .where(eq(tutorTurns.id, turnId));
-        } else {
-          await reinforceCitedClaims(ctx, notebookId, [message, lastAssistantText]);
-          await persistTutorTurnSummary(ctx, {
+        let runtimeEvaluation: Awaited<ReturnType<typeof maybeRunRuntimeMasteryEvaluation>> = {
+          evaluated: false,
+          runtimeContext: previousRuntimeContext ?? {},
+        };
+        try {
+          runtimeEvaluation = await maybeRunRuntimeMasteryEvaluation(ctx, {
+            notebookId,
+            userId: actor.id,
             sessionId,
-            turnId,
-            runId: run.runId,
-            run,
-            message,
-            assistantMessage: lastAssistantText,
-            selectedNodeRefs,
-            promptContext,
-            toolSummary,
-            artifactProposalIds,
-            contextSelection: contextSelection ?? null,
+            learnerMessage: message,
+            runtimeContext: previousRuntimeContext,
+            masterySnapshot: await buildMasterySnapshot(ctx.db, notebookId, actor.id),
+            sourceRefs: effectiveSelectedNodeRefs.filter((ref) => ref.refType === "source"),
+            contextRefs: [
+              ...(contextSelection?.selectedChunkIds?.map((chunkId) => ({ refType: "chunk" as const, refId: chunkId })) ?? []),
+              ...(contextSelection?.sourceCoverageGap ? [{ refType: "source" as const, refId: "gap_strict_source_scope" }] : []),
+            ],
+          });
+        } catch (error) {
+          await appendEvent(ctx.db, {
+            notebookId,
+            sessionId,
+            eventType: "learning.mastery_evaluation.failed",
+            payload: {
+              message: error instanceof Error ? error.message : String(error),
+              phase: "runtime_auto",
+            },
           });
         }
+        const runtimeContextForTurn = runtimeEvaluation.evaluated
+          ? runtimeEvaluation.runtimeContext
+          : previousRuntimeContext;
 
-      } catch (error) {
-        const failure = classifyRuntimeError(error);
-        await ctx.db.db
-          .update(agentRuns)
-          .set({
-            status: "failed",
-            completedAt: new Date(),
-          })
-          .where(eq(agentRuns.id, run.runId));
-        reply.raw.write(
-          serializeAgUiEventToSse({
-            type: "RUN_ERROR",
-            runId: run.runId,
-            model: run.modelConfig.model,
-            timestamp: Date.now(),
-            error: { message: failure.safeMessage, code: failure.code },
-          }),
-        );
+        const toolRegistry = createRuntimeToolRegistry({
+          readProvider: createTutorReadToolProvider(ctx),
+          writeProvider: createTutorWriteToolProvider(ctx),
+        });
+
+        await executeTutorTurn({
+          ctx,
+          notebookId,
+          sessionId,
+          userId: actor.id,
+          activeMode,
+          selectedNodeRefs: effectiveSelectedNodeRefs,
+          action,
+          message,
+          promptContext,
+          studyState,
+          openArtifact,
+          contextSelection: contextSelection ?? null,
+          previousRuntimeContext: runtimeContextForTurn,
+          toolRegistry,
+          emitStreamEvent: (event) => {
+            reply.raw.write(serializeAgUiEventToSse(event));
+          },
+          logger: app.log,
+          run,
+        });
       } finally {
         reply.raw.end();
       }
@@ -421,6 +329,35 @@ export async function registerTutorRoutes(app: FastifyInstance, ctx: AppContext)
         payload: { action: "resumed", sessionId: session.id },
       });
 
+      // Ensure any in-memory tutor runtime for this session is replaced/hardened
+      try {
+        const persistedSelectedNodeRefs = Array.isArray(session.selectedNodeRefsJson)
+          ? session.selectedNodeRefsJson
+              .map((value) => nodeRefSchema.safeParse(value))
+              .filter((result): result is { success: true; data: z.infer<typeof nodeRefSchema> } => result.success)
+              .map((result) => result.data)
+          : [];
+        const resumeRun = createRuntimeRun({
+          notebookId,
+          sessionId: session.id,
+          userId: actor.id,
+          selectedNodeRefs: persistedSelectedNodeRefs,
+          activeMode: normalizeSessionMode(session.mode),
+          modelConfig: {
+            model: ctx.env.DEFAULT_TUTOR_MODEL,
+          },
+        });
+        await replaceStudyAgentTutorRuntime({ previousSessionId: session.id, nextRun: resumeRun });
+      } catch (e) {
+        // Emit an event for observability; don't fail the resume endpoint
+        await appendEvent(ctx.db, {
+          notebookId,
+          sessionId: session.id,
+          eventType: "session.runtime.replacement_failed",
+          payload: { error: e instanceof Error ? e.message : String(e) },
+        });
+      }
+
       return reply.send({ sessionId: session.id, status: "active" });
     },
   );
@@ -448,50 +385,15 @@ export async function registerTutorRoutes(app: FastifyInstance, ctx: AppContext)
         return reply.status(404).send({ code: "not_found", message: "Tutor session not found" });
       }
 
-      const [lastTurn] = await ctx.db.db
-        .select()
-        .from(tutorTurns)
-        .where(eq(tutorTurns.sessionId, session.id))
-        .orderBy(desc(tutorTurns.turnIndex))
-        .limit(1);
-
-      if (!lastTurn || !lastTurn.userMessage || !lastTurn.assistantMessage) {
-        await ctx.db.db
-          .update(tutorSessions)
-          .set({ status: "completed", endedAt: new Date() })
-          .where(eq(tutorSessions.id, session.id));
-        await disposeStudyAgentTutorSession(session.id);
-        await appendEvent(ctx.db, {
-          notebookId,
-          sessionId: session.id,
-          eventType: "session.completed",
-          payload: { sessionId: session.id, reason: "ended_without_turns" },
-        });
-        return reply.send({ sessionId: session.id, status: "completed", artifactId: null });
-      }
-
-      const runtimeCtx = isJsonRecord(session.runtimeContextJson) ? session.runtimeContextJson : {};
-      const sourceIds = Array.isArray(runtimeCtx.sourceIds) ? runtimeCtx.sourceIds.filter((v): v is string => typeof v === "string") : [];
-      const citationIds = Array.isArray(runtimeCtx.citationIds) ? runtimeCtx.citationIds.filter((v): v is string => typeof v === "string") : [];
-      const artifactProposalIds = Array.isArray(runtimeCtx.artifactProposalIds)
-        ? runtimeCtx.artifactProposalIds.filter((v): v is string => typeof v === "string")
-        : [];
-      const currentObjective = typeof runtimeCtx.currentObjective === "string" ? runtimeCtx.currentObjective : undefined;
-
-      const digest = await crystallizeTutorSession(ctx.db, {
+      const result = await completeTutorSessionLifecycle(ctx.db, {
         notebookId,
         userId: actor.id,
         sessionId: session.id,
-        assistantMessage: lastTurn.assistantMessage,
-        userMessage: lastTurn.userMessage,
-        sourceIds,
-        citationIds,
-        artifactProposalIds,
-        ...(currentObjective ? { currentObjective } : {}),
+        runtimeContextJson: session.runtimeContextJson,
       });
 
       await disposeStudyAgentTutorSession(session.id);
-      return reply.send({ sessionId: session.id, status: "completed", artifactId: digest.artifactId });
+      return reply.send({ sessionId: session.id, status: "completed", artifactId: result.artifactId });
     },
   );
 
@@ -524,277 +426,11 @@ export async function registerTutorRoutes(app: FastifyInstance, ctx: AppContext)
   );
 }
 
-/** When the tutor cites `clm_*` ids, bump reinforcement for GF-0405 / retrieval freshness. */
-async function reinforceCitedClaims(ctx: AppContext, notebookId: string, texts: string[]): Promise<void> {
-  const corpus = texts.join("\n");
-  const ids = extractClaimIdsFromText(corpus);
-  if (!ids.length) return;
-
-  const now = new Date();
-  for (const claimId of ids) {
-    const [row] = await ctx.db.db
-      .select()
-      .from(claims)
-      .where(and(eq(claims.id, claimId), eq(claims.notebookId, notebookId)))
-      .limit(1);
-    if (!row) continue;
-    if (row.status === "superseded" || row.status === "deprecated" || row.status === "archived") continue;
-
-    const n = (row.reinforcementCount ?? 0) + 1;
-    const prev = (row.confidenceComponentsJson ?? {}) as Record<string, unknown>;
-    const components = {
-      sourceSupport: Number(prev.sourceSupport ?? 0.72),
-      extractionConfidence: Number(prev.extractionConfidence ?? 0.68),
-      recency: Number(prev.recency ?? 0.88),
-      humanApproval: Number(prev.humanApproval ?? 0),
-      contradictionPenalty: Number(prev.contradictionPenalty ?? 0),
-      reinforcementSignal: reinforcementSignalFromCount(n),
-    };
-    const confidence = combineConfidence(components);
-    await ctx.db.db
-      .update(claims)
-      .set({
-        reinforcementCount: n,
-        confidenceComponentsJson: components,
-        confidence,
-        qualityScore: confidence,
-        updatedAt: now,
-      })
-      .where(eq(claims.id, claimId));
+function normalizeSessionMode(value: string): StudyAgentPromptContext["activeMode"] {
+  if (value === "learn" || value === "practice" || value === "revise" || value === "explore" || value === "wiki_maintenance") {
+    return value;
   }
-}
-
-async function persistTutorTurnSummary(
-  ctx: AppContext,
-  input: {
-    sessionId: string;
-    turnId: string;
-    runId: string;
-    run: ReturnType<typeof createRuntimeRun>;
-    message: string;
-    assistantMessage: string;
-    selectedNodeRefs: Array<{ refType: string; refId: string }>;
-    promptContext: StudyAgentPromptContext;
-    toolSummary: Array<{ toolCallId: string; toolName: string; status: string; latencyMs?: number }>;
-    artifactProposalIds: string[];
-    contextSelection?: TutorContextSelection | null;
-  },
-): Promise<void> {
-  const citationIds = extractClaimIdsFromText([input.message, input.assistantMessage].join("\n"));
-  const sourceIds = input.selectedNodeRefs.filter((ref) => ref.refType === "source").map((ref) => ref.refId);
-  const activeConceptIds = input.selectedNodeRefs.filter((ref) => ref.refType === "concept").map((ref) => ref.refId);
-
-  const compactionStarted = await appendEvent(ctx.db, {
-    notebookId: input.run.notebookId,
-    sessionId: input.sessionId,
-    runId: input.runId,
-    eventType: "agent.compaction.started",
-    payload: {
-      traceId: input.run.traceId,
-      ...runTelemetryPayload(input.run),
-    },
-  });
-
-  const compacted = compactStudyAgentContext({
-    notebookId: input.run.notebookId,
-    activeMode: input.run.activeMode,
-    selectedNodeRefs: input.selectedNodeRefs,
-    activeConceptIds,
-    activeObjectiveIds: [],
-    latestLearnerMessage: input.message,
-    latestTutorQuestion: input.assistantMessage.includes("?") ? input.assistantMessage : undefined,
-    recentCheckpointState: {},
-    sourceIds,
-    citationIds,
-    currentLearningStateSummary: input.promptContext.currentObjective,
-    openArtifactProposals: input.artifactProposalIds.map((artifactId) => ({ artifactId })),
-  });
-
-  const compactionCompleted = await appendEvent(ctx.db, {
-    notebookId: input.run.notebookId,
-    sessionId: input.sessionId,
-    runId: input.runId,
-    eventType: "agent.compaction.completed",
-    payload: {
-      compressedContext: compacted.compressedContext,
-      sourceIds,
-      citationIds,
-      artifactProposalIds: input.artifactProposalIds,
-      traceId: input.run.traceId,
-      ...runTelemetryPayload(input.run),
-    },
-  });
-
-  if (input.contextSelection && (input.contextSelection.selectedChunkIds?.length || input.contextSelection.selectedSourceIds?.length)) {
-    await appendEvent(ctx.db, {
-      notebookId: input.run.notebookId,
-      sessionId: input.sessionId,
-      runId: input.runId,
-      eventType: "session.context.selected",
-      payload: {
-        strategy: input.contextSelection.strategy,
-        query: input.contextSelection.query,
-        retrievalMode: input.contextSelection.retrievalMode,
-        maxChunks: input.contextSelection.maxChunks,
-        selectedNodeRefs: input.contextSelection.selectedNodeRefs,
-        selectedChunkIds: input.contextSelection.selectedChunkIds ?? [],
-        selectedSourceIds: input.contextSelection.selectedSourceIds ?? [],
-        objectiveTitle: input.contextSelection.objectiveTitle,
-        weakConceptNames: input.contextSelection.weakConceptNames,
-        reason: input.contextSelection.reason ?? null,
-      },
-    });
-  }
-
-  await ctx.db.db
-    .update(tutorTurns)
-    .set({
-      assistantMessage: input.assistantMessage,
-      toolSummaryJson: {
-        tools: input.toolSummary,
-        compactionEventIds: [compactionStarted.id, compactionCompleted.id],
-        contextSelection: input.contextSelection
-          ? {
-              strategy: input.contextSelection.strategy,
-              query: input.contextSelection.query,
-              retrievalMode: input.contextSelection.retrievalMode,
-              maxChunks: input.contextSelection.maxChunks,
-              selectedNodeRefs: input.contextSelection.selectedNodeRefs,
-              objectiveTitle: input.contextSelection.objectiveTitle,
-              weakConceptNames: input.contextSelection.weakConceptNames,
-              selectedChunkIds: input.contextSelection.selectedChunkIds,
-              selectedSourceIds: input.contextSelection.selectedSourceIds,
-              reason: input.contextSelection.reason,
-            }
-          : null,
-      },
-      citationRefsJson: citationIds.map((claimId) => ({ refType: "claim", refId: claimId })),
-    })
-    .where(eq(tutorTurns.id, input.turnId));
-
-  await ctx.db.db
-    .update(tutorSessions)
-    .set({
-      runtimeContextJson: {
-        compressedContext: compacted.compressedContext,
-        activeConceptIds,
-        sourceIds,
-        selectedChunkIds: input.contextSelection?.selectedChunkIds ?? [],
-        selectedSourceIds: input.contextSelection?.selectedSourceIds ?? [],
-        contextSelection: input.contextSelection
-          ? {
-              strategy: input.contextSelection.strategy,
-              query: input.contextSelection.query,
-              retrievalMode: input.contextSelection.retrievalMode,
-              maxChunks: input.contextSelection.maxChunks,
-              selectedNodeRefs: input.contextSelection.selectedNodeRefs,
-              objectiveTitle: input.contextSelection.objectiveTitle,
-              weakConceptNames: input.contextSelection.weakConceptNames,
-              selectedChunkIds: input.contextSelection.selectedChunkIds,
-              selectedSourceIds: input.contextSelection.selectedSourceIds,
-              reason: input.contextSelection.reason,
-            }
-          : null,
-        citationIds,
-        artifactProposalIds: input.artifactProposalIds,
-        currentObjective: input.promptContext.currentObjective,
-            studyPlanSummary: input.promptContext.studyPlanSummary ?? null,
-            learnerStateSummary: input.promptContext.learnerStateSummary ?? null,
-            sessionDigestDraft: {
-              summary: input.assistantMessage,
-              currentObjective: input.promptContext.currentObjective,
-              studyPlanSummary: input.promptContext.studyPlanSummary ?? null,
-              learnerStateSummary: input.promptContext.learnerStateSummary ?? null,
-              citationIds,
-              sourceIds,
-              artifactProposalIds: input.artifactProposalIds,
-              updatedAt: new Date().toISOString(),
-            },
-        lastRunId: input.runId,
-        updatedAt: new Date().toISOString(),
-      },
-    })
-    .where(eq(tutorSessions.id, input.sessionId));
-
-  const digestDraft = await upsertTutorSessionDigestArtifact(ctx.db, {
-    notebookId: input.run.notebookId,
-    sessionId: input.sessionId,
-    runId: input.runId,
-    assistantMessage: input.assistantMessage,
-    userMessage: input.message,
-    ...(input.promptContext.currentObjective ? { currentObjective: input.promptContext.currentObjective } : {}),
-    sourceIds,
-    citationIds,
-    artifactProposalIds: input.artifactProposalIds,
-    ...(input.promptContext.studyPlanSummary ? { studyPlanSummary: input.promptContext.studyPlanSummary } : {}),
-    ...(input.promptContext.learnerStateSummary ? { learnerStateSummary: input.promptContext.learnerStateSummary } : {}),
-    turnId: input.turnId,
-    status: "draft",
-  });
-
-  await appendEvent(ctx.db, {
-    notebookId: input.run.notebookId,
-    sessionId: input.sessionId,
-    ...(input.runId ? { runId: input.runId } : {}),
-    eventType: digestDraft.created ? "artifact.created" : "artifact.updated",
-    payload: {
-      artifactId: digestDraft.artifactId,
-      artifactType: "session_digest",
-      status: "draft",
-    },
-  });
-
-  await ctx.db.db
-    .update(agentRuns)
-    .set({
-      status: "completed",
-      completedAt: new Date(),
-    })
-    .where(eq(agentRuns.id, input.runId));
-
-  await ctx.db.db
-    .update(tutorSessions)
-    .set({
-      runtimeContextJson: {
-        compressedContext: compacted.compressedContext,
-        activeConceptIds,
-        sourceIds,
-        selectedChunkIds: input.contextSelection?.selectedChunkIds ?? [],
-        selectedSourceIds: input.contextSelection?.selectedSourceIds ?? [],
-        contextSelection: input.contextSelection
-          ? {
-              strategy: input.contextSelection.strategy,
-              query: input.contextSelection.query,
-              retrievalMode: input.contextSelection.retrievalMode,
-              maxChunks: input.contextSelection.maxChunks,
-              selectedNodeRefs: input.contextSelection.selectedNodeRefs,
-              objectiveTitle: input.contextSelection.objectiveTitle,
-              weakConceptNames: input.contextSelection.weakConceptNames,
-              selectedChunkIds: input.contextSelection.selectedChunkIds,
-              selectedSourceIds: input.contextSelection.selectedSourceIds,
-              reason: input.contextSelection.reason,
-            }
-          : null,
-        citationIds,
-        artifactProposalIds: input.artifactProposalIds,
-        currentObjective: input.promptContext.currentObjective,
-            studyPlanSummary: input.promptContext.studyPlanSummary ?? null,
-            learnerStateSummary: input.promptContext.learnerStateSummary ?? null,
-            sessionDigestDraft: {
-              summary: input.assistantMessage,
-              currentObjective: input.promptContext.currentObjective,
-              studyPlanSummary: input.promptContext.studyPlanSummary ?? null,
-              learnerStateSummary: input.promptContext.learnerStateSummary ?? null,
-              citationIds,
-              sourceIds,
-              artifactProposalIds: input.artifactProposalIds,
-              updatedAt: new Date().toISOString(),
-            },
-        lastRunId: input.runId,
-        updatedAt: new Date().toISOString(),
-      },
-    })
-    .where(eq(tutorSessions.id, input.sessionId));
+  return "learn";
 }
 
 async function resolveTutorSession(
@@ -819,6 +455,7 @@ async function resolveTutorSession(
       )
       .limit(1);
     if (!requested) return null;
+    if (requested.notebookId !== input.notebookId || requested.userId !== input.userId) return null;
     return input.allowedStatuses.includes(requested.status) ? requested : null;
   }
 
@@ -829,6 +466,64 @@ async function resolveTutorSession(
     .orderBy(desc(tutorSessions.startedAt))
     .limit(5);
   return rows.find((row) => input.allowedStatuses.includes(row.status)) ?? null;
+}
+
+async function filterSelectedNodeRefsForNotebook(
+  ctx: AppContext,
+  notebookId: string,
+  refs: NodeRef[],
+): Promise<NodeRef[]> {
+  const out: NodeRef[] = [];
+  const seen = new Set<string>();
+
+  for (const ref of refs) {
+    const key = `${ref.refType}:${ref.refId}`;
+    if (seen.has(key)) continue;
+    if (await selectedNodeRefBelongsToNotebook(ctx, notebookId, ref)) {
+      out.push(ref);
+      seen.add(key);
+    }
+  }
+
+  return out;
+}
+
+async function selectedNodeRefBelongsToNotebook(
+  ctx: AppContext,
+  notebookId: string,
+  ref: NodeRef,
+): Promise<boolean> {
+  const row = await findSelectedNodeRefRow(ctx, ref);
+  if (!row) return false;
+  return row.notebookId === notebookId;
+}
+
+async function findSelectedNodeRefRow(
+  ctx: AppContext,
+  ref: NodeRef,
+): Promise<{ id: string; notebookId: string } | null> {
+  const table =
+    ref.refType === "source" ? sources
+      : ref.refType === "artifact" ? artifacts
+        : ref.refType === "claim" ? claims
+          : ref.refType === "concept" ? concepts
+            : ref.refType === "objective" ? objectives
+              : ref.refType === "objective_list" ? objectiveLists
+                : ref.refType === "session_plan" ? sessionPlans
+                  : ref.refType === "study_plan" ? studyPlans
+                    : ref.refType === "curriculum" ? curricula
+                      : ref.refType === "curriculum_module" ? curriculumModules
+                        : ref.refType === "wiki_page" ? wikiPages
+                          : null;
+  if (!table) return null;
+
+  const [row] = await ctx.db.db
+    .select({ id: table.id, notebookId: table.notebookId })
+    .from(table)
+    .where(eq(table.id, ref.refId))
+    .limit(1);
+
+  return row ?? null;
 }
 
 async function getOrCreateTutorSession(
@@ -900,36 +595,8 @@ async function getOrCreateTutorSession(
   };
 }
 
-function extractReducerResult(output: unknown): Record<string, unknown> | undefined {
-  if (!output || typeof output !== "object") return undefined;
-  const value = (output as { reducerResult?: unknown }).reducerResult;
-  return isJsonRecord(value) ? value : undefined;
-}
-
-function extractArtifactProposalId(output: unknown): string | undefined {
-  if (!output || typeof output !== "object") return undefined;
-  const artifactId = (output as { artifactId?: unknown }).artifactId;
-  return typeof artifactId === "string" ? artifactId : undefined;
-}
-
-function toJsonRecord(value: unknown): Record<string, unknown> {
-  return isJsonRecord(value) ? value : { value };
-}
-
 function isJsonRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function upsertToolSummary(
-  toolSummary: Array<{ toolCallId: string; toolName: string; status: string; latencyMs?: number }>,
-  update: { toolCallId: string; toolName: string; status: string; latencyMs?: number },
-): void {
-  const index = toolSummary.findIndex((item) => item.toolCallId === update.toolCallId);
-  if (index === -1) {
-    toolSummary.push(update);
-    return;
-  }
-  toolSummary[index] = { ...toolSummary[index], ...update };
 }
 
 function extractLatestUserMessage(messages: unknown[]): string {
@@ -962,11 +629,43 @@ function extractLatestUserMessage(messages: unknown[]): string {
   return "";
 }
 
+export function mergeSelectedNodeRefs(
+  baseRefs: StudyAgentPromptContext["selectedNodeRefs"],
+  contextSelection?: TutorContextSelection,
+): StudyAgentPromptContext["selectedNodeRefs"] {
+  const merged: StudyAgentPromptContext["selectedNodeRefs"] = [...baseRefs];
+  const seen = new Set(merged.map((ref) => `${ref.refType}:${ref.refId}`));
+  for (const rawRef of contextSelection?.selectedNodeRefs ?? []) {
+    const parsed = nodeRefSchema.safeParse(rawRef);
+    if (!parsed.success) continue;
+    const ref = parsed.data;
+    const key = `${ref.refType}:${ref.refId}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(ref);
+  }
+  for (const chunkId of contextSelection?.selectedChunkIds ?? []) {
+    const key = `chunk:${chunkId}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push({ refType: "chunk", refId: chunkId });
+  }
+  for (const sourceId of contextSelection?.selectedSourceIds ?? []) {
+    const key = `source:${sourceId}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push({ refType: "source", refId: sourceId });
+  }
+  return merged;
+}
+
 function createPromptContext(input: {
   notebookTitle: string;
   activeMode: StudyAgentPromptContext["activeMode"];
   selectedNodeRefs: StudyAgentPromptContext["selectedNodeRefs"];
   studyState: Awaited<ReturnType<typeof loadNotebookStudyState>>;
+  openArtifact?: { id: string; artifactType: string; title: string; status: string } | null;
+  previousRuntimeContext?: Record<string, unknown> | null;
 }): StudyAgentPromptContext {
   const plan = input.studyState.studyPlan;
   const curriculum = input.studyState.curriculum;
@@ -975,6 +674,7 @@ function createPromptContext(input: {
   const sessionPlan = input.studyState.sessionPlan;
   const studyPlanSummary = formatStudyPlanSummary(input.studyState);
   const learnerStateSummary = formatLearnerStateSummary(input.studyState);
+  const learnerProgressSummary = formatLearnerProgressForDigest(input.studyState);
 
   return {
     notebookTitle: input.notebookTitle,
@@ -993,9 +693,72 @@ function createPromptContext(input: {
     nextObjectives: plan?.upcomingObjectives.slice(0, 2).map((objective) => objective.title) ?? [],
     ...(studyPlanSummary ? { studyPlanSummary } : {}),
     ...(learnerStateSummary ? { learnerStateSummary } : {}),
+    ...(learnerProgressSummary ? { learnerProgressSummary } : {}),
     additionalInstructions: [
       "[Host-State Rehydration]",
       "Treat the notebook, curriculum, module, objective, session-plan, learner-state, selected-ref, and artifact-proposal state above as freshly loaded product state for this run. Do not rely on older Pi memory when it conflicts with this host state.",
+      ...(input.studyState.studentProfile
+        ? [
+            "[Student Profile Behavioral Guidance]",
+            `Adapt your teaching to the student's profile: ${formatLearnerStateSummary(input.studyState) ?? "no preferences set"}`,
+            "Instructions:",
+            "- Pace preference: If 'slow', break explanations into smaller steps and check understanding frequently. If 'fast', you may cover more material quickly.",
+            "- Depth preference: If 'foundational', focus on core concepts and avoid advanced tangents. If 'advanced', include deeper theoretical connections.",
+            "- Example preferences: Include worked examples, analogies, or comparisons according to the student's stated preferences.",
+            "- Assessment preference: Adjust quiz difficulty and frequency based on the student's assessment preferences.",
+            "- Constraints: Respect time budgets or exam deadlines mentioned in constraints.",
+          ]
+        : []),
+      ...(input.openArtifact
+        ? [
+            "[Open Artifact Context]",
+            `The learner currently has artifact "${input.openArtifact.title}" (${input.openArtifact.artifactType}, ${input.openArtifact.status}) in focus. Prefer explaining with direct references to this artifact and insert or update artifacts cohesively instead of switching context abruptly.`,
+          ]
+        : []),
+      ...(input.previousRuntimeContext && typeof input.previousRuntimeContext.compressedContext === "string"
+        ? [
+            "[Prior Session Context]",
+            `Prior compressed tutoring context: ${String(input.previousRuntimeContext.compressedContext)}`,
+          ]
+        : []),
+      ...(input.previousRuntimeContext && isJsonRecord(input.previousRuntimeContext.sessionDigestDraft)
+        ? [
+            "[Prior Session Digest Draft]",
+            `Use this persisted draft context to maintain continuity: ${JSON.stringify(input.previousRuntimeContext.sessionDigestDraft)}`,
+          ]
+        : []),
+      ...(sessionPlan && sessionPlan.teachingArcTitles.length > 0
+        ? [
+            "[Active Teaching Arcs]",
+            `Prefer this session's teaching arcs when structuring explanation flow and checkpoints: ${sessionPlan.teachingArcTitles.slice(0, 4).join(" | ")}`,
+            ...(sessionPlan.teachingArcBlockTypes.length > 0
+              ? [`Arc blocks available: ${sessionPlan.teachingArcBlockTypes.join(", ")}. Adapt block emphasis when learner struggles (misconception_warning/checkpoint/transfer_prompt).`]
+              : []),
+          ]
+        : []),
+      ...(input.previousRuntimeContext &&
+      Array.isArray(input.previousRuntimeContext.recentMistakeConceptIds) &&
+      input.previousRuntimeContext.recentMistakeConceptIds.length > 0
+        ? [
+            "[Arc Adaptation Hook]",
+            "Recent mistake concepts are present. Reorder the arc to prioritize misconception repair, concrete example, and checkpoint blocks before moving forward.",
+          ]
+        : []),
     ],
   };
+}
+
+async function loadSelectedArtifactContext(
+  ctx: AppContext,
+  notebookId: string,
+  selectedNodeRefs: Array<{ refType: string; refId: string }>,
+): Promise<{ id: string; artifactType: string; title: string; status: string } | null> {
+  const artifactRef = selectedNodeRefs.find((ref) => ref.refType === "artifact");
+  if (!artifactRef) return null;
+  const [artifact] = await ctx.db.db
+    .select({ id: artifacts.id, artifactType: artifacts.artifactType, title: artifacts.title, status: artifacts.status })
+    .from(artifacts)
+    .where(and(eq(artifacts.id, artifactRef.refId), eq(artifacts.notebookId, notebookId)))
+    .limit(1);
+  return artifact ?? null;
 }

@@ -2,6 +2,7 @@ import type { NodeRef } from "@studyagent/schemas";
 import {
   createNoopRuntimeReadToolProvider,
   createNoopRuntimeWriteToolProvider,
+  registerRuntimeToolsV1,
   registerReadToolsV1,
   registerWriteToolsV1,
   ToolRegistry,
@@ -27,6 +28,7 @@ export type StudyAgentPromptContext = {
   curriculumSummary?: string;
   studyPlanSummary?: string;
   learnerStateSummary?: string;
+  learnerProgressSummary?: string;
   currentObjective?: string;
   completedObjectivesCount?: number;
   nextObjectives?: string[];
@@ -160,6 +162,8 @@ export function buildStudyAgentSystemPrompt(
     "Use tools for notebook facts, source evidence, wiki operations, artifacts, and learning-state reads.",
     "Use the smallest sufficient tool sequence.",
     "Do not claim persistent state changes unless they happen through a tool call.",
+    "Do not narrate tool planning or tool use in the learner-facing answer. Keep phrases like \"let me search\", \"let me check\", and \"now I will save\" out of the final response.",
+    "After tools finish, answer directly from the evidence in student-friendly language.",
     "",
     "[Citation and Provenance Rules]",
     "Do not invent citations.",
@@ -189,7 +193,9 @@ export type CreateRuntimeToolRegistryOptions = {
 
 export function createRuntimeToolRegistry(options: CreateRuntimeToolRegistryOptions = {}): ToolRegistry {
   const registry = new ToolRegistry();
-  registerReadToolsV1(registry, options.readProvider ?? createNoopRuntimeReadToolProvider());
-  registerWriteToolsV1(registry, options.writeProvider ?? createNoopRuntimeWriteToolProvider());
+  registerRuntimeToolsV1(registry, {
+    read: options.readProvider ?? createNoopRuntimeReadToolProvider(),
+    write: options.writeProvider ?? createNoopRuntimeWriteToolProvider(),
+  });
   return registry;
 }
