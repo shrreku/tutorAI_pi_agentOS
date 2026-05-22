@@ -5,6 +5,7 @@ import { loadEnv } from "@studyagent/config";
 import { initializeLangfuseTracing, shutdownLangfuseTracing } from "@studyagent/observability";
 import { createContext, closeContext, type AppContext } from "./context.js";
 import { registerNotebookRoutes } from "./routes/notebooks.js";
+import { registerEvalSourceFixtureRoutes } from "./routes/eval-source-fixtures.js";
 import { registerGraphRoutes } from "./routes/graph.js";
 import { registerSearchRoutes } from "./routes/search.js";
 import { registerSourceRoutes } from "./routes/sources.js";
@@ -42,6 +43,7 @@ export async function buildServer(): Promise<{
 
   await app.register(
     async (r) => {
+      await registerEvalSourceFixtureRoutes(r, ctx);
       await registerNotebookRoutes(r, ctx);
       await registerSourceRoutes(r, ctx);
       await registerStudentProfileRoutes(r, ctx);

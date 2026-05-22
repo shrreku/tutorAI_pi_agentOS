@@ -16,6 +16,13 @@ describe("synthetic learner eval contracts", () => {
     const parsed = evalSourceFixtureManifestSchema.parse(syntheticLearnerEvalTracerBulletFixture);
     expect(parsed.learnerAnalyticsScope).toBe("eval_only");
     expect(parsed.compatible).toBe(true);
+    expect(parsed.compatibilityStatus).toBe("compatible");
+    expect(parsed.generationMetadata.pipelineVersion).toBe(parsed.ingestionPipelineVersion);
+    expect(parsed.readinessChecks.every((check) => check.passed)).toBe(true);
+    expect(parsed.expectedTopics).toContain("derivatives");
+    expect(parsed.expectedConcepts).toContain("Derivative");
+    expect(parsed.expectedCitations).toHaveLength(1);
+    expect(Object.keys(parsed.tutoringReadyState)).toContain("notebook");
   });
 
   it("expands the 1 x 3 x 3 tracer bullet into nine planned runs", () => {
