@@ -15,6 +15,8 @@ export * from "./wiki-polish.js";
 export * from "./reference-surface.js";
 export * from "./search.js";
 export * from "./source.js";
+export * from "./synthetic-learner-evals.js";
+export * from "./synthetic-learner-evals.fixtures.js";
 export * from "./tools.js";
 export * from "./wiki.js";
 export * from "./wiki-tools.js";
