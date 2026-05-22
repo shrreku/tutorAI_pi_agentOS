@@ -3,14 +3,37 @@ import { idSchema, nodeRefSchema } from "./ids.js";
 
 export const syntheticLearnerModeSchema = z.enum(["scripted", "live"]);
 
+export const syntheticLearnerLevelSchema = z.enum(["beginner", "intermediate", "advanced"]);
+
+export const syntheticLearnerSourceFamiliaritySchema = z.enum([
+  "unfamiliar",
+  "somewhat_familiar",
+  "familiar",
+  "expert",
+]);
+
+export const syntheticLearnerResponsePolicySchema = z.object({
+  mode: syntheticLearnerModeSchema,
+  tone: z.enum(["supportive", "direct", "encouraging"]),
+  brevity: z.enum(["short", "balanced", "detailed"]),
+  askClarifyingQuestions: z.boolean(),
+  referenceSourceMaterial: z.boolean(),
+  stayInCharacter: z.boolean().default(true),
+  constraints: z.array(z.string().min(1)).default([]),
+});
+
 export const syntheticLearnerPersonaSchema = z.object({
   id: idSchema,
   name: z.string().min(1),
   mode: syntheticLearnerModeSchema,
-  learnerSummary: z.string().min(1),
+  backgroundSummary: z.string().min(1),
   goalSummary: z.string().min(1),
-  styleHints: z.array(z.string().min(1)).default([]),
-  forbiddenLeaks: z.array(z.string().min(1)).default([]),
+  learnerLevel: syntheticLearnerLevelSchema,
+  sourceFamiliarity: syntheticLearnerSourceFamiliaritySchema,
+  behaviors: z.array(z.string().min(1)).min(1),
+  misconceptions: z.array(z.string().min(1)).default([]),
+  studyHabits: z.array(z.string().min(1)).min(1),
+  responsePolicy: syntheticLearnerResponsePolicySchema,
 });
 
 export const syntheticLearnerScenarioKindSchema = z.enum([
@@ -19,14 +42,64 @@ export const syntheticLearnerScenarioKindSchema = z.enum([
   "session_completion",
 ]);
 
+export const syntheticLearnerScenarioBeatKindSchema = z.enum([
+  "opening",
+  "checkpoint",
+  "remediation",
+  "request",
+  "generation",
+  "review",
+  "continue",
+  "finish",
+]);
+
+export const syntheticLearnerAllowedActionSchema = z.enum([
+  "ask_question",
+  "answer_question",
+  "request_hint",
+  "request_artifact",
+  "request_summary",
+  "correct_mistake",
+  "end_session",
+]);
+
+export const syntheticLearnerStopConditionSchema = z.enum([
+  "turn_limit",
+  "mastery_reached",
+  "artifact_delivered",
+  "session_concluded",
+  "user_requests_stop",
+]);
+
+export const syntheticLearnerAssertionReferenceSchema = z.object({
+  refType: z.literal("assertion"),
+  refId: idSchema,
+  label: z.string().min(1).optional(),
+});
+
+export const syntheticLearnerScenarioBeatSchema = z.object({
+  id: idSchema,
+  kind: syntheticLearnerScenarioBeatKindSchema,
+  scriptedMessage: z.string().min(1),
+  liveInstruction: z.string().min(1),
+  allowedActions: z.array(syntheticLearnerAllowedActionSchema).min(1),
+  stopConditions: z.array(syntheticLearnerStopConditionSchema).default([]),
+  assertionRefs: z.array(syntheticLearnerAssertionReferenceSchema).default([]),
+});
+
 export const syntheticLearnerScenarioSchema = z.object({
   id: idSchema,
   name: z.string().min(1),
   kind: syntheticLearnerScenarioKindSchema,
+  sourceFixtureId: idSchema,
+  personaIds: z.array(idSchema).min(1),
+  beats: z.array(syntheticLearnerScenarioBeatSchema).min(1),
+  maxTurns: z.number().int().positive(),
+  stopConditions: z.array(syntheticLearnerStopConditionSchema).min(1),
+  allowedActions: z.array(syntheticLearnerAllowedActionSchema).min(1),
+  assertionRefs: z.array(syntheticLearnerAssertionReferenceSchema).default([]),
   entryPrompt: z.string().min(1),
   objectiveId: idSchema.optional(),
-  beatIds: z.array(idSchema).default([]),
-  expectedAssertions: z.array(z.string().min(1)).default([]),
 });
 
 export const evalSourceFixtureCompatibilityStatusSchema = z.enum(["compatible", "needs_regeneration", "blocked"]);
@@ -211,8 +284,16 @@ export const syntheticLearnerEvalMatrixSchema = z.object({
 });
 
 export type SyntheticLearnerMode = z.infer<typeof syntheticLearnerModeSchema>;
+export type SyntheticLearnerLevel = z.infer<typeof syntheticLearnerLevelSchema>;
+export type SyntheticLearnerSourceFamiliarity = z.infer<typeof syntheticLearnerSourceFamiliaritySchema>;
+export type SyntheticLearnerResponsePolicy = z.infer<typeof syntheticLearnerResponsePolicySchema>;
 export type SyntheticLearnerPersona = z.infer<typeof syntheticLearnerPersonaSchema>;
 export type SyntheticLearnerScenarioKind = z.infer<typeof syntheticLearnerScenarioKindSchema>;
+export type SyntheticLearnerScenarioBeatKind = z.infer<typeof syntheticLearnerScenarioBeatKindSchema>;
+export type SyntheticLearnerAllowedAction = z.infer<typeof syntheticLearnerAllowedActionSchema>;
+export type SyntheticLearnerStopCondition = z.infer<typeof syntheticLearnerStopConditionSchema>;
+export type SyntheticLearnerAssertionReference = z.infer<typeof syntheticLearnerAssertionReferenceSchema>;
+export type SyntheticLearnerScenarioBeat = z.infer<typeof syntheticLearnerScenarioBeatSchema>;
 export type SyntheticLearnerScenario = z.infer<typeof syntheticLearnerScenarioSchema>;
 export type EvalSourceFixtureCompatibilityStatus = z.infer<typeof evalSourceFixtureCompatibilityStatusSchema>;
 export type EvalSourceFixtureGenerationMetadata = z.infer<typeof evalSourceFixtureGenerationMetadataSchema>;
@@ -231,6 +312,61 @@ export type SyntheticLearnerEvalReportFormat = z.infer<typeof syntheticLearnerEv
 export type SyntheticLearnerEvalReportMetadata = z.infer<typeof syntheticLearnerEvalReportMetadataSchema>;
 export type SyntheticLearnerEvalRunRecord = z.infer<typeof syntheticLearnerEvalRunRecordSchema>;
 export type SyntheticLearnerEvalMatrix = z.infer<typeof syntheticLearnerEvalMatrixSchema>;
+
+export function formatSyntheticLearnerList(items: string[], separator: string): string {
+  return items.length ? items.join(separator) : "none";
+}
+
+export function renderSyntheticLearnerScriptedMessages(scenario: SyntheticLearnerScenario): string[] {
+  return scenario.beats.map((beat) => beat.scriptedMessage);
+}
+
+export function renderSyntheticLearnerLivePrompt(input: {
+  fixture: EvalSourceFixtureManifest;
+  persona: SyntheticLearnerPersona;
+  scenario: SyntheticLearnerScenario;
+}): string {
+  const { fixture, persona, scenario } = input;
+  const responsePolicySummary = [
+    `tone=${persona.responsePolicy.tone}`,
+    `brevity=${persona.responsePolicy.brevity}`,
+    `mode=${persona.responsePolicy.mode}`,
+    `askClarifyingQuestions=${persona.responsePolicy.askClarifyingQuestions}`,
+    `referenceSourceMaterial=${persona.responsePolicy.referenceSourceMaterial}`,
+    `stayInCharacter=${persona.responsePolicy.stayInCharacter}`,
+    `constraints=${formatSyntheticLearnerList(persona.responsePolicy.constraints, "; ")}`,
+  ].join("; ");
+
+  const beatSummary = scenario.beats.map(
+    (beat, index) =>
+      `${index + 1}. [${beat.kind}] ${beat.liveInstruction} | allowed=${beat.allowedActions.join(", ")} | stop=${formatSyntheticLearnerList(beat.stopConditions, ", ")}`,
+  );
+
+  const lines = [
+    `Synthetic learner eval fixture: ${fixture.id} (${fixture.version})`,
+    `Persona: ${persona.name} [${persona.mode}]`,
+    `Goal: ${persona.goalSummary}`,
+    `Background: ${persona.backgroundSummary}`,
+    `Learner level: ${persona.learnerLevel}`,
+    `Source familiarity: ${persona.sourceFamiliarity}`,
+    `Behaviors: ${persona.behaviors.join("; ")}`,
+    `Misconceptions: ${persona.misconceptions.length ? persona.misconceptions.join("; ") : "none"}`,
+    `Study habits: ${persona.studyHabits.join("; ")}`,
+    `Response policy: ${responsePolicySummary}`,
+    `Scenario: ${scenario.name} [${scenario.kind}]`,
+    `Source fixture: ${scenario.sourceFixtureId}`,
+    `Entry prompt: ${scenario.entryPrompt}`,
+    `Objective: ${scenario.objectiveId ?? "none"}`,
+    `Max turns: ${scenario.maxTurns}`,
+    `Allowed actions: ${scenario.allowedActions.join(", ")}`,
+    `Stop conditions: ${scenario.stopConditions.join(", ")}`,
+    `Assertion refs: ${scenario.assertionRefs.map((ref) => ref.refId).join(", ") || "none"}`,
+    "Beats:",
+    ...beatSummary,
+  ];
+
+  return lines.join("\n");
+}
 
 export function buildSyntheticLearnerEvalMatrix(input: {
   fixture: EvalSourceFixtureManifest;
