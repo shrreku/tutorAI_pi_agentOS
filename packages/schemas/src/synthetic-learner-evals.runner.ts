@@ -130,7 +130,7 @@ export async function runSyntheticLearnerEvalScenario(
   };
 
   const startedAt = input.startedAt ?? input.matrix.fixture.generatedAt;
-  const runId = input.runId ?? `slrun_${input.matrix.fixture.id}_${persona.id}_${scenario.id}`;
+  const runId = input.runId ?? `slrun_${input.matrix.fixture.id}_${persona.id}_${crypto.randomUUID().slice(0, 8)}`;
 
   await writeTranscript(`RUN STARTED: ${runId}`);
   await writeTranscript(`SCENARIO: ${scenario.name}`);
@@ -344,7 +344,7 @@ export async function runSyntheticLearnerEvalScenario(
   await writeTranscript(`FINAL: ${finalStatus} - ${finalSummary}`);
 
   const scenarioRun = {
-    id: `${runId}_${persona.id}_${scenario.id}`,
+    id: `${runId}_${scenario.id}`,
     runId,
     fixtureManifestId: input.matrix.fixture.id,
     fixtureVersion: input.matrix.fixture.version,
@@ -388,7 +388,9 @@ export async function runSyntheticLearnerEvalScenario(
 export async function runSyntheticLearnerEvalSuite(
   input: RunSyntheticLearnerEvalSuiteInput,
 ): Promise<RunSyntheticLearnerEvalSuiteResult> {
-  const runId = input.runId ?? `slrun_${input.matrix.fixture.id}_${input.matrix.personas.length}x${input.matrix.scenarios.length}`;
+  const runId =
+    input.runId ??
+    `slrun_${input.matrix.fixture.id}_${input.matrix.personas.length}x${input.matrix.scenarios.length}_${crypto.randomUUID().slice(0, 8)}`;
   const transcript: string[] = [];
   const writeTranscript = async (line: string): Promise<void> => {
     transcript.push(line);
@@ -421,9 +423,9 @@ export async function runSyntheticLearnerEvalSuite(
       personaId: plannedRun.personaId,
       api: input.api,
       writeTranscript,
-      persistenceEvidence: input.persistenceEvidence,
       startedAt: scenarioStartedAt,
-      runId,
+      runId: `${runId}_${plannedRun.personaId}`,
+      ...(input.persistenceEvidence ? { persistenceEvidence: input.persistenceEvidence } : {}),
     });
     scenarioRuns.push(scenarioResult.scenarioRun);
     notebookRefs.push(...scenarioResult.scenarioRun.notebookRefs);

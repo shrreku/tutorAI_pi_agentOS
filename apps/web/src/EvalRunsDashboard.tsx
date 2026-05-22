@@ -7,7 +7,7 @@ type EvalRunSummary = {
   status: SyntheticLearnerEvalRunRecord["status"];
   startedAt: string;
   completedAt?: string | null;
-  durationMs?: number;
+  durationMs: number | null;
   fixtureManifestId: string;
   fixtureVersion: string;
   notebookId: string;
@@ -75,6 +75,7 @@ export default function EvalRunsDashboard({
 
   const run = detailQuery.data?.run ?? selectedFromList;
   const summary = detailQuery.data?.summary ?? runs.find((entry) => entry.summary.id === run?.id)?.summary;
+  const traceRefs = run ? uniqueTraceRefs(run.scenarioRuns.flatMap((scenarioRun) => scenarioRun.traceRefs)) : [];
 
   return (
     <div className="study-shell" data-theme="mist">
@@ -215,7 +216,11 @@ export default function EvalRunsDashboard({
                 <section style={{ display: "grid", gap: 8 }}>
                   <h3 style={{ margin: 0, fontSize: 14 }}>Trace refs</h3>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 8, fontSize: 12, color: "#4b5563" }}>
-                    {run.traceRefs.length ? run.traceRefs.map((ref) => <span key={`${ref.refType}:${ref.refId}`}>{ref.refType}:{ref.refId}</span>) : <span>None</span>}
+                    {traceRefs.length ? (
+                      traceRefs.map((ref) => <span key={`${ref.refType}:${ref.refId}`}>{ref.refType}:{ref.refId}</span>)
+                    ) : (
+                      <span>None</span>
+                    )}
                   </div>
                 </section>
 
@@ -234,4 +239,8 @@ export default function EvalRunsDashboard({
       </main>
     </div>
   );
+}
+
+function uniqueTraceRefs(refs: Array<{ refType: string; refId: string }>) {
+  return [...new Map(refs.map((ref) => [`${ref.refType}:${ref.refId}`, ref] as const)).values()];
 }

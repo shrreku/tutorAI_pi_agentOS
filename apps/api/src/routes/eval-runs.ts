@@ -10,7 +10,7 @@ type EvalRunSummary = {
   status: SyntheticLearnerEvalRunRecord["status"];
   startedAt: string;
   completedAt?: string | null;
-  durationMs?: number;
+  durationMs: number | null;
   fixtureManifestId: string;
   fixtureVersion: string;
   notebookId: string;
@@ -67,6 +67,9 @@ export async function registerEvalRunRoutes(app: FastifyInstance, ctx: AppContex
     const scenarioIds = uniqueValues(run.scenarioRuns.map((scenarioRun) => scenarioRun.scenarioId));
     const failedScenarioCount = run.scenarioRuns.filter((scenarioRun) => scenarioRun.status === "failed").length;
     const notebookId = run.notebookRefs[0]?.refId ?? run.seededNotebookId;
+    if (!notebookId) {
+      return reply.status(400).send({ code: "invalid_eval_run", message: "Eval run is missing a notebook reference" });
+    }
 
     await ctx.db.db.insert(syntheticLearnerEvalRuns).values({
       id: run.id,
@@ -105,8 +108,6 @@ export async function registerEvalRunRoutes(app: FastifyInstance, ctx: AppContex
         scenarioCoverageJson: scenarioIds,
         notebookRefsJson: run.notebookRefs,
         runJson: run as unknown as Record<string, unknown>,
-        createdAt: now,
-        updatedAt: now,
       }),
       run,
     });
@@ -118,6 +119,7 @@ function summarizeEvalRun(
   row: {
     id: string;
     notebookId: string;
+    ownerId: string;
     fixtureManifestId: string;
     fixtureVersion: string;
     status: string;
@@ -137,7 +139,7 @@ function summarizeEvalRun(
     status: run.status,
     startedAt: run.startedAt,
     completedAt: run.completedAt ?? null,
-    durationMs: run.durationMs,
+    durationMs: run.durationMs ?? null,
     fixtureManifestId: row.fixtureManifestId,
     fixtureVersion: row.fixtureVersion,
     notebookId: row.notebookId,
