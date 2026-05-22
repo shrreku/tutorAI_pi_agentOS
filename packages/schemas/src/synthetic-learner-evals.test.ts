@@ -6,6 +6,10 @@ import {
   syntheticLearnerAssertionSchema,
   syntheticLearnerEvalMatrixSchema,
   syntheticLearnerEvalScenarioRunSchema,
+  syntheticLearnerPersonaSchema,
+  syntheticLearnerScenarioSchema,
+  renderSyntheticLearnerLivePrompt,
+  renderSyntheticLearnerScriptedMessages,
   exportSyntheticLearnerEvalRunReport,
 } from "./synthetic-learner-evals.js";
 import {
@@ -26,6 +30,49 @@ describe("synthetic learner eval contracts", () => {
     expect(parsed.expectedConcepts).toContain("Derivative");
     expect(parsed.expectedCitations).toHaveLength(1);
     expect(Object.keys(parsed.tutoringReadyState)).toContain("notebook");
+  });
+
+  it("validates the tracer bullet persona and scenario fixtures", () => {
+    expect(syntheticLearnerPersonaSchema.array().parse(syntheticLearnerEvalTracerBulletPersonas)).toHaveLength(3);
+    expect(syntheticLearnerScenarioSchema.array().parse(syntheticLearnerEvalTracerBulletScenarios)).toHaveLength(3);
+  });
+
+  it("rejects malformed persona and scenario fixtures", () => {
+    const invalidPersona = {
+      ...syntheticLearnerEvalTracerBulletPersonas[0],
+      studyHabits: [],
+    };
+    const invalidScenario = {
+      ...syntheticLearnerEvalTracerBulletScenarios[0],
+      beats: [],
+    };
+
+    expect(syntheticLearnerPersonaSchema.safeParse(invalidPersona).success).toBe(false);
+    expect(syntheticLearnerScenarioSchema.safeParse(invalidScenario).success).toBe(false);
+  });
+
+  it("renders scripted learner messages and live prompts with scenario constraints", () => {
+    const persona = syntheticLearnerEvalTracerBulletPersonas[0]!;
+    const scenario = syntheticLearnerEvalTracerBulletScenarios[0]!;
+
+    expect(renderSyntheticLearnerScriptedMessages(scenario)).toEqual(
+      scenario.beats.map((beat) => beat.scriptedMessage),
+    );
+
+    const prompt = renderSyntheticLearnerLivePrompt({
+      fixture: syntheticLearnerEvalTracerBulletFixture,
+      persona,
+      scenario,
+    });
+
+    expect(prompt).toContain(`Source fixture: ${scenario.sourceFixtureId}`);
+    expect(prompt).toContain(`Max turns: ${scenario.maxTurns}`);
+    expect(prompt).toContain(`Allowed actions: ${scenario.allowedActions.join(", ")}`);
+    expect(prompt).toContain(`Stop conditions: ${scenario.stopConditions.join(", ")}`);
+    expect(prompt).toContain(`Assertion refs: ${scenario.assertionRefs.map((ref) => ref.refId).join(", ")}`);
+    expect(prompt).toContain(persona.responsePolicy.constraints.join("; "));
+    expect(prompt).toContain("Beats:");
+    expect(prompt).toContain(scenario.beats[0]?.liveInstruction ?? "");
   });
 
   it("expands the 1 x 3 x 3 tracer bullet into nine planned runs", () => {
