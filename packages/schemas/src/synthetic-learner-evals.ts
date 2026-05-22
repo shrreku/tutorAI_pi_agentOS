@@ -127,6 +127,82 @@ export const syntheticLearnerEvalRunSchema = z.object({
   }),
 });
 
+export const syntheticLearnerEvalStepKindSchema = z.enum([
+  "prompt",
+  "response",
+  "tool_call",
+  "assertion",
+  "artifact",
+  "trace",
+  "checkpoint",
+  "summary",
+]);
+
+export const syntheticLearnerEvalStepSchema = z.object({
+  id: idSchema,
+  stepIndex: z.number().int().nonnegative(),
+  kind: syntheticLearnerEvalStepKindSchema,
+  status: syntheticLearnerRunStatusSchema,
+  startedAt: z.string().datetime(),
+  completedAt: z.string().datetime().nullable().optional(),
+  durationMs: z.number().int().nonnegative().optional(),
+  studentMessage: z.string().min(1).optional(),
+  tutorMessage: z.string().min(1).optional(),
+  toolEvents: z.array(syntheticLearnerToolEventSchema).default([]),
+  runtimeEvents: z.array(syntheticLearnerRuntimeEventSchema).default([]),
+  assertions: z.array(syntheticLearnerAssertionSchema).default([]),
+  artifactRefs: z.array(nodeRefSchema).default([]),
+  traceRefs: z.array(nodeRefSchema).default([]),
+  details: z.record(z.string(), z.unknown()).default({}),
+});
+
+export const syntheticLearnerEvalScenarioRunSchema = z.object({
+  id: idSchema,
+  runId: idSchema.optional(),
+  fixtureManifestId: idSchema,
+  fixtureVersion: z.string().min(1),
+  personaId: idSchema,
+  scenarioId: idSchema,
+  seededNotebookId: idSchema,
+  status: syntheticLearnerRunStatusSchema,
+  startedAt: z.string().datetime(),
+  completedAt: z.string().datetime().nullable().optional(),
+  durationMs: z.number().int().nonnegative().optional(),
+  steps: z.array(syntheticLearnerEvalStepSchema).default([]),
+  assertions: z.array(syntheticLearnerAssertionSchema).default([]),
+  artifactRefs: z.array(nodeRefSchema).default([]),
+  traceRefs: z.array(nodeRefSchema).default([]),
+  notebookRefs: z.array(nodeRefSchema).default([]),
+  finalState: z.object({
+    passed: z.boolean(),
+    summary: z.string().min(1),
+  }),
+});
+
+export const syntheticLearnerEvalReportFormatSchema = z.enum(["json", "ndjson"]);
+
+export const syntheticLearnerEvalReportMetadataSchema = z.object({
+  format: syntheticLearnerEvalReportFormatSchema,
+  artifactPath: z.string().min(1),
+  generatedAt: z.string().datetime(),
+  scenarioRunCount: z.number().int().nonnegative(),
+  recordCount: z.number().int().nonnegative(),
+});
+
+export const syntheticLearnerEvalRunRecordSchema = z.object({
+  id: idSchema,
+  fixtureManifestId: idSchema,
+  fixtureVersion: z.string().min(1),
+  seededNotebookId: idSchema,
+  status: syntheticLearnerRunStatusSchema,
+  startedAt: z.string().datetime(),
+  completedAt: z.string().datetime().nullable().optional(),
+  durationMs: z.number().int().nonnegative().optional(),
+  scenarioRuns: z.array(syntheticLearnerEvalScenarioRunSchema).min(1),
+  notebookRefs: z.array(nodeRefSchema).default([]),
+  reportMetadata: z.array(syntheticLearnerEvalReportMetadataSchema).default([]),
+});
+
 export const syntheticLearnerEvalMatrixSchema = z.object({
   fixture: evalSourceFixtureManifestSchema,
   personas: z.array(syntheticLearnerPersonaSchema).min(1),
@@ -149,6 +225,11 @@ export type SyntheticLearnerToolEvent = z.infer<typeof syntheticLearnerToolEvent
 export type SyntheticLearnerRuntimeEvent = z.infer<typeof syntheticLearnerRuntimeEventSchema>;
 export type SyntheticLearnerRunStatus = z.infer<typeof syntheticLearnerRunStatusSchema>;
 export type SyntheticLearnerEvalRun = z.infer<typeof syntheticLearnerEvalRunSchema>;
+export type SyntheticLearnerEvalStep = z.infer<typeof syntheticLearnerEvalStepSchema>;
+export type SyntheticLearnerEvalScenarioRun = z.infer<typeof syntheticLearnerEvalScenarioRunSchema>;
+export type SyntheticLearnerEvalReportFormat = z.infer<typeof syntheticLearnerEvalReportFormatSchema>;
+export type SyntheticLearnerEvalReportMetadata = z.infer<typeof syntheticLearnerEvalReportMetadataSchema>;
+export type SyntheticLearnerEvalRunRecord = z.infer<typeof syntheticLearnerEvalRunRecordSchema>;
 export type SyntheticLearnerEvalMatrix = z.infer<typeof syntheticLearnerEvalMatrixSchema>;
 
 export function buildSyntheticLearnerEvalMatrix(input: {
@@ -188,5 +269,126 @@ export function buildSyntheticLearnerEvalMatrix(input: {
     personas: input.personas,
     scenarios: input.scenarios,
     runs,
+  };
+}
+
+function deriveSyntheticLearnerEvalRunStatus(scenarioRuns: SyntheticLearnerEvalScenarioRun[]): SyntheticLearnerRunStatus {
+  if (scenarioRuns.some((run) => run.status === "failed")) return "failed";
+  if (scenarioRuns.some((run) => run.status === "running")) return "running";
+  if (scenarioRuns.every((run) => run.status === "passed")) return "passed";
+  if (scenarioRuns.every((run) => run.status === "skipped")) return "skipped";
+  return "planned";
+}
+
+function deriveSyntheticLearnerEvalDurationMs(
+  startedAt: string,
+  completedAt: string | null | undefined,
+  scenarioRuns: SyntheticLearnerEvalScenarioRun[],
+): number | undefined {
+  if (completedAt) {
+    const duration = Date.parse(completedAt) - Date.parse(startedAt);
+    if (Number.isFinite(duration) && duration >= 0) return duration;
+  }
+
+  const scenarioDurations = scenarioRuns.flatMap((run) => (typeof run.durationMs === "number" ? [run.durationMs] : []));
+  if (!scenarioDurations.length) return undefined;
+  return scenarioDurations.reduce((sum, duration) => sum + duration, 0);
+}
+
+export function buildSyntheticLearnerEvalRunRecord(input: {
+  matrix: SyntheticLearnerEvalMatrix;
+  scenarioRuns?: SyntheticLearnerEvalScenarioRun[];
+  runId?: string;
+  startedAt?: string;
+  completedAt?: string;
+  durationMs?: number;
+  artifactPath?: string;
+  generatedAt?: string;
+  format?: SyntheticLearnerEvalReportFormat;
+  notebookRefs?: Array<{ refType: string; refId: string }>;
+}): SyntheticLearnerEvalRunRecord {
+  const runId = input.runId ?? `slrun_${input.matrix.fixture.id}_${input.matrix.personas.length}x${input.matrix.scenarios.length}`;
+  const scenarioRuns = (input.scenarioRuns ?? input.matrix.runs.map((run) =>
+    syntheticLearnerEvalScenarioRunSchema.parse({
+      ...run,
+      id: run.id,
+      runId,
+      fixtureVersion: input.matrix.fixture.version,
+      steps: [],
+      assertions: run.assertions,
+      artifactRefs: run.artifactRefs,
+      traceRefs: run.traceRefs,
+      notebookRefs: [{ refType: "notebook", refId: run.seededNotebookId }],
+      finalState: run.finalState,
+    }),
+  )) satisfies SyntheticLearnerEvalScenarioRun[];
+
+  const startedAt = input.startedAt ?? input.matrix.fixture.generatedAt;
+  const completedAt = input.completedAt ?? scenarioRuns
+    .map((run) => run.completedAt)
+    .find((value): value is string => Boolean(value));
+  const status = deriveSyntheticLearnerEvalRunStatus(scenarioRuns);
+  const durationMs = input.durationMs ?? deriveSyntheticLearnerEvalDurationMs(startedAt, completedAt, scenarioRuns);
+  const notebookRefs = input.notebookRefs ?? [
+    { refType: "notebook", refId: input.matrix.fixture.seededNotebookId },
+  ];
+
+  return syntheticLearnerEvalRunRecordSchema.parse({
+    id: runId,
+    fixtureManifestId: input.matrix.fixture.id,
+    fixtureVersion: input.matrix.fixture.version,
+    seededNotebookId: input.matrix.fixture.seededNotebookId,
+    status,
+    startedAt,
+    completedAt,
+    durationMs,
+    scenarioRuns,
+    notebookRefs,
+    reportMetadata: [],
+  });
+}
+
+export function exportSyntheticLearnerEvalRunReport(input: {
+  run: SyntheticLearnerEvalRunRecord;
+  format?: SyntheticLearnerEvalReportFormat;
+  artifactPath?: string;
+  generatedAt?: string;
+}): SyntheticLearnerEvalRunRecord & { reportContent: string } {
+  const run = syntheticLearnerEvalRunRecordSchema.parse(input.run);
+  if (run.status === "planned" || run.status === "running") {
+    throw new Error("Eval Run must be completed before exporting a report.");
+  }
+
+  const format = input.format ?? "json";
+  const generatedAt = input.generatedAt ?? new Date().toISOString();
+  const artifactPath = input.artifactPath ?? `eval-runs/${run.id}.${format === "ndjson" ? "ndjson" : "json"}`;
+  const reportMetadata = syntheticLearnerEvalReportMetadataSchema.parse({
+    format,
+    artifactPath,
+    generatedAt,
+    scenarioRunCount: run.scenarioRuns.length,
+    recordCount: format === "ndjson" ? 2 + run.scenarioRuns.length : 1,
+  });
+
+  const runWithMetadata = syntheticLearnerEvalRunRecordSchema.parse({
+    ...run,
+    reportMetadata: [...run.reportMetadata, reportMetadata],
+  });
+
+  const reportContent =
+    format === "ndjson"
+      ? [reportMetadata, runWithMetadata, ...runWithMetadata.scenarioRuns].map((record) => JSON.stringify(record)).join("\n")
+      : JSON.stringify(
+          {
+            metadata: reportMetadata,
+            run: runWithMetadata,
+          },
+          null,
+          2,
+        );
+
+  return {
+    ...runWithMetadata,
+    reportContent,
   };
 }
