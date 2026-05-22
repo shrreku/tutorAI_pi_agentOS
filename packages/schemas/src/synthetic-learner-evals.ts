@@ -313,6 +313,10 @@ export type SyntheticLearnerEvalReportMetadata = z.infer<typeof syntheticLearner
 export type SyntheticLearnerEvalRunRecord = z.infer<typeof syntheticLearnerEvalRunRecordSchema>;
 export type SyntheticLearnerEvalMatrix = z.infer<typeof syntheticLearnerEvalMatrixSchema>;
 
+export function formatSyntheticLearnerList(items: string[], separator: string): string {
+  return items.length ? items.join(separator) : "none";
+}
+
 export function renderSyntheticLearnerScriptedMessages(scenario: SyntheticLearnerScenario): string[] {
   return scenario.beats.map((beat) => beat.scriptedMessage);
 }
@@ -323,6 +327,21 @@ export function renderSyntheticLearnerLivePrompt(input: {
   scenario: SyntheticLearnerScenario;
 }): string {
   const { fixture, persona, scenario } = input;
+  const responsePolicySummary = [
+    `tone=${persona.responsePolicy.tone}`,
+    `brevity=${persona.responsePolicy.brevity}`,
+    `mode=${persona.responsePolicy.mode}`,
+    `askClarifyingQuestions=${persona.responsePolicy.askClarifyingQuestions}`,
+    `referenceSourceMaterial=${persona.responsePolicy.referenceSourceMaterial}`,
+    `stayInCharacter=${persona.responsePolicy.stayInCharacter}`,
+    `constraints=${formatSyntheticLearnerList(persona.responsePolicy.constraints, "; ")}`,
+  ].join("; ");
+
+  const beatSummary = scenario.beats.map(
+    (beat, index) =>
+      `${index + 1}. [${beat.kind}] ${beat.liveInstruction} | allowed=${beat.allowedActions.join(", ")} | stop=${formatSyntheticLearnerList(beat.stopConditions, ", ")}`,
+  );
+
   const lines = [
     `Synthetic learner eval fixture: ${fixture.id} (${fixture.version})`,
     `Persona: ${persona.name} [${persona.mode}]`,
@@ -333,7 +352,7 @@ export function renderSyntheticLearnerLivePrompt(input: {
     `Behaviors: ${persona.behaviors.join("; ")}`,
     `Misconceptions: ${persona.misconceptions.length ? persona.misconceptions.join("; ") : "none"}`,
     `Study habits: ${persona.studyHabits.join("; ")}`,
-    `Response policy: tone=${persona.responsePolicy.tone}; brevity=${persona.responsePolicy.brevity}; mode=${persona.responsePolicy.mode}; askClarifyingQuestions=${persona.responsePolicy.askClarifyingQuestions}; referenceSourceMaterial=${persona.responsePolicy.referenceSourceMaterial}; stayInCharacter=${persona.responsePolicy.stayInCharacter}; constraints=${persona.responsePolicy.constraints.join("; ") || "none"}`,
+    `Response policy: ${responsePolicySummary}`,
     `Scenario: ${scenario.name} [${scenario.kind}]`,
     `Source fixture: ${scenario.sourceFixtureId}`,
     `Entry prompt: ${scenario.entryPrompt}`,
@@ -343,10 +362,7 @@ export function renderSyntheticLearnerLivePrompt(input: {
     `Stop conditions: ${scenario.stopConditions.join(", ")}`,
     `Assertion refs: ${scenario.assertionRefs.map((ref) => ref.refId).join(", ") || "none"}`,
     "Beats:",
-    ...scenario.beats.map(
-      (beat, index) =>
-        `${index + 1}. [${beat.kind}] ${beat.liveInstruction} | allowed=${beat.allowedActions.join(", ")} | stop=${beat.stopConditions.join(", ") || "none"}`,
-    ),
+    ...beatSummary,
   ];
 
   return lines.join("\n");

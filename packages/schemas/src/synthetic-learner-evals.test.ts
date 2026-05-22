@@ -6,6 +6,7 @@ import {
   syntheticLearnerAssertionSchema,
   syntheticLearnerEvalMatrixSchema,
   syntheticLearnerEvalScenarioRunSchema,
+  formatSyntheticLearnerList,
   syntheticLearnerPersonaSchema,
   syntheticLearnerScenarioSchema,
   renderSyntheticLearnerLivePrompt,
@@ -70,7 +71,7 @@ describe("synthetic learner eval contracts", () => {
     expect(prompt).toContain(`Allowed actions: ${scenario.allowedActions.join(", ")}`);
     expect(prompt).toContain(`Stop conditions: ${scenario.stopConditions.join(", ")}`);
     expect(prompt).toContain(`Assertion refs: ${scenario.assertionRefs.map((ref) => ref.refId).join(", ")}`);
-    expect(prompt).toContain(persona.responsePolicy.constraints.join("; "));
+    expect(prompt).toContain(`constraints=${formatSyntheticLearnerList(persona.responsePolicy.constraints, "; ")}`);
     expect(prompt).toContain("Beats:");
     expect(prompt).toContain(scenario.beats[0]?.liveInstruction ?? "");
   });
