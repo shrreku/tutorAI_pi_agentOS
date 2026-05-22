@@ -18,6 +18,7 @@ import {
 } from "./synthetic-learner-evals.assertions.js";
 import {
   syntheticLearnerEvalTracerBulletFixture,
+  syntheticLearnerEvalTracerBulletFixtureMetadata,
   syntheticLearnerEvalTracerBulletPersonas,
   syntheticLearnerEvalTracerBulletScenarios,
 } from "./synthetic-learner-evals.fixtures.js";
@@ -97,9 +98,108 @@ export type RunSyntheticLearnerEvalSuiteResult = {
   transcript: string[];
 };
 
-export function loadTracerBulletSyntheticLearnerEvalMatrix(): SyntheticLearnerEvalMatrix {
+export type SyntheticLearnerEvalFixtureFreshnessMode = "warn" | "strict" | "regenerate";
+
+export type SyntheticLearnerEvalFixtureFreshnessAssessment = {
+  isFresh: boolean;
+  staleFields: string[];
+  message: string;
+};
+
+export type LoadTracerBulletSyntheticLearnerEvalMatrixInput = {
+  fixture?: SyntheticLearnerEvalMatrix["fixture"];
+  freshnessMode?: SyntheticLearnerEvalFixtureFreshnessMode;
+  generatedAt?: string;
+  onStatus?: (message: string) => void;
+};
+
+export function assessTracerBulletSyntheticLearnerEvalFixtureFreshness(
+  fixture: SyntheticLearnerEvalMatrix["fixture"],
+): SyntheticLearnerEvalFixtureFreshnessAssessment {
+  const staleFields: string[] = [];
+  const expected = syntheticLearnerEvalTracerBulletFixtureMetadata;
+
+  if (fixture.sourceContentHash !== expected.sourceContentHash) staleFields.push("sourceContentHash");
+  if (fixture.ingestionPipelineHash !== expected.ingestionPipelineHash) staleFields.push("ingestionPipelineHash");
+  if (fixture.ingestionPipelineVersion !== expected.pipelineVersion) staleFields.push("ingestionPipelineVersion");
+  if (fixture.schemaVersion !== expected.schemaVersion) staleFields.push("schemaVersion");
+  if (fixture.generationMetadata.generatedBy !== expected.generatedBy) staleFields.push("generationMetadata.generatedBy");
+  if (fixture.generationMetadata.pipelineVersion !== expected.pipelineVersion) staleFields.push("generationMetadata.pipelineVersion");
+  if (fixture.generationMetadata.ingestionPipelineHash !== expected.ingestionPipelineHash) {
+    staleFields.push("generationMetadata.ingestionPipelineHash");
+  }
+  if (fixture.generationMetadata.schemaVersion !== expected.schemaVersion) staleFields.push("generationMetadata.schemaVersion");
+  if (fixture.generationMetadata.sourceRevision !== expected.sourceRevision) staleFields.push("generationMetadata.sourceRevision");
+  if (fixture.generationMetadata.modelProvider !== expected.modelProvider) staleFields.push("generationMetadata.modelProvider");
+  if (fixture.generationMetadata.modelName !== expected.modelName) staleFields.push("generationMetadata.modelName");
+  if (fixture.generationMetadata.generatedAt !== fixture.generatedAt) staleFields.push("generatedAt");
+
+  return {
+    isFresh: staleFields.length === 0,
+    staleFields,
+    message:
+      staleFields.length > 0
+        ? `Synthetic learner eval fixture ${fixture.id} is stale: ${staleFields.join(", ")}`
+        : `Synthetic learner eval fixture ${fixture.id} is fresh.`,
+  };
+}
+
+export function regenerateTracerBulletSyntheticLearnerEvalFixture(
+  fixture: SyntheticLearnerEvalMatrix["fixture"],
+  generatedAt = new Date().toISOString(),
+): SyntheticLearnerEvalMatrix["fixture"] {
+  return {
+    ...fixture,
+    sourceContentHash: syntheticLearnerEvalTracerBulletFixtureMetadata.sourceContentHash,
+    ingestionPipelineHash: syntheticLearnerEvalTracerBulletFixtureMetadata.ingestionPipelineHash,
+    ingestionPipelineVersion: syntheticLearnerEvalTracerBulletFixtureMetadata.pipelineVersion,
+    schemaVersion: syntheticLearnerEvalTracerBulletFixtureMetadata.schemaVersion,
+    generatedAt,
+    generationMetadata: {
+      ...fixture.generationMetadata,
+      generatedBy: syntheticLearnerEvalTracerBulletFixtureMetadata.generatedBy,
+      pipelineVersion: syntheticLearnerEvalTracerBulletFixtureMetadata.pipelineVersion,
+      ingestionPipelineHash: syntheticLearnerEvalTracerBulletFixtureMetadata.ingestionPipelineHash,
+      schemaVersion: syntheticLearnerEvalTracerBulletFixtureMetadata.schemaVersion,
+      generatedAt,
+      sourceRevision: syntheticLearnerEvalTracerBulletFixtureMetadata.sourceRevision,
+      modelProvider: syntheticLearnerEvalTracerBulletFixtureMetadata.modelProvider,
+      modelName: syntheticLearnerEvalTracerBulletFixtureMetadata.modelName,
+    },
+  };
+}
+
+export function loadTracerBulletSyntheticLearnerEvalMatrix(
+  input: LoadTracerBulletSyntheticLearnerEvalMatrixInput = {},
+): SyntheticLearnerEvalMatrix {
+  const fixture = input.fixture ?? syntheticLearnerEvalTracerBulletFixture;
+  const freshness = assessTracerBulletSyntheticLearnerEvalFixtureFreshness(fixture);
+
+  if (!freshness.isFresh) {
+    if (input.freshnessMode === "strict") {
+      throw new Error(freshness.message);
+    }
+    if (input.freshnessMode === "regenerate") {
+      input.onStatus?.(`REGENERATED: ${freshness.message}`);
+      return buildSyntheticLearnerEvalMatrix({
+        fixture: regenerateTracerBulletSyntheticLearnerEvalFixture(fixture, input.generatedAt),
+        personas: syntheticLearnerEvalTracerBulletPersonas,
+        scenarios: syntheticLearnerEvalTracerBulletScenarios,
+      });
+    }
+
+    input.onStatus?.(`WARN: ${freshness.message}`);
+  } else if (input.freshnessMode === "regenerate") {
+    input.onStatus?.(`REGENERATED: Synthetic learner eval fixture ${fixture.id} is already fresh.`);
+    return buildSyntheticLearnerEvalMatrix({
+      fixture: regenerateTracerBulletSyntheticLearnerEvalFixture(fixture, input.generatedAt),
+      personas: syntheticLearnerEvalTracerBulletPersonas,
+      scenarios: syntheticLearnerEvalTracerBulletScenarios,
+    });
+  }
+
   return buildSyntheticLearnerEvalMatrix({
-    fixture: syntheticLearnerEvalTracerBulletFixture,
+    fixture,
     personas: syntheticLearnerEvalTracerBulletPersonas,
     scenarios: syntheticLearnerEvalTracerBulletScenarios,
   });

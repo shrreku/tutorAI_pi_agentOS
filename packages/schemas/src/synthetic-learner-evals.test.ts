@@ -19,6 +19,10 @@ import {
   syntheticLearnerEvalTracerBulletPersonas,
   syntheticLearnerEvalTracerBulletScenarios,
 } from "./synthetic-learner-evals.fixtures.js";
+import {
+  assessTracerBulletSyntheticLearnerEvalFixtureFreshness,
+  loadTracerBulletSyntheticLearnerEvalMatrix,
+} from "./synthetic-learner-evals.runner.js";
 
 describe("synthetic learner eval contracts", () => {
   it("validates the first tracer bullet fixture manifest", () => {
@@ -27,11 +31,14 @@ describe("synthetic learner eval contracts", () => {
     expect(parsed.compatible).toBe(true);
     expect(parsed.compatibilityStatus).toBe("compatible");
     expect(parsed.generationMetadata.pipelineVersion).toBe(parsed.ingestionPipelineVersion);
+    expect(parsed.generationMetadata.ingestionPipelineHash).toBe(parsed.ingestionPipelineHash);
+    expect(parsed.ingestionPipelineHash).toMatch(/^sha256:/);
     expect(parsed.readinessChecks.every((check) => check.passed)).toBe(true);
     expect(parsed.expectedTopics).toContain("derivatives");
     expect(parsed.expectedConcepts).toContain("Derivative");
     expect(parsed.expectedCitations).toHaveLength(1);
     expect(Object.keys(parsed.tutoringReadyState)).toContain("notebook");
+    expect(assessTracerBulletSyntheticLearnerEvalFixtureFreshness(parsed).isFresh).toBe(true);
   });
 
   it("validates the tracer bullet persona and scenario fixtures", () => {
@@ -93,6 +100,48 @@ describe("synthetic learner eval contracts", () => {
     expect(
       new Set(matrix.runs.map((run) => `${run.personaId}:${run.scenarioId}`)),
     ).toHaveLength(9);
+  });
+
+  it("warns, fails, and regenerates stale tracer bullet fixtures by mode", () => {
+    const staleFixture = {
+      ...syntheticLearnerEvalTracerBulletFixture,
+      sourceContentHash: "sha256:stale-source-content-hash",
+      ingestionPipelineVersion: "ingestion@2025.12.01",
+      generationMetadata: {
+        ...syntheticLearnerEvalTracerBulletFixture.generationMetadata,
+        pipelineVersion: "ingestion@2025.12.01",
+      },
+    };
+    const warnings: string[] = [];
+
+    const warnedMatrix = loadTracerBulletSyntheticLearnerEvalMatrix({
+      fixture: staleFixture,
+      freshnessMode: "warn",
+      onStatus: (message) => warnings.push(message),
+    });
+    expect(warnings.some((message) => message.includes("stale"))).toBe(true);
+    expect(warnedMatrix.fixture.sourceContentHash).toBe(staleFixture.sourceContentHash);
+
+    expect(() =>
+      loadTracerBulletSyntheticLearnerEvalMatrix({
+        fixture: staleFixture,
+        freshnessMode: "strict",
+      }),
+    ).toThrow(/stale/);
+
+    const regeneratedMatrix = loadTracerBulletSyntheticLearnerEvalMatrix({
+      fixture: staleFixture,
+      freshnessMode: "regenerate",
+      generatedAt: "2026-05-22T00:30:00.000Z",
+      onStatus: (message) => warnings.push(message),
+    });
+    expect(warnings.some((message) => message.startsWith("REGENERATED:"))).toBe(true);
+    expect(regeneratedMatrix.fixture.sourceContentHash).toBe(syntheticLearnerEvalTracerBulletFixture.sourceContentHash);
+    expect(regeneratedMatrix.fixture.ingestionPipelineVersion).toBe(
+      syntheticLearnerEvalTracerBulletFixture.ingestionPipelineVersion,
+    );
+    expect(regeneratedMatrix.fixture.generatedAt).toBe("2026-05-22T00:30:00.000Z");
+    expect(regeneratedMatrix.fixture.generationMetadata.generatedAt).toBe("2026-05-22T00:30:00.000Z");
   });
 
   it("validates persisted run records with learner-visible assertions", () => {

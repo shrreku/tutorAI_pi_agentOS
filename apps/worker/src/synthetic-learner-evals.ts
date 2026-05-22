@@ -4,6 +4,7 @@ import {
   nodeRefSchema,
   runSyntheticLearnerEvalSuite,
   type NodeRef,
+  type SyntheticLearnerEvalFixtureFreshnessMode,
   type SyntheticLearnerEvalRunnerApi,
   type SyntheticLearnerEvalStreamEvent,
 } from "@studyagent/schemas";
@@ -116,7 +117,13 @@ function parseSseFrame(frame: string, source: SyntheticLearnerEvalStreamEvent["s
 async function main() {
   const baseUrl = process.env.PUBLIC_API_BASE_URL ?? "http://localhost:4000";
   const api = createHttpSyntheticLearnerEvalApi(baseUrl, process.env.STUDYAGENT_API_COOKIE);
-  const matrix = loadTracerBulletSyntheticLearnerEvalMatrix();
+  const fixtureMode = parseFixtureMode(process.argv.slice(2));
+  const matrix = loadTracerBulletSyntheticLearnerEvalMatrix({
+    freshnessMode: fixtureMode,
+    onStatus: (message) => {
+      process.stdout.write(`${message}\n`);
+    },
+  });
   const result = await runSyntheticLearnerEvalSuite({
     matrix,
     api,
@@ -149,4 +156,17 @@ if (isMain) {
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);
   });
+}
+
+function parseFixtureMode(argv: string[]): SyntheticLearnerEvalFixtureFreshnessMode {
+  const explicitModeFlag = argv.find((arg) => arg.startsWith("--fixture-mode="));
+  const explicitMode =
+    explicitModeFlag?.split("=", 2)[1] ??
+    (argv.includes("--fixture-mode") ? argv[argv.indexOf("--fixture-mode") + 1] : undefined);
+  const envMode = process.env.STUDYAGENT_SYNTHETIC_LEARNER_FIXTURE_MODE;
+  const defaultMode = process.env.CI ? "strict" : "warn";
+  const candidate = explicitMode ?? envMode ?? defaultMode;
+  const normalized = candidate.toLowerCase();
+  if (normalized === "strict" || normalized === "regenerate") return normalized;
+  return "warn";
 }

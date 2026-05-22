@@ -4,6 +4,18 @@ import type {
   SyntheticLearnerScenario,
 } from "./synthetic-learner-evals.js";
 
+export const syntheticLearnerEvalTracerBulletFixtureMetadata = {
+  generatedBy: "studyagent-ingestion",
+  pipelineVersion: "ingestion@2026.05.22",
+  ingestionPipelineHash: "sha256:7d6c5b4a39281706f5e4d3c2b1a09f8e7d6c5b4a39281706f5e4d3c2b1a09f8e",
+  schemaVersion: "synthetic-learner-evals@1",
+  generatedAt: "2026-05-22T00:00:00.000Z",
+  sourceRevision: "frozen-eval-fixture",
+  modelProvider: "openrouter",
+  modelName: "gpt-4.1",
+  sourceContentHash: "sha256:8d8e9c5f1b0a1d1e1b1a8f0f0a2f4adf5d3f0d2c5a0e6b7a9d4f3c2b1a0d9e8f",
+} as const;
+
 const syntheticLearnerEvalTracerBulletFixtureState = {
   notebook: {
     title: "Eval Fixture: Derivatives Primer",
@@ -201,15 +213,17 @@ const syntheticLearnerEvalTracerBulletFixtureState = {
 export const syntheticLearnerEvalTracerBulletFixture: EvalSourceFixtureManifest = {
   id: "fixture_synthetic_learner_001",
   version: "1.0.0",
-  sourceContentHash: "sha256:8d8e9c5f1b0a1d1e1b1a8f0f0a2f4adf5d3f0d2c5a0e6b7a9d4f3c2b1a0d9e8f",
+  sourceContentHash: syntheticLearnerEvalTracerBulletFixtureMetadata.sourceContentHash,
+  ingestionPipelineHash: syntheticLearnerEvalTracerBulletFixtureMetadata.ingestionPipelineHash,
   generationMetadata: {
-    generatedBy: "studyagent-ingestion",
-    pipelineVersion: "ingestion@2026.05.22",
-    schemaVersion: "synthetic-learner-evals@1",
-    generatedAt: "2026-05-22T00:00:00.000Z",
-    sourceRevision: "frozen-eval-fixture",
-    modelProvider: "openrouter",
-    modelName: "gpt-4.1",
+    generatedBy: syntheticLearnerEvalTracerBulletFixtureMetadata.generatedBy,
+    pipelineVersion: syntheticLearnerEvalTracerBulletFixtureMetadata.pipelineVersion,
+    ingestionPipelineHash: syntheticLearnerEvalTracerBulletFixtureMetadata.ingestionPipelineHash,
+    schemaVersion: syntheticLearnerEvalTracerBulletFixtureMetadata.schemaVersion,
+    generatedAt: syntheticLearnerEvalTracerBulletFixtureMetadata.generatedAt,
+    sourceRevision: syntheticLearnerEvalTracerBulletFixtureMetadata.sourceRevision,
+    modelProvider: syntheticLearnerEvalTracerBulletFixtureMetadata.modelProvider,
+    modelName: syntheticLearnerEvalTracerBulletFixtureMetadata.modelName,
   },
   readinessChecks: [
     {
@@ -241,9 +255,9 @@ export const syntheticLearnerEvalTracerBulletFixture: EvalSourceFixtureManifest 
     },
   ],
   compatibilityStatus: "compatible",
-  ingestionPipelineVersion: "ingestion@2026.05.22",
-  schemaVersion: "synthetic-learner-evals@1",
-  generatedAt: "2026-05-22T00:00:00.000Z",
+  ingestionPipelineVersion: syntheticLearnerEvalTracerBulletFixtureMetadata.pipelineVersion,
+  schemaVersion: syntheticLearnerEvalTracerBulletFixtureMetadata.schemaVersion,
+  generatedAt: syntheticLearnerEvalTracerBulletFixtureMetadata.generatedAt,
   compatible: true,
   seededNotebookId: "nb_eval_fixture_001",
   learnerAnalyticsScope: "eval_only",
