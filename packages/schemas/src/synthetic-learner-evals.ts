@@ -280,6 +280,7 @@ export const syntheticLearnerEvalRunRecordSchema = z.object({
   startedAt: z.string().datetime(),
   completedAt: z.string().datetime().nullable().optional(),
   durationMs: z.number().int().nonnegative().optional(),
+  transcript: z.array(z.string().min(1)).default([]),
   scenarioRuns: z.array(syntheticLearnerEvalScenarioRunSchema).min(1),
   notebookRefs: z.array(nodeRefSchema).default([]),
   reportMetadata: z.array(syntheticLearnerEvalReportMetadataSchema).default([]),
@@ -448,6 +449,7 @@ export function buildSyntheticLearnerEvalRunRecord(input: {
   startedAt?: string;
   completedAt?: string;
   durationMs?: number;
+  transcript?: string[];
   artifactPath?: string;
   generatedAt?: string;
   format?: SyntheticLearnerEvalReportFormat;
@@ -488,6 +490,7 @@ export function buildSyntheticLearnerEvalRunRecord(input: {
     startedAt,
     completedAt,
     durationMs,
+    transcript: input.transcript ?? [],
     scenarioRuns,
     notebookRefs,
     reportMetadata: [],

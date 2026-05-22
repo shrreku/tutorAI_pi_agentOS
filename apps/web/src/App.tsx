@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Whiteboard from "./Whiteboard.js";
 import TutorPanel from "./TutorPanel.js";
+import EvalRunsDashboard from "./EvalRunsDashboard.js";
 
 type NotebookRow = {
   id: string;
@@ -390,6 +391,10 @@ export function App() {
     const match = routePath.match(/^\/notebooks\/([^/]+)/);
     return match?.[1] ? decodeURIComponent(match[1]) : null;
   }, [routePath]);
+  const routeEvalRunId = useMemo(() => {
+    const match = routePath.match(/^\/eval-runs(?:\/([^/]+))?/);
+    return match?.[1] ? decodeURIComponent(match[1]) : null;
+  }, [routePath]);
 
   useEffect(() => {
     const onPopState = () => setRoutePath(window.location.pathname);
@@ -589,8 +594,18 @@ export function App() {
     );
   }
 
-	  return (
-	    <div className="study-shell" data-theme={theme}>
+  if (routePath === "/eval-runs" || routePath === "/eval-runs/" || routePath.startsWith("/eval-runs/")) {
+    return (
+      <EvalRunsDashboard
+        selectedRunId={routeEvalRunId}
+        onSelectRun={(runId) => navigate(`/eval-runs/${encodeURIComponent(runId)}`)}
+        onBackToNotebooks={() => navigate("/notebooks")}
+      />
+    );
+  }
+
+ 	  return (
+ 	    <div className="study-shell" data-theme={theme}>
 	      <main className="study-main">
         <header className="study-topbar">
           <div className="study-topbar-heading">
@@ -613,6 +628,13 @@ export function App() {
               onClick={() => navigate("/notebooks")}
             >
               Notebooks
+            </button>
+            <button
+              type="button"
+              className="study-secondary-button"
+              onClick={() => navigate("/eval-runs")}
+            >
+              Eval runs
             </button>
             <input
               ref={uploadInputRef}
