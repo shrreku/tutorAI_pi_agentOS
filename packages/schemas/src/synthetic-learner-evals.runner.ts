@@ -78,6 +78,25 @@ export type RunSyntheticLearnerEvalScenarioResult = {
   transcript: string[];
 };
 
+export type RunSyntheticLearnerEvalSuiteInput = {
+  matrix: SyntheticLearnerEvalMatrix;
+  api: SyntheticLearnerEvalRunnerApi;
+  writeTranscript?: SyntheticLearnerEvalTranscriptWriter;
+  persistenceEvidence?: SyntheticLearnerAssertionPersistenceEvidence;
+  startedAt?: string;
+  completedAt?: string;
+  runId?: string;
+  scenarioIds?: string[];
+  personaIds?: string[];
+};
+
+export type RunSyntheticLearnerEvalSuiteResult = {
+  matrix: SyntheticLearnerEvalMatrix;
+  scenarioRuns: SyntheticLearnerEvalScenarioRun[];
+  runRecord: SyntheticLearnerEvalRunRecord;
+  transcript: string[];
+};
+
 export function loadTracerBulletSyntheticLearnerEvalMatrix(): SyntheticLearnerEvalMatrix {
   return buildSyntheticLearnerEvalMatrix({
     fixture: syntheticLearnerEvalTracerBulletFixture,
@@ -325,7 +344,7 @@ export async function runSyntheticLearnerEvalScenario(
   await writeTranscript(`FINAL: ${finalStatus} - ${finalSummary}`);
 
   const scenarioRun = {
-    id: `${runId}_${scenario.id}`,
+    id: `${runId}_${persona.id}_${scenario.id}`,
     runId,
     fixtureManifestId: input.matrix.fixture.id,
     fixtureVersion: input.matrix.fixture.version,
@@ -354,12 +373,88 @@ export async function runSyntheticLearnerEvalScenario(
     startedAt,
     completedAt,
     notebookRefs: scenarioRun.notebookRefs,
+    transcript,
   });
 
   return {
     matrix: input.matrix,
     scenario,
     scenarioRun,
+    runRecord,
+    transcript,
+  };
+}
+
+export async function runSyntheticLearnerEvalSuite(
+  input: RunSyntheticLearnerEvalSuiteInput,
+): Promise<RunSyntheticLearnerEvalSuiteResult> {
+  const runId = input.runId ?? `slrun_${input.matrix.fixture.id}_${input.matrix.personas.length}x${input.matrix.scenarios.length}`;
+  const transcript: string[] = [];
+  const writeTranscript = async (line: string): Promise<void> => {
+    transcript.push(line);
+    await input.writeTranscript?.(line);
+  };
+
+  const selectedRuns = input.matrix.runs.filter((plannedRun) => {
+    const personaAllowed = !input.personaIds?.length || input.personaIds.includes(plannedRun.personaId);
+    const scenarioAllowed = !input.scenarioIds?.length || input.scenarioIds.includes(plannedRun.scenarioId);
+    return personaAllowed && scenarioAllowed;
+  });
+
+  if (!selectedRuns.length) {
+    throw new Error("Synthetic learner eval suite does not contain any selected runs.");
+  }
+
+  const startedAt = input.startedAt ?? new Date().toISOString();
+  const scenarioRuns: SyntheticLearnerEvalScenarioRun[] = [];
+  const notebookRefs: NodeRef[] = [];
+
+  await writeTranscript(`RUN STARTED: ${runId}`);
+  await writeTranscript(`SCENARIO COUNT: ${selectedRuns.length}`);
+
+  for (const plannedRun of selectedRuns) {
+    await writeTranscript(`SUITE SCENARIO START: ${plannedRun.personaId} / ${plannedRun.scenarioId}`);
+    const scenarioStartedAt = new Date().toISOString();
+    const scenarioResult = await runSyntheticLearnerEvalScenario({
+      matrix: input.matrix,
+      scenarioId: plannedRun.scenarioId,
+      personaId: plannedRun.personaId,
+      api: input.api,
+      writeTranscript,
+      persistenceEvidence: input.persistenceEvidence,
+      startedAt: scenarioStartedAt,
+      runId,
+    });
+    scenarioRuns.push(scenarioResult.scenarioRun);
+    notebookRefs.push(...scenarioResult.scenarioRun.notebookRefs);
+    await writeTranscript(`SUITE SCENARIO END: ${plannedRun.personaId} / ${plannedRun.scenarioId} => ${scenarioResult.scenarioRun.status}`);
+  }
+
+  const completedAt = input.completedAt ?? new Date().toISOString();
+  const draftRunRecord = buildSyntheticLearnerEvalRunRecord({
+    matrix: input.matrix,
+    scenarioRuns,
+    runId,
+    startedAt,
+    completedAt,
+    notebookRefs,
+    transcript,
+  });
+
+  await writeTranscript(`FINAL: ${draftRunRecord.status} - ${summarizeSuiteStatus(scenarioRuns)}`);
+  const runRecord = buildSyntheticLearnerEvalRunRecord({
+    matrix: input.matrix,
+    scenarioRuns,
+    runId,
+    startedAt,
+    completedAt,
+    notebookRefs,
+    transcript,
+  });
+
+  return {
+    matrix: input.matrix,
+    scenarioRuns,
     runRecord,
     transcript,
   };
@@ -408,4 +503,17 @@ function summarizeAssertionStatuses(assertions: SyntheticLearnerAssertion[]): {
     status: "skipped",
     summary: "Deterministic assertions were skipped because the required evidence was unavailable.",
   };
+}
+
+function summarizeSuiteStatus(scenarioRuns: SyntheticLearnerEvalScenarioRun[]): string {
+  if (!scenarioRuns.length) return "No scenario runs were executed.";
+  const failedCount = scenarioRuns.filter((run) => run.status === "failed").length;
+  if (failedCount > 0) {
+    return `${failedCount} scenario run${failedCount === 1 ? "" : "s"} failed.`;
+  }
+  const skippedCount = scenarioRuns.filter((run) => run.status === "skipped").length;
+  if (skippedCount > 0) {
+    return `${skippedCount} scenario run${skippedCount === 1 ? "" : "s"} were skipped.`;
+  }
+  return `All ${scenarioRuns.length} scenario runs passed.`;
 }

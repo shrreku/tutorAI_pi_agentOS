@@ -651,6 +651,36 @@ export const events = pgTable(
   ],
 );
 
+export const syntheticLearnerEvalRuns = pgTable(
+  "synthetic_learner_eval_runs",
+  {
+    id: text("id").primaryKey(),
+    ownerId: text("owner_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    notebookId: text("notebook_id")
+      .notNull()
+      .references(() => notebooks.id, { onDelete: "cascade" }),
+    fixtureManifestId: text("fixture_manifest_id").notNull(),
+    fixtureVersion: text("fixture_version").notNull(),
+    status: text("status").notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    durationMs: integer("duration_ms"),
+    scenarioRunCount: integer("scenario_run_count").notNull().default(0),
+    failedScenarioCount: integer("failed_scenario_count").notNull().default(0),
+    personaCoverageJson: jsonb("persona_coverage_json").$type<string[]>().notNull().default([]),
+    scenarioCoverageJson: jsonb("scenario_coverage_json").$type<string[]>().notNull().default([]),
+    notebookRefsJson: jsonb("notebook_refs_json").$type<Array<{ refType: string; refId: string }>>().notNull().default([]),
+    runJson: jsonb("run_json").$type<Record<string, unknown>>().notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    index("synthetic_learner_eval_runs_owner_idx").on(t.ownerId, t.startedAt),
+    index("synthetic_learner_eval_runs_notebook_idx").on(t.notebookId),
+  ],
+);
+
 export const whiteboardNodes = pgTable(
   "whiteboard_nodes",
   {

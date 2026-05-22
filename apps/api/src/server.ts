@@ -6,6 +6,7 @@ import { initializeLangfuseTracing, shutdownLangfuseTracing } from "@studyagent/
 import { createContext, closeContext, type AppContext } from "./context.js";
 import { registerNotebookRoutes } from "./routes/notebooks.js";
 import { registerEvalSourceFixtureRoutes } from "./routes/eval-source-fixtures.js";
+import { registerEvalRunRoutes } from "./routes/eval-runs.js";
 import { registerGraphRoutes } from "./routes/graph.js";
 import { registerSearchRoutes } from "./routes/search.js";
 import { registerSourceRoutes } from "./routes/sources.js";
@@ -44,6 +45,7 @@ export async function buildServer(): Promise<{
   await app.register(
     async (r) => {
       await registerEvalSourceFixtureRoutes(r, ctx);
+      await registerEvalRunRoutes(r, ctx);
       await registerNotebookRoutes(r, ctx);
       await registerSourceRoutes(r, ctx);
       await registerStudentProfileRoutes(r, ctx);

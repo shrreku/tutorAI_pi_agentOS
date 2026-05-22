@@ -2,7 +2,7 @@ import { pathToFileURL } from "node:url";
 import {
   loadTracerBulletSyntheticLearnerEvalMatrix,
   nodeRefSchema,
-  runSyntheticLearnerEvalScenario,
+  runSyntheticLearnerEvalSuite,
   type NodeRef,
   type SyntheticLearnerEvalRunnerApi,
   type SyntheticLearnerEvalStreamEvent,
@@ -117,7 +117,7 @@ async function main() {
   const baseUrl = process.env.PUBLIC_API_BASE_URL ?? "http://localhost:4000";
   const api = createHttpSyntheticLearnerEvalApi(baseUrl, process.env.STUDYAGENT_API_COOKIE);
   const matrix = loadTracerBulletSyntheticLearnerEvalMatrix();
-  const result = await runSyntheticLearnerEvalScenario({
+  const result = await runSyntheticLearnerEvalSuite({
     matrix,
     api,
     writeTranscript: (line) => {
@@ -125,7 +125,23 @@ async function main() {
     },
   });
 
+  await persistSyntheticLearnerEvalRun(baseUrl, process.env.STUDYAGENT_API_COOKIE, result.runRecord);
+
   process.stdout.write(`REPORT: ${result.runRecord.status} ${result.runRecord.id}\n`);
+}
+
+async function persistSyntheticLearnerEvalRun(baseUrl: string, cookie: string | undefined, run: unknown): Promise<void> {
+  const response = await fetch(`${baseUrl}/api/v1/eval/runs`, {
+    method: "POST",
+    headers: {
+      ...(cookie ? { cookie } : {}),
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(run),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to persist eval run (${response.status}): ${await response.text()}`);
+  }
 }
 
 if (isMain) {
