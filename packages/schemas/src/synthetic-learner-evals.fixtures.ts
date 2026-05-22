@@ -404,6 +404,7 @@ export const syntheticLearnerEvalTracerBulletScenarios: SyntheticLearnerScenario
     allowedActions: ["ask_question", "request_artifact", "request_summary", "end_session"],
     assertionRefs: [
       { refType: "assertion", refId: "learner_visible_source_grounded_artifact" },
+      { refType: "assertion", refId: "learner_visible_source_refs" },
       { refType: "assertion", refId: "runtime_artifact_lifecycle" },
       { refType: "assertion", refId: "persistence_artifact_status" },
     ],
