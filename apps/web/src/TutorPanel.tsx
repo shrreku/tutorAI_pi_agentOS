@@ -717,6 +717,37 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
     }
   };
 
+  const handleNewChat = async () => {
+    const currentSessionId = sessionId;
+    setIsSessionLifecycleLoading(true);
+    try {
+      if (currentSessionId && sessionStatus !== "completed") {
+        const res = await fetch(`/api/v1/notebooks/${encodeURIComponent(notebookId)}/tutor/session/end`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId: currentSessionId }),
+        });
+        if (!res.ok) {
+          throw new Error(await res.text());
+        }
+      }
+      clear();
+      setInput("");
+      setRunStatus("idle");
+      setLiveTraceRun(null);
+      setTraceData(null);
+      setSessionId(null);
+      setSessionStatus(null);
+      setSelectedHistorySessionId(null);
+      tutorActionRef.current = "prompt";
+      await loadSidebarData();
+    } catch (err) {
+      console.error("Failed to start a new chat:", err);
+    } finally {
+      setIsSessionLifecycleLoading(false);
+    }
+  };
+
   return (
     <div className="tutor-shell" style={{ display: "flex", flexDirection: "column", height: "100%", minWidth: 300, position: "relative", color: "var(--text)" }}>
       <div className="tutor-header">
@@ -728,6 +759,9 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
             </span>
           </div>
           <div className="tutor-header-actions">
+            <button type="button" className="study-chip-button" onClick={() => void handleNewChat()} disabled={isSessionLifecycleLoading || isLoading}>
+              New chat
+            </button>
             <button type="button" className="study-chip-button" data-active={showHistory} onClick={() => setShowHistory((value) => !value)}>
               History
             </button>

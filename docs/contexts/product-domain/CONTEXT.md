@@ -59,6 +59,24 @@ Mastery Check: lightweight in-session question, quiz prompt, or checkpoint used 
 
 Mastery Evaluator: governed evaluator that judges learner responses against concepts, objectives, source evidence when relevant, and recent tutoring context, returning structured mastery evidence without directly mutating canonical learning state. It is not a learner-facing persona.
 
+Synthetic Learner: test-only harness actor that simulates learner behavior, goals, mistakes, confusion, prior knowledge, persistence, and study habits for end-to-end StudyAgent evaluation. It is not a tutor, Mastery Evaluator, durable learner profile, or learner-facing persona.
+
+Synthetic Learner Eval Set: versioned evaluation asset that combines source fixtures, learner persona fixtures, scenario scripts, assertion rubrics, and golden journeys to test StudyAgent behavior with Synthetic Learners.
+
+Eval Source Fixture: versioned reusable pre-ingested source package that can seed eval notebooks with tutoring-ready source knowledge without rerunning ingestion, with explicit freshness metadata and regeneration checks.
+
+Synthetic Learner Persona: structured test fixture that describes a Synthetic Learner's goal, background, learner level, source familiarity, behaviors, misconceptions, study habits, and response policy, then renders into prompts or scripted responses for eval execution.
+
+Synthetic Learner Scenario: bounded eval contract that combines starting notebook/source state, a Synthetic Learner Persona, learner goal, turn budget, allowed actions, stop conditions, required feature coverage, and pass/fail assertions.
+
+Autonomous Synthetic Learner Run: discovery-oriented Synthetic Learner eval where the LLM has broad learner freedom and is judged against product invariants rather than narrow scripted outcomes.
+
+Synthetic Learner Assertion: eval check that inspects learner-visible output, runtime traces, persisted state, or quality rubrics to decide whether StudyAgent behaved correctly in a Synthetic Learner Scenario.
+
+Eval Run: persisted execution record for a Synthetic Learner eval suite, containing scenario runs, steps, assertion results, artifacts, trace references, and exported reports without becoming learner-facing notebook state.
+
+Live Eval Observation: real-time CLI and dashboard view of a running Synthetic Learner Scenario, showing student messages, tutor messages, agent/tool events, assertions, traces, artifacts, and screenshots from one shared eval event stream.
+
 Mastery Evidence: structured judgment from learner performance that separates correctness, per-concept mastery deltas, misconception evidence, readiness to advance, tutoring intervention recommendation, and uncertainty; low-confidence evidence should ask for more evidence instead of strongly changing mastery.
 
 Tutoring Intervention: evaluator-recommended next teaching move: clarify, reteach, worked example, guided practice, quick check, or advance.
@@ -120,6 +138,8 @@ Internal code may keep precise technical terms where useful, but learner copy sh
 Source to Workspace: upload source, store original, parse document tree, create source spans and chunks, extract concepts and claims, embed/index, build graph projection, compile source summary, bootstrap curriculum/module/objectives/session plan, seed Live Plan, render Source Wiki and Study Map.
 
 Minimum tutoring-ready state: parsed text, retrievable chunks with citations, search/index readiness, source summary, concept inventory, curriculum skeleton, current and next objectives, and visible warnings. The system should reach this reliable state before waiting for full wiki polish. For large sources, background enrichment should progressively polish high-value topic and concept pages based on curriculum importance, source structure, learner activity, weak concepts, and search or tutor usage.
+
+Synthetic Learner eval setup: ingestion prepares Eval Source Fixtures with source-derived tutoring-ready state. Synthetic Learner Scenarios seed eval notebooks from those fixtures, then add persona-specific learner state and run the tutoring/product harness without rerunning ingestion by default.
 
 Curriculum-first tutoring: when the learner says "teach me" or "start studying," the tutor should not behave like generic chat. It loads active curriculum, module, objective list, session plan, student profile, weak concepts, recent mistakes, and selected Workspace context. If planning is missing, it creates the minimum planning objects. It then teaches the current objective, asks checkpoints, records evidence, adapts explanation and pacing, and modifies the syllabus path when durable signals such as checkpoint performance, repeated mistakes, explicit learner self-report, mastery changes, weak concept recurrence, source coverage gaps, or multi-turn confusion show the current path should change. Learner steering such as skipping, slowing down, focusing a chapter, requesting a quiz, claiming prior knowledge, or preparing for an exam can immediately affect tutoring behavior; durable curriculum or mastery changes still need explicit confirmation or supporting evidence. It prioritizes the current source or notebook while teaching transferable mastery through examples, prerequisites, and remediation when that helps the learner perform better.
 

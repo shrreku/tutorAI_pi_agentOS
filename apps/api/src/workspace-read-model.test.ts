@@ -192,14 +192,32 @@ describe("source wiki topic groups", () => {
     );
   });
 
-  it("hides structural topic nodes in source wiki mode", () => {
+  it("keeps structural topic nodes visible in source wiki mode so learner edges remain connected", () => {
     expect(
       workspaceVisibilityForNode(
         "source_wiki_map",
         { id: "topic_1", nodeType: "topic", labels: [], properties: { title: "Kinematics" } },
         false,
       ),
-    ).toBe("hidden");
+    ).toBe("learner");
+  });
+
+  it("keeps source wiki learner edges when they route through a topic node", () => {
+    const nodes: GraphCanvasNode[] = [
+      { id: "src_1", nodeType: "source", labels: [], properties: { title: "Lecture" } },
+      { id: "topic_1", nodeType: "topic", labels: [], properties: { title: "Kinematics", sourceId: "src_1" } },
+      { id: "concept_1", nodeType: "concept", labels: [], properties: { title: "Velocity" } },
+      { id: "page_1", nodeType: "wiki_page", labels: [], properties: { title: "Velocity page" } },
+    ];
+    const edges: GraphCanvasEdge[] = [
+      { id: "e1", source: "src_1", target: "topic_1", relationType: "HAS_TOPIC", properties: {} },
+      { id: "e2", source: "topic_1", target: "concept_1", relationType: "CONTAINS_CONCEPT", properties: {} },
+      { id: "e3", source: "topic_1", target: "page_1", relationType: "CONTAINS_PAGE", properties: {} },
+    ];
+    const catalog = buildNodeCatalog("source_wiki_map", { nodes }, emptyContext, false);
+    const filtered = filterCanvasByVisibility({ nodes, edges }, catalog, false);
+    expect(filtered.nodes.map((node) => node.id)).toEqual(["src_1", "topic_1", "concept_1", "page_1"]);
+    expect(filtered.edges.map((edge) => edge.id)).toEqual(["e1", "e2", "e3"]);
   });
 
 });

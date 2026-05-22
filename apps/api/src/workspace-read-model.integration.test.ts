@@ -130,4 +130,45 @@ describe("buildStudyMapReadModel scenarios", () => {
     expect(result.nodes.map((node) => node.id)).toEqual(expect.arrayContaining(["claim_1", "concept_1"]));
     expect(result.nodeCatalog.find((entry) => entry.node.id === "claim_1")?.visibility).toBe("learner");
   });
+
+  it("connects quiz artifacts to nested question concepts and sessions directly after modules", async () => {
+    const result = await buildStudyMapReadModel(
+      makeCtx({
+        artifacts: [
+          {
+            id: "art_quiz",
+            title: "Module quiz",
+            artifactType: "quiz",
+            status: "ready",
+            payloadJson: {
+              questions: [
+                { id: "q1", prompt: "What is flux?", answer: "Flow per area", conceptIds: ["concept_flux"] },
+              ],
+            },
+            sourceNodeRefsJson: [{ refType: "curriculum_module", refId: "mod_1" }],
+          },
+        ],
+      }),
+      "nb_quiz",
+      "user_1",
+      {
+        nodes: [
+          { id: "mod_1", nodeType: "curriculum_module", labels: [], properties: { title: "Module 1" } },
+          { id: "session_1", nodeType: "session_plan", labels: [], properties: { title: "Session 1", moduleId: "mod_1" } },
+          { id: "concept_flux", nodeType: "concept", labels: [], properties: { title: "Heat flux" } },
+        ],
+        edges: [],
+      },
+      { devMode: false },
+    );
+
+    expect(result.nodes.map((node) => node.id)).toEqual(expect.arrayContaining(["mod_1", "session_1", "concept_flux", "art_quiz"]));
+    expect(result.edges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "module-mod_1-session-session_1", source: "mod_1", target: "session_1", relationType: "PLANS" }),
+        expect.objectContaining({ id: "artifact-art_quiz-concept_flux", source: "art_quiz", target: "concept_flux", relationType: "TESTS_MASTERY" }),
+        expect.objectContaining({ id: "artifact-scope-art_quiz-mod_1", source: "mod_1", target: "art_quiz", relationType: "COVERS" }),
+      ]),
+    );
+  });
 });

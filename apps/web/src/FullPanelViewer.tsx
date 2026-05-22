@@ -4,6 +4,30 @@ import katex from "katex";
 import type { GraphCanvasNode, ReferenceBlock, ReferenceSurface } from "@studyagent/schemas";
 import { learnerFacingSurfaceStatus } from "@studyagent/schemas";
 
+type QuizQuestion = {
+  id: string;
+  prompt: string;
+  choices: string[];
+  answer: string | null;
+  referenceAnswer: string | null;
+  explanation: string | null;
+  difficulty: string | null;
+  conceptIds: string[];
+};
+
+type QuizAttempt = {
+  answer: string;
+  isCorrect: boolean;
+};
+
+type SavedQuizAttempt = QuizAttempt & {
+  id: string;
+  questionId: string;
+  score: number | null;
+  conceptIds: string[];
+  createdAt: string;
+};
+
 interface FullPanelViewerProps {
   notebookId: string;
   node: GraphCanvasNode;
@@ -17,6 +41,9 @@ export const FullPanelViewer: React.FC<FullPanelViewerProps> = ({ notebookId, no
   if (!node) return null;
   const [regenInstruction, setRegenInstruction] = React.useState("");
   const [showRegenOptions, setShowRegenOptions] = React.useState(false);
+  const [quizIndexBySurface, setQuizIndexBySurface] = React.useState<Record<string, number>>({});
+  const [quizAnswersBySurface, setQuizAnswersBySurface] = React.useState<Record<string, Record<string, QuizAttempt>>>({});
+  const [selectedQuizAnswers, setSelectedQuizAnswers] = React.useState<Record<string, string>>({});
   const sourceNodeId =
     node.nodeType === "weak_concept" && typeof node.properties.conceptId === "string"
       ? node.properties.conceptId
@@ -48,14 +75,38 @@ export const FullPanelViewer: React.FC<FullPanelViewerProps> = ({ notebookId, no
     referenceSurface?.surfaceType === "source"
       ? `/api/v1/notebooks/${encodeURIComponent(notebookId)}/sources/${encodeURIComponent(referenceSurface.nodeRef.refId)}/extracted`
       : null;
+  const isQuizArtifact =
+    referenceSurface?.surfaceType === "artifact" &&
+    node.nodeType === "artifact" &&
+    (node.properties.artifactType === "quiz" || node.properties.artifact_type === "quiz");
+  const { data: savedQuizAttempts } = useQuery({
+    queryKey: ["quiz-attempts", notebookId, sourceNodeId],
+    enabled: Boolean(isQuizArtifact),
+    queryFn: async (): Promise<SavedQuizAttempt[]> => {
+      const response = await fetch(`/api/v1/notebooks/${encodeURIComponent(notebookId)}/artifacts/${encodeURIComponent(sourceNodeId)}/quiz-attempts`);
+      if (!response.ok) {
+        throw new Error(`Failed to load quiz attempts (${response.status})`);
+      }
+      const payload = (await response.json()) as { attempts?: SavedQuizAttempt[] };
+      return Array.isArray(payload.attempts) ? payload.attempts : [];
+    },
+  });
+  const savedQuizAttemptsByQuestion = React.useMemo(() => {
+    const byQuestion: Record<string, QuizAttempt> = {};
+    for (const attempt of savedQuizAttempts ?? []) {
+      if (byQuestion[attempt.questionId]) continue;
+      byQuestion[attempt.questionId] = { answer: attempt.answer, isCorrect: attempt.isCorrect };
+    }
+    return byQuestion;
+  }, [savedQuizAttempts]);
   const regenerate = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (instructionOverride?: string) => {
       const response = await fetch(`/api/v1/notebooks/${encodeURIComponent(notebookId)}/nodes/${encodeURIComponent(sourceNodeId)}/regenerate-reference`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           target: referenceSurface?.surfaceType ?? node.nodeType,
-          instruction: regenInstruction.trim() || undefined,
+          instruction: instructionOverride?.trim() || regenInstruction.trim() || undefined,
         }),
       });
       if (!response.ok) {
@@ -73,7 +124,45 @@ export const FullPanelViewer: React.FC<FullPanelViewerProps> = ({ notebookId, no
   });
   const requestRegeneration = () => {
     if (!regeneratePrompt) return;
-    regenerate.mutate();
+    regenerate.mutate(undefined);
+  };
+  const extendQuiz = (surfaceTitle: string) => {
+    setShowRegenOptions(true);
+    const instruction = `Extend "${surfaceTitle}" with 3 additional source-grounded questions. Keep the existing useful questions, add harder application and misconception checks, include choices, correct answers, explanations, and conceptIds where possible.`;
+    setRegenInstruction(instruction);
+    regenerate.mutate(instruction);
+  };
+  const submitQuizAttempt = async (surfaceId: string, question: QuizQuestion, answer: string) => {
+    const expected = correctAnswerText(question);
+    const isCorrect = normalizeAnswer(answer) === normalizeAnswer(expected);
+    setQuizAnswersBySurface((current) => ({
+      ...current,
+      [surfaceId]: {
+        ...(current[surfaceId] ?? {}),
+        [question.id]: { answer, isCorrect },
+      },
+    }));
+    try {
+      const response = await fetch(`/api/v1/notebooks/${encodeURIComponent(notebookId)}/artifacts/${encodeURIComponent(sourceNodeId)}/quiz-attempts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          questionId: question.id,
+          answer,
+          isCorrect,
+          score: isCorrect ? 1 : 0,
+          conceptIds: question.conceptIds,
+          explanation: question.explanation ?? question.referenceAnswer ?? undefined,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to save quiz attempt (${response.status})`);
+      }
+      await queryClient.invalidateQueries({ queryKey: ["quiz-attempts", notebookId, sourceNodeId] });
+      await queryClient.invalidateQueries({ queryKey: ["notebook-graph", notebookId] });
+    } catch (error) {
+      console.error(error);
+    }
   };
   const renderMarkdownBlock = (text: string) => <LearnerMarkdown text={text} />;
   const renderList = (items: unknown, empty: string, variant: "default" | "quiz" | "flashcard" = "default") => {
@@ -126,17 +215,38 @@ export const FullPanelViewer: React.FC<FullPanelViewerProps> = ({ notebookId, no
     if (block.kind === "citation_list") {
       return <CitationList value={block.content} />;
     }
-    if (block.kind === "question_list" || block.kind === "flashcard_list") {
+    if (block.kind === "question_list") {
+      return (
+        <QuizPractice
+          surfaceId={referenceSurface?.id ?? sourceNodeId}
+          title={referenceSurface?.title ?? title}
+          questions={normalizeQuizQuestions(block.content)}
+          activeIndex={quizIndexBySurface[referenceSurface?.id ?? sourceNodeId] ?? 0}
+          attempts={{
+            ...savedQuizAttemptsByQuestion,
+            ...(quizAnswersBySurface[referenceSurface?.id ?? sourceNodeId] ?? {}),
+          }}
+          selectedAnswers={selectedQuizAnswers}
+          isExtending={regenerate.isPending}
+          onSelectAnswer={(questionId, answer) => setSelectedQuizAnswers((current) => ({ ...current, [questionId]: answer }))}
+          onSubmit={(question, answer) => void submitQuizAttempt(referenceSurface?.id ?? sourceNodeId, question, answer)}
+          onMove={(index) => setQuizIndexBySurface((current) => ({ ...current, [referenceSurface?.id ?? sourceNodeId]: index }))}
+          onExtend={() => extendQuiz(referenceSurface?.title ?? title)}
+          {...(onLaunchTutor ? { onLaunchTutor: () => onLaunchTutor(node) } : {})}
+        />
+      );
+    }
+    if (block.kind === "flashcard_list") {
       return (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {renderList(block.content, "No entries recorded.", block.kind === "question_list" ? "quiz" : "flashcard")}
+          {renderList(block.content, "No entries recorded.", "flashcard")}
           {onLaunchTutor && (
             <button
               type="button"
               onClick={() => onLaunchTutor(node)}
               style={{ alignSelf: "flex-start", padding: "6px 10px", border: "1px solid #2563eb", background: "#eff6ff", color: "#1d4ed8", borderRadius: 6, fontWeight: 700, cursor: "pointer" }}
             >
-              {block.kind === "question_list" ? "Attempt in tutor chat" : "Review in tutor chat"}
+              Review in tutor chat
             </button>
           )}
         </div>
@@ -184,9 +294,9 @@ export const FullPanelViewer: React.FC<FullPanelViewerProps> = ({ notebookId, no
             />
           )}
         </div>
-        {surface.summary && <ReferenceSection title="Summary">{surface.summary}</ReferenceSection>}
-        {surface.blocks.length > 0 ? (
-          surface.blocks.map((block) => (
+        {surface.summary && !isQuizArtifactSurface(surface, node) && <ReferenceSection title="Summary">{surface.summary}</ReferenceSection>}
+        {visibleReferenceBlocks(surface, node).length > 0 ? (
+          visibleReferenceBlocks(surface, node).map((block) => (
             <ReferenceSection key={block.id} title={block.title ?? block.kind.replace(/_/g, " ")}>
               {renderBlock(block)}
             </ReferenceSection>
@@ -344,6 +454,23 @@ function ReferenceSection({ title, children }: { title: string; children: React.
 
 export default FullPanelViewer;
 
+function isQuizArtifactSurface(surface: ReferenceSurface, node: GraphCanvasNode): boolean {
+  return (
+    surface.surfaceType === "artifact" &&
+    node.nodeType === "artifact" &&
+    (node.properties.artifactType === "quiz" || node.properties.artifact_type === "quiz")
+  );
+}
+
+function visibleReferenceBlocks(surface: ReferenceSurface, node: GraphCanvasNode): ReferenceBlock[] {
+  if (!isQuizArtifactSurface(surface, node)) return surface.blocks;
+  return surface.blocks.filter((block) => {
+    if (block.id === "overview") return false;
+    if (block.kind === "markdown" && block.title?.toLowerCase() === "practice goal") return false;
+    return true;
+  });
+}
+
 function RegenerateControls({
   isPending,
   instruction,
@@ -391,6 +518,264 @@ function RegenerateControls({
       {errorMessage && <div style={{ color: "#b91c1c", fontSize: 12, fontWeight: 750 }}>{errorMessage}</div>}
     </div>
   );
+}
+
+function QuizPractice({
+  surfaceId,
+  title,
+  questions,
+  activeIndex,
+  attempts,
+  selectedAnswers,
+  isExtending,
+  onSelectAnswer,
+  onSubmit,
+  onMove,
+  onExtend,
+  onLaunchTutor,
+}: {
+  surfaceId: string;
+  title: string;
+  questions: QuizQuestion[];
+  activeIndex: number;
+  attempts: Record<string, QuizAttempt>;
+  selectedAnswers: Record<string, string>;
+  isExtending: boolean;
+  onSelectAnswer: (questionId: string, answer: string) => void;
+  onSubmit: (question: QuizQuestion, answer: string) => void;
+  onMove: (index: number) => void;
+  onExtend: () => void;
+  onLaunchTutor?: () => void;
+}) {
+  if (questions.length === 0) {
+    return <div style={{ color: "#6b7280" }}>No quiz questions have been generated yet.</div>;
+  }
+
+  const boundedIndex = Math.min(Math.max(activeIndex, 0), questions.length - 1);
+  const active = questions[boundedIndex]!;
+  const attempt = attempts[active.id] ?? null;
+  const selected = selectedAnswers[active.id] ?? "";
+  const attemptedCount = Object.keys(attempts).filter((id) => questions.some((question) => question.id === id)).length;
+  const correctCount = questions.filter((question) => attempts[question.id]?.isCorrect).length;
+  const scorePct = attemptedCount > 0 ? Math.round((correctCount / questions.length) * 100) : 0;
+  const isComplete = attemptedCount === questions.length;
+  const reviewPoints = questions.filter((question) => attempts[question.id]?.isCorrect === false);
+  const correctAnswer = correctAnswerText(active);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 12, fontWeight: 850, color: "#1d4ed8", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 999, padding: "2px 8px" }}>
+            {boundedIndex + 1} / {questions.length}
+          </span>
+          <span style={{ fontSize: 12, fontWeight: 800, color: "#475569" }}>
+            {attemptedCount} attempted
+          </span>
+          {attemptedCount > 0 && (
+            <span style={{ fontSize: 12, fontWeight: 850, color: scorePct >= 70 ? "#166534" : "#9a3412", background: scorePct >= 70 ? "#f0fdf4" : "#fff7ed", border: `1px solid ${scorePct >= 70 ? "#bbf7d0" : "#fed7aa"}`, borderRadius: 999, padding: "2px 8px" }}>
+              Score {correctCount}/{questions.length}
+            </span>
+          )}
+        </div>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {onLaunchTutor && (
+            <button type="button" onClick={onLaunchTutor} style={smallButtonStyle("#f8fafc", "#334155", "#cbd5e1")}>
+              Review with tutor
+            </button>
+          )}
+          <button type="button" disabled={isExtending} onClick={onExtend} style={smallButtonStyle("#eff6ff", "#1d4ed8", "#bfdbfe", isExtending)}>
+            {isExtending ? "Extending..." : "Extend with LLM"}
+          </button>
+        </div>
+      </div>
+
+      {isComplete && (
+        <div style={{ border: "1px solid #dbeafe", borderRadius: 8, background: "#f8fafc", padding: 12, display: "grid", gap: 8 }}>
+          <div style={{ fontSize: 16, fontWeight: 850, color: "#0f172a" }}>{title} score: {correctCount}/{questions.length}</div>
+          {reviewPoints.length > 0 ? (
+            <div style={{ color: "#334155", lineHeight: 1.5 }}>
+              Review: {reviewPoints.map((question) => question.prompt).join("; ")}
+            </div>
+          ) : (
+            <div style={{ color: "#166534", fontWeight: 750 }}>All questions are correct. Extend the quiz for a harder check.</div>
+          )}
+        </div>
+      )}
+
+      <article style={{ border: "1px solid #dbe3ef", borderRadius: 10, background: "#fff", padding: 16 }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10, color: "#64748b", fontSize: 12, fontWeight: 800 }}>
+          <span>Question {boundedIndex + 1}</span>
+          {active.difficulty && <span style={{ borderRadius: 999, background: "#f8fafc", border: "1px solid #e2e8f0", padding: "1px 7px" }}>{active.difficulty}</span>}
+        </div>
+        <div style={{ fontSize: 20, lineHeight: 1.35, fontWeight: 850, color: "#0f172a", marginBottom: 14 }}>
+          {inlineMarkdown(active.prompt)}
+        </div>
+
+        {active.choices.length > 0 ? (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 8 }}>
+            {active.choices.map((choice, index) => {
+              const value = choice;
+              const isSelected = selected === value || attempt?.answer === value;
+              const isCorrectChoice = attempt ? isAnswerMatch(value, correctAnswer) : false;
+              const isWrongChoice = Boolean(attempt && isSelected && !attempt.isCorrect);
+              return (
+                <button
+                  key={`${surfaceId}-${active.id}-${index}`}
+                  type="button"
+                  disabled={Boolean(attempt)}
+                  onClick={() => onSelectAnswer(active.id, value)}
+                  style={{
+                    textAlign: "left",
+                    minHeight: 64,
+                    border: `1px solid ${isCorrectChoice ? "#86efac" : isWrongChoice ? "#fca5a5" : isSelected ? "#93c5fd" : "#dbe3ef"}`,
+                    background: isCorrectChoice ? "#f0fdf4" : isWrongChoice ? "#fef2f2" : isSelected ? "#eff6ff" : "#f8fafc",
+                    color: "#1f2937",
+                    borderRadius: 8,
+                    padding: "10px 12px",
+                    font: "inherit",
+                    lineHeight: 1.35,
+                    cursor: attempt ? "default" : "pointer",
+                  }}
+                >
+                  <span style={{ fontWeight: 850, color: "#64748b", marginRight: 8 }}>{String.fromCharCode(65 + index)}.</span>
+                  {inlineMarkdown(choice)}
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <textarea
+            value={selected}
+            disabled={Boolean(attempt)}
+            onChange={(event) => onSelectAnswer(active.id, event.target.value)}
+            placeholder="Type your answer..."
+            style={{ width: "100%", minHeight: 92, border: "1px solid #cbd5e1", borderRadius: 8, padding: 10, font: "inherit", resize: "vertical" }}
+          />
+        )}
+
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button type="button" disabled={boundedIndex === 0} onClick={() => onMove(boundedIndex - 1)} style={smallButtonStyle("#fff", "#334155", "#cbd5e1", boundedIndex === 0)}>
+              Previous
+            </button>
+            <button type="button" disabled={boundedIndex === questions.length - 1} onClick={() => onMove(boundedIndex + 1)} style={smallButtonStyle("#fff", "#334155", "#cbd5e1", boundedIndex === questions.length - 1)}>
+              Next
+            </button>
+          </div>
+          {!attempt && (
+            <button
+              type="button"
+              disabled={!selected.trim()}
+              onClick={() => onSubmit(active, selected)}
+              style={smallButtonStyle("#2563eb", "#f8fafc", "#2563eb", !selected.trim())}
+            >
+              Submit answer
+            </button>
+          )}
+        </div>
+
+        {attempt && (
+          <div style={{ marginTop: 14, border: `1px solid ${attempt.isCorrect ? "#bbf7d0" : "#fed7aa"}`, background: attempt.isCorrect ? "#f0fdf4" : "#fff7ed", borderRadius: 8, padding: 12, color: "#1f2937", lineHeight: 1.5 }}>
+            <div style={{ fontWeight: 850, color: attempt.isCorrect ? "#166534" : "#9a3412", marginBottom: 4 }}>
+              {attempt.isCorrect ? "Correct" : "Needs review"}
+            </div>
+            <div><strong>Answer:</strong> {inlineMarkdown(correctAnswer || "No answer key recorded.")}</div>
+            {active.explanation && <div style={{ marginTop: 6 }}><strong>Why:</strong> {inlineMarkdown(active.explanation)}</div>}
+          </div>
+        )}
+      </article>
+    </div>
+  );
+}
+
+function smallButtonStyle(background: string, color: string, border: string, disabled = false): React.CSSProperties {
+  return {
+    padding: "6px 10px",
+    border: `1px solid ${border}`,
+    background,
+    color,
+    borderRadius: 6,
+    fontSize: 12,
+    fontWeight: 850,
+    lineHeight: 1.3,
+    cursor: disabled ? "not-allowed" : "pointer",
+    opacity: disabled ? 0.55 : 1,
+  };
+}
+
+function normalizeQuizQuestions(value: unknown): QuizQuestion[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item, index): QuizQuestion | null => {
+      if (typeof item !== "object" || item === null) return null;
+      const record = item as Record<string, unknown>;
+      const choices = Array.isArray(record.choices)
+        ? record.choices.map((choice) => String(choice)).filter(Boolean)
+        : Array.isArray(record.options)
+          ? record.options.map((choice) => String(choice)).filter(Boolean)
+          : [];
+      const rawPrompt = stringValue(record.prompt ?? record.question ?? record.title ?? record.problem);
+      const prompt = rawPrompt ? stripEmbeddedChoices(rawPrompt, choices) : null;
+      if (!prompt) return null;
+      const conceptIds = Array.isArray(record.conceptIds)
+        ? record.conceptIds.filter((id): id is string => typeof id === "string")
+        : typeof record.conceptId === "string"
+          ? [record.conceptId]
+          : [];
+      return {
+        id: stringValue(record.id ?? record.questionId) ?? `q_${index + 1}`,
+        prompt,
+        choices,
+        answer: stringValue(record.answer),
+        referenceAnswer: stringValue(record.referenceAnswer),
+        explanation: stringValue(record.explanation),
+        difficulty: stringValue(record.difficulty),
+        conceptIds,
+      };
+    })
+    .filter((question): question is QuizQuestion => Boolean(question));
+}
+
+function stringValue(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+}
+
+function stripEmbeddedChoices(prompt: string, choices: string[]): string {
+  if (choices.length === 0) return prompt;
+  const byLetter = prompt.match(/\s+a[).]\s+/i);
+  if (byLetter?.index && byLetter.index > 0) {
+    return prompt.slice(0, byLetter.index).trim();
+  }
+  const firstChoice = choices[0]?.trim();
+  if (firstChoice) {
+    const firstChoiceIndex = prompt.toLowerCase().indexOf(firstChoice.toLowerCase());
+    if (firstChoiceIndex > 0) {
+      return prompt.slice(0, firstChoiceIndex).replace(/\s*[a-d][).]?\s*$/i, "").trim();
+    }
+  }
+  return prompt;
+}
+
+function normalizeAnswer(value: string): string {
+  return value.toLowerCase().replace(/^[a-d][.)]\s*/i, "").replace(/\s+/g, " ").trim();
+}
+
+function isAnswerMatch(candidate: string, expected: string): boolean {
+  const normalizedCandidate = normalizeAnswer(candidate);
+  const normalizedExpected = normalizeAnswer(expected);
+  if (!normalizedCandidate || !normalizedExpected) return false;
+  return normalizedCandidate === normalizedExpected || normalizedCandidate.startsWith(normalizedExpected) || normalizedExpected.startsWith(normalizedCandidate);
+}
+
+function correctAnswerText(question: QuizQuestion): string {
+  const raw = question.answer ?? question.referenceAnswer ?? "";
+  const letter = raw.trim().match(/^([a-d])(?:[.)])?$/i)?.[1]?.toLowerCase();
+  if (letter && question.choices.length > 0) {
+    const index = letter.charCodeAt(0) - "a".charCodeAt(0);
+    return question.choices[index] ?? raw;
+  }
+  return raw;
 }
 
 function SourceDocumentViewer({ notebookId, sourceId, title }: { notebookId: string; sourceId: string; title: string }) {

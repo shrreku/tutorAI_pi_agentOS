@@ -75,7 +75,7 @@ describe("FullPanelViewer", () => {
     expect(html).toContain("Apply the power rule");
   });
 
-  it("renders quiz artifacts with dedicated heading", () => {
+  it("renders quiz artifacts as one-question practice surfaces", () => {
     const html = renderViewer(
       {
           ...baseNode,
@@ -92,7 +92,22 @@ describe("FullPanelViewer", () => {
         surfaceType: "artifact",
         summary: "Quiz summary",
         status: "ready",
-        blocks: [{ id: "questions", kind: "question_list", title: "Questions", content: [{ prompt: "What is x?", answer: "x" }], evidenceRefs: [] }],
+        blocks: [
+          { id: "overview", kind: "markdown", title: "Practice goal", content: "This intro is not needed.", evidenceRefs: [] },
+          {
+            id: "questions",
+            kind: "question_list",
+            title: "Questions",
+            content: [{
+              id: "q1",
+              prompt: "What is x? a) x b) y",
+              choices: ["x", "y"],
+              answer: "a",
+              explanation: "x is the reference value.",
+            }],
+            evidenceRefs: [],
+          },
+        ],
         scopeRefs: [],
         sourceRefs: [],
         provenanceRefs: [],
@@ -103,6 +118,14 @@ describe("FullPanelViewer", () => {
     );
     expect(html).toContain("Quiz");
     expect(html).toContain("What is x?");
+    expect(html).not.toContain("a) x b) y");
+    expect(html).not.toContain("Quiz summary");
+    expect(html).not.toContain("Practice goal");
+    expect(html).not.toContain("This intro is not needed.");
+    expect(html).toContain("1 / 1");
+    expect(html).toContain("Submit answer");
+    expect(html).toContain("Extend with LLM");
+    expect(html).not.toContain("x is the reference value.");
   });
 
   it("hides raw draft lifecycle labels on artifact surfaces", () => {

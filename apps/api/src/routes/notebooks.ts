@@ -1,7 +1,7 @@
 import { and, eq, desc } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import type { NodeRef } from "@studyagent/schemas";
-import { appendEvent, artifacts, claims, concepts, graphRelations, notebooks, wikiPages } from "@studyagent/db";
+import { appendEvent, artifacts, claims, concepts, graphRelations, notebooks, quizAttempts, wikiPages } from "@studyagent/db";
 import { lintNotebookWiki, type WikiLintIssue } from "@studyagent/wiki-core";
 import type { AppContext } from "../context.js";
 import {
@@ -236,6 +236,59 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
       return reply.send({ artifact: serializeArtifactDetail(artifact) });
     },
   );
+
+  app.get<{
+    Params: { notebookId: string; artifactId: string };
+  }>("/notebooks/:notebookId/artifacts/:artifactId/quiz-attempts", async (request, reply) => {
+    const actor = await resolveActor(ctx, request);
+    const { notebookId, artifactId } = request.params;
+    const [row] = await ctx.db.db
+      .select()
+      .from(notebooks)
+      .where(and(eq(notebooks.id, notebookId), eq(notebooks.ownerId, actor.id)))
+      .limit(1);
+
+    if (!row) {
+      return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
+    }
+
+    const [artifact] = await ctx.db.db
+      .select()
+      .from(artifacts)
+      .where(and(eq(artifacts.id, artifactId), eq(artifacts.notebookId, notebookId)))
+      .limit(1);
+
+    if (!artifact || artifact.artifactType !== "quiz") {
+      return reply.status(404).send({ code: "not_found", message: "Quiz artifact not found" });
+    }
+
+    const rows = await ctx.db.db
+      .select({
+        id: quizAttempts.id,
+        questionId: quizAttempts.questionId,
+        answerJson: quizAttempts.answerJson,
+        isCorrect: quizAttempts.isCorrect,
+        score: quizAttempts.score,
+        conceptIds: quizAttempts.conceptIds,
+        createdAt: quizAttempts.createdAt,
+      })
+      .from(quizAttempts)
+      .where(and(eq(quizAttempts.notebookId, notebookId), eq(quizAttempts.artifactId, artifactId), eq(quizAttempts.userId, actor.id)))
+      .orderBy(desc(quizAttempts.createdAt));
+
+    return reply.send({
+      attempts: rows.map((attempt) => ({
+        id: attempt.id,
+        questionId: attempt.questionId,
+        answer: typeof attempt.answerJson?.answer === "string" ? attempt.answerJson.answer : "",
+        explanation: typeof attempt.answerJson?.explanation === "string" ? attempt.answerJson.explanation : null,
+        isCorrect: attempt.isCorrect === 1,
+        score: attempt.score ?? null,
+        conceptIds: attempt.conceptIds ?? [],
+        createdAt: attempt.createdAt.toISOString(),
+      })),
+    });
+  });
 
   app.post<{
     Params: { notebookId: string; artifactId: string };

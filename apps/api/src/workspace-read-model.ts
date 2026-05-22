@@ -254,9 +254,7 @@ export async function augmentStudyMapCanvas(
       nodeMap.set(artifact.id, artifactNode);
     }
 
-    const conceptIds = Array.isArray(artifact.payloadJson?.conceptIds)
-      ? artifact.payloadJson.conceptIds.filter((value): value is string => typeof value === "string")
-      : [];
+    const conceptIds = conceptIdsForArtifactPayload(artifact.payloadJson);
 
     for (const conceptId of conceptIds) {
       if (!nodeMap.has(conceptId)) continue;
@@ -277,13 +275,13 @@ export async function augmentStudyMapCanvas(
       const refId = typeof record.refId === "string" ? record.refId : null;
       const refType = typeof record.refType === "string" ? record.refType : null;
       if (!refId || !nodeMap.has(refId)) continue;
-      if (!["session_plan", "session", "objective", "concept"].includes(refType ?? "")) continue;
+      if (!["source", "curriculum", "curriculum_module", "session_plan", "session", "objective", "concept"].includes(refType ?? "")) continue;
       attachedScopeIds.add(refId);
       edges.push({
         id: `artifact-scope-${artifact.id}-${refId}`,
         source: refId,
         target: artifact.id,
-        relationType: refType === "objective" ? "COVERS" : "DERIVED_FROM",
+        relationType: refType === "objective" || refType === "concept" || refType === "curriculum_module" ? "COVERS" : "DERIVED_FROM",
         properties: { scope: refType },
       });
     }
@@ -299,6 +297,19 @@ export async function augmentStudyMapCanvas(
     }
   }
 
+  for (const sessionNode of nodes) {
+    if (sessionNode.nodeType !== "session_plan") continue;
+    const moduleId = typeof sessionNode.properties.moduleId === "string" ? sessionNode.properties.moduleId : null;
+    if (!moduleId || !nodeMap.has(moduleId)) continue;
+    edges.push({
+      id: `module-${moduleId}-session-${sessionNode.id}`,
+      source: moduleId,
+      target: sessionNode.id,
+      relationType: "PLANS",
+      properties: { projectedBy: "workspace_read_model.module_session_link" },
+    });
+  }
+
   const seenEdgeIds = new Set<string>();
   return {
     nodes,
@@ -309,6 +320,37 @@ export async function augmentStudyMapCanvas(
       return true;
     }),
   };
+}
+
+function conceptIdsForArtifactPayload(payload: Record<string, unknown> | null | undefined): string[] {
+  const ids = new Set<string>();
+  const add = (value: unknown) => {
+    if (typeof value === "string" && value.trim().length > 0) ids.add(value);
+  };
+  const addMany = (value: unknown) => {
+    if (!Array.isArray(value)) return;
+    for (const item of value) add(item);
+  };
+  addMany(payload?.conceptIds);
+  add(payload?.conceptId);
+
+  const questions = Array.isArray(payload?.questions) ? payload.questions : [];
+  for (const question of questions) {
+    if (typeof question !== "object" || question === null) continue;
+    const record = question as Record<string, unknown>;
+    add(record.conceptId);
+    addMany(record.conceptIds);
+  }
+
+  const cards = Array.isArray(payload?.cards) ? payload.cards : [];
+  for (const card of cards) {
+    if (typeof card !== "object" || card === null) continue;
+    const record = card as Record<string, unknown>;
+    add(record.conceptId);
+    addMany(record.conceptIds);
+  }
+
+  return [...ids];
 }
 
 export function nodeRefForCanvasNode(node: GraphCanvasNode): NodeRef | null {
@@ -358,10 +400,6 @@ export function workspaceVisibilityForNode(
   if (viewMode === "source_wiki_map" && LOW_SIGNAL_SOURCE_WIKI_TYPES.has(node.nodeType)) {
     return "dev_only";
   }
-  if (viewMode === "source_wiki_map" && node.nodeType === "topic") {
-    return "hidden";
-  }
-
   if (node.nodeType === "artifact") {
     const artifactType =
       typeof node.properties.artifactType === "string"

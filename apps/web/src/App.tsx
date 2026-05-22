@@ -60,6 +60,25 @@ export function shouldInvalidateArtifactsForEvent(eventType: (typeof WORKSPACE_R
 
 const api = (path: string, init?: RequestInit) => fetch(`/api/v1${path}`, init);
 
+async function apiWithRetry(path: string, init?: RequestInit, attempts = 3): Promise<Response> {
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      const response = await api(path, init);
+      if (response.ok || attempt === attempts - 1) {
+        return response;
+      }
+    } catch (error) {
+      lastError = error;
+      if (attempt === attempts - 1) {
+        throw error;
+      }
+    }
+    await new Promise((resolve) => window.setTimeout(resolve, 500 * (attempt + 1)));
+  }
+  throw lastError instanceof Error ? lastError : new Error("Network request failed");
+}
+
 function SourcesBar({
   notebookId,
   onGraphProjectionUpdated,
@@ -348,6 +367,7 @@ export function App() {
   const [notebooks, setNotebooks] = useState<NotebookRow[]>([]);
   const [title, setTitle] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [isLoadingNotebooks, setIsLoadingNotebooks] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [splitPercent, setSplitPercent] = useState<number>(35);
   const [theme] = useState<"mist" | "atlas" | "folio">("mist");
@@ -415,13 +435,21 @@ export function App() {
 
   const refresh = useCallback(async () => {
     setError(null);
-    const res = await api("/notebooks");
-    if (!res.ok) {
-      setError(await res.text());
-      return;
+    setIsLoadingNotebooks(true);
+    try {
+      const res = await apiWithRetry("/notebooks");
+      if (!res.ok) {
+        const body = await res.text();
+        setError(body || `Failed to load notebooks (${res.status})`);
+        return;
+      }
+      const data = (await res.json()) as { notebooks: NotebookRow[] };
+      setNotebooks(data.notebooks);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load notebooks");
+    } finally {
+      setIsLoadingNotebooks(false);
     }
-    const data = (await res.json()) as { notebooks: NotebookRow[] };
-    setNotebooks(data.notebooks);
   }, []);
 
   useEffect(() => {
@@ -514,6 +542,14 @@ export function App() {
           </header>
           {error && <pre className="study-error">{error}</pre>}
           <section className="notebook-grid">
+            {isLoadingNotebooks && notebooks.length === 0 && (
+              <div className="study-empty">
+                <div>
+                  <div style={{ color: "var(--text-strong)", fontSize: 18, fontWeight: 850 }}>Loading notebooks</div>
+                  <div style={{ marginTop: 6 }}>Connecting to the study workspace.</div>
+                </div>
+              </div>
+            )}
             {notebooks.map((nb) => (
               <article key={nb.id} className="notebook-card">
                 <div>
@@ -528,11 +564,22 @@ export function App() {
                 </button>
               </article>
             ))}
-            {notebooks.length === 0 && (
+            {!isLoadingNotebooks && notebooks.length === 0 && !error && (
               <div className="study-empty">
                 <div>
                   <div style={{ color: "var(--text-strong)", fontSize: 18, fontWeight: 850 }}>No notebooks yet</div>
                   <div style={{ marginTop: 6 }}>Create one, then upload source material.</div>
+                </div>
+              </div>
+            )}
+            {!isLoadingNotebooks && notebooks.length === 0 && error && (
+              <div className="study-empty">
+                <div>
+                  <div style={{ color: "var(--text-strong)", fontSize: 18, fontWeight: 850 }}>Could not load notebooks</div>
+                  <div style={{ marginTop: 6 }}>The workspace API may still be restarting.</div>
+                  <button type="button" className="study-secondary-button" style={{ marginTop: 12 }} onClick={() => void refresh()}>
+                    Retry
+                  </button>
                 </div>
               </div>
             )}
