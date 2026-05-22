@@ -154,14 +154,23 @@ export const syntheticLearnerAssertionCategorySchema = z.enum([
   "report",
 ]);
 
-export const syntheticLearnerAssertionSchema = z.object({
+export const syntheticLearnerAssertionStatusSchema = z.enum(["passed", "failed", "skipped"]);
+
+const syntheticLearnerAssertionBaseSchema = z.object({
   id: idSchema,
   category: syntheticLearnerAssertionCategorySchema,
   description: z.string().min(1),
-  passed: z.boolean(),
+  status: syntheticLearnerAssertionStatusSchema.default("passed"),
+  passed: z.boolean().optional(),
+  failureMessage: z.string().min(1).optional(),
   evidenceRefs: z.array(nodeRefSchema).default([]),
   details: z.record(z.string(), z.unknown()).default({}),
 });
+
+export const syntheticLearnerAssertionSchema = syntheticLearnerAssertionBaseSchema.transform((value) => ({
+  ...value,
+  passed: value.status === "passed",
+}));
 
 export const syntheticLearnerToolEventSchema = z.object({
   label: z.string().min(1),
@@ -301,6 +310,7 @@ export type EvalSourceFixtureReadinessCheck = z.infer<typeof evalSourceFixtureRe
 export type EvalSourceFixtureExpectedCitation = z.infer<typeof evalSourceFixtureExpectedCitationSchema>;
 export type EvalSourceFixtureManifest = z.infer<typeof evalSourceFixtureManifestSchema>;
 export type SyntheticLearnerAssertionCategory = z.infer<typeof syntheticLearnerAssertionCategorySchema>;
+export type SyntheticLearnerAssertionStatus = z.infer<typeof syntheticLearnerAssertionStatusSchema>;
 export type SyntheticLearnerAssertion = z.infer<typeof syntheticLearnerAssertionSchema>;
 export type SyntheticLearnerToolEvent = z.infer<typeof syntheticLearnerToolEventSchema>;
 export type SyntheticLearnerRuntimeEvent = z.infer<typeof syntheticLearnerRuntimeEventSchema>;

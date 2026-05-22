@@ -85,13 +85,14 @@ describe("synthetic learner eval runner", () => {
         { refType: "session", refId: "sess_live_001" },
       ]),
     );
+    expect(result.scenarioRun.assertions.some((assertion) => assertion.status === "skipped")).toBe(true);
     expect(lines).toEqual(
       expect.arrayContaining([
         "STUDENT: Teach me the topic and check whether I am missing a key idea.",
         "TOOL START: notebook.search",
         "TOOL COMPLETE: notebook.search",
         "RUNTIME: learning.evaluate_response",
-        "ASSERTION pending: learner_visible_no_id_leak",
+        "NOTEBOOK EVENT: session.context.selected",
         "FINAL: passed - Scenario completed cleanly.",
       ]),
     );

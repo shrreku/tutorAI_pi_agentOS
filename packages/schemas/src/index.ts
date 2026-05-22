@@ -16,6 +16,7 @@ export * from "./reference-surface.js";
 export * from "./search.js";
 export * from "./source.js";
 export * from "./synthetic-learner-evals.js";
+export * from "./synthetic-learner-evals.assertions.js";
 export * from "./synthetic-learner-evals.fixtures.js";
 export * from "./synthetic-learner-evals.runner.js";
 export * from "./tools.js";

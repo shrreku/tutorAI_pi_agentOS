@@ -13,6 +13,10 @@ import {
   type SyntheticLearnerRuntimeEvent,
 } from "./synthetic-learner-evals.js";
 import {
+  evaluateSyntheticLearnerAssertions,
+  type SyntheticLearnerAssertionPersistenceEvidence,
+} from "./synthetic-learner-evals.assertions.js";
+import {
   syntheticLearnerEvalTracerBulletFixture,
   syntheticLearnerEvalTracerBulletPersonas,
   syntheticLearnerEvalTracerBulletScenarios,
@@ -60,6 +64,7 @@ export type RunSyntheticLearnerEvalScenarioInput = {
   personaId?: string;
   api: SyntheticLearnerEvalRunnerApi;
   writeTranscript?: SyntheticLearnerEvalTranscriptWriter;
+  persistenceEvidence?: SyntheticLearnerAssertionPersistenceEvidence;
   startedAt?: string;
   completedAt?: string;
   runId?: string;
@@ -127,6 +132,8 @@ export async function runSyntheticLearnerEvalScenario(
     seededNotebookRef,
     ...(seeded.traceRefs ?? []),
   ];
+  const allNotebookEvents: SyntheticLearnerRuntimeEvent[] = [];
+  const assertionResultsById = new Map<string, SyntheticLearnerAssertion>();
 
   let finalStatus: SyntheticLearnerEvalScenarioRun["status"] = "passed";
   let finalSummary = "Scenario completed cleanly.";
@@ -135,17 +142,10 @@ export async function runSyntheticLearnerEvalScenario(
   for (const [index, beat] of scenario.beats.entries()) {
     const beatStartedAt = new Date().toISOString();
     const stepId = `${scenario.id}_step_${index + 1}`;
-    const stepAssertions: SyntheticLearnerAssertion[] = beat.assertionRefs.map((ref) => ({
-      id: `${stepId}_${ref.refId}`,
-      category: "learner_visible",
-      description: ref.label ?? `Assertion placeholder for ${ref.refId}`,
-      passed: true,
-      evidenceRefs: [{ refType: "turn", refId: stepId }],
-      details: { status: "pending" },
-    }));
+    const stepTranscriptStart = transcript.length;
+    let stepAssertions: SyntheticLearnerAssertion[] = [];
 
     await writeTranscript(`STUDENT: ${beat.scriptedMessage}`);
-    await writeTranscript(`ASSERTION pending: ${beat.assertionRefs.map((ref) => ref.refId).join(", ") || "none"}`);
 
     try {
       const turn = await input.api.sendTutorTurn({
@@ -157,6 +157,7 @@ export async function runSyntheticLearnerEvalScenario(
 
       const toolEvents: SyntheticLearnerToolEvent[] = [];
       const runtimeEvents: SyntheticLearnerRuntimeEvent[] = [];
+      const stepNotebookEvents: SyntheticLearnerRuntimeEvent[] = [];
       const traceRefs: NodeRef[] = [...scenarioTraceRefs, ...(turn.traceRefs ?? [])];
 
       for (const event of [...turn.events, ...(turn.notebookEvents ?? [])]) {
@@ -194,6 +195,13 @@ export async function runSyntheticLearnerEvalScenario(
           });
           await writeTranscript(`RUNTIME: ${event.eventType}`);
         } else if (event.source === "notebook") {
+          const notebookEvent = {
+            eventType: event.eventType,
+            payload: event.payload,
+            timestamp: typeof event.payload.timestamp === "string" ? event.payload.timestamp : new Date().toISOString(),
+          };
+          stepNotebookEvents.push(notebookEvent);
+          allNotebookEvents.push(notebookEvent);
           await writeTranscript(`NOTEBOOK EVENT: ${event.eventType}`);
           traceRefs.push({
             refType: "session",
@@ -202,11 +210,31 @@ export async function runSyntheticLearnerEvalScenario(
         }
       }
 
+      stepAssertions = evaluateSyntheticLearnerAssertions({
+        assertionRefs: beat.assertionRefs,
+        transcript: transcript.slice(stepTranscriptStart),
+        tutorMessages: [turn.assistantMessage],
+        toolEvents,
+        runtimeEvents,
+        notebookEvents: stepNotebookEvents,
+        traceRefs: uniqueNodeRefs(traceRefs),
+        notebookRefs: [seededNotebookRef],
+        ...(input.persistenceEvidence ? { persistence: input.persistenceEvidence } : {}),
+      });
+      const stepFinalStatus = summarizeAssertionStatuses(stepAssertions);
+      for (const assertion of stepAssertions) {
+        assertionResultsById.set(assertion.id, assertion);
+      }
+      if (stepFinalStatus.status === "failed") {
+        finalStatus = "failed";
+        finalSummary = stepFinalStatus.summary;
+      }
+
       steps.push({
         id: stepId,
         stepIndex: index,
         kind: "prompt",
-        status: finalStatus,
+        status: stepFinalStatus.status,
         startedAt: beatStartedAt,
         completedAt: input.completedAt ?? new Date().toISOString(),
         studentMessage: beat.scriptedMessage,
@@ -230,6 +258,21 @@ export async function runSyntheticLearnerEvalScenario(
       finalStatus = "failed";
       finalSummary = stringifyFailure(error);
       await writeTranscript(`ERROR: ${finalSummary}`);
+      stepAssertions = [
+        {
+          id: `${stepId}_runtime_failure`,
+          category: "runtime",
+          description: "Tutor stream completed without a deterministic assertion result.",
+          status: "failed",
+          passed: false,
+          failureMessage: stringifyFailure(error),
+          evidenceRefs: uniqueNodeRefs(scenarioTraceRefs),
+          details: { beatId: beat.id },
+        },
+      ];
+      for (const assertion of stepAssertions) {
+        assertionResultsById.set(assertion.id, assertion);
+      }
       steps.push({
         id: stepId,
         stepIndex: index,
@@ -256,6 +299,29 @@ export async function runSyntheticLearnerEvalScenario(
   }
 
   completedAt = completedAt ?? new Date().toISOString();
+  const finalAssertions = evaluateSyntheticLearnerAssertions({
+    assertionRefs: scenario.assertionRefs,
+    transcript,
+    tutorMessages: steps.map((step) => step.tutorMessage).filter((message): message is string => Boolean(message)),
+    toolEvents: steps.flatMap((step) => step.toolEvents),
+    runtimeEvents: steps.flatMap((step) => step.runtimeEvents),
+    notebookEvents: allNotebookEvents,
+    traceRefs: uniqueNodeRefs(scenarioTraceRefs),
+    notebookRefs: [seededNotebookRef],
+    ...(input.persistenceEvidence ? { persistence: input.persistenceEvidence } : {}),
+  });
+  for (const assertion of finalAssertions) {
+    assertionResultsById.set(assertion.id, assertion);
+  }
+  const scenarioAssertions = [...assertionResultsById.values()];
+  const scenarioAssertionStatus = summarizeAssertionStatuses(scenarioAssertions);
+  if (scenarioAssertionStatus.status === "failed") {
+    finalStatus = "failed";
+    finalSummary = scenarioAssertionStatus.summary;
+  } else if (scenarioAssertionStatus.status === "skipped" && finalStatus === "passed") {
+    finalStatus = "skipped";
+    finalSummary = scenarioAssertionStatus.summary;
+  }
   await writeTranscript(`FINAL: ${finalStatus} - ${finalSummary}`);
 
   const scenarioRun = {
@@ -271,7 +337,7 @@ export async function runSyntheticLearnerEvalScenario(
     completedAt,
     durationMs: Math.max(0, Date.parse(completedAt) - Date.parse(startedAt)),
     steps,
-    assertions: steps.flatMap((step) => step.assertions),
+    assertions: scenarioAssertions,
     artifactRefs: [],
     traceRefs: uniqueNodeRefs(scenarioTraceRefs),
     notebookRefs: [seeded.notebookRef ?? { refType: "notebook", refId: seeded.notebookId }],
@@ -315,4 +381,31 @@ function stringifyFailure(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (typeof error === "string") return error;
   return "Tutor stream failed";
+}
+
+function summarizeAssertionStatuses(assertions: SyntheticLearnerAssertion[]): {
+  status: SyntheticLearnerEvalScenarioRun["status"];
+  summary: string;
+} {
+  if (!assertions.length) {
+    return { status: "skipped", summary: "No assertions were evaluated." };
+  }
+
+  const failedAssertion = assertions.find((assertion) => assertion.status === "failed");
+  if (failedAssertion) {
+    return {
+      status: "failed",
+      summary: failedAssertion.failureMessage ?? failedAssertion.description,
+    };
+  }
+
+  const passedCount = assertions.filter((assertion) => assertion.status === "passed").length;
+  if (passedCount > 0) {
+    return { status: "passed", summary: "Deterministic assertions passed." };
+  }
+
+  return {
+    status: "skipped",
+    summary: "Deterministic assertions were skipped because the required evidence was unavailable.",
+  };
 }
