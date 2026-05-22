@@ -91,6 +91,31 @@ function evaluateLearnerVisibleAssertion(
   tutorMessages: string[],
   evidenceRefs: NodeRef[],
 ): SyntheticLearnerAssertion {
+  if (ref.refId === "learner_visible_source_refs") {
+    const sourceRefs = evidenceRefs.filter((ref) => ref.refType === "source" || ref.refType === "chunk");
+    if (!sourceRefs.length) {
+      return buildAssertion({
+        ref,
+        status: "skipped",
+        passed: false,
+        failureMessage: "No structured source refs were provided.",
+        evidenceRefs,
+        details: { reason: "missing_source_refs" },
+      });
+    }
+
+    return buildAssertion({
+      ref,
+      status: "passed",
+      passed: true,
+      evidenceRefs: sourceRefs,
+      details: {
+        sourceRefCount: sourceRefs.length,
+        sourceRefs: sourceRefs.map(describeRef),
+      },
+    });
+  }
+
   if (!tutorMessages.length) {
     return buildAssertion({
       ref,

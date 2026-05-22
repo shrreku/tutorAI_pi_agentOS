@@ -12,7 +12,11 @@ function createSuccessApi(): SyntheticLearnerEvalRunnerApi {
       return {
         notebookId: "nb_eval_live_001",
         notebookRef: { refType: "notebook", refId: "nb_eval_live_001" },
-        traceRefs: [{ refType: "session", refId: "seed_trace_1" }],
+        traceRefs: [
+          { refType: "session", refId: "seed_trace_1" },
+          { refType: "source", refId: "source_derivatives_primer" },
+          { refType: "chunk", refId: "chunk_derivative_definition" },
+        ],
       };
     },
     async sendTutorTurn() {

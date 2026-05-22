@@ -151,6 +151,7 @@ describe("synthetic learner eval contracts", () => {
     const assertions = evaluateSyntheticLearnerAssertions({
       assertionRefs: [
         { refType: "assertion", refId: "learner_visible_no_id_leak" },
+        { refType: "assertion", refId: "learner_visible_source_refs" },
         { refType: "assertion", refId: "runtime_mastery_evidence" },
         { refType: "assertion", refId: "persistence_conservative_movement" },
         { refType: "assertion", refId: "persistence_artifact_status" },
@@ -179,7 +180,10 @@ describe("synthetic learner eval contracts", () => {
           timestamp: "2026-05-22T00:04:31.000Z",
         },
       ],
-      traceRefs: [{ refType: "session", refId: "sess_1" }],
+      traceRefs: [
+        { refType: "session", refId: "sess_1" },
+        { refType: "source", refId: "src_1" },
+      ],
       notebookRefs: [{ refType: "notebook", refId: "nb_1" }],
       persistence: {
         masteryEvidence: [
@@ -206,7 +210,7 @@ describe("synthetic learner eval contracts", () => {
       },
     });
 
-    expect(assertions.map((assertion) => assertion.status)).toEqual(["passed", "passed", "passed", "passed", "passed"]);
+    expect(assertions.map((assertion) => assertion.status)).toEqual(["passed", "passed", "passed", "passed", "passed", "passed"]);
     expect(assertions[0]?.evidenceRefs).toEqual(expect.arrayContaining([{ refType: "session", refId: "sess_1" }]));
     expect(syntheticLearnerAssertionSchema.parse(assertions[1]!).passed).toBe(true);
   });
