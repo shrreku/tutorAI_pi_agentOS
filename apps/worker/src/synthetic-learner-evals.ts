@@ -159,10 +159,14 @@ if (isMain) {
 }
 
 function parseFixtureMode(argv: string[]): SyntheticLearnerEvalFixtureFreshnessMode {
+  const explicitModeFlag = argv.find((arg) => arg.startsWith("--fixture-mode="));
   const explicitMode =
-    argv.find((arg) => arg.startsWith("--fixture-mode="))?.split("=", 2)[1] ??
+    explicitModeFlag?.split("=", 2)[1] ??
     (argv.includes("--fixture-mode") ? argv[argv.indexOf("--fixture-mode") + 1] : undefined);
   const envMode = process.env.STUDYAGENT_SYNTHETIC_LEARNER_FIXTURE_MODE;
-  const value = (explicitMode ?? envMode ?? (process.env.CI ? "strict" : "warn")).toLowerCase();
-  return value === "strict" || value === "regenerate" ? value : "warn";
+  const defaultMode = process.env.CI ? "strict" : "warn";
+  const candidate = explicitMode ?? envMode ?? defaultMode;
+  const normalized = candidate.toLowerCase();
+  if (normalized === "strict" || normalized === "regenerate") return normalized;
+  return "warn";
 }

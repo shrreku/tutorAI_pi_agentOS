@@ -137,7 +137,10 @@ export function assessTracerBulletSyntheticLearnerEvalFixtureFreshness(
   return {
     isFresh: staleFields.length === 0,
     staleFields,
-    message: staleFields.length ? `Synthetic learner eval fixture ${fixture.id} is stale: ${staleFields.join(", ")}` : `Synthetic learner eval fixture ${fixture.id} is fresh.`,
+    message:
+      staleFields.length > 0
+        ? `Synthetic learner eval fixture ${fixture.id} is stale: ${staleFields.join(", ")}`
+        : `Synthetic learner eval fixture ${fixture.id} is fresh.`,
   };
 }
 
