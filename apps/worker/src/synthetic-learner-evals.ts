@@ -1,6 +1,7 @@
 import { pathToFileURL } from "node:url";
 import {
   loadTracerBulletSyntheticLearnerEvalMatrix,
+  nodeRefSchema,
   runSyntheticLearnerEvalScenario,
   type NodeRef,
   type SyntheticLearnerEvalRunnerApi,
@@ -29,10 +30,11 @@ function createHttpSyntheticLearnerEvalApi(baseUrl: string, cookie?: string): Sy
       }
       const payload = (await response.json()) as { notebook: { id: string }; traceRefs?: Array<{ refType: string; refId: string }> };
       const traceRefs = payload.traceRefs?.map((ref) => ({ refType: ref.refType as NodeRef["refType"], refId: ref.refId }));
+      const validTraceRefs = traceRefs?.filter((ref) => nodeRefSchema.shape.refType.safeParse(ref.refType).success);
       return {
         notebookId: payload.notebook.id,
         notebookRef: { refType: "notebook", refId: payload.notebook.id },
-        ...(traceRefs ? { traceRefs } : {}),
+        ...(validTraceRefs ? { traceRefs: validTraceRefs } : {}),
       };
     },
     async sendTutorTurn({ notebookId, scriptedMessage }) {
@@ -49,11 +51,16 @@ function createHttpSyntheticLearnerEvalApi(baseUrl: string, cookie?: string): Sy
       }
 
       const events = await readSseEvents(response, "tutor");
-      const assistantMessage =
-        [...events]
-          .reverse()
-          .find((event) => event.eventType === "TEXT_MESSAGE_CONTENT" && typeof event.payload.text === "string")
-          ?.payload.text?.toString() ?? "";
+      const assistantMessageEvent = [...events].reverse().find(
+        (event) => event.eventType === "TEXT_MESSAGE_CONTENT" && typeof event.payload.text === "string",
+      ) as
+        | (SyntheticLearnerEvalStreamEvent & {
+            source: "tutor";
+            eventType: "TEXT_MESSAGE_CONTENT";
+            payload: { text: string };
+          })
+        | undefined;
+      const assistantMessage = assistantMessageEvent?.payload.text ?? "";
       const sessionId = response.headers.get("x-studyagent-session-id") ?? `sess_${notebookId}`;
       const runId = response.headers.get("x-studyagent-run-id") ?? `run_${notebookId}`;
       return {

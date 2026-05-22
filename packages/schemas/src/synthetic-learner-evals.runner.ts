@@ -123,7 +123,7 @@ export async function runSyntheticLearnerEvalScenario(
 
   const steps: SyntheticLearnerEvalScenarioRun["steps"] = [];
   const seededNotebookRef: NodeRef = seeded.notebookRef ?? { refType: "notebook", refId: seeded.notebookId };
-  const scenarioTraceRefs: NodeRef[] = [
+  let scenarioTraceRefs: NodeRef[] = [
     seededNotebookRef,
     ...(seeded.traceRefs ?? []),
   ];
@@ -133,7 +133,7 @@ export async function runSyntheticLearnerEvalScenario(
   let completedAt = input.completedAt;
 
   for (const [index, beat] of scenario.beats.entries()) {
-    const beatStartedAt = input.startedAt ?? new Date().toISOString();
+    const beatStartedAt = new Date().toISOString();
     const stepId = `${scenario.id}_step_${index + 1}`;
     const stepAssertions: SyntheticLearnerAssertion[] = beat.assertionRefs.map((ref) => ({
       id: `${stepId}_${ref.refId}`,
@@ -224,7 +224,7 @@ export async function runSyntheticLearnerEvalScenario(
         },
       });
 
-      scenarioTraceRefs.splice(0, scenarioTraceRefs.length, ...uniqueNodeRefs(traceRefs));
+      scenarioTraceRefs = uniqueNodeRefs(traceRefs);
       if (finalStatus === "failed") break;
     } catch (error) {
       finalStatus = "failed";
