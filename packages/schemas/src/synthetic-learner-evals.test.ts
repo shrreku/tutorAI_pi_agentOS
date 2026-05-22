@@ -13,6 +13,7 @@ import {
   renderSyntheticLearnerScriptedMessages,
   exportSyntheticLearnerEvalRunReport,
 } from "./synthetic-learner-evals.js";
+import { evaluateSyntheticLearnerAssertions } from "./synthetic-learner-evals.assertions.js";
 import {
   syntheticLearnerEvalTracerBulletFixture,
   syntheticLearnerEvalTracerBulletPersonas,
@@ -144,6 +145,94 @@ describe("synthetic learner eval contracts", () => {
 
     expect(parsed.runs[0]?.assertions[0]?.category).toBe("learner_visible");
     expect(syntheticLearnerAssertionSchema.parse(run.assertions[0]!).passed).toBe(true);
+  });
+
+  it("evaluates learner-visible, runtime, and persistence assertions deterministically", () => {
+    const assertions = evaluateSyntheticLearnerAssertions({
+      assertionRefs: [
+        { refType: "assertion", refId: "learner_visible_no_id_leak" },
+        { refType: "assertion", refId: "runtime_mastery_evidence" },
+        { refType: "assertion", refId: "persistence_conservative_movement" },
+        { refType: "assertion", refId: "persistence_artifact_status" },
+        { refType: "assertion", refId: "persistence_crystallization_boundary" },
+      ],
+      transcript: ["RUN STARTED: slrun_1", "TUTOR: We can review the derivative definition."],
+      tutorMessages: ["We can review the derivative definition."],
+      toolEvents: [
+        {
+          label: "started",
+          toolName: "notebook.search",
+          nodeRefs: [{ refType: "tool_call", refId: "tool_call_1" }],
+        },
+      ],
+      runtimeEvents: [
+        {
+          eventType: "learning.evaluate_response",
+          payload: { status: "pending" },
+          timestamp: "2026-05-22T00:04:30.000Z",
+        },
+      ],
+      notebookEvents: [
+        {
+          eventType: "session.context.selected",
+          payload: { sessionId: "sess_1" },
+          timestamp: "2026-05-22T00:04:31.000Z",
+        },
+      ],
+      traceRefs: [{ refType: "session", refId: "sess_1" }],
+      notebookRefs: [{ refType: "notebook", refId: "nb_1" }],
+      persistence: {
+        masteryEvidence: [
+          {
+            ref: { refType: "turn", refId: "turn_1" },
+            correctnessLabel: "partial",
+            overallScore: 0.55,
+            confidence: 0.62,
+          },
+        ],
+        artifacts: [{ ref: { refType: "artifact", refId: "artifact_1" }, status: "ready" }],
+        sessionEvents: [
+          {
+            ref: { refType: "session", refId: "sess_1" },
+            eventType: "session.completed",
+            timestamp: "2026-05-22T00:05:00.000Z",
+          },
+          {
+            ref: { refType: "session", refId: "sess_1" },
+            eventType: "session.digest.created",
+            timestamp: "2026-05-22T00:05:01.000Z",
+          },
+        ],
+      },
+    });
+
+    expect(assertions.map((assertion) => assertion.status)).toEqual(["passed", "passed", "passed", "passed", "passed"]);
+    expect(assertions[0]?.evidenceRefs).toEqual(expect.arrayContaining([{ refType: "session", refId: "sess_1" }]));
+    expect(syntheticLearnerAssertionSchema.parse(assertions[1]!).passed).toBe(true);
+  });
+
+  it("fails learner-visible assertions for raw IDs and skips persistence assertions without evidence", () => {
+    const learnerVisible = evaluateSyntheticLearnerAssertions({
+      assertionRefs: [{ refType: "assertion", refId: "learner_visible_no_id_leak" }],
+      tutorMessages: ["The answer lives in turn_1 and [object Object]."],
+      traceRefs: [{ refType: "turn", refId: "turn_1" }],
+    });
+    expect(learnerVisible[0]?.status).toBe("failed");
+    expect(learnerVisible[0]?.failureMessage).toContain("[object Object]");
+
+    const skipped = evaluateSyntheticLearnerAssertions({
+      assertionRefs: [{ refType: "assertion", refId: "persistence_artifact_status" }],
+      tutorMessages: ["We can keep going."],
+      runtimeEvents: [
+        {
+          eventType: "learning.evaluate_response",
+          payload: { status: "pending" },
+          timestamp: "2026-05-22T00:04:30.000Z",
+        },
+      ],
+    });
+    expect(skipped[0]?.status).toBe("skipped");
+    expect(skipped[0]?.failureMessage).toContain("No persisted evidence snapshot was provided");
   });
 
   it("builds and exports completed eval runs separately from notebook state", () => {
