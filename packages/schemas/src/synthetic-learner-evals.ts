@@ -29,10 +29,41 @@ export const syntheticLearnerScenarioSchema = z.object({
   expectedAssertions: z.array(z.string().min(1)).default([]),
 });
 
+export const evalSourceFixtureCompatibilityStatusSchema = z.enum(["compatible", "needs_regeneration", "blocked"]);
+
+export const evalSourceFixtureGenerationMetadataSchema = z.object({
+  generatedBy: z.string().min(1),
+  pipelineVersion: z.string().min(1),
+  schemaVersion: z.string().min(1),
+  generatedAt: z.string().datetime(),
+  sourceRevision: z.string().min(1).default("frozen-eval-fixture"),
+  modelProvider: z.string().min(1).default("openrouter"),
+  modelName: z.string().min(1).default("gpt-4.1"),
+});
+
+export const evalSourceFixtureReadinessCheckSchema = z.object({
+  id: idSchema,
+  label: z.string().min(1),
+  passed: z.boolean(),
+  details: z.record(z.string(), z.unknown()).default({}),
+});
+
+export const evalSourceFixtureExpectedCitationSchema = z.object({
+  refType: z.string().min(1),
+  refId: idSchema,
+  label: z.string().min(1).default("citation"),
+});
+
 export const evalSourceFixtureManifestSchema = z.object({
   id: idSchema,
   version: z.string().min(1),
   sourceContentHash: z.string().min(1),
+  generationMetadata: evalSourceFixtureGenerationMetadataSchema,
+  readinessChecks: z.array(evalSourceFixtureReadinessCheckSchema).default([]),
+  expectedTopics: z.array(z.string().min(1)).default([]),
+  expectedConcepts: z.array(z.string().min(1)).default([]),
+  expectedCitations: z.array(evalSourceFixtureExpectedCitationSchema).default([]),
+  compatibilityStatus: evalSourceFixtureCompatibilityStatusSchema,
   ingestionPipelineVersion: z.string().min(1),
   schemaVersion: z.string().min(1),
   generatedAt: z.string().datetime(),
@@ -40,6 +71,7 @@ export const evalSourceFixtureManifestSchema = z.object({
   seededNotebookId: idSchema,
   learnerAnalyticsScope: z.enum(["eval_only", "production"]).default("eval_only"),
   notes: z.string().default(""),
+  tutoringReadyState: z.record(z.string(), z.unknown()).default({}),
 });
 
 export const syntheticLearnerAssertionCategorySchema = z.enum([
@@ -106,6 +138,10 @@ export type SyntheticLearnerMode = z.infer<typeof syntheticLearnerModeSchema>;
 export type SyntheticLearnerPersona = z.infer<typeof syntheticLearnerPersonaSchema>;
 export type SyntheticLearnerScenarioKind = z.infer<typeof syntheticLearnerScenarioKindSchema>;
 export type SyntheticLearnerScenario = z.infer<typeof syntheticLearnerScenarioSchema>;
+export type EvalSourceFixtureCompatibilityStatus = z.infer<typeof evalSourceFixtureCompatibilityStatusSchema>;
+export type EvalSourceFixtureGenerationMetadata = z.infer<typeof evalSourceFixtureGenerationMetadataSchema>;
+export type EvalSourceFixtureReadinessCheck = z.infer<typeof evalSourceFixtureReadinessCheckSchema>;
+export type EvalSourceFixtureExpectedCitation = z.infer<typeof evalSourceFixtureExpectedCitationSchema>;
 export type EvalSourceFixtureManifest = z.infer<typeof evalSourceFixtureManifestSchema>;
 export type SyntheticLearnerAssertionCategory = z.infer<typeof syntheticLearnerAssertionCategorySchema>;
 export type SyntheticLearnerAssertion = z.infer<typeof syntheticLearnerAssertionSchema>;
