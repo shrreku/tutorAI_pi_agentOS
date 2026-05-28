@@ -15,6 +15,22 @@ export async function clearSourceProjectionScope(
   sourceId: string,
 ): Promise<void> {
   await session.run(
+    `MATCH (s:Source {id: $sourceId})-[:COVERS]->(cur:Curriculum)
+     WHERE s.notebookId = $notebookId AND cur.notebookId = $notebookId
+     OPTIONAL MATCH (cur)-[:CONTAINS|PLANS*0..4]->(owned)
+     WHERE owned.notebookId = $notebookId
+       AND (owned:curriculum_module OR owned:objective_list OR owned:session_plan OR owned:Objective OR owned:CoverageItem OR owned:CoverageRecord)
+     DETACH DELETE owned, cur`,
+    { sourceId, notebookId },
+  );
+  await session.run(
+    `MATCH ()-[r]-()
+     WHERE r.notebookId = $notebookId
+       AND (r.sourceId = $sourceId OR r.projectionSourceId = $sourceId)
+     DELETE r`,
+    { sourceId, notebookId },
+  );
+  await session.run(
     `MATCH (s:Source {id: $sourceId})
      WHERE s.notebookId = $notebookId
      OPTIONAL MATCH (s)-[:HAS_TOPIC]->(t:Topic)
@@ -31,6 +47,15 @@ export async function clearSourceProjectionScope(
     `MATCH (w:WikiPage)-[:DERIVED_FROM]->(s:Source {id: $sourceId})
      WHERE w.notebookId = $notebookId AND s.notebookId = $notebookId
      DETACH DELETE w`,
+    { sourceId, notebookId },
+  );
+  await session.run(
+    `MATCH (n)
+     WHERE n.notebookId = $notebookId
+       AND n.sourceId = $sourceId
+       AND NOT n:Source
+       AND NOT n:Concept
+     DETACH DELETE n`,
     { sourceId, notebookId },
   );
 }

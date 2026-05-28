@@ -11,6 +11,7 @@ import { registerGraphRoutes } from "./routes/graph.js";
 import { registerSearchRoutes } from "./routes/search.js";
 import { registerSourceRoutes } from "./routes/sources.js";
 import { registerStudentProfileRoutes } from "./routes/student-profile.js";
+import { registerLearnerTraitRoutes } from "./routes/learner-traits.js";
 import { registerEventStreamRoutes } from "./routes/events-stream.js";
 import { registerTutorRoutes } from "./routes/tutor.js";
 import { registerDeveloperTimelineRoutes } from "./routes/developer-timeline.js";
@@ -49,6 +50,7 @@ export async function buildServer(): Promise<{
       await registerNotebookRoutes(r, ctx);
       await registerSourceRoutes(r, ctx);
       await registerStudentProfileRoutes(r, ctx);
+      await registerLearnerTraitRoutes(r, ctx);
       await registerSearchRoutes(r, ctx);
       await registerGraphRoutes(r, ctx);
       await registerEventStreamRoutes(r, ctx);

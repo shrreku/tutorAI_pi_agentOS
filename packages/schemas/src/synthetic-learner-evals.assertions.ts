@@ -163,6 +163,9 @@ function evaluateRuntimeAssertion(
   let hasAgentRun = evidenceRefs.some((ref) => ref.refType === "session");
   let hasContextSelection = false;
   let hasEvaluateResponse = false;
+  let hasArtifactLifecycle = false;
+  let hasSessionLifecycle = false;
+  let hasToolCalls = toolEvents.length > 0;
 
   for (const line of textCorpus) {
     if (line.startsWith("TUTOR: ") || line.startsWith("TUTOR COMPLETE: ")) {
@@ -174,15 +177,26 @@ function evaluateRuntimeAssertion(
   }
 
   for (const event of [...runtimeEvents, ...notebookEvents]) {
-    if (event.eventType === "learning.evaluate_response") {
+    if (event.eventType === "learning.evaluate_response" || event.eventType === "learning.mastery_evidence.recorded") {
       hasEvaluateResponse = true;
+    }
+    if (event.eventType.includes("artifact")) {
+      hasArtifactLifecycle = true;
+    }
+    if (event.eventType.includes("session") || event.eventType.includes("digest") || event.eventType.includes("crystall")) {
+      hasSessionLifecycle = true;
     }
     if (event.eventType === "session.context.selected" || event.eventType.includes("context")) {
       hasContextSelection = true;
     }
+    if (event.eventType.startsWith("learner_trait.")) {
+      hasToolCalls = true;
+    }
   }
 
-  const hasToolCalls = toolEvents.length > 0;
+  if (toolEvents.some((event) => event.toolName.includes("artifact"))) {
+    hasArtifactLifecycle = true;
+  }
 
   if (!runtimeEvents.length && !notebookEvents.length && !toolEvents.length && !textCorpus.length) {
     return buildAssertion({
@@ -196,11 +210,14 @@ function evaluateRuntimeAssertion(
   }
 
   const missing: string[] = [];
-  if (!hasTutorTurns) missing.push("tutor turns");
-  if (!hasAgentRun) missing.push("agent run");
-  if (!hasToolCalls) missing.push("tool calls");
-  if (!hasContextSelection) missing.push("context selection");
-  if (!hasEvaluateResponse) missing.push("learning.evaluate_response");
+  const required = runtimeRequirementsFor(ref.refId);
+  if (required.tutorTurns && !hasTutorTurns) missing.push("tutor turns");
+  if (required.agentRun && !hasAgentRun) missing.push("agent run");
+  if (required.toolCalls && !hasToolCalls) missing.push("tool calls");
+  if (required.contextSelection && !hasContextSelection) missing.push("context selection");
+  if (required.evaluateResponse && !hasEvaluateResponse) missing.push("mastery evaluation evidence");
+  if (required.artifactLifecycle && !hasArtifactLifecycle) missing.push("artifact lifecycle");
+  if (required.sessionLifecycle && !hasSessionLifecycle) missing.push("session lifecycle");
 
   if (missing.length) {
     return buildAssertion({
@@ -231,29 +248,74 @@ function evaluateRuntimeAssertion(
   });
 }
 
+function runtimeRequirementsFor(refId: string): {
+  tutorTurns: boolean;
+  agentRun: boolean;
+  toolCalls: boolean;
+  contextSelection: boolean;
+  evaluateResponse: boolean;
+  artifactLifecycle: boolean;
+  sessionLifecycle: boolean;
+} {
+  const base = {
+    tutorTurns: true,
+    agentRun: true,
+    toolCalls: true,
+    contextSelection: true,
+    evaluateResponse: false,
+    artifactLifecycle: false,
+    sessionLifecycle: false,
+  };
+  if (refId === "runtime_mastery_evidence") {
+    return { ...base, toolCalls: false, evaluateResponse: true };
+  }
+  if (refId === "runtime_artifact_lifecycle") {
+    return { ...base, artifactLifecycle: true };
+  }
+  if (refId === "runtime_session_digest") {
+    return { ...base, toolCalls: false, sessionLifecycle: true };
+  }
+  if (refId === "runtime_trait_estimation") {
+    return { ...base, tutorTurns: false, agentRun: false, contextSelection: false, toolCalls: true };
+  }
+  return base;
+}
+
 function evaluatePersistenceAssertion(
   ref: SyntheticLearnerAssertionReference,
   runtimeEvents: SyntheticLearnerRuntimeEvent[],
   persistence: SyntheticLearnerAssertionPersistenceEvidence | undefined,
   evidenceRefs: NodeRef[],
 ): SyntheticLearnerAssertion {
-  if (!persistence) {
+  const effectivePersistence = persistence ?? persistenceEvidenceFromRuntimeEvents(runtimeEvents);
+  if (!effectivePersistence) {
+    if (ref.required === false) {
+      return buildAssertion({
+        ref,
+        status: "skipped",
+        passed: false,
+        failureMessage: "Optional persisted evidence snapshot was unavailable.",
+        evidenceRefs,
+        details: { reason: "skipped_optional_snapshot" },
+      });
+    }
+
     return buildAssertion({
       ref,
-      status: "skipped",
+      status: "failed",
       passed: false,
-      failureMessage: "No persisted evidence snapshot was provided.",
+      failureMessage: "Required persisted evidence snapshot was unavailable.",
       evidenceRefs,
-      details: { reason: "missing_persistence_snapshot" },
+      details: { reason: "unavailable_required_snapshot" },
     });
   }
 
   if (ref.refId === "persistence_conservative_movement") {
-    const masteryEvidence = persistence.masteryEvidence ?? [];
+    const masteryEvidence = effectivePersistence.masteryEvidence ?? [];
     if (!masteryEvidence.length) {
       return buildAssertion({
         ref,
-        status: runtimeEvents.some((event) => event.eventType === "learning.evaluate_response") ? "failed" : "skipped",
+        status: runtimeEvents.some((event) => event.eventType === "learning.evaluate_response" || event.eventType === "learning.mastery_evidence.recorded") ? "failed" : "skipped",
         passed: false,
         failureMessage: "Mastery Evidence was not persisted for an evaluable answer.",
         evidenceRefs: [...evidenceRefs, ...masteryEvidence.map((entry) => entry.ref)],
@@ -290,7 +352,7 @@ function evaluatePersistenceAssertion(
   }
 
   if (ref.refId === "persistence_artifact_status") {
-    const artifacts = persistence.artifacts ?? [];
+    const artifacts = effectivePersistence.artifacts ?? [];
     if (!artifacts.length) {
       return buildAssertion({
         ref,
@@ -324,7 +386,7 @@ function evaluatePersistenceAssertion(
   }
 
   if (ref.refId === "persistence_crystallization_boundary") {
-    const sessionEvents = persistence.sessionEvents ?? [];
+    const sessionEvents = effectivePersistence.sessionEvents ?? [];
     if (!sessionEvents.length) {
       return buildAssertion({
         ref,
@@ -365,6 +427,56 @@ function evaluatePersistenceAssertion(
     });
   }
 
+  if (ref.refId === "persistence_trait_estimates") {
+    const sessionEvents = effectivePersistence.sessionEvents ?? [];
+    const hasSignal = sessionEvents.some((event) => event.eventType === "learner_trait.signal.recorded");
+    const hasDecision = sessionEvents.some((event) => event.eventType === "learner_trait.guardrail_decision.recorded");
+    if (!hasSignal || !hasDecision) {
+      return buildAssertion({
+        ref,
+        status: "failed",
+        passed: false,
+        failureMessage: "Trait estimation did not persist both signal and guardrail decision evidence.",
+        evidenceRefs,
+        details: { hasSignal, hasDecision },
+      });
+    }
+    return buildAssertion({
+      ref,
+      status: "passed",
+      passed: true,
+      evidenceRefs: [...evidenceRefs, ...sessionEvents.flatMap((event) => (event.ref ? [event.ref] : []))],
+      details: { hasSignal, hasDecision },
+    });
+  }
+
+  if (ref.refId === "persistence_trait_recommendation_only" || ref.refId === "persistence_trait_no_mastery_mutation") {
+    const sessionEvents = effectivePersistence.sessionEvents ?? [];
+    const traitEvents = sessionEvents.filter((event) => event.eventType.startsWith("learner_trait."));
+    const forbidden = traitEvents.filter((event) =>
+      event.eventType.includes("mastery") ||
+      event.eventType.includes("curriculum") ||
+      event.eventType.includes("artifact"),
+    );
+    if (forbidden.length) {
+      return buildAssertion({
+        ref,
+        status: "failed",
+        passed: false,
+        failureMessage: "Trait events crossed the recommendation-only boundary.",
+        evidenceRefs,
+        details: { forbiddenEventTypes: forbidden.map((event) => event.eventType) },
+      });
+    }
+    return buildAssertion({
+      ref,
+      status: "passed",
+      passed: true,
+      evidenceRefs: [...evidenceRefs, ...traitEvents.flatMap((event) => (event.ref ? [event.ref] : []))],
+      details: { traitEventCount: traitEvents.length },
+    });
+  }
+
   return buildAssertion({
     ref,
     status: "skipped",
@@ -373,6 +485,66 @@ function evaluatePersistenceAssertion(
     evidenceRefs,
     details: { reason: "unsupported_persistence_assertion" },
   });
+}
+
+function persistenceEvidenceFromRuntimeEvents(
+  runtimeEvents: SyntheticLearnerRuntimeEvent[],
+): SyntheticLearnerAssertionPersistenceEvidence | undefined {
+  const masteryEvidence = runtimeEvents.flatMap((event) => {
+    if (event.eventType !== "mastery.evidence.recorded" && event.eventType !== "learning.mastery_evidence.recorded") return [];
+    const evidence = isRecord(event.payload.evidence) ? event.payload.evidence : event.payload;
+    const masteryEvidenceId = typeof event.payload.masteryEvidenceId === "string"
+      ? event.payload.masteryEvidenceId
+      : typeof evidence?.id === "string"
+        ? evidence.id
+        : undefined;
+    if (!masteryEvidenceId) return [];
+    const turnId = typeof evidence?.turnId === "string" ? evidence.turnId : undefined;
+    const sessionId = typeof evidence?.sessionId === "string" ? evidence.sessionId : undefined;
+    const entry: NonNullable<SyntheticLearnerAssertionPersistenceEvidence["masteryEvidence"]>[number] = {
+      ref: turnId
+        ? { refType: "turn" as const, refId: turnId }
+        : sessionId
+          ? { refType: "session" as const, refId: sessionId }
+          : { refType: "turn" as const, refId: masteryEvidenceId },
+    };
+    if (typeof evidence?.correctnessLabel === "string") entry.correctnessLabel = evidence.correctnessLabel;
+    if (typeof evidence?.overallScore === "number") entry.overallScore = evidence.overallScore;
+    if (typeof evidence?.confidence === "number") entry.confidence = evidence.confidence;
+    if (typeof evidence?.triggerSource === "string") entry.triggerSource = evidence.triggerSource;
+    return [entry];
+  });
+
+  const sessionEvents = runtimeEvents
+    .filter((event) => event.eventType.startsWith("session.") || event.eventType.startsWith("learner_trait."))
+    .map((event) => {
+      const sessionRef = sessionRefFromPayload(event.payload);
+      return {
+        ...(sessionRef ? { ref: sessionRef } : {}),
+        eventType: event.eventType,
+        timestamp: event.timestamp,
+      };
+    });
+
+  const artifacts = runtimeEvents.flatMap((event) => {
+    if (!event.eventType.startsWith("artifact.")) return [];
+    const artifactId = typeof event.payload.artifactId === "string" ? event.payload.artifactId : undefined;
+    if (!artifactId) return [];
+    const status = typeof event.payload.status === "string" ? event.payload.status : event.eventType.split(".").at(-1) ?? "unknown";
+    return [{ ref: { refType: "artifact" as const, refId: artifactId }, status }];
+  });
+
+  if (!masteryEvidence.length && !sessionEvents.length && !artifacts.length) return undefined;
+  return { masteryEvidence, sessionEvents, artifacts };
+}
+
+function sessionRefFromPayload(payload: Record<string, unknown>): NodeRef | undefined {
+  const sessionId = typeof payload.sessionId === "string" ? payload.sessionId : undefined;
+  return sessionId ? { refType: "session", refId: sessionId } : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
 function inferAssertionCategory(refId: string): "learner_visible" | "runtime" | "persistence" | "report" {

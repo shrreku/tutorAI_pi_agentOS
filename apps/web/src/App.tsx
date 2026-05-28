@@ -26,6 +26,8 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
 
 export const WORKSPACE_REFRESH_EVENT_TYPES = [
   "curriculum.activated",
+  "source.readiness.updated",
+  "graph.neo4j_projection.failed",
   "module.updated",
   "objective_list.updated",
   "objective_list.reordered",
@@ -367,6 +369,7 @@ export function App() {
   const [routePath, setRoutePath] = useState(() => window.location.pathname);
   const [notebooks, setNotebooks] = useState<NotebookRow[]>([]);
   const [title, setTitle] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoadingNotebooks, setIsLoadingNotebooks] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -621,7 +624,13 @@ export function App() {
             </div>
           </div>
           <div className="study-topbar-actions">
-            <input className="study-search" placeholder="Search notebook, Study Map, Source Wiki" aria-label="Search notebook" />
+            <input
+              className="study-search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search notebook, Study Map, Source Wiki"
+              aria-label="Search notebook"
+            />
             <button
               type="button"
               className="study-secondary-button"

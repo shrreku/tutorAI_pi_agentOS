@@ -69,8 +69,43 @@ function buildRunRecord(status: "passed" | "failed") {
           },
         ],
         artifactRefs: [],
+        screenshotRefs: [{ refType: "screenshot", refId: `screenshot_${status}` }],
         traceRefs: [],
         notebookRefs: [{ refType: "notebook", refId: `nb_${status}` }],
+        runKind: status === "passed" ? "golden_journey" : "regression",
+        learnerMode: status === "passed" ? "scripted" : "scenario_autonomous_llm",
+        gatingPolicy: status === "passed" ? "ci_gating" : "non_ci_gating",
+        issueCandidates: status === "failed" ? [
+          {
+            title: "Synthetic Learner found a dashboard-rendered failure",
+            severity: "medium",
+            learnerMode: "scenario_autonomous_llm",
+            runKind: "regression",
+            personaId: syntheticLearnerEvalTracerBulletPersonas[0]!.id,
+            scenarioId: syntheticLearnerEvalTracerBulletScenarios[0]!.id,
+            fixtureManifestId: matrix.fixture.id,
+            fixtureVersion: matrix.fixture.version,
+            seededNotebookId: `nb_${status}`,
+            failureSummary: "Tutor text leaks machine-generated content.",
+            transcriptExcerpt: ["FINAL: failed"],
+            evidenceRefs: [],
+            traceRefs: [],
+            artifactRefs: [],
+            reproductionCommand: "pnpm --filter @studyagent/worker synthetic-learner-evals -- --learner-mode=scenario_autonomous_llm",
+          },
+        ] : [],
+        rubricResults: [
+          {
+            rubricId: "rubric_tutoring_quality",
+            qualitative: true,
+            enabled: true,
+            status: "skipped",
+            score: null,
+            dimensionScores: {},
+            summary: "Qualitative rubric was not run.",
+            evidenceRefs: [],
+          },
+        ],
         finalState: {
           passed: status === "passed",
           summary: status === "passed" ? "Scenario passed." : "Scenario failed.",
@@ -107,6 +142,8 @@ describe("EvalRunsDashboard", () => {
     expect(html).toContain("slrun_dashboard_passed");
     expect(html).toContain("passed");
     expect(html).toContain("Transcript");
+    expect(html).toContain("Qualitative rubrics");
+    expect(html).toContain("Screenshots");
     expect(html).toContain("FINAL: passed");
   });
 
@@ -115,6 +152,8 @@ describe("EvalRunsDashboard", () => {
     expect(html).toContain("slrun_dashboard_failed");
     expect(html).toContain("failed");
     expect(html).toContain("Scenario matrix");
+    expect(html).toContain("Issue candidates");
+    expect(html).toContain("Synthetic Learner found a dashboard-rendered failure");
     expect(html).toContain("Tutor text leaks machine-generated content");
   });
 });

@@ -6,10 +6,12 @@ import { registerTutorRoutes } from "./tutor.js";
 
 const {
   appendEventMock,
+  recordLearnerTraitSignalMock,
   runSessionMock,
   selectContextMock,
 } = vi.hoisted(() => ({
   appendEventMock: vi.fn(async () => ({ id: "evt_1" })),
+  recordLearnerTraitSignalMock: vi.fn(async (dbClient, signal) => ({ signal, eventId: "evt_trait_1" })),
   runSessionMock: vi.fn(),
   selectContextMock: vi.fn(),
 }));
@@ -54,6 +56,22 @@ vi.mock("../tutor-tool-provider.js", async () => {
 vi.mock("../tutor-write-provider.js", () => ({
   createTutorWriteToolProvider: vi.fn(() => ({})),
 }));
+
+vi.mock("../learner-trait-estimation.js", async () => {
+  const actual = await vi.importActual<typeof import("../learner-trait-estimation.js")>("../learner-trait-estimation.js");
+  return {
+    ...actual,
+    loadPersonalizationRecommendationsForTutorContext: vi.fn(async () => []),
+  };
+});
+
+vi.mock("../learner-trait-store.js", async () => {
+  const actual = await vi.importActual<typeof import("../learner-trait-store.js")>("../learner-trait-store.js");
+  return {
+    ...actual,
+    recordLearnerTraitSignal: recordLearnerTraitSignalMock,
+  };
+});
 
 vi.mock("@studyagent/agent-runtime", async () => {
   const actual = await vi.importActual<typeof import("@studyagent/agent-runtime")>("@studyagent/agent-runtime");
@@ -170,6 +188,7 @@ describe("tutor chat route", () => {
 
   beforeEach(async () => {
     appendEventMock.mockClear();
+    recordLearnerTraitSignalMock.mockClear();
     runSessionMock.mockReset();
     selectContextMock.mockReset();
 
@@ -223,7 +242,7 @@ describe("tutor chat route", () => {
       },
     });
 
-    expect(response.statusCode).toBe(200);
+    expect(response.statusCode, response.body).toBe(200);
     expect(response.headers["x-studyagent-session-id"]).toBeTruthy();
     expect(response.body).toContain("SESSION_STARTED");
 
@@ -328,5 +347,71 @@ describe("tutor chat route", () => {
     expect(response.statusCode).toBe(200);
     const savedRefs = (fakeDb.turns[0]?.selectedNodeRefsJson as Array<{ refType: string; refId: string }>) ?? [];
     expect(savedRefs).not.toContainEqual({ refType: "source", refId: "src_other" });
+  });
+
+  it("records explicit learner trait signals only after a completed tutor turn with turn and run evidence", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/notebooks/nb_1/tutor/chat",
+      payload: {
+        messages: [{ role: "user", content: "Please go slower, no rush." }],
+        data: { activeMode: "learn", selectedNodeRefs: [] },
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(recordLearnerTraitSignalMock).toHaveBeenCalledTimes(1);
+    const signal = recordLearnerTraitSignalMock.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(signal).toEqual(
+      expect.objectContaining({
+        notebookId: "nb_1",
+        userId: "user_1",
+        sessionId: expect.stringMatching(/^sess_/),
+        turnId: expect.stringMatching(/^turn_/),
+        runId: expect.stringMatching(/^run_/),
+        trait: "pacePreference",
+        suggestedValue: "slow",
+      }),
+    );
+    expect(signal.evidenceRefs).toEqual([
+      expect.objectContaining({
+        refType: "session_trace",
+        refId: signal.sessionId,
+        summary: expect.stringContaining(String(signal.turnId)),
+      }),
+    ]);
+  });
+
+  it("does not record a durable learner trait signal for a generic example request", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/notebooks/nb_1/tutor/chat",
+      payload: {
+        messages: [{ role: "user", content: "Can you give me an example?" }],
+        data: { activeMode: "learn", selectedNodeRefs: [] },
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(recordLearnerTraitSignalMock).not.toHaveBeenCalled();
+  });
+
+  it("does not record durable learner trait signals when the tutor turn fails", async () => {
+    runSessionMock.mockImplementationOnce(async function* () {
+      throw new Error("model unavailable");
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/notebooks/nb_1/tutor/chat",
+      payload: {
+        messages: [{ role: "user", content: "Please go slower." }],
+        data: { activeMode: "learn", selectedNodeRefs: [] },
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toContain("RUN_ERROR");
+    expect(recordLearnerTraitSignalMock).not.toHaveBeenCalled();
   });
 });

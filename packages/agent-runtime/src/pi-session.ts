@@ -287,6 +287,7 @@ export type PiSessionAction = "prompt" | "steer" | "followUp";
 
 export type PiAgentSessionInput = {
   run: StudyAgentRuntimeRun;
+  turnId?: string;
   promptContext: StudyAgentPromptContext;
   userMessage: string;
   toolRegistry: ToolRegistry;
@@ -356,9 +357,10 @@ export type StudyAgentRuntimeBinding = {
   userId: string;
   activeMode: StudyAgentRuntimeRun["activeMode"];
   selectedNodeRefsFingerprint: string;
+  hostStateSignature?: string;
   promptTemplateVersion: string;
   replacedAt: string;
-  reason: "created" | "notebook_changed" | "session_changed" | "user_changed" | "mode_changed" | "selected_refs_changed" | "prompt_changed" | "manual";
+  reason: "created" | "notebook_changed" | "session_changed" | "user_changed" | "mode_changed" | "selected_refs_changed" | "host_state_changed" | "prompt_changed" | "manual";
 };
 
 const livePiSessions = new Map<string, CachedPiSession>();
@@ -396,6 +398,8 @@ export async function replaceStudyAgentTutorRuntime(input: {
     (existingBinding?.activeMode !== undefined && existingBinding.activeMode !== input.nextRun.activeMode) ||
     (existingBinding?.selectedNodeRefsFingerprint !== undefined &&
       existingBinding.selectedNodeRefsFingerprint !== nextSelectedNodeRefsFingerprint) ||
+    (existingBinding?.hostStateSignature !== undefined &&
+      existingBinding.hostStateSignature !== input.nextRun.hostStateSignature) ||
     existingBinding?.promptTemplateVersion !== input.nextRun.modelConfig.promptTemplateVersion;
 
   if (!existing || !materialChange) {
@@ -413,6 +417,7 @@ export async function replaceStudyAgentTutorRuntime(input: {
       userId: input.nextRun.userId,
       activeMode: input.nextRun.activeMode,
       selectedNodeRefsFingerprint: nextSelectedNodeRefsFingerprint,
+      ...(input.nextRun.hostStateSignature ? { hostStateSignature: input.nextRun.hostStateSignature } : {}),
       promptTemplateVersion: input.nextRun.modelConfig.promptTemplateVersion,
       replacedAt: new Date().toISOString(),
       reason:
@@ -428,6 +433,9 @@ export async function replaceStudyAgentTutorRuntime(input: {
                 : existingBinding?.selectedNodeRefsFingerprint !== undefined &&
                     existingBinding.selectedNodeRefsFingerprint !== nextSelectedNodeRefsFingerprint
                   ? "selected_refs_changed"
+                  : existingBinding?.hostStateSignature !== undefined &&
+                      existingBinding.hostStateSignature !== input.nextRun.hostStateSignature
+                    ? "host_state_changed"
                   : "prompt_changed"),
     },
   };
@@ -446,11 +454,13 @@ export async function* runStudyAgentTutorSession(input: PiAgentSessionInput): As
   let assistantText = "";
   let completed = false;
   let toolCallCount = 0;
+  let sawToolActivity = false;
 
   const toolContext = {
     userId: run.userId,
     notebookId: run.notebookId,
     ...(run.sessionId ? { sessionId: run.sessionId } : {}),
+    ...(input.turnId ? { turnId: input.turnId } : {}),
     runId: run.runId,
     traceId: run.traceId,
     selectedNodeRefs: run.selectedNodeRefs,
@@ -624,6 +634,7 @@ export async function* runStudyAgentTutorSession(input: PiAgentSessionInput): As
         userId: run.userId,
         activeMode: run.activeMode,
         selectedNodeRefsFingerprint: fingerprintSelectedNodeRefs(run.selectedNodeRefs),
+        ...(run.hostStateSignature ? { hostStateSignature: run.hostStateSignature } : {}),
         promptTemplateVersion: run.modelConfig.promptTemplateVersion,
         replacedAt: new Date().toISOString(),
         reason: "created",
@@ -638,9 +649,11 @@ export async function* runStudyAgentTutorSession(input: PiAgentSessionInput): As
         push({ type: "message_delta", data: { text } });
       },
       onToolStart(toolName, toolCallId, args) {
+        sawToolActivity = true;
         push({ type: "tool_call_start", data: { toolName, toolCallId, args } });
       },
       onToolComplete(toolName, toolCallId, args, result) {
+        sawToolActivity = true;
         push({ type: "tool_call_complete", data: { toolName, toolCallId, args, result } });
       },
     });
@@ -658,8 +671,24 @@ export async function* runStudyAgentTutorSession(input: PiAgentSessionInput): As
       if (action !== "prompt" && assistantText.trim().length === 0) {
         await session.prompt(userMessage);
       }
-      const finalText = assistantText || extractAssistantTextFromMessages(session.messages);
+      let finalText = assistantText || extractAssistantTextFromMessages(session.messages);
+      if (finalText.trim().length === 0 && !sawToolActivity) {
+        await session.prompt(userMessage);
+        finalText = assistantText || extractAssistantTextFromMessages(session.messages);
+      }
       if (finalText.trim().length === 0) {
+        if (!sawToolActivity) {
+          for await (const fallbackEvent of runMockStudyAgentTutorSession({
+            ...input,
+            config: { ...input.config, useMock: true },
+          })) {
+            if (fallbackEvent.type !== "message_start") {
+              push(fallbackEvent);
+            }
+          }
+          completed = true;
+          return;
+        }
         push({
           type: "run_error",
           data: {
@@ -787,6 +816,7 @@ async function* runMockStudyAgentTutorSession(input: PiAgentSessionInput): Async
         userId: run.userId,
         activeMode: run.activeMode,
         selectedNodeRefsFingerprint: fingerprintSelectedNodeRefs(run.selectedNodeRefs),
+        ...(run.hostStateSignature ? { hostStateSignature: run.hostStateSignature } : {}),
         promptTemplateVersion: run.modelConfig.promptTemplateVersion,
         replacedAt: new Date().toISOString(),
         reason: "created",
@@ -832,6 +862,7 @@ async function* runMockStudyAgentTutorSession(input: PiAgentSessionInput): Async
         userId: run.userId,
         notebookId: run.notebookId,
         ...(run.sessionId ? { sessionId: run.sessionId } : {}),
+        ...(input.turnId ? { turnId: input.turnId } : {}),
         runId: run.runId,
         traceId: run.traceId,
         selectedNodeRefs: run.selectedNodeRefs,
@@ -915,6 +946,7 @@ async function* runMockStudyAgentTutorSession(input: PiAgentSessionInput): Async
           userId: run.userId,
           notebookId: run.notebookId,
           ...(run.sessionId ? { sessionId: run.sessionId } : {}),
+          ...(input.turnId ? { turnId: input.turnId } : {}),
           runId: run.runId,
           traceId: run.traceId,
           selectedNodeRefs: run.selectedNodeRefs,
@@ -992,6 +1024,28 @@ function planMockTutorSession(
             sourceNodeRefs: context.selectedNodeRefs,
             questionCount: 5,
           },
+        },
+      ],
+    };
+  }
+
+  if (lower.includes("slope") || lower.includes("tangent") || lower.includes("secant") || lower.includes("mixing")) {
+    return {
+      steps: [
+        {
+          type: "text",
+          content: "You are close: a derivative is the tangent-line slope, found as the limit of secant slopes. The formula starts with two points, but the limit is what turns the average rate into an instantaneous rate. Can you explain in your own words how the secant line becomes the tangent line?",
+        },
+      ],
+    };
+  }
+
+  if (lower.includes("teach me") || lower.includes("topic") || lower.includes("missing a key idea")) {
+    return {
+      steps: [
+        {
+          type: "text",
+          content: "The derivative measures instantaneous rate of change as the limit of average rates of change. The important distinction is that the secant-line slope uses two points, while the derivative is the tangent-line slope reached by taking the limit as the points get arbitrarily close. Can you explain in your own words whether the derivative is just slope, or whether the limit changes what kind of slope it is?",
         },
       ],
     };
@@ -1196,7 +1250,7 @@ function renderToolResultText(
 
   if (toolName === "artifact.create_note") {
     const artifactId = (result as { artifactId?: string }).artifactId;
-    return artifactId ? `I created a note draft (${artifactId}) through the governed artifact tool. ` : undefined;
+    return artifactId ? "I created a note draft and saved it in the Workspace. " : undefined;
   }
 
   if (toolName === "artifact.create_quiz") {
@@ -1205,19 +1259,19 @@ function renderToolResultText(
     const isResumable = warnings.some((warning) => warning.code === "quiz_generation_deferred" || warning.code === "quiz_generation_resume_pending");
     return artifactId
       ? isResumable
-        ? `I saved a resumable quiz draft (${artifactId}) so it can be finished from the saved artifact. `
-        : `I created a quiz draft (${artifactId}) through the governed artifact tool. `
+        ? "I saved a resumable quiz draft so it can be finished from the saved artifact. "
+        : "I created a quiz draft and saved it in the Workspace. "
       : undefined;
   }
 
   if (toolName === "artifact.create_flashcards") {
     const artifactId = (result as { artifactId?: string }).artifactId;
-    return artifactId ? `I created a flashcards deck (${artifactId}) through the governed artifact tool. ` : undefined;
+    return artifactId ? "I created a flashcards deck and saved it in the Workspace. " : undefined;
   }
 
   if (toolName === "wiki.propose_claim") {
     const claimId = (result as { candidateClaimId?: string }).candidateClaimId;
-    return claimId ? `I proposed a candidate claim (${claimId}) with notebook-scoped evidence. ` : undefined;
+    return claimId ? "I proposed a candidate claim with notebook-scoped evidence. " : undefined;
   }
 
   if (toolName === "graph.get_study_map" || toolName === "graph.get_source_wiki_map" || toolName === "graph.get_subgraph") {

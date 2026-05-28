@@ -76,6 +76,9 @@ export default function EvalRunsDashboard({
   const run = detailQuery.data?.run ?? selectedFromList;
   const summary = detailQuery.data?.summary ?? runs.find((entry) => entry.summary.id === run?.id)?.summary;
   const traceRefs = run ? uniqueTraceRefs(run.scenarioRuns.flatMap((scenarioRun) => scenarioRun.traceRefs)) : [];
+  const screenshotRefs = run ? uniqueTraceRefs(run.scenarioRuns.flatMap((scenarioRun) => scenarioRun.screenshotRefs ?? [])) : [];
+  const rubricResults = run ? [...(run.rubricResults ?? []), ...run.scenarioRuns.flatMap((scenarioRun) => scenarioRun.rubricResults ?? [])] : [];
+  const issueCandidates = run ? [...(run.issueCandidates ?? []), ...run.scenarioRuns.flatMap((scenarioRun) => scenarioRun.issueCandidates ?? [])] : [];
 
   return (
     <div className="study-shell" data-theme="mist">
@@ -188,11 +191,46 @@ export default function EvalRunsDashboard({
                         </div>
                         <div style={{ marginTop: 4, fontSize: 12, color: "#6b7280" }}>{scenarioRun.scenarioId}</div>
                         <div style={{ marginTop: 4, fontSize: 12, color: "#6b7280" }}>
-                          {scenarioRun.assertions.filter((assertion) => assertion.status === "failed").length} failed assertions · {scenarioRun.steps.length} steps
+                          {scenarioRun.runKind} · {scenarioRun.learnerMode ?? "scripted"} · {scenarioRun.gatingPolicy ?? "ci_gating"} · {scenarioRun.assertions.filter((assertion) => assertion.status === "failed").length} failed assertions · {scenarioRun.steps.length} steps
                         </div>
+                        {scenarioRun.assertions.some((assertion) => assertion.status === "failed") && (
+                          <div style={{ marginTop: 6, fontSize: 12, color: "#b91c1c" }}>
+                            {scenarioRun.assertions.find((assertion) => assertion.status === "failed")?.failureMessage}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
+                </section>
+
+                <section style={{ display: "grid", gap: 8 }}>
+                  <h3 style={{ margin: 0, fontSize: 14 }}>Issue candidates</h3>
+                  {issueCandidates.length ? (
+                    <div style={{ display: "grid", gap: 8 }}>
+                      {issueCandidates.map((candidate, index) => (
+                        <div key={`${candidate.title}:${index}`} style={{ fontSize: 12, color: "#4b5563" }}>
+                          <strong>{candidate.severity}</strong> · {candidate.learnerMode} · {candidate.title} · {candidate.failureSummary}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <span style={{ fontSize: 12, color: "#6b7280" }}>No issue candidates.</span>
+                  )}
+                </section>
+
+                <section style={{ display: "grid", gap: 8 }}>
+                  <h3 style={{ margin: 0, fontSize: 14 }}>Qualitative rubrics</h3>
+                  {rubricResults.length ? (
+                    <div style={{ display: "grid", gap: 8 }}>
+                      {rubricResults.map((rubric, index) => (
+                        <div key={`${rubric.rubricId}:${index}`} style={{ fontSize: 12, color: "#4b5563" }}>
+                          <strong>{rubric.rubricId}</strong> · qualitative · {rubric.status} · {rubric.score ?? "no score"} · {rubric.summary}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <span style={{ fontSize: 12, color: "#6b7280" }}>No qualitative rubric results.</span>
+                  )}
                 </section>
 
                 <section>
@@ -218,6 +256,17 @@ export default function EvalRunsDashboard({
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 8, fontSize: 12, color: "#4b5563" }}>
                     {traceRefs.length ? (
                       traceRefs.map((ref) => <span key={`${ref.refType}:${ref.refId}`}>{ref.refType}:{ref.refId}</span>)
+                    ) : (
+                      <span>None</span>
+                    )}
+                  </div>
+                </section>
+
+                <section style={{ display: "grid", gap: 8 }}>
+                  <h3 style={{ margin: 0, fontSize: 14 }}>Screenshots</h3>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, fontSize: 12, color: "#4b5563" }}>
+                    {screenshotRefs.length ? (
+                      screenshotRefs.map((ref) => <span key={`${ref.refType}:${ref.refId}`}>{ref.refType}:{ref.refId}</span>)
                     ) : (
                       <span>None</span>
                     )}

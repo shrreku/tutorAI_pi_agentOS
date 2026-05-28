@@ -1,6 +1,10 @@
 import type { NodeRef, ReducerResult, ToolContext } from "@studyagent/schemas";
 import {
   idSchema,
+  learnerTraitEvidenceRefSchema,
+  learnerTraitSignalSchema,
+  learnerTraitSignalSourceSchema,
+  learnerTraitValueByKeySchema,
   masteryCorrectnessLabelSchema,
   masteryEvidenceInputSchema,
   nodeRefSchema,
@@ -175,6 +179,116 @@ const studentProfileUpdatePreferencesOutputSchema = z.object({
       updatedAt: z.string().datetime(),
     })
     .nullable(),
+  warnings: z.array(candidateWriteWarningSchema).default([]),
+  reducerResult: reducerResultSchema,
+});
+
+function normalizeLearnerTraitRecordSignalInput(value: unknown): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const record = value as Record<string, unknown>;
+  if (typeof record.trait === "string") {
+    const trait = normalizeLearnerTraitKey(record.trait);
+    return {
+      ...record,
+      trait,
+      value: normalizeLearnerTraitValue(trait, record.value ?? record.suggestedValue),
+    };
+  }
+
+  if (record.pacePreference || record.preferenceSlowerPace || record.preferenceFastPace) {
+    return {
+      ...record,
+      trait: "pacePreference",
+      value: normalizeLearnerTraitValue("pacePreference", record.pacePreference ?? (record.preferenceFastPace ? "fast" : "slow")),
+    };
+  }
+  if (record.examplePreference || record.exampleStylePreference || record.visualExamplePreference || record.preferenceVisualExamples) {
+    return {
+      ...record,
+      trait: "examplePreference",
+      value: normalizeLearnerTraitValue("examplePreference", record.examplePreference ?? record.exampleStylePreference ?? record.visualExamplePreference ?? "visual"),
+    };
+  }
+  if (record.assessmentPreference || record.practicePreference) {
+    return {
+      ...record,
+      trait: "assessmentPreference",
+      value: normalizeLearnerTraitValue("assessmentPreference", record.assessmentPreference ?? record.practicePreference),
+    };
+  }
+  return value;
+}
+
+function normalizeLearnerTraitKey(value: string): string {
+  const normalized = normalizeEnumToken(value);
+  const aliases: Record<string, string> = {
+    pace: "pacePreference",
+    pace_preference: "pacePreference",
+    speed: "pacePreference",
+    depth: "depthPreference",
+    depth_preference: "depthPreference",
+    help_seeking: "helpSeekingStyle",
+    help_seeking_style: "helpSeekingStyle",
+    confidence: "confidenceStyle",
+    confidence_style: "confidenceStyle",
+    metacognitive_accuracy: "metacognitiveAccuracy",
+    persistence: "persistenceStyle",
+    persistence_style: "persistenceStyle",
+    source_familiarity: "sourceFamiliarity",
+    assessment: "assessmentPreference",
+    assessment_preference: "assessmentPreference",
+    example: "examplePreference",
+    example_preference: "examplePreference",
+    urgency: "urgencyContext",
+    urgency_context: "urgencyContext",
+  };
+  return aliases[normalized] ?? value;
+}
+
+function normalizeLearnerTraitValue(trait: string, value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  const normalized = normalizeEnumToken(value);
+  const aliases: Record<string, string> = {
+    slowly: "slow",
+    slower: "slow",
+    slow_and_careful: "slow",
+    slow_and_carefully: "slow",
+    slow_and_deliberate: "slow",
+    slow_deliberate: "slow",
+    slower_and_more_carefully: "slow",
+    slower_more_carefully: "slow",
+    more_slowly: "slow",
+    fast_paced: "fast",
+    concise: "fast",
+    visuals: "visual",
+    visual_examples: "visual",
+    visual_step_by_step: "visual",
+    diagrams: "visual",
+    concrete_examples: "concrete",
+    real_world: "applied",
+    real_world_examples: "applied",
+    quizzes: "quiz",
+    quiz_questions: "quiz",
+    worked_examples: "worked_problem",
+    worked_problems: "worked_problem",
+  };
+  if (trait === "pacePreference" || trait === "examplePreference" || trait === "assessmentPreference") {
+    return aliases[normalized] ?? normalized;
+  }
+  return normalized;
+}
+
+export const learnerTraitRecordSignalInputSchema = z.preprocess(normalizeLearnerTraitRecordSignalInput, learnerTraitValueByKeySchema.and(z.object({
+  userId: z.string().min(1).optional(),
+  source: learnerTraitSignalSourceSchema.default("tutor_recorded_preference"),
+  strength: z.number().min(0).max(1).default(0.8),
+  confidence: z.number().min(0).max(1).default(0.85),
+  evidenceRefs: z.array(learnerTraitEvidenceRefSchema).default([]),
+  notes: z.string().min(1).optional(),
+})));
+
+export const learnerTraitRecordSignalOutputSchema = z.object({
+  signal: learnerTraitSignalSchema,
   warnings: z.array(candidateWriteWarningSchema).default([]),
   reducerResult: reducerResultSchema,
 });
@@ -598,6 +712,8 @@ export type ObjectiveListMergeObjectivesInput = z.infer<typeof objectiveListMerg
 export type ObjectiveListMergeObjectivesOutput = z.infer<typeof objectiveListMergeObjectivesOutputSchema>;
 export type StudentProfileUpdatePreferencesInput = z.infer<typeof studentProfileUpdatePreferencesInputSchema>;
 export type StudentProfileUpdatePreferencesOutput = z.infer<typeof studentProfileUpdatePreferencesOutputSchema>;
+export type LearnerTraitRecordSignalInput = z.infer<typeof learnerTraitRecordSignalInputSchema>;
+export type LearnerTraitRecordSignalOutput = z.infer<typeof learnerTraitRecordSignalOutputSchema>;
 
 export const evaluateLearnerResponseInputSchema = masteryEvidenceInputSchema
   .omit({ conceptRoles: true, evidenceType: true, triggerSource: true, masterySnapshot: true })
@@ -645,6 +761,10 @@ export type RuntimeWriteToolProvider = {
     input: StudentProfileUpdatePreferencesInput,
     ctx: ToolContext,
   ): Promise<StudentProfileUpdatePreferencesOutput>;
+  recordLearnerTraitSignal(
+    input: LearnerTraitRecordSignalInput,
+    ctx: ToolContext,
+  ): Promise<LearnerTraitRecordSignalOutput>;
   evaluateLearnerResponse(
     input: EvaluateLearnerResponseInput,
     ctx: ToolContext,
@@ -905,6 +1025,18 @@ export const WRITE_TOOL_CONTRACTS = [
     timeoutMs: 5000,
   },
   {
+    name: "learner_trait.record_signal",
+    description: "Records an explicit learner preference or self-report signal for governed trait estimation.",
+    inputSchema: learnerTraitRecordSignalInputSchema,
+    outputSchema: learnerTraitRecordSignalOutputSchema,
+    sideEffectClass: "candidate_write",
+    operationKind: "write",
+    providerMethod: "recordLearnerTraitSignal",
+    runtimeExposure: "tutor_runtime_v1",
+    reducerExpectation: { required: true, mutationTypes: ["learner_trait.signal.recorded"] },
+    timeoutMs: 5000,
+  },
+  {
     name: "student_profile.update_preferences",
     description: "Updates learner preferences in the student profile.",
     inputSchema: studentProfileUpdatePreferencesInputSchema,
@@ -1084,6 +1216,40 @@ export function createNoopRuntimeWriteToolProvider(): RuntimeWriteToolProvider {
           examples: input.examples,
           conceptIds: input.conceptIds,
           sourceNodeRefs: input.sourceNodeRefs,
+        }),
+      };
+    },
+    async recordLearnerTraitSignal(input, ctx) {
+      const signalId = createRuntimeWriteId("lts");
+      const evidenceRefs = input.evidenceRefs.length
+        ? input.evidenceRefs
+        : [{ refType: "session_trace" as const, refId: ctx.sessionId ?? ctx.runId ?? ctx.notebookId }];
+      return {
+        signal: learnerTraitSignalSchema.parse({
+          id: signalId,
+          notebookId: ctx.notebookId,
+          userId: input.userId ?? ctx.userId,
+          source: input.source,
+          trait: input.trait,
+          suggestedValue: input.value,
+          strength: input.strength,
+          confidence: input.confidence,
+          evidenceRefs,
+          ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}),
+          ...(ctx.turnId ? { turnId: ctx.turnId } : {}),
+          ...(ctx.runId ? { runId: ctx.runId } : {}),
+          observedAt: new Date().toISOString(),
+          internalVisibility: true,
+          ...(input.notes ? { notes: input.notes } : {}),
+        }),
+        warnings: [],
+        reducerResult: buildReducerResult("learner_trait.signal.recorded", {
+          signalId,
+          notebookId: ctx.notebookId,
+          userId: input.userId ?? ctx.userId,
+          trait: input.trait,
+          source: input.source,
+          evidenceRefs,
         }),
       };
     },

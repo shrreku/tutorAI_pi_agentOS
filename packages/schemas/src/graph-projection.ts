@@ -8,6 +8,7 @@ export const projectionHealthSchema = z.object({
   scope: z.enum(["notebook", "source"]),
   notebookId: idSchema,
   sourceId: idSchema.optional(),
+  sourceVersionId: idSchema.optional(),
   status: projectionHealthStatusSchema,
   lagSeconds: z.number().int().nonnegative().nullable(),
   lastProjectedAt: z.string().datetime().nullable(),
@@ -15,6 +16,7 @@ export const projectionHealthSchema = z.object({
   failureReason: z.string().nullable(),
   learnerWarning: z.string().nullable(),
   developerDetail: z.string().nullable(),
+  lastProjectionScope: z.enum(["notebook", "source"]).nullable().optional(),
 });
 
 export type ProjectionHealth = z.infer<typeof projectionHealthSchema>;

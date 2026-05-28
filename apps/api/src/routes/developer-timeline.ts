@@ -291,7 +291,7 @@ export async function registerDeveloperTimelineRoutes(app: FastifyInstance, ctx:
 
       const runsByTurnId = new Map<string, ChatTraceRun[]>();
       for (const row of runRows) {
-        const runEvents = (eventsByRunId.get(row.id) ?? []).sort(byTimestampAsc);
+        const runEvents = [...(eventsByRunId.get(row.id) ?? []), ...sessionEvents].sort(byTimestampAsc);
         const run: ChatTraceRun = {
           id: row.id,
           sessionId: row.sessionId,
@@ -727,6 +727,10 @@ function nodeRefsFromPayload(...payloads: Array<Record<string, unknown> | undefi
     "artifact",
     "session",
     "turn",
+    "trait_signal",
+    "trait_estimate",
+    "trait_proposal",
+    "trait_guardrail_decision",
     "whiteboard_node",
     "whiteboard_edge",
   ]);

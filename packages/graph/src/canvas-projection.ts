@@ -1,4 +1,5 @@
 import type { GraphCanvasEdge, GraphCanvasNode, GraphQueryResponse } from "@studyagent/schemas";
+import { learnerVisibleRelationLabel } from "./graph-semantics.js";
 
 export type RawNeo4jCanvasNode = { id: string; labels: string[]; props: Record<string, unknown> };
 export type RawNeo4jCanvasEdge = { type: string; startId: string; endId: string; props: Record<string, unknown> };
@@ -39,7 +40,10 @@ export function normalizeNeo4jCanvasEdges(raw: RawNeo4jCanvasEdge[], existingIds
       source: e.startId,
       target: e.endId,
       relationType: e.type,
-      properties: e.props,
+      properties: {
+        ...e.props,
+        learnerLabel: learnerVisibleRelationLabel(e.type),
+      },
     }))
     .filter((e) => existingIds.has(e.source) && existingIds.has(e.target));
 }

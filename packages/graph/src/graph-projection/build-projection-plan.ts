@@ -1,14 +1,13 @@
 import type { IngestConceptRelationKind } from "../neo4j-projection.js";
+import { graphRelationSemantics } from "../graph-semantics.js";
 import type { CanonicalProjectionSnapshot, ProjectionOp, ProjectionPlan } from "./types.js";
 import { stableTopicId, topicTitleForSource } from "./topic.js";
 
-const CONCEPT_RELATION_TYPES = new Set(["depends_on", "supports", "example_of", "contradicts", "covers"]);
-
 function asConceptRelationKind(relationType: string): IngestConceptRelationKind | null {
-  if (CONCEPT_RELATION_TYPES.has(relationType)) {
-    return relationType as IngestConceptRelationKind;
-  }
-  return null;
+  const semantics = graphRelationSemantics(relationType);
+  if (!semantics) return null;
+  if (!["depends_on", "supports", "example_of", "contradicts", "covers"].includes(semantics.canonical)) return null;
+  return semantics.canonical as IngestConceptRelationKind;
 }
 
 function curriculumForSource(snapshot: CanonicalProjectionSnapshot, sourceId: string) {
@@ -112,6 +111,7 @@ export function buildProjectionPlan(snapshot: CanonicalProjectionSnapshot): Proj
           toId: rel.targetNodeId,
           relationKind: kind,
           confidence: rel.confidence,
+          sourceId: source.id,
         });
       }
     }

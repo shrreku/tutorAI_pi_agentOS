@@ -1,5 +1,6 @@
 import type { DbClient } from "@studyagent/db";
 import { claims, concepts, graphRelations } from "@studyagent/db";
+import { graphRelationSemantics } from "@studyagent/schemas";
 import { and, eq, ilike, inArray, notInArray, or } from "drizzle-orm";
 import type { UnifiedSearchResult } from "./rrf.js";
 
@@ -96,6 +97,8 @@ export async function graphKeywordSearchNotebook(
 
     const neighborIds = new Set<string>();
     for (const gr of rels) {
+      const semantics = graphRelationSemantics(gr.relationType);
+      if (!semantics || semantics.searchRole === "hidden") continue;
       const a = gr.sourceNodeId;
       const b = gr.targetNodeId;
       if (seedIds.includes(a) && !seedIds.includes(b)) {

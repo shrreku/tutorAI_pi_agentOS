@@ -18,6 +18,7 @@ export type ProjectGraphInput = {
   notebookId: string;
   scope: "notebook" | "source";
   sourceId?: string | undefined;
+  sourceVersionId?: string | undefined;
   userId?: string | undefined;
   rebuild?: boolean;
 };
@@ -91,6 +92,7 @@ export async function projectGraphFromCanonical(
         status: "healthy",
         lastProjectedAt: now,
         failureReason: null,
+        ...(input.sourceVersionId ? { sourceVersionId: input.sourceVersionId } : {}),
       });
     }
     await upsertNotebookProjectionHealth(dbClient, {
@@ -98,6 +100,7 @@ export async function projectGraphFromCanonical(
       status: "healthy",
       lastProjectedAt: now,
       failureReason: null,
+      projectionScope: input.scope,
     });
 
     return { ok: true, operationCount: plan.operations.length };
@@ -109,12 +112,14 @@ export async function projectGraphFromCanonical(
         sourceId: input.sourceId,
         status: "failed",
         failureReason: message,
+        ...(input.sourceVersionId ? { sourceVersionId: input.sourceVersionId } : {}),
       });
     }
     await upsertNotebookProjectionHealth(dbClient, {
       notebookId: input.notebookId,
       status: "failed",
       failureReason: message,
+      projectionScope: input.scope,
     });
     return {
       ok: false,

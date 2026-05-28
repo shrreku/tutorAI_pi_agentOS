@@ -50,6 +50,7 @@ export async function upsertNotebookProjectionHealth(
     lastProjectedAt?: Date | null;
     failureReason?: string | null;
     canonicalUpdatedAt?: Date | null;
+    projectionScope?: "notebook" | "source";
   },
 ): Promise<void> {
   const now = new Date();
@@ -72,6 +73,7 @@ export async function upsertNotebookProjectionHealth(
     lastFailureAt: input.status === "failed" ? now : null,
     failureReason: input.failureReason ?? null,
     canonicalUpdatedAt,
+    lastProjectionScope: input.projectionScope ?? "notebook",
     updatedAt: now,
   };
 
@@ -94,6 +96,7 @@ export async function upsertSourceProjectionHealth(
     lastProjectedAt?: Date | null;
     failureReason?: string | null;
     canonicalUpdatedAt?: Date | null;
+    sourceVersionId?: string | null;
   },
 ): Promise<void> {
   const now = new Date();
@@ -123,6 +126,8 @@ export async function upsertSourceProjectionHealth(
     lastFailureAt: input.status === "failed" ? now : null,
     failureReason: input.failureReason ?? null,
     canonicalUpdatedAt,
+    lastProjectionScope: "source",
+    lastSourceVersionId: input.sourceVersionId ?? null,
     updatedAt: now,
   };
 
@@ -161,6 +166,7 @@ export async function loadNotebookProjectionHealth(
     lastFailureAt: row?.lastFailureAt?.toISOString() ?? null,
     failureReason: row?.failureReason ?? null,
     learnerWarning: learnerWarningForHealth({ scope: "notebook", status }),
+    lastProjectionScope: row?.lastProjectionScope === "source" ? "source" : "notebook",
     developerDetail: devMode
       ? [
           row?.failureReason ? `failure: ${row.failureReason}` : null,
@@ -197,12 +203,14 @@ export async function loadSourceProjectionHealth(
     scope: "source",
     notebookId,
     sourceId,
+    sourceVersionId: row?.lastSourceVersionId ?? undefined,
     status,
     lagSeconds,
     lastProjectedAt: lastProjectedAt?.toISOString() ?? null,
     lastFailureAt: row?.lastFailureAt?.toISOString() ?? null,
     failureReason: row?.failureReason ?? null,
     learnerWarning: learnerWarningForHealth({ scope: "source", status }),
+    lastProjectionScope: "source",
     developerDetail: devMode
       ? [
           row?.failureReason ? `failure: ${row.failureReason}` : null,

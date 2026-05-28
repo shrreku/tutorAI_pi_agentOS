@@ -5,6 +5,7 @@ import {
   registerRuntimeToolsV1,
   registerReadToolsV1,
   registerWriteToolsV1,
+  TOOL_CONTRACT_CATALOG,
   ToolRegistry,
   type RuntimeReadToolProvider,
   type RuntimeWriteToolProvider,
@@ -63,6 +64,7 @@ export type CreateRuntimeRunInput = {
   userId: string;
   selectedNodeRefs?: NodeRef[];
   activeMode: StudyAgentMode;
+  hostStateSignature?: string;
   modelConfig?: Partial<StudyAgentModelConfig>;
   budgets?: Partial<StudyAgentRuntimeBudgets>;
 };
@@ -75,6 +77,7 @@ export type StudyAgentRuntimeRun = {
   userId: string;
   selectedNodeRefs: NodeRef[];
   activeMode: StudyAgentMode;
+  hostStateSignature?: string;
   modelConfig: StudyAgentModelConfig;
   budgets: StudyAgentRuntimeBudgets;
   startedAt: string;
@@ -100,6 +103,7 @@ export function createRuntimeRun(input: CreateRuntimeRunInput): StudyAgentRuntim
     userId: input.userId,
     selectedNodeRefs: input.selectedNodeRefs ?? [],
     activeMode: input.activeMode,
+    ...(input.hostStateSignature ? { hostStateSignature: input.hostStateSignature } : {}),
     modelConfig: resolveModelConfig(input.modelConfig),
     budgets: {
       maxToolCalls: input.budgets?.maxToolCalls ?? 12,
@@ -111,6 +115,48 @@ export function createRuntimeRun(input: CreateRuntimeRunInput): StudyAgentRuntim
 
 export function createRuntimeId(prefix: string): string {
   return `${prefix}_${crypto.randomUUID().replaceAll("-", "")}`;
+}
+
+export function buildStudyAgentHostStateSignature(context: StudyAgentPromptContext): string {
+  return `studyagent-host-state-v1:${stableHash(
+    stableJsonStringify({
+      promptTemplateVersion: "v1",
+      toolContractNames: TOOL_CONTRACT_CATALOG.map((contract) => contract.name).sort(),
+      notebookTitle: context.notebookTitle,
+      activeMode: context.activeMode,
+      selectedNodeRefs: context.selectedNodeRefs,
+      selectedGraphRegion: context.selectedGraphRegion ?? null,
+      curriculumTrackSummary: context.curriculumTrackSummary ?? null,
+      moduleSummary: context.moduleSummary ?? null,
+      objectiveListSummary: context.objectiveListSummary ?? null,
+      sessionPlanSummary: context.sessionPlanSummary ?? null,
+      curriculumSummary: context.curriculumSummary ?? null,
+      studyPlanSummary: context.studyPlanSummary ?? null,
+      learnerStateSummary: context.learnerStateSummary ?? null,
+      learnerProgressSummary: context.learnerProgressSummary ?? null,
+      currentObjective: context.currentObjective ?? null,
+      completedObjectivesCount: context.completedObjectivesCount ?? null,
+      nextObjectives: context.nextObjectives ?? [],
+      additionalInstructions: context.additionalInstructions ?? [],
+    }),
+  )}`;
+}
+
+function stableJsonStringify(value: unknown): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map((entry) => stableJsonStringify(entry)).join(",")}]`;
+  return `{${Object.entries(value as Record<string, unknown>)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, entry]) => `${JSON.stringify(key)}:${stableJsonStringify(entry)}`)
+    .join(",")}}`;
+}
+
+function stableHash(value: string): string {
+  let hash = 5381;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = ((hash << 5) + hash) ^ value.charCodeAt(index);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
 }
 
 export function buildStudyAgentSystemPrompt(

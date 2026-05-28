@@ -10,7 +10,9 @@ Maintainers need Synthetic Learners that can simulate realistic learner personas
 
 Build a repo-native Synthetic Learner eval system. It will use pre-ingested Eval Source Fixtures to seed eval-owned notebooks without rerunning ingestion, run multiple Synthetic Learner Personas through multiple Synthetic Learner Scenarios, observe the live tutor/runtime stream, apply deterministic assertions, persist Eval Runs for dashboard history, and export CI-friendly reports.
 
-The first tracer bullet is a 1 x 3 x 3 matrix: one Eval Source Fixture, three personas, three API-driven scenarios, and nine scenario runs. The first dashboard and CLI should show student messages, tutor messages, agent/tool events, runtime events, assertions, artifacts, and final pass/fail state. Browser/UI golden journeys, autonomous runs, fixture regeneration, optional LLM judge rubrics, and optional Trigger.dev orchestration are later slices.
+The first tracer bullet is a 1 x 3 x 3 matrix: one Eval Source Fixture, three personas, three API-driven scenarios, and nine scenario runs. The first dashboard and CLI should show student messages, tutor messages, agent/tool events, runtime events, assertions, artifacts, and final pass/fail state.
+
+The scripted tracer bullet is now implemented. LLM-backed student simulation is the next phase and is specified in `docs/architecture/synthetic-learner-llm-simulator-prd.md`.
 
 ## User Stories
 
@@ -44,7 +46,7 @@ The first tracer bullet is a 1 x 3 x 3 matrix: one Eval Source Fixture, three pe
 - Build a repo-native TypeScript eval runner before any Trigger.dev adapter.
 - Use Eval Source Fixtures to seed fresh eval-owned notebooks instead of rerunning ingestion for normal tutor evals.
 - Keep ingestion evals and tutor/product evals separate: ingestion prepares fixtures; Synthetic Learner scenarios exercise the seeded tutor/product harness.
-- Represent Synthetic Learner Personas and Scenarios as structured fixture contracts that can render prompts for live LLM mode or scripted messages for deterministic mode.
+- Represent Synthetic Learner Personas and Scenarios as structured fixture contracts that can render prompts for live LLM mode or scripted messages for deterministic mode. Synthetic Learner Personas should be generated from the shared Learner Trait Archetype fixtures where possible, so persona behavior and real-learner recommendation buckets use the same trait vocabulary.
 - Support constrained beat-driven mode for stable regression suites and autonomous mode for invariant/stress discovery.
 - Persist Eval Runs, scenario runs, steps, assertions, artifacts, and trace references separately from learner-facing notebook state.
 - Use deterministic assertions as the primary correctness gate.
@@ -70,8 +72,7 @@ The first tracer bullet is a 1 x 3 x 3 matrix: one Eval Source Fixture, three pe
 - Trigger.dev orchestration in the first implementation.
 - Full browser golden journeys in the first implementation.
 - Large persona/scenario libraries beyond the 1 x 3 x 3 tracer bullet.
-- Autonomous Synthetic Learner mode in the first implementation.
-- Optional LLM judge rubrics in the first implementation.
+- LLM-backed student turn generation in the scripted tracer bullet.
 - Rebuilding ingestion architecture.
 - Using Synthetic Learners as learner-facing personas.
 - Letting evals mutate production learner state or shared Eval Source Fixtures.

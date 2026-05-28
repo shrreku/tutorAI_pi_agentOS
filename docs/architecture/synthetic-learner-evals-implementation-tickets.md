@@ -1,8 +1,10 @@
 # Synthetic Learner Evals Implementation Tickets
 
-Status: planned.
+Status: first local slices are present; runtime hardening remains open.
 
 This document breaks the Synthetic Learner Evals PRD into dependency-ordered vertical slices. All slices are AFK unless noted otherwise.
+
+Current hardening note (2026-05-26): the scripted and LLM-mode contracts exist locally, but live dashboard observation, required persistence snapshots, warning issue candidates, and some browser/CI claims need remediation before they should be considered fully verified. Follow-up tickets live in `docs/architecture/architecture-remediation-implementation-tickets.md`.
 
 ## Publishing Plan
 
@@ -10,18 +12,18 @@ Create one parent GitHub issue named `PRD: Synthetic Learner evals`, then publis
 
 ## Slice Summary
 
-1. Eval Source Fixture manifest and seeded notebook import.
-2. Eval Run persistence and report export.
-3. Synthetic Learner fixture contracts and validation.
-4. API-only runner with live CLI transcript.
-5. Deterministic assertion engine.
-6. Dashboard read model and Eval Run page.
-7. First 1 x 3 x 3 Synthetic Learner eval matrix.
-8. Fixture freshness and explicit regeneration command.
-9. Browser/UI golden journey steps.
-10. Autonomous Synthetic Learner Runs.
-11. Optional LLM judge rubrics.
-12. Optional Trigger.dev adapter.
+1. Eval Source Fixture manifest and seeded notebook import. Implemented.
+2. Eval Run persistence and report export. Implemented.
+3. Synthetic Learner fixture contracts and validation. Implemented.
+4. API-only runner with live CLI transcript. Implemented.
+5. Deterministic assertion engine. Implemented.
+6. Dashboard read model and Eval Run page. Implemented.
+7. First 1 x 3 x 3 Synthetic Learner eval matrix. Implemented.
+8. Fixture freshness and explicit regeneration command. Implemented.
+9. Browser/UI golden journey steps. Implemented.
+10. Autonomous Synthetic Learner Runs. Implemented.
+11. Optional LLM judge rubrics. Implemented.
+12. Optional Trigger.dev adapter. Implemented.
 
 ## 1. Eval Source Fixture Manifest And Seeded Notebook Import
 
@@ -40,11 +42,11 @@ Build the first vertical path for seeding an eval-owned notebook from an Eval So
 
 Acceptance criteria:
 
-- [ ] An Eval Source Fixture manifest can describe fixture ID/version, source content hash, generation metadata, readiness checks, expected topics/concepts/citations, and compatibility status.
-- [ ] A command or API path can create an eval-owned notebook from a fixture without rerunning ingestion.
-- [ ] Seeded notebook state includes source-derived tutoring-ready data needed for tutor chat.
-- [ ] Learner-specific state is not included in the fixture by default.
-- [ ] Tests verify that fixture import creates isolated notebook-scoped rows and leaves the fixture unchanged.
+- [x] An Eval Source Fixture manifest can describe fixture ID/version, source content hash, generation metadata, readiness checks, expected topics/concepts/citations, and compatibility status.
+- [x] A command or API path can create an eval-owned notebook from a fixture without rerunning ingestion.
+- [x] Seeded notebook state includes source-derived tutoring-ready data needed for tutor chat.
+- [x] Learner-specific state is not included in the fixture by default.
+- [x] Tests verify that fixture import creates isolated notebook-scoped rows and leaves the fixture unchanged.
 
 ## 2. Eval Run Persistence And Report Export
 
@@ -63,11 +65,11 @@ Persist Eval Runs, scenario runs, steps, assertion results, artifact references,
 
 Acceptance criteria:
 
-- [ ] Eval Run state is persisted separately from learner-facing notebook state.
-- [ ] Scenario runs, steps, assertion results, artifact refs, trace refs, fixture version, persona ID, scenario ID, duration, and status are recorded.
-- [ ] JSON or NDJSON export is available for a completed Eval Run.
-- [ ] Eval-owned notebook references are traceable from the Eval Run.
-- [ ] Tests cover persistence and report export for passing and failing scenario runs.
+- [x] Eval Run state is persisted separately from learner-facing notebook state.
+- [x] Scenario runs, steps, assertion results, artifact refs, trace refs, fixture version, persona ID, scenario ID, duration, and status are recorded.
+- [x] JSON or NDJSON export is available for a completed Eval Run.
+- [x] Eval-owned notebook references are traceable from the Eval Run.
+- [x] Tests cover persistence and report export for passing and failing scenario runs.
 
 ## 3. Synthetic Learner Fixture Contracts And Validation
 
@@ -86,11 +88,11 @@ Define structured contracts for Synthetic Learner Personas, Synthetic Learner Sc
 
 Acceptance criteria:
 
-- [ ] Persona fixtures validate goal, background, learner level, source familiarity, behaviors, misconceptions, study habits, and response policy.
-- [ ] Scenario fixtures validate source fixture reference, personas, beats, max turns, stop conditions, allowed actions, and assertion references.
-- [ ] Beat-driven scenarios can render deterministic learner messages.
-- [ ] Live LLM prompt rendering preserves scenario constraints.
-- [ ] Tests cover valid fixtures, invalid fixtures, prompt rendering, and deterministic rendering.
+- [x] Persona fixtures validate goal, background, learner level, source familiarity, behaviors, misconceptions, study habits, and response policy.
+- [x] Scenario fixtures validate source fixture reference, personas, beats, max turns, stop conditions, allowed actions, and assertion references.
+- [x] Beat-driven scenarios can render deterministic learner messages.
+- [x] Live LLM prompt rendering preserves scenario constraints.
+- [x] Tests cover valid fixtures, invalid fixtures, prompt rendering, and deterministic rendering.
 
 ## 4. API-Only Runner With Live CLI Transcript
 
@@ -109,11 +111,11 @@ Build the repo-native TypeScript runner path that loads an eval set, seeds an ev
 
 Acceptance criteria:
 
-- [ ] Runner can execute one deterministic API-only Synthetic Learner Scenario end to end.
-- [ ] CLI prints student messages, tutor messages, tool starts/completions, runtime events, assertion status placeholders, and final status.
-- [ ] Runner records scenario steps and trace references in Eval Run persistence.
-- [ ] Runner handles tutor stream failure with a failed scenario result and useful error output.
-- [ ] Tests cover a successful scripted run and a tutor/API failure run.
+- [x] Runner can execute one deterministic API-only Synthetic Learner Scenario end to end.
+- [x] CLI prints student messages, tutor messages, tool starts/completions, runtime events, assertion status placeholders, and final status.
+- [x] Runner records scenario steps and trace references in Eval Run persistence.
+- [x] Runner handles tutor stream failure with a failed scenario result and useful error output.
+- [x] Tests cover a successful scripted run and a tutor/API failure run.
 
 ## 5. Deterministic Assertion Engine
 
@@ -132,11 +134,11 @@ Implement the first assertion engine over persisted Eval Runs, tutor traces, not
 
 Acceptance criteria:
 
-- [ ] Learner-visible assertions detect raw IDs, `[object Object]`, and debug/tool narration in tutor text.
-- [ ] Runtime assertions verify tutor turns, agent runs, tool calls, context selection, and `learning.evaluate_response` trigger behavior.
-- [ ] Persistence assertions verify Mastery Evidence, artifact lifecycle status, and session lifecycle boundaries.
-- [ ] Assertion results include evidence refs and clear failure messages.
-- [ ] Tests cover passing, failing, and skipped assertions.
+- [x] Learner-visible assertions detect raw IDs, `[object Object]`, and debug/tool narration in tutor text.
+- [x] Runtime assertions verify tutor turns, agent runs, tool calls, context selection, and `learning.evaluate_response` trigger behavior.
+- [x] Persistence assertions verify Mastery Evidence, artifact lifecycle status, and session lifecycle boundaries.
+- [x] Assertion results include evidence refs and clear failure messages.
+- [x] Tests cover passing, failing, and skipped assertions.
 
 ## 6. Dashboard Read Model And Eval Run Page
 
@@ -155,11 +157,11 @@ Add API read models and a web dashboard page for Eval Runs. The page should show
 
 Acceptance criteria:
 
-- [ ] Dashboard lists Eval Runs with status, duration, scenario counts, failed assertions, and fixture/persona/scenario metadata.
-- [ ] Eval Run detail shows transcript, tool calls, runtime events, assertion results, artifacts, and trace refs.
-- [ ] Dashboard can refresh during an active run using the persisted eval state.
-- [ ] Dashboard distinguishes eval-owned notebooks from learner notebooks.
-- [ ] Tests cover read-model construction and UI rendering for passing and failing runs.
+- [x] Dashboard lists Eval Runs with status, duration, scenario counts, failed assertions, and fixture/persona/scenario metadata.
+- [x] Eval Run detail shows transcript, tool calls, runtime events, assertion results, artifacts, and trace refs.
+- [x] Dashboard can refresh during an active run using the persisted eval state.
+- [x] Dashboard distinguishes eval-owned notebooks from learner notebooks.
+- [x] Tests cover read-model construction and UI rendering for passing and failing runs.
 
 ## 7. First 1 x 3 x 3 Synthetic Learner Eval Matrix
 
@@ -178,17 +180,19 @@ Create the first eval set with one Eval Source Fixture, three Synthetic Learner 
 
 Acceptance criteria:
 
-- [ ] Eval set includes Beginner with misconception, Overconfident skimmer, and Anxious exam-prep learner personas.
-- [ ] Eval set includes Lesson and remediation, Artifact request, and Session completion scenarios.
-- [ ] Running the suite executes nine scenario runs and persists all results.
-- [ ] CLI and dashboard show per-persona/per-scenario status.
-- [ ] Assertions cover Mastery Evidence, artifact lifecycle, session boundary, source refs, and learner-visible leakage.
+- [x] Eval set includes Beginner with misconception, Overconfident skimmer, and Anxious exam-prep learner personas.
+- [x] Eval set includes Lesson and remediation, Artifact request, and Session completion scenarios.
+- [x] Running the suite executes nine scenario runs and persists all results.
+- [x] CLI and dashboard show per-persona/per-scenario status.
+- [x] Assertions cover Mastery Evidence, artifact lifecycle, session boundary, source refs, and learner-visible leakage.
 
 ## 8. Fixture Freshness And Explicit Regeneration Command
 
 Type: AFK
 
 Blocked by: 1, 7.
+
+Status: implemented locally.
 
 User stories covered:
 
@@ -201,17 +205,25 @@ Add stale fixture detection and an explicit regeneration command. Normal eval ru
 
 Acceptance criteria:
 
-- [ ] Fixture manifest records ingestion pipeline version/hash, schema/migration version, model/provider metadata, generated timestamp, and source content hash.
-- [ ] Strict mode fails on stale fixtures.
-- [ ] Local dev mode warns and allows stale fixtures.
-- [ ] Regenerate mode refreshes a fixture explicitly.
-- [ ] Tests cover fresh, stale-warning, stale-failure, and regenerated fixture flows.
+- [x] Fixture manifest records ingestion pipeline version/hash, schema/migration version, model/provider metadata, generated timestamp, and source content hash.
+- [x] Strict mode fails on stale fixtures.
+- [x] Local dev mode warns and allows stale fixtures.
+- [x] Regenerate mode refreshes a fixture explicitly.
+- [x] Tests cover fresh, stale-warning, stale-failure, and regenerated fixture flows.
+
+Implementation notes:
+
+- Freshness policy lives in `packages/schemas/src/synthetic-learner-evals.ts`.
+- The eval source fixture API seed route defaults to strict mode and returns freshness metadata.
+- The worker CLI accepts `--freshness=warn|strict|regenerate` and `--regenerate-fixture`.
 
 ## 9. Browser/UI Golden Journey Steps
 
 Type: AFK
 
 Blocked by: 6, 7.
+
+Status: implemented locally.
 
 User stories covered:
 
@@ -223,17 +235,25 @@ Extend scenarios with first-class browser/UI steps and screenshot artifacts for 
 
 Acceptance criteria:
 
-- [ ] Scenario contracts support browser steps such as opening Workspace views, checking text, checking absence of leakage, and taking screenshots.
-- [ ] Browser steps can attach screenshots and UI assertion evidence to Eval Runs.
-- [ ] Golden journey can verify Source Wiki, Study Map, artifact view, citation visibility, and absence of `[object Object]`.
-- [ ] Browser failures produce actionable dashboard and CLI output.
-- [ ] Tests or Playwright verification cover at least one browser golden journey.
+- [x] Scenario contracts support browser steps such as opening Workspace views, checking text, checking absence of leakage, and taking screenshots.
+- [x] Browser steps can attach screenshots and UI assertion evidence to Eval Runs.
+- [x] Golden journey can verify Source Wiki, Study Map, artifact view, citation visibility, and absence of `[object Object]`.
+- [x] Browser failures produce actionable dashboard and CLI output.
+- [x] Tests or Playwright verification cover at least one browser golden journey.
+
+Implementation notes:
+
+- `browserSteps` live on Synthetic Learner Scenarios.
+- The runner records browser steps when a browser executor is provided.
+- Dashboard detail renders screenshot refs and browser assertion failures.
 
 ## 10. Autonomous Synthetic Learner Runs
 
 Type: AFK
 
 Blocked by: 4, 5, 7.
+
+Status: implemented locally.
 
 User stories covered:
 
@@ -245,17 +265,24 @@ Add autonomous mode where an LLM Synthetic Learner has broad learner freedom ins
 
 Acceptance criteria:
 
-- [ ] Autonomous runs can execute with max turns, allowed product surfaces, stop conditions, and invariant assertions.
-- [ ] Autonomous runs may perform real durable writes only inside eval-owned seeded notebooks.
-- [ ] Autonomous runs never mutate shared Eval Source Fixtures or production learner state.
-- [ ] Results are marked as discovery/stress runs rather than stable regression gates.
-- [ ] Dashboard and CLI show autonomous run traces and invariant failures.
+- [x] Autonomous runs can execute with max turns, allowed product surfaces, stop conditions, and invariant assertions.
+- [x] Autonomous runs may perform real durable writes only inside eval-owned seeded notebooks.
+- [x] Autonomous runs never mutate shared Eval Source Fixtures or production learner state.
+- [x] Results are marked as discovery/stress runs rather than stable regression gates.
+- [x] Dashboard and CLI show autonomous run traces and invariant failures.
+
+Implementation notes:
+
+- `runKind: full_autonomous`, `learnerMode: full_autonomous_llm`, and `autonomousConfig` encode discovery-only semantics.
+- Durable write scope is fixed to `eval_owned_notebooks`.
 
 ## 11. Optional LLM Judge Rubrics
 
 Type: AFK
 
 Blocked by: 5, 7.
+
+Status: implemented locally.
 
 User stories covered:
 
@@ -267,17 +294,24 @@ Add optional qualitative rubric scoring for explanation clarity, remediation qua
 
 Acceptance criteria:
 
-- [ ] Rubrics can be enabled per scenario or suite.
-- [ ] Rubric results are stored separately from deterministic gate status.
-- [ ] Dashboard labels LLM judge output as qualitative.
-- [ ] Deterministic assertion failure cannot be hidden by a positive LLM judge result.
-- [ ] Tests cover rubric result persistence and gate separation.
+- [x] Rubrics can be enabled per scenario or suite.
+- [x] Rubric results are stored separately from deterministic gate status.
+- [x] Dashboard labels LLM judge output as qualitative.
+- [x] Deterministic assertion failure cannot be hidden by a positive LLM judge result.
+- [x] Tests cover rubric result persistence and gate separation.
+
+Implementation notes:
+
+- Rubric definitions/results are qualitative only.
+- Deterministic gate status is derived only from scenario assertion status.
 
 ## 12. Optional Trigger.dev Adapter
 
 Type: AFK
 
 Blocked by: 7, 8.
+
+Status: implemented locally.
 
 User stories covered:
 
@@ -290,8 +324,13 @@ Add an optional Trigger.dev adapter that invokes the existing repo-native scenar
 
 Acceptance criteria:
 
-- [ ] Trigger.dev adapter calls the same scenario runner contracts as the CLI.
-- [ ] Adapter can trigger an eval suite and stream/persist status through existing Eval Run persistence.
-- [ ] Core eval runner remains usable without Trigger.dev.
-- [ ] Documentation explains when to use CLI, local dashboard, CI export, and Trigger.dev.
-- [ ] Tests or smoke verification cover adapter invocation without requiring Trigger.dev for normal local evals.
+- [x] Trigger.dev adapter calls the same scenario runner contracts as the CLI.
+- [x] Adapter can trigger an eval suite and stream/persist status through existing Eval Run persistence.
+- [x] Core eval runner remains usable without Trigger.dev.
+- [x] Documentation explains when to use CLI, local dashboard, CI export, and Trigger.dev.
+- [x] Tests or smoke verification cover adapter invocation without requiring Trigger.dev for normal local evals.
+
+Implementation notes:
+
+- `createSyntheticLearnerTriggerAdapter` delegates to the repo-native suite runner.
+- The adapter has no hard dependency on Trigger.dev and is safe to leave unused locally.

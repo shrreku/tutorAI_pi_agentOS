@@ -1,10 +1,12 @@
 import { and, eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { notebooks } from "@studyagent/db";
+import { learnerTraitValueByKeySchema } from "@studyagent/schemas";
 import { studentProfileUpdatePreferencesInputSchema } from "@studyagent/tools";
 import type { AppContext } from "../context.js";
 import { resolveActor } from "../auth.js";
 import { readStudentProfile, upsertStudentProfile } from "../student-profile.js";
+import { recordLearnerTraitSignal } from "../learner-trait-store.js";
 
 async function ensureNotebookOwner(ctx: AppContext, notebookId: string, userId: string): Promise<boolean> {
   const [row] = await ctx.db.db
@@ -43,9 +45,57 @@ export async function registerStudentProfileRoutes(app: FastifyInstance, ctx: Ap
       userId: parsed.data.userId ?? actor.id,
       patch: parsed.data,
     });
+    await recordPreferenceSignals(ctx, {
+      notebookId,
+      userId: parsed.data.userId ?? actor.id,
+      studentProfileId: result.profile.id,
+      patch: parsed.data,
+    });
 
     return reply.send({ studentProfile: result.profile });
   });
+}
+
+async function recordPreferenceSignals(
+  ctx: AppContext,
+  input: {
+    notebookId: string;
+    userId: string;
+    studentProfileId: string;
+    patch: Record<string, unknown>;
+  },
+): Promise<void> {
+  const candidates: Array<{ trait: string; value: unknown }> = [
+    { trait: "pacePreference", value: input.patch.pacePreference },
+    { trait: "depthPreference", value: input.patch.depthPreference },
+    { trait: "examplePreference", value: recordPreferenceValue(input.patch.examplePreferencesJson) },
+    { trait: "assessmentPreference", value: recordPreferenceValue(input.patch.assessmentPreferenceJson) },
+  ];
+
+  for (const candidate of candidates) {
+    if (candidate.value === undefined || candidate.value === null) continue;
+    const parsed = learnerTraitValueByKeySchema.safeParse(candidate);
+    if (!parsed.success) continue;
+    await recordLearnerTraitSignal(ctx.db, {
+      id: `lts_${crypto.randomUUID().replaceAll("-", "")}`,
+      notebookId: input.notebookId,
+      userId: input.userId,
+      source: "explicit_self_report",
+      trait: parsed.data.trait,
+      suggestedValue: parsed.data.value,
+      strength: 0.95,
+      confidence: 0.95,
+      evidenceRefs: [{ refType: "student_profile", refId: input.studentProfileId }],
+      internalVisibility: true,
+      observedAt: new Date().toISOString(),
+      notes: "Learner-facing preference control update.",
+    } as Parameters<typeof recordLearnerTraitSignal>[1]);
+  }
+}
+
+function recordPreferenceValue(value: unknown): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  return (value as Record<string, unknown>).preference;
 }
 
 function normalizeStudentProfilePatch(body: unknown): unknown {

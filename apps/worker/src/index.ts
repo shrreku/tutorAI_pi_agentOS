@@ -332,10 +332,43 @@ async function main() {
 
         const terminalStatus = pdfNeedsReview ? "needs_review" : tutoringGate ? "tutoring_ready" : "indexed";
 
-        const { inferSourceLevelFromSignals } = await import("@studyagent/schemas");
+        const { buildSourceReadiness, inferSourceLevelFromSignals, sourceReadinessComponent } = await import("@studyagent/schemas");
         const inferred = inferSourceLevelFromSignals({
           title: source.title,
           metadata: { ...(source.metadataJson ?? {}), sourceId },
+        });
+        const readinessUpdatedAt = new Date().toISOString();
+        const sourceReadiness = buildSourceReadiness({
+          retrieval: sourceReadinessComponent(retrievalChunks.length > 0, {
+            updatedAt: readinessUpdatedAt,
+            message: retrievalChunks.length > 0 ? null : "No retrieval chunks were created for this source.",
+          }),
+          search: sourceReadinessComponent(lexicalReady, { updatedAt: readinessUpdatedAt }),
+          wiki: sourceReadinessComponent(enrichmentOk, {
+            updatedAt: readinessUpdatedAt,
+            status: enrichmentOk ? "ready" : "degraded",
+            message: enrichmentOk ? null : enrichmentReason ?? "Source Wiki is still improving.",
+          }),
+          planning: sourceReadinessComponent(enrichmentOk, {
+            updatedAt: readinessUpdatedAt,
+            status: enrichmentOk ? "ready" : "degraded",
+            message: enrichmentOk ? null : enrichmentReason ?? "Learning plan bootstrap is still improving.",
+          }),
+          projection: sourceReadinessComponent(false, {
+            updatedAt: readinessUpdatedAt,
+            status: env.NEO4J_URI && env.NEO4J_PASSWORD ? "pending" : "degraded",
+            message: env.NEO4J_URI && env.NEO4J_PASSWORD ? "Study Map projection is queued." : "Study Map projection is unavailable.",
+          }),
+          learnerSourceWiki: sourceReadinessComponent(enrichmentOk, {
+            updatedAt: readinessUpdatedAt,
+            status: enrichmentOk ? "ready" : "degraded",
+            message: enrichmentOk ? null : "Source Wiki is still improving.",
+          }),
+          tutoring: sourceReadinessComponent(tutoringGate, {
+            updatedAt: readinessUpdatedAt,
+            status: tutoringGate ? "ready" : pdfNeedsReview ? "degraded" : "pending",
+            message: tutoringGate ? null : pdfNeedsReview ? "PDF parsing needs review before tutoring." : enrichmentReason ?? "Tutor is still preparing this source.",
+          }),
         });
         const inferredSourceLevel = {
           sourceLevel: inferred.level,
@@ -356,6 +389,7 @@ async function main() {
               enrichmentOk,
               enrichmentReason,
               tutoringReady: tutoringGate,
+              ...(enrichmentOk ? {} : { sourceReadiness }),
               lastIngestJobId: job.id,
             },
           })

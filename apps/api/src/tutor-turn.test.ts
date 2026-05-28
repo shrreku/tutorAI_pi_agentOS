@@ -3,9 +3,10 @@ import { agentRuns, objectiveLists, objectives, studyPlans, toolCalls, tutorSess
 import type { AppContext } from "./context.js";
 import { executeTutorTurn } from "./tutor-turn.js";
 
-const { appendEventMock, runSessionMock, compactStudyContextMock, loadNotebookStudyStateMock } = vi.hoisted(() => ({
+const { appendEventMock, runSessionMock, replaceRuntimeMock, compactStudyContextMock, loadNotebookStudyStateMock } = vi.hoisted(() => ({
   appendEventMock: vi.fn(async () => ({ id: "evt_1" })),
   runSessionMock: vi.fn(),
+  replaceRuntimeMock: vi.fn(async () => ({ replaced: false, disposedSessionId: null, binding: null })),
   compactStudyContextMock: vi.fn(() => ({
     compressedContext: "compressed-context",
     activeConceptIds: [],
@@ -38,8 +39,9 @@ vi.mock("@studyagent/agent-runtime", async () => {
       budgets: {},
       traceId: "trace_1",
     })),
-    replaceStudyAgentTutorRuntime: vi.fn(async () => undefined),
+    replaceStudyAgentTutorRuntime: replaceRuntimeMock,
     runStudyAgentTutorSession: runSessionMock,
+    buildStudyAgentHostStateSignature: vi.fn(() => "studyagent-host-state-v1:test-signature"),
     createAgUiEventMapper: actual.createAgUiEventMapper,
     serializeAgUiEventToSse: vi.fn((event: { type: string }) => `event: ${event.type}\n\n`),
     mapPiSessionEventToAppendInput: vi.fn(() => null),
@@ -164,6 +166,7 @@ describe("executeTutorTurn", () => {
     appendEventMock.mockClear();
     runSessionMock.mockReset();
     loadNotebookStudyStateMock.mockReset();
+    replaceRuntimeMock.mockClear();
 
     loadNotebookStudyStateMock.mockResolvedValue({
       studentProfile: null,
@@ -211,6 +214,82 @@ describe("executeTutorTurn", () => {
         data: { runId: "run_1" },
       };
     });
+  });
+
+  it("adds a material host-state signature before replacing cached runtime", async () => {
+    const fakeDb = new FakeDb();
+    const ctx = {
+      db: { db: fakeDb },
+      env: {
+        DEFAULT_TUTOR_MODEL: "test-model",
+        OPENROUTER_API_KEY: "test-key",
+        OPENROUTER_BASE_URL: "https://example.invalid",
+      },
+    } as unknown as AppContext;
+
+    await executeTutorTurn({
+      ctx,
+      notebookId: "nb_1",
+      sessionId: "sess_1",
+      userId: "user_1",
+      activeMode: "learn",
+      selectedNodeRefs: [],
+      action: "prompt",
+      message: "teach me this",
+      promptContext: {
+        notebookTitle: "Notebook A",
+        activeMode: "learn",
+        selectedNodeRefs: [],
+        currentObjective: "Objective A",
+        learnerProgressSummary: "Pace preference: slow.",
+        additionalInstructions: ["Stay inside selected source."],
+      },
+      studyState: {
+        studentProfile: null,
+        curriculum: null,
+        module: null,
+        objectiveList: null,
+        sessionPlan: { id: "plan_1" },
+        studyPlan: null,
+        coverage: { total: 0, planned: 0, introduced: 0, checked: 0, mastered: 0, needsReview: 0, gaps: [] },
+        sourceLevels: [],
+        learnerReadiness: [],
+      } as never,
+      previousRuntimeContext: {},
+      toolRegistry: {},
+      emitStreamEvent: () => undefined,
+      logger: {
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+      },
+      run: {
+        runId: "run_1",
+        notebookId: "nb_1",
+        sessionId: "sess_1",
+        userId: "user_1",
+        activeMode: "learn",
+        selectedNodeRefs: [],
+        modelConfig: { model: "test-model" },
+        budgets: {},
+        traceId: "trace_1",
+      } as never,
+    });
+
+    expect(replaceRuntimeMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        nextRun: expect.objectContaining({
+          hostStateSignature: expect.stringMatching(/^studyagent-host-state-v1:/),
+        }),
+      }),
+    );
+    expect(runSessionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        run: expect.objectContaining({
+          hostStateSignature: expect.stringMatching(/^studyagent-host-state-v1:/),
+        }),
+      }),
+    );
   });
 
   it("executes a tutor turn without the route layer", async () => {
@@ -287,6 +366,97 @@ describe("executeTutorTurn", () => {
       sessionDigestDraft: expect.objectContaining({ summary: "Tutor response" }),
       lastRunId: "run_1",
     });
+  });
+
+  it("records context selection evidence even when retrieval returns no selected chunks", async () => {
+    const fakeDb = new FakeDb();
+    const ctx = {
+      db: { db: fakeDb },
+      env: {
+        DEFAULT_TUTOR_MODEL: "test-model",
+        OPENROUTER_API_KEY: "test-key",
+        OPENROUTER_BASE_URL: "https://example.invalid",
+      },
+    } as unknown as AppContext;
+
+    await executeTutorTurn({
+      ctx,
+      notebookId: "nb_1",
+      sessionId: "sess_1",
+      userId: "user_1",
+      activeMode: "learn",
+      selectedNodeRefs: [],
+      action: "prompt",
+      message: "teach me this",
+      promptContext: {
+        notebookTitle: "Notebook A",
+        activeMode: "learn",
+        selectedNodeRefs: [],
+        currentObjective: "Explore notebook resources",
+        completedObjectivesCount: 0,
+        nextObjectives: [],
+        additionalInstructions: [],
+      },
+      studyState: {
+        studentProfile: null,
+        curriculum: null,
+        module: null,
+        objectiveList: null,
+        sessionPlan: { id: "plan_1" },
+        studyPlan: null,
+        coverage: { total: 0, planned: 0, introduced: 0, checked: 0, mastered: 0, needsReview: 0, gaps: [] },
+        sourceLevels: [],
+        learnerReadiness: [],
+      } as never,
+      contextSelection: {
+        strategy: "selected-nodes-current-objective-weak-concepts-notebook",
+        query: "teach me this",
+        retrievalMode: "lexical",
+        maxChunks: 6,
+        selectedNodeRefs: [],
+        selectedChunkIds: [],
+        selectedSourceIds: [],
+        objectiveTitle: null,
+        objectivePathConceptIds: [],
+        weakConceptNames: [],
+        recentMistakeConceptIds: [],
+        sourceScopePolicy: "soft_source_scope",
+        usedSourceScopeFallback: false,
+        sourceCoverageGap: false,
+        reason: "No retrieval rows matched; continuing with notebook state.",
+      },
+      previousRuntimeContext: {},
+      toolRegistry: {},
+      emitStreamEvent: () => undefined,
+      logger: {
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+      },
+      run: {
+        runId: "run_1",
+        notebookId: "nb_1",
+        sessionId: "sess_1",
+        userId: "user_1",
+        activeMode: "learn",
+        selectedNodeRefs: [],
+        modelConfig: { model: "test-model" },
+        budgets: {},
+        traceId: "trace_1",
+      } as never,
+    });
+
+    expect(appendEventMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        eventType: "session.context.selected",
+        payload: expect.objectContaining({
+          selectedChunkIds: [],
+          selectedSourceIds: [],
+          reason: "No retrieval rows matched; continuing with notebook state.",
+        }),
+      }),
+    );
   });
 
   it("persists failed run and turn summary when runtime throws", async () => {
@@ -713,7 +883,7 @@ describe("executeTutorTurn", () => {
     expect(result.assistantMessage).toBe("I could not finish that write.");
   });
 
-  it("crystallizes progression after a normal tutor answer and Artifact creation", async () => {
+  it("does not complete an Objective from vague learner confirmation alone", async () => {
     runSessionMock.mockImplementation(async function* (input: {
       onToolLifecycleEvent?: (event: unknown) => Promise<void>;
     }) {
@@ -838,23 +1008,130 @@ describe("executeTutorTurn", () => {
 
     expect(result.status).toBe("completed");
     expect(result.artifactProposalIds).toEqual(["art_1"]);
+    expect(fakeDb.objectives[0]).toMatchObject({ status: "active" });
+    expect(fakeDb.studyPlanRows[0]).toMatchObject({ currentObjectiveId: "objective_1" });
+    expect(fakeDb.objectiveListRows[0]).toMatchObject({ currentObjectiveId: "objective_1" });
+    const appendCalls = appendEventMock.mock.calls as unknown as Array<[unknown, { eventType?: string }]>;
+    expect(appendCalls.some(([, event]) => event.eventType === "objective.completed")).toBe(false);
+    expect(appendCalls.some(([, event]) => event.eventType === "study_plan.updated")).toBe(false);
+  });
+
+  it("completes an Objective when recent strong Mastery Evidence supports advancement", async () => {
+    const fakeDb = new FakeDb();
+    fakeDb.objectives = [{ id: "objective_1", notebookId: "nb_1", status: "active" }];
+    fakeDb.studyPlanRows = [{ id: "study_plan_1", notebookId: "nb_1", currentObjectiveId: "objective_1" }];
+    fakeDb.objectiveListRows = [{ id: "olist_1", notebookId: "nb_1", currentObjectiveId: "objective_1" }];
+    const ctx = {
+      db: { db: fakeDb },
+      env: {
+        DEFAULT_TUTOR_MODEL: "test-model",
+        OPENROUTER_API_KEY: "test-key",
+        OPENROUTER_BASE_URL: "https://example.invalid",
+      },
+    } as unknown as AppContext;
+
+    const result = await executeTutorTurn({
+      ctx,
+      notebookId: "nb_1",
+      sessionId: "sess_1",
+      userId: "user_1",
+      activeMode: "learn",
+      selectedNodeRefs: [],
+      action: "prompt",
+      message: "next",
+      promptContext: {
+        notebookTitle: "Notebook A",
+        activeMode: "learn",
+        selectedNodeRefs: [],
+        currentObjective: "Objective 1",
+        completedObjectivesCount: 0,
+        nextObjectives: ["Objective 2"],
+        additionalInstructions: [],
+      },
+      studyState: {
+        studentProfile: null,
+        curriculum: null,
+        module: null,
+        objectiveList: {
+          id: "olist_1",
+          title: "Objective List",
+          status: "active",
+          currentObjectiveId: "objective_1",
+          objectiveIdsOrdered: ["objective_1", "objective_2"],
+        },
+        sessionPlan: {
+          id: "plan_1",
+          title: "Session Plan",
+          status: "active",
+          sessionGoal: null,
+          plannedObjectiveIds: ["objective_1", "objective_2"],
+          teachingArcIds: [],
+          teachingArcTitles: [],
+          teachingArcBlockTypes: [],
+        },
+        studyPlan: {
+          id: "study_plan_1",
+          title: "Study Plan",
+          status: "active",
+          activeSessionId: null,
+          currentObjective: { id: "objective_1", title: "Objective 1", status: "active" },
+          upcomingObjectives: [{ id: "objective_2", title: "Objective 2", status: "not_started" }],
+          completedObjectives: [],
+          weakConcepts: [],
+        },
+        coverage: { total: 0, planned: 0, introduced: 0, checked: 0, mastered: 0, needsReview: 0, gaps: [] },
+        sourceLevels: [],
+        learnerReadiness: [],
+      } as never,
+      previousRuntimeContext: {
+        lastRuntimeMasteryEvidence: {
+          evidenceId: "mev_strong",
+          objectiveId: "objective_1",
+          correctnessLabel: "correct",
+          overallScore: 0.92,
+          confidence: 0.86,
+          uncertainty: 0.12,
+          readiness: "advanced",
+          tutoringIntervention: "advance",
+        },
+      },
+      toolRegistry: {},
+      emitStreamEvent: () => undefined,
+      logger: {
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+      },
+      run: {
+        runId: "run_1",
+        notebookId: "nb_1",
+        sessionId: "sess_1",
+        userId: "user_1",
+        activeMode: "learn",
+        selectedNodeRefs: [],
+        modelConfig: { model: "test-model" },
+        budgets: {},
+        traceId: "trace_1",
+      } as never,
+    });
+
+    expect(result.status).toBe("completed");
     expect(fakeDb.objectives[0]).toMatchObject({ status: "completed" });
     expect(fakeDb.studyPlanRows[0]).toMatchObject({
       currentObjectiveId: "objective_2",
       completedObjectiveIds: ["objective_1"],
       progressSummaryJson: expect.objectContaining({
         lastCompletedObjectiveId: "objective_1",
-        lastCompletedObjectiveTitle: "Objective 1",
+        masteryEvidenceId: "mev_strong",
       }),
     });
     expect(fakeDb.objectiveListRows[0]).toMatchObject({ currentObjectiveId: "objective_2" });
     expect(appendEventMock).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ eventType: "objective.completed" }),
-    );
-    expect(appendEventMock).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({ eventType: "study_plan.updated" }),
+      expect.objectContaining({
+        eventType: "objective.completed",
+        payload: expect.objectContaining({ reason: "mastery_evidence", masteryEvidenceId: "mev_strong" }),
+      }),
     );
   });
 
