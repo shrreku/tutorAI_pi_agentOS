@@ -94,6 +94,13 @@ export class ToolReducerValidationError extends ToolError {
   }
 }
 
+export class ToolContextIdentityError extends ToolError {
+  constructor(toolName: string) {
+    super("tool_context_identity_missing", `Write tool ${toolName} requires session, run, and turn identity`);
+    this.name = "ToolContextIdentityError";
+  }
+}
+
 export class ToolCatalogCoverageError extends Error {
   constructor(message: string) {
     super(message);
@@ -150,6 +157,10 @@ export async function executeTool(
   const tool = registry.get(toolName);
   if (!tool) {
     throw new ToolNotFoundError(toolName);
+  }
+  const contract = getToolContract(toolName);
+  if (contract?.operationKind === "write" && (!context.sessionId || !context.runId || !context.turnId)) {
+    throw new ToolContextIdentityError(toolName);
   }
 
   const now = options.now ?? (() => new Date());

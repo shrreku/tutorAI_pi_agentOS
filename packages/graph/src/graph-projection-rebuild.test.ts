@@ -36,11 +36,14 @@ describe("projection rebuild scopes", () => {
     );
   });
 
-  it("clears source-scoped topics, claims, and wiki pages before replay", async () => {
+  it("clears source-scoped relationships, topics, claims, wiki pages, and source-owned nodes before replay", async () => {
     const run = vi.fn().mockResolvedValue(undefined);
     const session = { run } as unknown as import("neo4j-driver").Session;
     await clearSourceProjectionScope(session, "nb_rebuild", "src_1");
-    expect(run).toHaveBeenCalledTimes(3);
+    expect(run).toHaveBeenCalledTimes(6);
+    expect(run.mock.calls[0]?.[0]).toContain("DETACH DELETE owned, cur");
+    expect(run.mock.calls[1]?.[0]).toContain("DELETE r");
+    expect(run.mock.calls[5]?.[0]).toContain("NOT n:Concept");
   });
 
   it("replays the same projection plan idempotently", async () => {

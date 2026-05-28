@@ -25,7 +25,9 @@ describe("tool contract catalog", () => {
   const baseContext: ToolContext = {
     userId: "user_1",
     notebookId: "nb_1",
+    sessionId: "sess_1",
     runId: "run_1",
+    turnId: "turn_1",
     traceId: "trace_1",
     permissions: {},
     selectedNodeRefs: [],
@@ -51,6 +53,7 @@ describe("tool contract catalog", () => {
       "graph.get_source_wiki_map",
       "graph.get_study_map",
       "graph.get_subgraph",
+      "learner_trait.record_signal",
       "learning.evaluate_response",
       "learning.get_state",
       "module.update",

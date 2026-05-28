@@ -142,6 +142,61 @@ export const studentProfiles = pgTable(
   (t) => [uniqueIndex("student_profiles_notebook_user_unique").on(t.notebookId, t.userId)],
 );
 
+export const learnerTraitSignals = pgTable(
+  "learner_trait_signals",
+  {
+    id: text("id").primaryKey(),
+    notebookId: text("notebook_id")
+      .notNull()
+      .references(() => notebooks.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    source: text("source").notNull(),
+    trait: text("trait").notNull(),
+    signalJson: jsonb("signal_json").$type<Record<string, unknown>>().notNull(),
+    evidenceRefsJson: jsonb("evidence_refs_json").$type<unknown[]>().notNull().default([]),
+    sessionId: text("session_id"),
+    turnId: text("turn_id"),
+    runId: text("run_id"),
+    observedAt: timestamp("observed_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("learner_trait_signals_notebook_user_created_idx").on(t.notebookId, t.userId, t.createdAt),
+    index("learner_trait_signals_session_idx").on(t.sessionId, t.createdAt),
+    index("learner_trait_signals_trait_idx").on(t.notebookId, t.userId, t.trait),
+  ],
+);
+
+export const learnerTraitEstimates = pgTable(
+  "learner_trait_estimates",
+  {
+    id: text("id").primaryKey(),
+    notebookId: text("notebook_id")
+      .notNull()
+      .references(() => notebooks.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    trait: text("trait").notNull(),
+    targetRefType: text("target_ref_type").notNull().default("notebook"),
+    targetRefId: text("target_ref_id").notNull().default("notebook"),
+    lane: text("lane").notNull(),
+    confidence: real("confidence").notNull(),
+    estimateJson: jsonb("estimate_json").$type<Record<string, unknown>>().notNull(),
+    evidenceRefsJson: jsonb("evidence_refs_json").$type<unknown[]>().notNull().default([]),
+    contradictionRefsJson: jsonb("contradiction_refs_json").$type<unknown[]>().notNull().default([]),
+    guardrailJson: jsonb("guardrail_json").$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("learner_trait_estimates_current_unique").on(t.notebookId, t.userId, t.trait, t.targetRefType, t.targetRefId),
+    index("learner_trait_estimates_notebook_user_idx").on(t.notebookId, t.userId),
+  ],
+);
+
 export const curricula = pgTable(
   "curricula",
   {
@@ -735,6 +790,7 @@ export const neo4jProjectionState = pgTable(
     lastFailureAt: timestamp("last_failure_at", { withTimezone: true }),
     failureReason: text("failure_reason"),
     canonicalUpdatedAt: timestamp("canonical_updated_at", { withTimezone: true }),
+    lastProjectionScope: text("last_projection_scope"),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("neo4j_projection_state_notebook_unique").on(t.notebookId)],
@@ -756,6 +812,8 @@ export const neo4jSourceProjectionState = pgTable(
     lastFailureAt: timestamp("last_failure_at", { withTimezone: true }),
     failureReason: text("failure_reason"),
     canonicalUpdatedAt: timestamp("canonical_updated_at", { withTimezone: true }),
+    lastProjectionScope: text("last_projection_scope"),
+    lastSourceVersionId: text("last_source_version_id"),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

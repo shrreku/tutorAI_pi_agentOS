@@ -44,6 +44,7 @@ export async function mergeConceptRelation(
   toConceptId: string,
   kind: IngestConceptRelationKind,
   confidence: number | null,
+  sourceId?: string,
 ): Promise<void> {
   const conf = confidence ?? undefined;
   if (kind === "depends_on") {
@@ -53,8 +54,9 @@ export async function mergeConceptRelation(
        MERGE (a)-[r:DEPENDS_ON]->(b)
        SET r.notebookId = $notebookId,
            r.confidence = coalesce($confidence, r.confidence),
+           r.projectionSourceId = coalesce($sourceId, r.projectionSourceId),
            r.updatedAt = datetime()`,
-      { fromId: fromConceptId, toId: toConceptId, notebookId, confidence: conf ?? null },
+      { fromId: fromConceptId, toId: toConceptId, notebookId, confidence: conf ?? null, sourceId: sourceId ?? null },
     );
     return;
   }
@@ -65,8 +67,9 @@ export async function mergeConceptRelation(
        MERGE (a)-[r:CONTRADICTS]->(b)
        SET r.notebookId = $notebookId,
            r.confidence = coalesce($confidence, r.confidence),
+           r.projectionSourceId = coalesce($sourceId, r.projectionSourceId),
            r.updatedAt = datetime()`,
-      { fromId: fromConceptId, toId: toConceptId, notebookId, confidence: conf ?? null },
+      { fromId: fromConceptId, toId: toConceptId, notebookId, confidence: conf ?? null, sourceId: sourceId ?? null },
     );
     return;
   }
@@ -78,8 +81,9 @@ export async function mergeConceptRelation(
        SET r.notebookId = $notebookId,
            r.variant = 'example_of',
            r.confidence = coalesce($confidence, r.confidence),
+           r.projectionSourceId = coalesce($sourceId, r.projectionSourceId),
            r.updatedAt = datetime()`,
-      { fromId: fromConceptId, toId: toConceptId, notebookId, confidence: conf ?? null },
+      { fromId: fromConceptId, toId: toConceptId, notebookId, confidence: conf ?? null, sourceId: sourceId ?? null },
     );
     return;
   }
@@ -91,8 +95,9 @@ export async function mergeConceptRelation(
      SET r.notebookId = $notebookId,
          r.variant = $variant,
          r.confidence = coalesce($confidence, r.confidence),
+         r.projectionSourceId = coalesce($sourceId, r.projectionSourceId),
          r.updatedAt = datetime()`,
-    { fromId: fromConceptId, toId: toConceptId, notebookId, variant, confidence: conf ?? null },
+    { fromId: fromConceptId, toId: toConceptId, notebookId, variant, confidence: conf ?? null, sourceId: sourceId ?? null },
   );
 }
 

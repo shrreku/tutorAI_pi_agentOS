@@ -26,6 +26,11 @@ export const entityRefTypeSchema = z.enum([
   "session",
   "turn",
   "tool_call",
+  "trait_signal",
+  "trait_estimate",
+  "trait_proposal",
+  "trait_guardrail_decision",
+  "screenshot",
   "whiteboard_node",
   "whiteboard_edge",
 ]);

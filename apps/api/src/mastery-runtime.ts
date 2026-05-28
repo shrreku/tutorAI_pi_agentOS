@@ -3,6 +3,9 @@ export type PendingMasteryEvaluation = {
   tutorQuestion: string;
   conceptIds: string[];
   objectiveId: string | null;
+  sourceRefs?: Array<{ refType: "source"; refId: string }>;
+  contextRefs?: Array<{ refType: string; refId: string }>;
+  sourceScopePolicy?: string;
   referenceAnswer?: string;
   createdAt: string;
 };
@@ -20,6 +23,9 @@ export function buildPendingEvaluationFromAssistantMessage(input: {
   assistantMessage: string;
   conceptIds: string[];
   objectiveId?: string | null;
+  sourceRefs?: Array<{ refType: "source"; refId: string }>;
+  contextRefs?: Array<{ refType: string; refId: string }>;
+  sourceScopePolicy?: string;
   referenceAnswer?: string;
 }): PendingMasteryEvaluation | null {
   const message = input.assistantMessage.trim();
@@ -32,6 +38,9 @@ export function buildPendingEvaluationFromAssistantMessage(input: {
     tutorQuestion: message.slice(0, 1200),
     conceptIds: input.conceptIds,
     objectiveId: input.objectiveId ?? null,
+    ...(input.sourceRefs?.length ? { sourceRefs: input.sourceRefs } : {}),
+    ...(input.contextRefs?.length ? { contextRefs: input.contextRefs } : {}),
+    ...(input.sourceScopePolicy ? { sourceScopePolicy: input.sourceScopePolicy } : {}),
     ...(input.referenceAnswer ? { referenceAnswer: input.referenceAnswer } : {}),
     createdAt: new Date().toISOString(),
   };
@@ -73,6 +82,19 @@ export function readPendingEvaluation(runtimeContext: Record<string, unknown> | 
     objectiveId: typeof record.objectiveId === "string" ? record.objectiveId : null,
     createdAt: typeof record.createdAt === "string" ? record.createdAt : new Date().toISOString(),
   };
+  if (Array.isArray(record.sourceRefs)) {
+    parsed.sourceRefs = record.sourceRefs
+      .filter((ref): ref is Record<string, unknown> => Boolean(ref && typeof ref === "object" && !Array.isArray(ref)))
+      .filter((ref): ref is { refType: "source"; refId: string } => ref.refType === "source" && typeof ref.refId === "string");
+  }
+  if (Array.isArray(record.contextRefs)) {
+    parsed.contextRefs = record.contextRefs
+      .filter((ref): ref is Record<string, unknown> => Boolean(ref && typeof ref === "object" && !Array.isArray(ref)))
+      .filter((ref): ref is { refType: string; refId: string } => typeof ref.refType === "string" && typeof ref.refId === "string");
+  }
+  if (typeof record.sourceScopePolicy === "string") {
+    parsed.sourceScopePolicy = record.sourceScopePolicy;
+  }
   if (typeof record.referenceAnswer === "string") {
     parsed.referenceAnswer = record.referenceAnswer;
   }

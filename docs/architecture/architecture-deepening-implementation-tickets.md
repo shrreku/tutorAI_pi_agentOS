@@ -4,6 +4,12 @@ Status: draft for review before publishing to GitHub Issues.
 
 This document turns the architecture deepening candidates into handoff-ready implementation tickets. The slices are intentionally narrow. Each one should leave a demoable or testable path through the relevant Interface, Implementation, Adapter, persistence, and user-facing behavior where applicable.
 
+Current hardening note (2026-05-26): these tickets created useful Modules, but a follow-up audit found that several Interfaces remain too shallow or have drifted since this document was written. Treat "verified complete" below as "the first Module slice exists" rather than "all runtime hardening is finished." Follow-up audit, plan, and tickets live in:
+
+- `docs/architecture/architecture-remediation-audit-2026-05-26.md`
+- `docs/architecture/architecture-remediation-plan.md`
+- `docs/architecture/architecture-remediation-implementation-tickets.md`
+
 The tickets respect the accepted ADRs in `docs/adr/`:
 
 - ADR-0001: Notebook-scoped learning workspace.

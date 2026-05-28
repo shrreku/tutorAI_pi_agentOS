@@ -9,13 +9,17 @@ import type {
   WorkspaceNodeDescriptor,
   WorkspaceVisibility,
 } from "@studyagent/schemas";
+import { buildSourceWikiLearnerView, graphRelationSemantics } from "@studyagent/schemas";
 import {
   artifacts,
+  chunks,
+  claims,
   concepts,
   learningState,
   objectiveLists,
   objectives,
   studyPlans,
+  wikiPages,
 } from "@studyagent/db";
 import type { AppContext } from "./context.js";
 import { learnerVisibilityForArtifact } from "./artifact-lifecycle.js";
@@ -517,13 +521,13 @@ export function buildSourceWikiTopicGroups(
 
       const conceptIds = uniqueIds(
         canvas.edges
-          .filter((edge) => edge.source === topicPage.id && edge.relationType === "CONTAINS_CONCEPT")
+          .filter((edge) => edge.source === topicPage.id && graphRelationSemantics(edge.relationType)?.canonical === "contains_concept")
           .map((edge) => edge.target)
           .filter((id) => visibleById.get(id)?.visibility !== "hidden"),
       );
       const pageIds = uniqueIds(
         canvas.edges
-          .filter((edge) => edge.source === topicPage.id && edge.relationType === "CONTAINS_PAGE")
+          .filter((edge) => edge.source === topicPage.id && graphRelationSemantics(edge.relationType)?.canonical === "contains_page")
           .map((edge) => edge.target)
           .filter((id) => id !== topicPage.id)
           .filter((id) => visibleById.get(id)?.visibility !== "hidden"),
@@ -566,13 +570,13 @@ export function buildSourceWikiTopicGroups(
           : "Ungrouped";
       const conceptIds = uniqueIds(
         canvas.edges
-          .filter((edge) => edge.source === topicNode.id && edge.relationType === "CONTAINS_CONCEPT")
+          .filter((edge) => edge.source === topicNode.id && graphRelationSemantics(edge.relationType)?.canonical === "contains_concept")
           .map((edge) => edge.target)
           .filter((id) => visibleById.get(id)?.visibility !== "hidden"),
       );
       const pageIds = uniqueIds(
         canvas.edges
-          .filter((edge) => edge.source === topicNode.id && edge.relationType === "CONTAINS_PAGE")
+          .filter((edge) => edge.source === topicNode.id && graphRelationSemantics(edge.relationType)?.canonical === "contains_page")
           .map((edge) => edge.target)
           .filter((id) => visibleById.get(id)?.visibility !== "hidden"),
       );
@@ -657,6 +661,7 @@ export async function buildSourceWikiReadModel(
   const nodeCatalog = buildNodeCatalog("source_wiki_map", canvas, context, options.devMode);
   const filtered = filterCanvasByVisibility(canvas, nodeCatalog, options.devMode);
   const topics = buildSourceWikiTopicGroups(canvas, sourceId, nodeCatalog);
+  const sourceWikiPages = await buildSourceWikiPageViews(ctx, notebookId, sourceId, options.devMode, options.projectionWarning ?? null);
 
   return {
     viewMode: "source_wiki_map",
@@ -668,11 +673,66 @@ export async function buildSourceWikiReadModel(
     },
     nodeCatalog,
     topics,
+    sourceWikiPages,
     projectionWarning: options.projectionWarning ?? null,
     ...(options.projectionHealth ? { projectionHealth: options.projectionHealth } : {}),
     nodes: filtered.nodes,
     edges: filtered.edges,
   };
+}
+
+export async function buildSourceWikiPageViews(
+  ctx: AppContext,
+  notebookId: string,
+  sourceId: string,
+  devMode: boolean,
+  projectionWarning: string | null,
+) {
+  const pages = await ctx.db.db
+    .select()
+    .from(wikiPages)
+    .where(eq(wikiPages.notebookId, notebookId));
+  const sourceClaimRows = await ctx.db.db
+    .select()
+    .from(claims)
+    .where(and(eq(claims.notebookId, notebookId), eq(claims.sourceId, sourceId)));
+  const sourceClaims = Array.isArray(sourceClaimRows) ? sourceClaimRows : [];
+  const sourceClaimIds = new Set(sourceClaims.map((claim) => claim.id));
+  const sourcePages = (Array.isArray(pages) ? pages : []).filter((page) => {
+    if (page.pageType === "source_summary" && page.pageKey === `source:${sourceId}`) return true;
+    if (page.pageType === "topic" && page.pageKey === `topic:${sourceId}`) return true;
+    if (page.structuredJson?.bootstrapSourceId === sourceId) return true;
+    return page.sourceClaimIds.some((claimId) => sourceClaimIds.has(claimId));
+  });
+  const claimIds = [...new Set(sourcePages.flatMap((page) => page.sourceClaimIds))];
+  const chunkIds = [...new Set(sourcePages.flatMap((page) => page.sourceChunkIds))];
+  const claimRows = claimIds.length
+    ? sourceClaims.filter((claim) => claimIds.includes(claim.id))
+    : [];
+  const chunkRows = chunkIds.length
+    ? await ctx.db.db.select({ id: chunks.id, text: chunks.text }).from(chunks).where(inArray(chunks.id, chunkIds))
+    : [];
+  const excerptByChunkId = new Map(chunkRows.map((chunk) => [chunk.id, chunk.text.slice(0, 360)]));
+
+  return sourcePages.map((page) =>
+    buildSourceWikiLearnerView({
+      page: { id: page.id, title: page.title, status: page.status, markdown: page.markdown },
+      devMode,
+      projectionWarning,
+      claims: claimRows
+        .filter((claim) => page.sourceClaimIds.includes(claim.id))
+        .map((claim) => ({
+          id: claim.id,
+          status: claim.status,
+          claimText: claim.claimText,
+          confidence: claim.confidence,
+          supportScore: claim.supportScore,
+          evidence: claim.sourceChunkIds
+            .map((chunkId) => ({ sourceRef: `chunk:${chunkId}`, excerpt: excerptByChunkId.get(chunkId) ?? "" }))
+            .filter((entry) => entry.excerpt.length > 0),
+        })),
+    }),
+  );
 }
 
 function topicTitleFromHeading(props: Record<string, unknown>): string {
@@ -703,7 +763,7 @@ function uniqueNodeRefs(refs: NodeRef[]): NodeRef[] {
 }
 
 function findLinkedTopicNodeId(edges: GraphCanvasEdge[], topicPageId: string): string | null {
-  const edge = edges.find((entry) => entry.target === topicPageId && entry.relationType === "CONTAINS_PAGE");
+  const edge = edges.find((entry) => entry.target === topicPageId && graphRelationSemantics(entry.relationType)?.canonical === "contains_page");
   return edge?.source ?? null;
 }
 

@@ -12,6 +12,7 @@ import {
   READ_TOOL_CONTRACTS,
   registerReadToolsV1,
   registerRuntimeToolsV1,
+  registerWriteToolsV1,
   TOOL_CONTRACT_CATALOG,
   ToolRegistry,
 } from "./index.js";
@@ -128,6 +129,15 @@ describe("tools runtime registry", () => {
 
     await expect(executeTool(registry, "test.bad_reducer", {}, baseContext)).rejects.toThrow(
       "Invalid input for tool test.bad_reducer",
+    );
+  });
+
+  it("rejects write tool execution without tutor turn identity", async () => {
+    const registry = new ToolRegistry();
+    registerWriteToolsV1(registry, createNoopRuntimeWriteToolProvider());
+
+    await expect(executeTool(registry, "artifact.create_quiz", { title: "Quiz", prompt: "p" }, baseContext)).rejects.toThrow(
+      "Write tool artifact.create_quiz requires session, run, and turn identity",
     );
   });
 

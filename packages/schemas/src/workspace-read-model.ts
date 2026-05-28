@@ -2,6 +2,7 @@ import { z } from "zod";
 import { graphCanvasEdgeSchema, graphCanvasNodeSchema } from "./graph-canvas.js";
 import { projectionHealthSchema } from "./graph-projection.js";
 import { idSchema, nodeRefSchema } from "./ids.js";
+import { sourceWikiLearnerViewSchema } from "./source-wiki-learner-view.js";
 
 export const workspaceVisibilitySchema = z.enum(["learner", "dev_only", "hidden"]);
 export type WorkspaceVisibility = z.infer<typeof workspaceVisibilitySchema>;
@@ -45,6 +46,7 @@ export const workspaceGraphReadModelSchema = z.object({
   emphasis: workspaceEmphasisSchema,
   nodeCatalog: z.array(workspaceNodeDescriptorSchema),
   topics: z.array(sourceWikiTopicGroupSchema).optional(),
+  sourceWikiPages: z.array(sourceWikiLearnerViewSchema).optional(),
   projectionWarning: z.string().nullable().optional(),
   projectionHealth: projectionHealthSchema.optional(),
 });

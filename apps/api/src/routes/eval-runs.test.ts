@@ -121,8 +121,11 @@ describe("eval run routes", () => {
             ]
           : [],
         artifactRefs: [],
+        screenshotRefs: [],
         traceRefs: [],
         notebookRefs: [{ refType: "notebook", refId: `nb_eval_${index}` }],
+        runKind: "regression",
+        rubricResults: [],
         finalState: {
           passed: index !== 3,
           summary: index === 3 ? "Scenario failed." : "Scenario passed.",

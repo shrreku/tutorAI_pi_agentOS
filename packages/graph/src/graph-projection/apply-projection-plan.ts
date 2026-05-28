@@ -45,7 +45,7 @@ export async function applyProjectionPlan(session: Session, plan: ProjectionPlan
         await linkTopicToConcept(session, notebookId, op.topicId, op.conceptId);
         break;
       case "merge_concept_relation":
-        await mergeConceptRelation(session, notebookId, op.fromId, op.toId, op.relationKind, op.confidence);
+        await mergeConceptRelation(session, notebookId, op.fromId, op.toId, op.relationKind, op.confidence, op.sourceId);
         break;
       case "merge_curriculum":
         await mergeCurriculumNode(session, notebookId, op.curriculumId, op.title);

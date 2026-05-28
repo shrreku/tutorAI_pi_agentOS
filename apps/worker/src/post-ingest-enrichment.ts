@@ -13,10 +13,12 @@ import {
   notebooks,
   objectives,
   sessionPlans,
+  sources,
   studyPlans,
   wikiPages,
 } from "@studyagent/db";
 import { projectGraphFromCanonical } from "@studyagent/graph";
+import { buildSourceReadiness, sourceReadinessComponent } from "@studyagent/schemas";
 import {
   buildConceptLookup,
   compileSourceToWikiChangeSet,
@@ -1255,6 +1257,8 @@ export async function runPostIngestEnrichment(
     }
   }
 
+  let projectionReady = false;
+  let projectionMessage: string | null = env.NEO4J_URI && env.NEO4J_PASSWORD ? null : "Study Map projection is unavailable.";
   if (env.NEO4J_URI && env.NEO4J_PASSWORD) {
     const projectionResult = await projectGraphFromCanonical(
       dbClient,
@@ -1267,11 +1271,13 @@ export async function runPostIngestEnrichment(
         notebookId: input.notebookId,
         scope: "source",
         sourceId: input.sourceId,
+        sourceVersionId: input.sourceVersionId,
         rebuild: true,
       },
     );
 
     if (projectionResult.ok) {
+      projectionReady = true;
       await appendEvent(dbClient, {
         notebookId: input.notebookId,
         eventType: "graph.neo4j_projection.updated",
@@ -1283,6 +1289,7 @@ export async function runPostIngestEnrichment(
         },
       });
     } else {
+      projectionMessage = projectionResult.error.message;
       await appendEvent(dbClient, {
         notebookId: input.notebookId,
         eventType: "graph.neo4j_projection.failed",
@@ -1294,6 +1301,45 @@ export async function runPostIngestEnrichment(
       });
     }
   }
+
+  const readinessUpdatedAt = new Date().toISOString();
+  const finalReadiness = buildSourceReadiness({
+    retrieval: sourceReadinessComponent(true, { updatedAt: readinessUpdatedAt }),
+    wiki: sourceReadinessComponent(changeSet.wikiPages.length > 0, { updatedAt: readinessUpdatedAt }),
+    planning: sourceReadinessComponent(Boolean(curriculumId || existingPlan), {
+      updatedAt: readinessUpdatedAt,
+      status: curriculumId || existingPlan ? "ready" : "degraded",
+      message: curriculumId || existingPlan ? null : "Learning plan bootstrap did not produce a planning context.",
+    }),
+    search: sourceReadinessComponent(true, { updatedAt: readinessUpdatedAt }),
+    projection: sourceReadinessComponent(projectionReady, {
+      updatedAt: readinessUpdatedAt,
+      status: projectionReady ? "ready" : "degraded",
+      message: projectionReady ? null : projectionMessage ?? "Study Map projection is still improving.",
+    }),
+    learnerSourceWiki: sourceReadinessComponent(changeSet.wikiPages.length > 0, {
+      updatedAt: readinessUpdatedAt,
+      status: projectionReady ? "ready" : "degraded",
+      message: projectionReady ? null : "Source Wiki is usable, but Study Map links may still be improving.",
+    }),
+    tutoring: sourceReadinessComponent(true, { updatedAt: readinessUpdatedAt }),
+  });
+  const [sourceRow] = await dbClient.db.select({ metadataJson: sources.metadataJson }).from(sources).where(eq(sources.id, input.sourceId)).limit(1);
+  await dbClient.db
+    .update(sources)
+    .set({
+      metadataJson: {
+        ...(sourceRow?.metadataJson ?? {}),
+        sourceReadiness: finalReadiness,
+      },
+      updatedAt: new Date(),
+    })
+    .where(eq(sources.id, input.sourceId));
+  await appendEvent(dbClient, {
+    notebookId: input.notebookId,
+    eventType: "source.readiness.updated",
+    payload: { sourceId: input.sourceId, sourceVersionId: input.sourceVersionId, readiness: finalReadiness },
+  });
 
   const lintPages = await dbClient.db.select().from(wikiPages).where(eq(wikiPages.notebookId, input.notebookId));
   const lintConcepts = await dbClient.db.select().from(concepts).where(eq(concepts.notebookId, input.notebookId));

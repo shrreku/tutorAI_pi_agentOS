@@ -5,6 +5,7 @@ import {
   compactStudyAgentContext,
   createAgUiEventMapper,
   createRuntimeRun,
+  buildStudyAgentHostStateSignature,
   mapPiSessionEventToAppendInput,
   replaceStudyAgentTutorRuntime,
   runStudyAgentTutorSession,
@@ -16,7 +17,7 @@ import { combineConfidence, extractClaimIdsFromText, reinforcementSignalFromCoun
 import type { AppContext } from "./context.js";
 import type { TutorContextSelection } from "./tutor-tool-provider.js";
 import { shouldCompactTutorContext, shouldEmitDigestDraftUpdate } from "./tutor-turn-helpers.js";
-import { buildMasteryRuntimeContextPatch } from "./mastery-session.js";
+import { buildMasteryRuntimeContextPatch, buildMasterySnapshot, prepareRuntimeMasteryEvaluation } from "./mastery-session.js";
 import { loadNotebookStudyState } from "./study-state.js";
 
 type TutorLogger = {
@@ -68,7 +69,14 @@ export async function executeTutorTurn(input: TutorTurnExecutionInput): Promise<
       modelConfig: { model: input.ctx.env.DEFAULT_TUTOR_MODEL },
     });
 
-  await replaceStudyAgentTutorRuntime({ previousSessionId: input.sessionId, nextRun: run });
+  const runtimeRun = run.hostStateSignature
+    ? run
+    : {
+        ...run,
+        hostStateSignature: buildStudyAgentHostStateSignature(input.promptContext),
+      };
+
+  const replacement = await replaceStudyAgentTutorRuntime({ previousSessionId: input.sessionId, nextRun: runtimeRun });
 
   const [existingTurn] = await input.ctx.db.db.select({ maxTurnIndex: max(tutorTurns.turnIndex) }).from(tutorTurns).where(eq(tutorTurns.sessionId, input.sessionId));
   const turnIndex = (existingTurn?.maxTurnIndex ?? -1) + 1;
@@ -83,26 +91,70 @@ export async function executeTutorTurn(input: TutorTurnExecutionInput): Promise<
   });
 
   await input.ctx.db.db.insert(agentRuns).values({
-    id: run.runId,
+    id: runtimeRun.runId,
     sessionId: input.sessionId,
     turnId,
     runType: "tutor_turn",
     status: "running",
-    modelConfigJson: run.modelConfig,
-    budgetJson: run.budgets,
-    traceId: run.traceId,
+    modelConfigJson: runtimeRun.modelConfig,
+    budgetJson: runtimeRun.budgets,
+    traceId: runtimeRun.traceId,
   });
 
-  input.logger.info({ notebookId: input.notebookId, sessionId: input.sessionId, runId: run.runId, turnId, activeMode: input.activeMode }, "tutor run started");
+  if (replacement?.replaced) {
+    await appendEvent(input.ctx.db, {
+      notebookId: input.notebookId,
+      sessionId: input.sessionId,
+      runId: runtimeRun.runId,
+      eventType: "session.runtime.replaced",
+      payload: {
+        reason: replacement.binding?.reason ?? "unknown",
+        disposedSessionId: replacement.disposedSessionId,
+        hostStateSignature: replacement.binding?.hostStateSignature ?? runtimeRun.hostStateSignature,
+      },
+    });
+  }
+
+  let runtimeContextForTurn = input.previousRuntimeContext ?? {};
+  try {
+    const runtimeEvaluation = await prepareRuntimeMasteryEvaluation(input.ctx, {
+      notebookId: input.notebookId,
+      userId: input.userId,
+      sessionId: input.sessionId,
+      runId: runtimeRun.runId,
+      learnerMessage: input.message,
+      runtimeContext: input.previousRuntimeContext ?? null,
+      masterySnapshot: await buildMasterySnapshot(input.ctx.db, input.notebookId, input.userId),
+      sourceRefs: input.selectedNodeRefs.filter((ref) => ref.refType === "source"),
+      contextRefs: [
+        ...(input.contextSelection?.selectedChunkIds?.map((chunkId) => ({ refType: "chunk" as const, refId: chunkId })) ?? []),
+        ...(input.contextSelection?.sourceCoverageGap ? [{ refType: "source" as const, refId: "gap_strict_source_scope" }] : []),
+      ],
+    });
+    runtimeContextForTurn = runtimeEvaluation.evaluated ? runtimeEvaluation.runtimeContext : runtimeContextForTurn;
+  } catch (error) {
+    await appendEvent(input.ctx.db, {
+      notebookId: input.notebookId,
+      sessionId: input.sessionId,
+      runId: runtimeRun.runId,
+      eventType: "learning.mastery_evaluation.failed",
+      payload: {
+        message: error instanceof Error ? error.message : String(error),
+        phase: "runtime_auto",
+      },
+    });
+  }
+
+  input.logger.info({ notebookId: input.notebookId, sessionId: input.sessionId, runId: runtimeRun.runId, turnId, activeMode: input.activeMode }, "tutor run started");
 
   await input.emitStreamEvent({
     type: "SESSION_STARTED",
     sessionId: input.sessionId,
-    runId: run.runId,
+    runId: runtimeRun.runId,
     timestamp: Date.now(),
   });
 
-  const agui = createAgUiEventMapper(run);
+  const agui = createAgUiEventMapper(runtimeRun);
   const toolSummary: Array<{ toolCallId: string; toolName: string; status: string; latencyMs?: number }> = [];
   const artifactProposalIds: string[] = [];
   let lastAssistantText = "";
@@ -110,7 +162,8 @@ export async function executeTutorTurn(input: TutorTurnExecutionInput): Promise<
 
   try {
     for await (const sessionEvent of runStudyAgentTutorSession({
-      run,
+      run: runtimeRun,
+      turnId,
       promptContext: input.promptContext,
       userMessage: input.message,
       toolRegistry: input.toolRegistry,
@@ -123,7 +176,7 @@ export async function executeTutorTurn(input: TutorTurnExecutionInput): Promise<
         if (event.phase === "started") {
           await input.ctx.db.db.insert(toolCalls).values({
             id: event.toolCallId,
-            runId: run.runId,
+            runId: runtimeRun.runId,
             sessionId: input.sessionId,
             turnId,
             toolName: event.toolName,
@@ -154,7 +207,7 @@ export async function executeTutorTurn(input: TutorTurnExecutionInput): Promise<
           const artifactId = extractArtifactProposalId(event.output);
           if (artifactId) artifactProposalIds.push(artifactId);
           input.logger.info(
-            { notebookId: input.notebookId, sessionId: input.sessionId, runId: run.runId, toolCallId: event.toolCallId, toolName: event.toolName, latencyMs: event.latencyMs },
+            { notebookId: input.notebookId, sessionId: input.sessionId, runId: runtimeRun.runId, toolCallId: event.toolCallId, toolName: event.toolName, latencyMs: event.latencyMs },
             "tutor tool completed",
           );
           return;
@@ -175,7 +228,7 @@ export async function executeTutorTurn(input: TutorTurnExecutionInput): Promise<
           latencyMs: event.latencyMs,
         });
         input.logger.warn(
-          { notebookId: input.notebookId, sessionId: input.sessionId, runId: run.runId, toolCallId: event.toolCallId, toolName: event.toolName, code: event.code, error: event.error, details: event.details },
+          { notebookId: input.notebookId, sessionId: input.sessionId, runId: runtimeRun.runId, toolCallId: event.toolCallId, toolName: event.toolName, code: event.code, error: event.error, details: event.details },
           "tutor tool failed",
         );
       },
@@ -187,7 +240,7 @@ export async function executeTutorTurn(input: TutorTurnExecutionInput): Promise<
         streamedRunFailure = sessionEvent.data;
       }
 
-      const appendInput = mapPiSessionEventToAppendInput(sessionEvent, run);
+      const appendInput = mapPiSessionEventToAppendInput(sessionEvent, runtimeRun);
       if (appendInput) {
         await appendEvent(input.ctx.db, appendInput);
       }
@@ -201,14 +254,14 @@ export async function executeTutorTurn(input: TutorTurnExecutionInput): Promise<
       await input.ctx.db.db
         .update(agentRuns)
         .set({ status: "failed", completedAt: new Date() })
-        .where(eq(agentRuns.id, run.runId));
+        .where(eq(agentRuns.id, runtimeRun.runId));
       await input.ctx.db.db
         .update(tutorTurns)
         .set({ assistantMessage: lastAssistantText || streamedRunFailure.error, toolSummaryJson: { tools: toolSummary } })
         .where(eq(tutorTurns.id, turnId));
       return {
         sessionId: input.sessionId,
-        runId: run.runId,
+        runId: runtimeRun.runId,
         turnId,
         status: "failed",
         assistantMessage: lastAssistantText || streamedRunFailure.error,
@@ -223,8 +276,8 @@ export async function executeTutorTurn(input: TutorTurnExecutionInput): Promise<
       sessionId: input.sessionId,
       turnId,
       turnIndex,
-      runId: run.runId,
-      run,
+      runId: runtimeRun.runId,
+      run: runtimeRun,
       message: input.message,
       assistantMessage: lastAssistantText,
       selectedNodeRefs: input.selectedNodeRefs,
@@ -235,13 +288,13 @@ export async function executeTutorTurn(input: TutorTurnExecutionInput): Promise<
       openArtifact: input.openArtifact ?? null,
       activeSessionPlanId: input.studyState.sessionPlan?.id ?? null,
       currentObjectiveId: input.studyState.studyPlan?.currentObjective?.id ?? null,
-      previousRuntimeContext: input.previousRuntimeContext ?? {},
+      previousRuntimeContext: runtimeContextForTurn,
     });
 
-    input.logger.info({ notebookId: input.notebookId, sessionId: input.sessionId, runId: run.runId, status: "completed" }, "tutor run finished");
+    input.logger.info({ notebookId: input.notebookId, sessionId: input.sessionId, runId: runtimeRun.runId, status: "completed" }, "tutor run finished");
     return {
       sessionId: input.sessionId,
-      runId: run.runId,
+      runId: runtimeRun.runId,
       turnId,
       status: "completed",
       assistantMessage: lastAssistantText,
@@ -250,25 +303,25 @@ export async function executeTutorTurn(input: TutorTurnExecutionInput): Promise<
     };
   } catch (error) {
     const failure = classifyRuntimeError(error);
-    input.logger.error({ notebookId: input.notebookId, sessionId: input.sessionId, runId: run.runId, code: failure.code, error: failure.safeMessage }, "tutor run failed");
+    input.logger.error({ notebookId: input.notebookId, sessionId: input.sessionId, runId: runtimeRun.runId, code: failure.code, error: failure.safeMessage }, "tutor run failed");
     await input.ctx.db.db
       .update(agentRuns)
       .set({ status: "failed", completedAt: new Date() })
-      .where(eq(agentRuns.id, run.runId));
+      .where(eq(agentRuns.id, runtimeRun.runId));
     await input.ctx.db.db
       .update(tutorTurns)
       .set({ assistantMessage: lastAssistantText || failure.safeMessage, toolSummaryJson: { tools: toolSummary } })
       .where(eq(tutorTurns.id, turnId));
     await input.emitStreamEvent({
       type: "RUN_ERROR",
-      runId: run.runId,
-      model: run.modelConfig.model,
+      runId: runtimeRun.runId,
+      model: runtimeRun.modelConfig.model,
       timestamp: Date.now(),
       error: { message: failure.safeMessage, code: failure.code },
     });
     return {
       sessionId: input.sessionId,
-      runId: run.runId,
+      runId: runtimeRun.runId,
       turnId,
       status: "failed",
       assistantMessage: lastAssistantText,
@@ -354,7 +407,7 @@ async function persistTutorTurnSummary(
     openArtifactProposals: input.artifactProposalIds.map((artifactId) => ({ artifactId })),
   });
 
-  if (input.contextSelection && (input.contextSelection.selectedChunkIds?.length || input.contextSelection.selectedSourceIds?.length)) {
+  if (input.contextSelection) {
     await appendEvent(ctx.db, {
       notebookId: input.run.notebookId,
       sessionId: input.sessionId,
@@ -484,6 +537,7 @@ async function persistTutorTurnSummary(
     turnId: input.turnId,
     learnerMessage: input.message,
     assistantMessage: input.assistantMessage,
+    runtimeContext: input.previousRuntimeContext,
   });
 
   await ctx.db.db
@@ -497,6 +551,9 @@ async function persistTutorTurnSummary(
     assistantMessage: input.assistantMessage,
     conceptIds: activeConceptIds,
     objectiveId: input.currentObjectiveId ?? null,
+    sourceRefs: sourceIds.map((sourceId) => ({ refType: "source" as const, refId: sourceId })),
+    contextRefs: input.contextSelection?.selectedChunkIds?.map((chunkId) => ({ refType: "chunk", refId: chunkId })) ?? [],
+    ...(input.contextSelection?.sourceScopePolicy ? { sourceScopePolicy: input.contextSelection.sourceScopePolicy } : {}),
   });
 
   await ctx.db.db
@@ -547,12 +604,23 @@ async function persistTutorTurnSummary(
 
 async function applyDeterministicTutorProgression(
   ctx: AppContext,
-  input: { notebookId: string; userId: string; sessionId: string; runId: string; turnId: string; learnerMessage: string; assistantMessage: string },
+  input: {
+    notebookId: string;
+    userId: string;
+    sessionId: string;
+    runId: string;
+    turnId: string;
+    learnerMessage: string;
+    assistantMessage: string;
+    runtimeContext: Record<string, unknown>;
+  },
 ): Promise<void> {
-  if (!isLearnerConfirmation(input.learnerMessage)) return;
+  const progressionEvidence = readObjectiveProgressionEvidence(input.runtimeContext);
+  if (!progressionEvidence) return;
   const state = await loadNotebookStudyState(ctx.db, input.notebookId, input.userId);
   const current = state.studyPlan?.currentObjective;
   if (!state.studyPlan || !current) return;
+  if (progressionEvidence.objectiveId !== current.id) return;
   if (state.studyPlan.completedObjectives.some((objective) => objective.id === current.id)) return;
 
   const upcomingIds = state.studyPlan.upcomingObjectives.map((objective) => objective.id);
@@ -572,6 +640,7 @@ async function applyDeterministicTutorProgression(
         lastCompletedObjectiveTitle: current.title,
         lastProgressTurnId: input.turnId,
         lastAssistantSummary: input.assistantMessage.slice(0, 400),
+        masteryEvidenceId: progressionEvidence.evidenceId,
       },
       updatedAt: new Date(),
     })
@@ -586,19 +655,49 @@ async function applyDeterministicTutorProgression(
     sessionId: input.sessionId,
     runId: input.runId,
     eventType: "objective.completed",
-    payload: { objectiveId: current.id, title: current.title, nextObjectiveId, reason: "learner_confirmation" },
+    payload: {
+      objectiveId: current.id,
+      title: current.title,
+      nextObjectiveId,
+      reason: "mastery_evidence",
+      masteryEvidenceId: progressionEvidence.evidenceId,
+    },
   });
   await appendEvent(ctx.db, {
     notebookId: input.notebookId,
     sessionId: input.sessionId,
     runId: input.runId,
     eventType: "study_plan.updated",
-    payload: { studyPlanId: state.studyPlan.id, currentObjectiveId: nextObjectiveId, completedObjectiveIds: completedIds, reason: "deterministic_tutor_progression" },
+    payload: {
+      studyPlanId: state.studyPlan.id,
+      currentObjectiveId: nextObjectiveId,
+      completedObjectiveIds: completedIds,
+      reason: "mastery_evidence",
+      masteryEvidenceId: progressionEvidence.evidenceId,
+    },
   });
 }
 
-function isLearnerConfirmation(message: string): boolean {
-  return /\b(understood|got it|i got this|clear|yes|continue|next|easy|done|makes sense)\b/i.test(message);
+function readObjectiveProgressionEvidence(
+  runtimeContext: Record<string, unknown>,
+): { evidenceId: string; objectiveId: string } | null {
+  const value = runtimeContext.lastRuntimeMasteryEvidence;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  if (typeof record.evidenceId !== "string" || typeof record.objectiveId !== "string") return null;
+  const correctnessLabel = typeof record.correctnessLabel === "string" ? record.correctnessLabel : "";
+  const readiness = typeof record.readiness === "string" ? record.readiness : "";
+  const tutoringIntervention = typeof record.tutoringIntervention === "string" ? record.tutoringIntervention : "";
+  const confidence = typeof record.confidence === "number" ? record.confidence : 0;
+  const uncertainty = typeof record.uncertainty === "number" ? record.uncertainty : 1;
+  const overallScore = typeof record.overallScore === "number" ? record.overallScore : 0;
+  const strongEnough =
+    correctnessLabel === "correct" &&
+    confidence >= 0.7 &&
+    uncertainty <= 0.35 &&
+    overallScore >= 0.75 &&
+    (readiness === "proficient" || readiness === "advanced" || tutoringIntervention === "advance");
+  return strongEnough ? { evidenceId: record.evidenceId, objectiveId: record.objectiveId } : null;
 }
 
 function asDigestDraft(value: unknown): {

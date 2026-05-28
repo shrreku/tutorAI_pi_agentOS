@@ -106,6 +106,7 @@ describe("pi session runtime", () => {
     const events = [];
     for await (const event of runStudyAgentTutorSession({
       run,
+      turnId: "turn_quiz",
       toolRegistry,
       onToolLifecycleEvent,
       config: { useMock: true },
@@ -143,6 +144,7 @@ describe("pi session runtime", () => {
     const events = [];
     for await (const event of runStudyAgentTutorSession({
       run,
+      turnId: "turn_card",
       toolRegistry,
       config: { useMock: true },
       userMessage: "Create a concept card for conduction",
@@ -174,6 +176,7 @@ describe("pi session runtime", () => {
     const events = [];
     for await (const event of runStudyAgentTutorSession({
       run,
+      turnId: "turn_budget",
       toolRegistry,
       onToolLifecycleEvent,
       config: { useMock: true },
@@ -345,6 +348,94 @@ describe("pi session runtime", () => {
     expect(replacement.binding?.reason).toBe("selected_refs_changed");
   });
 
+  it("replaces runtime when StudyAgent host state changes with the same selected refs", async () => {
+    const toolRegistry = createRuntimeToolRegistry();
+    const selectedNodeRefs = [{ refType: "source" as const, refId: "src_same" }];
+    const initialRun = createRuntimeRun({
+      notebookId: "nb_host_state",
+      sessionId: "sess_host_state",
+      userId: "user_1",
+      activeMode: "learn",
+      selectedNodeRefs,
+      hostStateSignature: "host_state_current_objective_a",
+    });
+    for await (const _event of runStudyAgentTutorSession({
+      run: initialRun,
+      toolRegistry,
+      config: { useMock: true },
+      userMessage: "teach me",
+      promptContext: { notebookTitle: "N", activeMode: "learn", selectedNodeRefs, currentObjective: "Objective A" },
+    })) {
+      // drain
+    }
+
+    const hostStateChangedRun = createRuntimeRun({
+      notebookId: "nb_host_state",
+      sessionId: "sess_host_state",
+      userId: "user_1",
+      activeMode: "learn",
+      selectedNodeRefs,
+      hostStateSignature: "host_state_current_objective_b",
+    });
+    const replacement = await replaceStudyAgentTutorRuntime({
+      previousSessionId: "sess_host_state",
+      nextRun: hostStateChangedRun,
+    });
+
+    expect(replacement.replaced).toBe(true);
+    expect(replacement.binding).toEqual(
+      expect.objectContaining({
+        hostStateSignature: "host_state_current_objective_b",
+        reason: "host_state_changed",
+      }),
+    );
+  });
+
+  it("passes tutor turn identity to Pi-executed write tools", async () => {
+    const run = createRuntimeRun({
+      notebookId: "nb_tool_turn",
+      sessionId: "sess_tool_turn",
+      userId: "user_1",
+      activeMode: "practice",
+      selectedNodeRefs: [{ refType: "concept", refId: "concept_vectors" }],
+    });
+    const writeProvider = {
+      createQuiz: vi.fn(async (_input, ctx) => ({
+        artifactId: "artifact_turn_bound",
+        status: "draft",
+        warnings: [],
+        reducerResult: {
+          accepted: true,
+          mutationType: "artifact.created",
+          appliedChanges: { turnId: ctx.turnId },
+          emittedEventIds: [],
+        },
+      })),
+    };
+    const toolRegistry = createRuntimeToolRegistry({ writeProvider: writeProvider as never });
+
+    for await (const _event of runStudyAgentTutorSession({
+      run,
+      turnId: "turn_runtime_1",
+      toolRegistry,
+      config: { useMock: true },
+      userMessage: "Create a quiz on vectors",
+      promptContext: {
+        notebookTitle: "Linear Algebra",
+        activeMode: "practice",
+        selectedNodeRefs: run.selectedNodeRefs,
+      },
+    })) {
+      // drain
+    }
+
+    expect(writeProvider.createQuiz).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      runId: run.runId,
+      turnId: "turn_runtime_1",
+      sessionId: "sess_tool_turn",
+    }));
+  });
+
   it("replaces runtime when session id changes", async () => {
     const toolRegistry = createRuntimeToolRegistry();
     const initialRun = createRuntimeRun({
@@ -423,6 +514,7 @@ describe("pi session runtime", () => {
     const events = [];
     for await (const event of runStudyAgentTutorSession({
       run,
+      turnId: "turn_flashcards",
       toolRegistry,
       config: { useMock: true },
       userMessage: "Make a flashcard deck for vectors",

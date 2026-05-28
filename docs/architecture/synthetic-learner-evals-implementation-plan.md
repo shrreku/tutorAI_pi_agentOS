@@ -1,8 +1,20 @@
 # Synthetic Learner Evals Implementation Plan
 
-Status: planned.
+Status: implemented locally through the first contract/stubbed slices; live observation and persistence-evidence hardening remain open.
+
+Current hardening note (2026-05-26): a follow-up architecture audit found that the runner vocabulary is in place, but Live Eval Observation is still mostly completed-run JSON, persistence assertions can skip when evidence snapshots are missing, and issue candidates are too tightly coupled to final failed status. See:
+
+- `docs/architecture/architecture-remediation-audit-2026-05-26.md`
+- `docs/architecture/architecture-remediation-plan.md`
+- `docs/architecture/architecture-remediation-implementation-tickets.md`
 
 This document turns the May 21, 2026 Synthetic Learner design grilling into implementation slices. It follows ADR-0014 and ADR-0015.
+
+For operator-facing commands and lifecycle details, see `docs/architecture/synthetic-learner-simulator-usage.md`.
+
+For the next LLM-backed simulator phase, see `docs/architecture/synthetic-learner-llm-simulator-prd.md` and `docs/architecture/synthetic-learner-llm-simulator-implementation-tickets.md`.
+
+For the first shared learner trait and archetype matrix, see `docs/architecture/learner-trait-model-archetype-matrix.md`.
 
 ## Decisions
 
@@ -30,6 +42,8 @@ Build one small matrix that proves the full loop without trying to cover every p
 - Dashboard page showing transcript, persona, tool calls, runtime events, assertions, and pass/fail status.
 
 ## First Personas
+
+These first three personas are generated from the shared Learner Trait Archetype fixtures and are the tracer-bullet subset of the larger Learner Trait Archetype matrix.
 
 Beginner with misconception:
 
@@ -118,9 +132,31 @@ CI export:
 
 ## Later Slices
 
-1. Browser/UI golden journey steps with screenshots and learner-facing regressions.
-2. Autonomous Synthetic Learner Runs with invariant assertions and issue-candidate output.
-3. Fixture regeneration CLI and stale fixture detection.
-4. Expanded persona/scenario library.
-5. Optional LLM judge rubrics for qualitative dimensions.
-6. Optional Trigger.dev adapter for scheduled, batched, cloud, or long-running eval suites.
+The original later slices now have repo-native support:
+
+1. Browser/UI golden journey scenario steps can attach screenshot refs and browser assertion evidence.
+2. Autonomous Synthetic Learner Runs are modeled as discovery-only runs scoped to eval-owned notebooks and invariant assertions.
+3. Optional LLM judge rubrics are represented as qualitative results separated from deterministic gate status.
+4. The optional Trigger.dev adapter delegates to the repo-native suite runner instead of changing eval semantics.
+
+Expanded persona/scenario libraries remain ordinary eval asset growth, not a separate architecture blocker.
+
+## Implemented Freshness Slice
+
+Fixture freshness now has one shared schema-level policy used by CLI and API seeding:
+
+- strict mode fails stale fixtures before notebook import;
+- warn mode reports stale metadata while allowing local-dev runs;
+- regenerate mode explicitly refreshes fixture manifest metadata without introducing learner-specific state;
+- the worker CLI can emit a regenerated fixture manifest with `--regenerate-fixture`;
+- focused tests cover fresh, stale-warning, stale-failure, and regenerated fixture flows.
+
+## Implemented Later-Slice Support
+
+The remaining GitHub issue slices are implemented as thin repo-native extensions:
+
+- Scenario contracts include `browserSteps`; runner execution records browser steps, browser assertion results, and screenshot refs when a browser executor is provided.
+- Scenario contracts include `runKind`, `learnerMode`, and optional `autonomousConfig`; the autonomous fixture is marked `full_autonomous`, discovery-only, and limited to eval-owned notebooks.
+- Rubric definitions/results are qualitative, optional, and stored separately from deterministic assertion gate status.
+- Dashboard read models render run kind, qualitative rubrics, screenshot refs, assertions, traces, notebooks, and transcript state.
+- `createSyntheticLearnerTriggerAdapter` provides the optional Trigger-style invocation point while calling the same repo-native suite runner.

@@ -23,6 +23,7 @@ vi.mock("../auth.js", () => ({
 
 class FakeDb {
   inserted = new Map<unknown, Array<Record<string, unknown>>>();
+  updates = new Map<unknown, Array<Record<string, unknown>>>();
 
   transaction<T>(fn: (tx: FakeDb) => Promise<T>): Promise<T> {
     return fn(this);
@@ -36,6 +37,18 @@ class FakeDb {
         existing.push(...rows);
         this.inserted.set(table, existing);
       },
+    };
+  }
+
+  update(table: unknown) {
+    return {
+      set: (values: Record<string, unknown>) => ({
+        where: async () => {
+          const existing = this.updates.get(table) ?? [];
+          existing.push(values);
+          this.updates.set(table, existing);
+        },
+      }),
     };
   }
 }
@@ -102,6 +115,7 @@ describe("eval source fixture import route", () => {
     expect(fakeDb.inserted.get(chunks)).toHaveLength(1);
     expect(fakeDb.inserted.get(concepts)).toHaveLength(1);
     expect(fakeDb.inserted.get(curricula)).toHaveLength(1);
+    expect(fakeDb.inserted.get(curricula)?.[0]?.activeModuleId).toBeNull();
     expect(fakeDb.inserted.get(curriculumModules)).toHaveLength(1);
     expect(fakeDb.inserted.get(objectiveLists)).toHaveLength(1);
     expect(fakeDb.inserted.get(objectives)).toHaveLength(1);
@@ -109,6 +123,7 @@ describe("eval source fixture import route", () => {
     expect(fakeDb.inserted.get(wikiPages)).toHaveLength(1);
 
     const notebookId = body.notebook.id;
+    expect(fakeDb.updates.get(curricula)?.[0]?.activeModuleId).toContain(notebookId);
     expect(fakeDb.inserted.get(sources)?.[0]?.notebookId).toBe(notebookId);
     expect(fakeDb.inserted.get(sourceVersions)?.[0]?.sourceId).toContain(notebookId);
     expect(fakeDb.inserted.get(chunks)?.[0]?.sourceVersionId).toContain(notebookId);

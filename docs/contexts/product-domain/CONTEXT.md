@@ -59,17 +59,35 @@ Mastery Check: lightweight in-session question, quiz prompt, or checkpoint used 
 
 Mastery Evaluator: governed evaluator that judges learner responses against concepts, objectives, source evidence when relevant, and recent tutoring context, returning structured mastery evidence without directly mutating canonical learning state. It is not a learner-facing persona.
 
+Learner Trait Model: shared vocabulary of stable or slowly changing learner qualities that can describe either authored Synthetic Learner Personas or evidence-backed real learner profiles without replacing dynamic mastery, weak-concept, or recent-performance state.
+
+Learner Trait Estimate: evidence-backed estimate of a real learner's trait value, carrying enough confidence and provenance to avoid treating one interaction as a permanent learner quality.
+
+Learner Trait Signal: low-level observation that may support a future Learner Trait Estimate, such as a pace request, help-seeking behavior, confidence mismatch, persistence pattern, assessment preference, or self-explanation pattern.
+
+Learner Trait Set: the initial tutoring-actionable Learner Trait Model dimensions: pace preference, depth preference, help-seeking style, confidence style, metacognitive accuracy, persistence style, source familiarity, assessment preference, example preference, and urgency context.
+
+Learner Trait Archetype: named combination of Learner Trait Model values used to generate Synthetic Learner Personas or summarize evidence-backed real learner trait estimates for recommendation, not learner identity.
+
+Personalization Recommendation: tutor-facing suggestion derived from Learner Trait Estimates that can shape pacing, explanation style, examples, checks, and artifact choices without overriding Mastery Evidence, learner goals, or source grounding.
+
+Portable Learner Profile: future explicit cross-notebook learner model for traits or preferences that should transfer across notebooks, kept separate from notebook-scoped learning state.
+
 Synthetic Learner: test-only harness actor that simulates learner behavior, goals, mistakes, confusion, prior knowledge, persistence, and study habits for end-to-end StudyAgent evaluation. It is not a tutor, Mastery Evaluator, durable learner profile, or learner-facing persona.
 
 Synthetic Learner Eval Set: versioned evaluation asset that combines source fixtures, learner persona fixtures, scenario scripts, assertion rubrics, and golden journeys to test StudyAgent behavior with Synthetic Learners.
 
 Eval Source Fixture: versioned reusable pre-ingested source package that can seed eval notebooks with tutoring-ready source knowledge without rerunning ingestion, with explicit freshness metadata and regeneration checks.
 
-Synthetic Learner Persona: structured test fixture that describes a Synthetic Learner's goal, background, learner level, source familiarity, behaviors, misconceptions, study habits, and response policy, then renders into prompts or scripted responses for eval execution.
+Synthetic Learner Persona: structured test fixture that describes a Synthetic Learner's goal, authored Learner Trait Model values, background, learner level, source familiarity, behaviors, misconceptions, study habits, and response policy, then renders into prompts or scripted responses for eval execution.
 
 Synthetic Learner Scenario: bounded eval contract that combines starting notebook/source state, a Synthetic Learner Persona, learner goal, turn budget, allowed actions, stop conditions, required feature coverage, and pass/fail assertions.
 
-Autonomous Synthetic Learner Run: discovery-oriented Synthetic Learner eval where the LLM has broad learner freedom and is judged against product invariants rather than narrow scripted outcomes.
+Beat-Driven LLM Synthetic Learner Run: Synthetic Learner eval where an LLM writes learner messages inside explicit scenario beat constraints and persona policy.
+
+Scenario-Autonomous Synthetic Learner Run: Synthetic Learner eval where an LLM chooses learner turns within a named scenario's goal, allowed actions, stop conditions, and persona policy.
+
+Fully Autonomous Synthetic Learner Run: discovery-oriented Synthetic Learner eval where an LLM has broad learner freedom across allowed eval-owned product surfaces and is judged against product invariants rather than narrow scripted outcomes.
 
 Synthetic Learner Assertion: eval check that inspects learner-visible output, runtime traces, persisted state, or quality rubrics to decide whether StudyAgent behaved correctly in a Synthetic Learner Scenario.
 
@@ -138,6 +156,32 @@ Internal code may keep precise technical terms where useful, but learner copy sh
 Source to Workspace: upload source, store original, parse document tree, create source spans and chunks, extract concepts and claims, embed/index, build graph projection, compile source summary, bootstrap curriculum/module/objectives/session plan, seed Live Plan, render Source Wiki and Study Map.
 
 Minimum tutoring-ready state: parsed text, retrievable chunks with citations, search/index readiness, source summary, concept inventory, curriculum skeleton, current and next objectives, and visible warnings. The system should reach this reliable state before waiting for full wiki polish. For large sources, background enrichment should progressively polish high-value topic and concept pages based on curriculum importance, source structure, learner activity, weak concepts, and search or tutor usage.
+
+Learner trait estimation: real learner traits start notebook-scoped and should be inferred from explicit self-report, repeated behavior across sessions, Mastery Evidence patterns, tutor observations, and onboarding profile data in that rough priority order. Self-report can set an estimate quickly, while behavior, mastery patterns, and tutor observations should raise confidence only when repeated.
+
+Learner trait update lanes: explicit Learner Trait Estimates come from learner self-report or settings and may update quickly with high confidence; inferred Learner Trait Estimates come from behavior, Mastery Evidence patterns, or tutor observations and should require repeated signals, evidence refs, and confidence gating before shaping recommendations.
+
+Learner trait update cadence: tutoring turns may record trait-relevant signals, but inferred Learner Trait Estimates should be updated only when required at session or crystallization boundaries, or when the Pi agentic system explicitly decides trait estimation is warranted from accumulated evidence. Trait estimation should not run by default after every session and should not block ordinary live tutor turns.
+
+Learner trait signal persistence: Learner Trait Signals should be persisted as internal notebook-scoped evidence so inferred traits remain auditable, aggregatable across sessions, and recomputable as estimate rules change. They are not learner-facing progress labels.
+
+Learner trait signal ownership: the Pi tutor may record explicit learner preference or self-report signals through governed tools during tutoring, while inferred behavioral signals should come from a reflective extractor over completed turns, session traces, and Mastery Evidence. The Mastery Evaluator may provide evidence patterns but does not own trait estimation.
+
+Learner trait estimate persistence: Learner Trait Estimates should be persisted as current read-optimized notebook-scoped state for tutor recommendations, while retaining references back to Learner Trait Signals and other evidence so estimates remain auditable and recomputable.
+
+Learner trait scope: real Learner Trait Estimates are scoped to notebook, user, and trait by default. Future context-specific estimates may add a target reference such as source, concept, objective, or exam goal, but cross-notebook traits require an explicit Portable Learner Profile.
+
+Learner trait estimation governance: LLM-assisted trait estimation may propose Learner Trait Estimate updates from bounded signal, mastery, profile, and self-report context, but a deterministic guardrail layer should schema-validate, require evidence refs, cap confidence, handle contradictions, and accept, reduce, or reject proposed updates before persistence.
+
+Learner trait conflicts: when explicit learner preferences conflict with inferred trait evidence, the system should preserve the explicit preference, retain contradiction evidence, and produce a reconciled Personalization Recommendation rather than silently overwriting either side.
+
+Learner trait estimation triggers: run LLM-assisted trait estimation only when there is an explicit learner preference change, enough repeated Learner Trait Signals around a trait family, repeated Mastery Evidence contradiction with self-report, repeated tutor-observed friction, learner goal or urgency change, or strong contradictory evidence against an existing estimate. Do not run it for ordinary correct or incorrect answers alone, one-off mood, short sessions without trait-relevant signals, or every session end by default.
+
+Learner trait recommendation boundary: real Learner Trait Estimates may produce Personalization Recommendations for explanation pace, explanation depth, example choice, checkpoint cadence, hint depth, artifact suggestions, confidence verification, reassurance, and structure. They must not directly mutate Concept Mastery, Objective Progress, weak concepts, curriculum progress, artifact consent, source grounding, or explicit learner goals.
+
+Learner trait visibility: learners may edit explicit preferences such as pace, depth, examples, or quiz preference, but inferred trait labels, confidence scores, evidence refs, LLM proposal reasoning, and archetype buckets should remain internal or Dev Mode only. Learner-facing surfaces may phrase inferred personalization as gentle suggestions rather than labels.
+
+Learner trait decay: Learner Trait Estimate confidence should decay over time without deleting supporting evidence. Context-sensitive traits such as urgency context, source familiarity, assessment preference, and pace preference decay faster than help-seeking, example, or depth preferences; confidence style, metacognitive accuracy, and persistence style decay slowest.
 
 Synthetic Learner eval setup: ingestion prepares Eval Source Fixtures with source-derived tutoring-ready state. Synthetic Learner Scenarios seed eval notebooks from those fixtures, then add persona-specific learner state and run the tutoring/product harness without rerunning ingestion by default.
 

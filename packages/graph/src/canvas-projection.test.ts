@@ -22,7 +22,7 @@ describe("canvas graph projection", () => {
         source: "source_1",
         target: "concept_1",
         relationType: "COVERS",
-        properties: { confidence: 0.8 },
+        properties: { confidence: 0.8, learnerLabel: "covers" },
       },
     ]);
   });

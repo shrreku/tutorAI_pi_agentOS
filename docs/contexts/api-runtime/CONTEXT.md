@@ -101,6 +101,8 @@ Write tools include:
 
 All durable writes should return a `reducerResult` with mutation metadata and emitted event IDs.
 
+Planned learner-trait writes should follow ADR-0017: the tutor may record explicit Learner Trait Signals through governed tools, but LLM-assisted Learner Trait Estimate updates must be proposed, guardrailed, evidence-backed, and recommendation-only before persistence.
+
 ## Domain Terms
 
 NodeRef: canonical reference `{ refType, refId }` used across graph selection, provenance, tutor context, artifacts, and tools.
@@ -134,6 +136,8 @@ Source upload: API receives multipart upload, writes original object to S3-compa
 Tutor chat: resolve actor and notebook ownership, parse AG-UI request, get/create tutor session, load study state and selected artifact context, detect learner intent, select retrieval context, create runtime run, replace cached Pi session if material context changed, create tool registry, persist turn/run rows, stream AG-UI events, append durable events, persist tool calls, update turn/runtime context, compact or draft session digest as needed.
 
 Mastery evaluation: the runtime should automatically evaluate eligible learner turns when the previous tutor turn asked a Mastery Check or quiz-like prompt. The tutor may also call `learning.evaluate_response` when it intentionally asks for an open-ended explanation, worked-problem attempt, self-reported confusion, or prior-knowledge signal.
+
+Learner trait estimation: the runtime may record explicit preference/self-report Learner Trait Signals during tutoring, but inferred Learner Trait Estimates should be updated only when required at session/crystallization boundaries or by explicit Pi agentic decision. Trait estimation must not block ordinary live tutor turns and must not directly mutate mastery, curriculum, weak concepts, artifacts, or source grounding.
 
 Context selection: combine learner message, selected refs, active objective, weak concepts, open artifact, previous runtime context, objective-path concept IDs, and retrieval results. Use hybrid retrieval when OpenRouter embeddings are available, lexical otherwise. Emit reasoning via `session.context.selected` or `session.context.selection_failed`.
 

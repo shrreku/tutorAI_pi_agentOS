@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import {
   chunks,
@@ -14,7 +15,9 @@ import {
   type DbClient,
 } from "@studyagent/db";
 import {
+  evaluateEvalSourceFixtureFreshness,
   syntheticLearnerEvalSourceFixtures,
+  type EvalSourceFixtureFreshnessMode,
   type EvalSourceFixtureManifest,
 } from "@studyagent/schemas";
 import { resolveActor } from "../auth.js";
@@ -150,7 +153,7 @@ type EvalSourceFixtureSeedState = {
 };
 
 export async function registerEvalSourceFixtureRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
-  app.post<{ Params: { fixtureId: string }; Body: { title?: string } }>(
+  app.post<{ Params: { fixtureId: string }; Body: { title?: string; freshnessMode?: EvalSourceFixtureFreshnessMode } }>(
     "/eval/source-fixtures/:fixtureId/notebooks",
     async (request, reply) => {
       const actor = await resolveActor(ctx, request);
@@ -168,11 +171,23 @@ export async function registerEvalSourceFixtureRoutes(app: FastifyInstance, ctx:
         return reply.status(409).send({ code: "fixture_not_ready", message: "Fixture readiness checks did not pass" });
       }
 
+      const freshness = evaluateEvalSourceFixtureFreshness({
+        fixture,
+        mode: request.body?.freshnessMode ?? "strict",
+      });
+      if (!freshness.importable) {
+        return reply.status(409).send({
+          code: "fixture_stale",
+          message: "Fixture is stale and strict freshness mode is enabled",
+          freshness,
+        });
+      }
+
       const imported = await seedEvalSourceFixtureNotebook(ctx.db, fixture, actor.id, {
         ...(typeof request.body?.title === "string" ? { title: request.body.title } : {}),
       });
 
-      return reply.status(201).send(imported);
+      return reply.status(201).send({ ...imported, freshness });
     },
   );
 }
@@ -278,7 +293,7 @@ export async function seedEvalSourceFixtureNotebook(
       ...row,
       id: curriculumIdMap.get(row.id) ?? row.id,
       notebookId,
-      activeModuleId: row.activeModuleId ? (moduleIdMap.get(row.activeModuleId) ?? row.activeModuleId) : null,
+      activeModuleId: null,
       sourceIds: (row.sourceIds ?? []).map((sourceId) => sourceIdMap.get(sourceId) ?? sourceId),
       coverageSummaryJson: row.coverageSummaryJson ?? null,
       confidence: row.confidence ?? null,
@@ -302,6 +317,13 @@ export async function seedEvalSourceFixtureNotebook(
       updatedAt: now,
     })));
     seededRowCounts.curriculumModules = seedState.curriculumModules.length;
+
+    for (const row of seedState.curricula) {
+      if (!row.activeModuleId) continue;
+      const scopedCurriculumId = curriculumIdMap.get(row.id) ?? row.id;
+      const scopedActiveModuleId = moduleIdMap.get(row.activeModuleId) ?? row.activeModuleId;
+      await tx.update(curricula).set({ activeModuleId: scopedActiveModuleId }).where(eq(curricula.id, scopedCurriculumId));
+    }
 
     await insertRows(tx, objectiveLists, seedState.objectiveLists.map((row) => ({
       ...row,

@@ -20,7 +20,9 @@ describe("write tools", () => {
   const baseContext: ToolContext = {
     userId: "user_1",
     notebookId: "nb_1",
+    sessionId: "sess_1",
     runId: "run_1",
+    turnId: "turn_1",
     traceId: "trace_1",
     permissions: {},
     selectedNodeRefs: [],
@@ -42,6 +44,7 @@ describe("write tools", () => {
     expect(registry.get("coverage.mark_introduced")).toBeDefined();
     expect(registry.get("coverage.mark_checked")).toBeDefined();
     expect(registry.get("coverage.get_gaps")).toBeDefined();
+    expect(registry.get("learner_trait.record_signal")).toBeDefined();
     expect(registry.get("session_plan.update")).toBeDefined();
     expect(registry.get("artifact.update_session_plan")).toBeDefined();
     expect(registry.get("curriculum.activate")).toBeDefined();
@@ -115,6 +118,74 @@ describe("write tools", () => {
 
     expect((result as { status: string }).status).toBe("candidate");
     expect(events).toEqual(["agent.tool.started", "agent.tool.completed"]);
+  });
+
+  it("executes a learner trait signal write with reducer metadata", async () => {
+    const registry = new ToolRegistry();
+    registerWriteToolsV1(registry, createNoopRuntimeWriteToolProvider());
+
+    const result = await executeTool(
+      registry,
+      "learner_trait.record_signal",
+      {
+        trait: "pacePreference",
+        value: "slow",
+        source: "explicit_self_report",
+        evidenceRefs: [{ refType: "self_report", refId: "turn_1" }],
+      },
+      baseContext,
+    );
+
+    expect((result as { signal: { trait: string; suggestedValue: string }; reducerResult: { mutationType: string } }).signal).toMatchObject({
+      trait: "pacePreference",
+      suggestedValue: "slow",
+    });
+    expect((result as { reducerResult: { mutationType: string } }).reducerResult.mutationType).toBe("learner_trait.signal.recorded");
+  });
+
+  it("normalizes loose learner trait write input and falls back to session evidence", async () => {
+    const registry = new ToolRegistry();
+    registerWriteToolsV1(registry, createNoopRuntimeWriteToolProvider());
+
+    const result = await executeTool(
+      registry,
+      "learner_trait.record_signal",
+      {
+        pacePreference: "slow_and_careful",
+        preferenceVisualExamples: "true",
+      },
+      baseContext,
+    );
+
+    expect((result as { signal: { trait: string; suggestedValue: string; evidenceRefs: Array<{ refType: string; refId: string }> } }).signal)
+      .toMatchObject({
+        trait: "pacePreference",
+        suggestedValue: "slow",
+        evidenceRefs: [{ refType: "session_trace", refId: baseContext.sessionId }],
+      });
+  });
+
+  it("normalizes agent-style learner trait keys and suggested values", async () => {
+    const registry = new ToolRegistry();
+    registerWriteToolsV1(registry, createNoopRuntimeWriteToolProvider());
+
+    const result = await executeTool(
+      registry,
+      "learner_trait.record_signal",
+      {
+        trait: "pace_preference",
+        suggestedValue: "slower and more carefully",
+        source: "tutor_observation",
+      },
+      baseContext,
+    );
+
+    expect((result as { signal: { trait: string; suggestedValue: string; evidenceRefs: Array<{ refType: string; refId: string }> } }).signal)
+      .toMatchObject({
+        trait: "pacePreference",
+        suggestedValue: "slow",
+        evidenceRefs: [{ refType: "session_trace", refId: baseContext.sessionId }],
+      });
   });
 
   it("builds reducer results for accepted writes", () => {
