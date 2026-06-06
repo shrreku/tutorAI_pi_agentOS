@@ -88,6 +88,30 @@ describe("evaluateLearnerResponse", () => {
     expect(evidence.tutoringIntervention).toBe("quick_check");
   });
 
+  it("does not mark short disagree answers incorrect against long reference explanations", async () => {
+    const evidence = await evaluateLearnerResponse({
+      ...baseInput,
+      learnerAnswer: "disagree",
+      referenceAnswer:
+        "Fourier's law is phenomenological and comes from experimental evidence rather than first-principles derivation.",
+      evidenceType: "mastery_check",
+      triggerSource: "runtime_auto",
+    });
+    expect(evidence.correctnessLabel).toBe("needs_more_evidence");
+    expect(evidence.evaluatorProvenance.mode).toBe("deterministic");
+  });
+
+  it("matches checkpoint agree/disagree answers directly", async () => {
+    const evidence = await evaluateLearnerResponse({
+      ...baseInput,
+      learnerAnswer: "disagree",
+      referenceAnswer: "disagree",
+      evidenceType: "mastery_check",
+      triggerSource: "tutor_tool",
+    });
+    expect(evidence.correctnessLabel).toBe("correct");
+  });
+
   it("marks source-specific evaluation with source refs", async () => {
     const evidence = await evaluateLearnerResponse({
       ...baseInput,

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildSyntheticLearnerEvalMatrix,
   buildSyntheticLearnerEvalRunRecord,
+  buildSyntheticLearnerIssueCandidates,
   buildSkippedSyntheticLearnerRubricResults,
   deriveDeterministicGateStatus,
   evaluateEvalSourceFixtureFreshness,
@@ -11,6 +12,7 @@ import {
   syntheticLearnerEvalScenarioRunSchema,
   formatSyntheticLearnerList,
   regenerateEvalSourceFixtureManifest,
+  planSyntheticLearnerEvalRun,
   syntheticLearnerPersonaSchema,
   syntheticLearnerScenarioSchema,
   syntheticLearnerActionDecisionSchema,
@@ -20,7 +22,7 @@ import {
   renderSyntheticLearnerScriptedMessages,
   exportSyntheticLearnerEvalRunReport,
 } from "./synthetic-learner-evals.js";
-import { evaluateSyntheticLearnerAssertions } from "./synthetic-learner-evals.assertions.js";
+import { evaluateSyntheticLearnerAssertions } from "../../eval-runner/src/index.js";
 import {
   syntheticLearnerEvalTracerBulletFixture,
   syntheticLearnerEvalAutonomousDiscoveryScenario,
@@ -184,6 +186,64 @@ describe("synthetic learner eval contracts", () => {
     expect(scenarioRun.runKind).toBe("golden_journey");
     expect(scenarioRun.learnerMode).toBe("beat_llm");
     expect(scenarioRun.gatingPolicy).toBe("non_ci_gating");
+  });
+
+  it("plans compatible run kind, learner mode, gating, and autonomy before execution", () => {
+    const regressionPlan = planSyntheticLearnerEvalRun({
+      scenario: syntheticLearnerEvalTracerBulletScenarios[0]!,
+      persona: syntheticLearnerEvalTracerBulletPersonas[0]!,
+      learnerMode: "scripted",
+    });
+    expect(regressionPlan).toMatchObject({
+      runKind: "regression",
+      learnerMode: "scripted",
+      gatingPolicy: "ci_gating",
+    });
+
+    const goldenPlan = planSyntheticLearnerEvalRun({
+      scenario: syntheticLearnerEvalTracerBulletScenarios[1]!,
+      persona: syntheticLearnerEvalTracerBulletPersonas[1]!,
+      learnerMode: "beat_llm",
+      simulatorModelConfig: { provider: "stub", model: "stub-student", temperature: 0, maxActionRepairAttempts: 1 },
+    });
+    expect(goldenPlan).toMatchObject({
+      runKind: "golden_journey",
+      learnerMode: "beat_llm",
+      gatingPolicy: "non_ci_gating",
+    });
+
+    const scenarioAutonomousPlan = planSyntheticLearnerEvalRun({
+      scenario: {
+        ...syntheticLearnerEvalTracerBulletScenarios[1]!,
+        runKind: "scenario_autonomous",
+      },
+      persona: syntheticLearnerEvalTracerBulletPersonas[1]!,
+      learnerMode: "scenario_autonomous_llm",
+    });
+    expect(scenarioAutonomousPlan).toMatchObject({
+      runKind: "scenario_autonomous",
+      learnerMode: "scenario_autonomous_llm",
+      gatingPolicy: "non_ci_gating",
+    });
+
+    const fullAutonomousPlan = planSyntheticLearnerEvalRun({
+      scenario: syntheticLearnerEvalAutonomousDiscoveryScenario,
+      persona: syntheticLearnerEvalTracerBulletPersonas[2]!,
+      learnerMode: "full_autonomous_llm",
+      autonomyStartProfile: "oriented_entry",
+    });
+    expect(fullAutonomousPlan).toMatchObject({
+      runKind: "full_autonomous",
+      learnerMode: "full_autonomous_llm",
+      gatingPolicy: "discovery_only",
+      autonomyStartProfile: "oriented_entry",
+    });
+
+    expect(() => planSyntheticLearnerEvalRun({
+      scenario: syntheticLearnerEvalTracerBulletScenarios[0]!,
+      persona: syntheticLearnerEvalTracerBulletPersonas[0]!,
+      learnerMode: "full_autonomous_llm",
+    })).toThrow(/incompatible/);
   });
 
   it("normalizes model-shaped Synthetic Learner actions into the strict action contract", () => {
@@ -404,14 +464,141 @@ describe("synthetic learner eval contracts", () => {
           },
           {
             ref: { refType: "trait_guardrail_decision", refId: "ltgd_1" },
-            eventType: "learner_trait.guardrail_decision.recorded",
+            eventType: "learner_trait.estimation.planned",
             timestamp: "2026-05-25T08:00:05.000Z",
+          },
+        ],
+        traitRecommendationOnlySnapshot: {
+          before: {
+            masteryEvidenceRefs: [{ refType: "turn", refId: "turn_before" }],
+            artifactRefs: [{ refType: "artifact", refId: "artifact_before" }],
+          },
+          after: {
+            masteryEvidenceRefs: [{ refType: "turn", refId: "turn_before" }],
+            artifactRefs: [{ refType: "artifact", refId: "artifact_before" }],
+            traitEstimateRefs: [{ refType: "trait_estimate", refId: "lte_1" }],
+            personalizationRecommendationRefs: [{ refType: "personalization_recommendation", refId: "pr_1" }],
+          },
+        },
+      },
+    });
+
+    expect(assertions.map((assertion) => assertion.status)).toEqual(["passed", "passed", "passed", "passed"]);
+  });
+
+  it("fails persistence_trait_estimates when required trait snapshots are missing", () => {
+    const assertions = evaluateSyntheticLearnerAssertions({
+      assertionRefs: [{ refType: "assertion", refId: "persistence_trait_estimates" }],
+      persistence: {
+        sessionEvents: [
+          {
+            ref: { refType: "trait_signal", refId: "lts_1" },
+            eventType: "learner_trait.signal.recorded",
           },
         ],
       },
     });
 
-    expect(assertions.map((assertion) => assertion.status)).toEqual(["passed", "passed", "passed", "passed"]);
+    expect(assertions[0]?.status).toBe("failed");
+    expect(assertions[0]?.details.reason).toBe("unavailable_required_trait_snapshot");
+  });
+
+  it("fails trait recommendation-only assertions when forbidden product state changes", () => {
+    const assertions = evaluateSyntheticLearnerAssertions({
+      assertionRefs: [{ refType: "assertion", refId: "persistence_trait_recommendation_only" }],
+      persistence: {
+        sessionEvents: [
+          {
+            ref: { refType: "trait_guardrail_decision", refId: "ltgd_1" },
+            eventType: "learner_trait.guardrail_decision.recorded",
+          },
+        ],
+        traitRecommendationOnlySnapshot: {
+          before: {
+            masteryEvidenceRefs: [],
+            curriculumRefs: [{ refType: "curriculum", refId: "curriculum_before" }],
+          },
+          after: {
+            masteryEvidenceRefs: [{ refType: "turn", refId: "turn_forbidden" }],
+            curriculumRefs: [
+              { refType: "curriculum", refId: "curriculum_before" },
+              { refType: "curriculum", refId: "curriculum_forbidden" },
+            ],
+            traitEstimateRefs: [{ refType: "trait_estimate", refId: "lte_1" }],
+            personalizationRecommendationRefs: [{ refType: "personalization_recommendation", refId: "pr_1" }],
+          },
+        },
+      },
+    });
+
+    expect(assertions[0]?.status).toBe("failed");
+    expect(assertions[0]?.failureMessage).toContain("forbidden product state");
+    expect(assertions[0]?.details.forbiddenDeltas).toEqual(expect.arrayContaining([
+      expect.objectContaining({ field: "masteryEvidenceRefs" }),
+      expect.objectContaining({ field: "curriculumRefs" }),
+    ]));
+  });
+
+  it("fails trait recommendation-only assertions when tutoring artifacts change during estimation", () => {
+    const assertions = evaluateSyntheticLearnerAssertions({
+      assertionRefs: [{ refType: "assertion", refId: "persistence_trait_recommendation_only" }],
+      persistence: {
+        sessionEvents: [
+          {
+            ref: { refType: "trait_guardrail_decision", refId: "ltgd_1" },
+            eventType: "learner_trait.estimation.planned",
+          },
+        ],
+        traitRecommendationOnlySnapshot: {
+          before: {
+            artifactRefs: [{ refType: "artifact", refId: "artifact_before" }],
+          },
+          after: {
+            artifactRefs: [
+              { refType: "artifact", refId: "artifact_before" },
+              { refType: "artifact", refId: "artifact_forbidden" },
+            ],
+            traitEstimateRefs: [{ refType: "trait_estimate", refId: "lte_1" }],
+          },
+        },
+      },
+    });
+
+    expect(assertions[0]?.status).toBe("failed");
+    expect(assertions[0]?.details.forbiddenDeltas).toEqual(
+      expect.arrayContaining([expect.objectContaining({ field: "artifactRefs" })]),
+    );
+  });
+
+  it("fails trait recommendation-only assertions when source grounding changes during estimation", () => {
+    const assertions = evaluateSyntheticLearnerAssertions({
+      assertionRefs: [{ refType: "assertion", refId: "persistence_trait_recommendation_only" }],
+      persistence: {
+        sessionEvents: [
+          {
+            ref: { refType: "trait_guardrail_decision", refId: "ltgd_1" },
+            eventType: "learner_trait.estimation.planned",
+          },
+        ],
+        traitRecommendationOnlySnapshot: {
+          before: {
+            sourceGroundingRefs: [{ refType: "chunk", refId: "chunk_before" }],
+          },
+          after: {
+            sourceGroundingRefs: [
+              { refType: "chunk", refId: "chunk_before" },
+              { refType: "source", refId: "source_forbidden" },
+            ],
+            traitEstimateRefs: [{ refType: "trait_estimate", refId: "lte_1" }],
+          },
+        },
+      },
+    });
+
+    expect(assertions[0]?.status).toBe("failed");
+    expect(assertions[0]?.details.forbiddenDeltas).toEqual(
+      expect.arrayContaining([expect.objectContaining({ field: "sourceGroundingRefs" })]),
+    );
   });
 
   it("fails learner-visible assertions for raw IDs and required persistence assertions without evidence", () => {
@@ -758,5 +945,73 @@ describe("synthetic learner eval contracts", () => {
     expect(runRecord.status).toBe("failed");
     expect(runRecord.issueCandidates).toHaveLength(1);
     expect(runRecord.issueCandidates[0]?.publishedIssueUrl).toBeUndefined();
+  });
+
+  it("builds warning issue candidates for suspicious passing Synthetic Learner runs", () => {
+    const matrix = buildSyntheticLearnerEvalMatrix({
+      fixture: syntheticLearnerEvalTracerBulletFixture,
+      personas: syntheticLearnerEvalTracerBulletPersonas.slice(0, 1),
+      scenarios: syntheticLearnerEvalTracerBulletScenarios.slice(0, 1),
+    });
+    const scenarioRun = syntheticLearnerEvalScenarioRunSchema.parse({
+      ...matrix.runs[0]!,
+      id: "slrun_warning_candidate_0",
+      runId: "slrun_warning_candidate",
+      fixtureVersion: matrix.fixture.version,
+      status: "passed",
+      completedAt: "2026-05-24T00:05:00.000Z",
+      steps: [],
+      assertions: [
+        {
+          id: "persistence_optional_rubric",
+          category: "persistence",
+          description: "Optional persistence check.",
+          status: "skipped",
+          passed: false,
+          failureMessage: "Optional persisted evidence snapshot was unavailable.",
+          evidenceRefs: [],
+          details: { reason: "skipped_optional_snapshot" },
+        },
+      ],
+      artifactRefs: [],
+      screenshotRefs: [],
+      traceRefs: [{ refType: "session", refId: "sess_warning_candidate" }],
+      notebookRefs: [{ refType: "notebook", refId: "nb_warning_candidate" }],
+      runKind: "scenario_autonomous",
+      learnerMode: "scenario_autonomous_llm",
+      gatingPolicy: "non_ci_gating",
+      simulatorEvidence: [
+        {
+          eventType: "action_repaired",
+          learnerMode: "scenario_autonomous_llm",
+          message: "action: unsupported action.",
+          repairAttempt: 1,
+          timestamp: "2026-05-24T00:01:00.000Z",
+        },
+      ],
+      observationEvents: [
+        {
+          id: "obs_warning_1",
+          runId: "slrun_warning_candidate",
+          timestamp: "2026-05-24T00:01:00.000Z",
+          kind: "run",
+          status: "running",
+          message: "Scenario started.",
+          payload: {},
+          evidenceRefs: [],
+        },
+      ],
+      finalState: { passed: true, summary: "Scenario passed after repair." },
+    });
+
+    const candidates = buildSyntheticLearnerIssueCandidates({
+      scenarioRun,
+      fixture: matrix.fixture,
+      transcript: ["SIMULATOR ACTION repaired", "FINAL: passed"],
+    });
+
+    expect(candidates.map((candidate) => candidate.kind)).toEqual(["warning", "warning"]);
+    expect(candidates.map((candidate) => candidate.reason)).toEqual(["invalid_action_repaired", "optional_assertion_skipped"]);
+    expect(candidates[0]?.publishedIssueUrl).toBeUndefined();
   });
 });

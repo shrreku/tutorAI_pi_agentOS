@@ -184,6 +184,23 @@ export const learnerTraitTriggerSummarySchema = z.object({
   traitFamilies: z.array(learnerTraitKeySchema).default([]),
 });
 
+export const learnerTraitEstimationSkipReasonSchema = z.enum([
+  "ended_without_turns",
+  "no_trait_relevant_signals",
+  "one_off_low_signal_observation",
+]);
+
+export const learnerTraitEstimationPlanSchema = z.object({
+  planId: idSchema,
+  notebookId: idSchema,
+  userId: idSchema,
+  sessionId: idSchema.optional(),
+  decision: z.enum(["run", "skip"]),
+  skipReason: learnerTraitEstimationSkipReasonSchema.optional(),
+  trigger: learnerTraitTriggerSummarySchema,
+  plannedAt: z.string().datetime(),
+});
+
 export const learnerTraitEvidencePacketSchema = z.object({
   packetId: idSchema,
   notebookId: idSchema,
@@ -249,6 +266,8 @@ export type LearnerTraitSignal = z.infer<typeof learnerTraitSignalSchema>;
 export type LearnerTraitProposal = z.infer<typeof learnerTraitProposalSchema>;
 export type LearnerTraitGuardrailDecision = z.infer<typeof learnerTraitGuardrailDecisionSchema>;
 export type LearnerTraitTriggerSummary = z.infer<typeof learnerTraitTriggerSummarySchema>;
+export type LearnerTraitEstimationSkipReason = z.infer<typeof learnerTraitEstimationSkipReasonSchema>;
+export type LearnerTraitEstimationPlan = z.infer<typeof learnerTraitEstimationPlanSchema>;
 export type LearnerTraitEvidencePacket = z.infer<typeof learnerTraitEvidencePacketSchema>;
 export type PersonalizationRecommendation = z.infer<typeof personalizationRecommendationSchema>;
 export type LearnerTraitArchetype = z.infer<typeof learnerTraitArchetypeSchema>;

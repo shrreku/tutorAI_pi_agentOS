@@ -1,4 +1,4 @@
-import type { NodeRef, ReducerResult, ToolContext } from "@studyagent/schemas";
+import type { EntityRefType, NodeRef, ReducerResult, ToolContext } from "@studyagent/schemas";
 import {
   idSchema,
   learnerTraitEvidenceRefSchema,
@@ -14,7 +14,7 @@ import {
   type MasteryEvidenceType,
 } from "@studyagent/schemas";
 import { z } from "zod";
-import type { ToolContract, ToolRegistry } from "./index.js";
+import type { ToolContract, ToolRegistry } from "./tool-contracts.js";
 
 const positiveIntSchema = z.number().int().positive();
 
@@ -136,13 +136,54 @@ const flexibleMasteryTriggerSourceSchema = z.preprocess((value) => {
 }, z.string().min(1));
 
 const flexibleMasterySnapshotSchema = z.preprocess((value) => {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   return Object.fromEntries(
     Object.entries(value as Record<string, unknown>)
       .map(([conceptId, rawScore]) => [conceptId, normalizeMasterySnapshotScore(rawScore)] as const)
       .filter((entry): entry is readonly [string, number] => entry[1] !== null),
   );
 }, z.record(z.string(), z.number().min(0).max(1)).default({}));
+
+const masteryNodeRefTypeAliases: Record<string, EntityRefType> = {
+  pdf: "source",
+  document: "source",
+  wiki: "wiki_page",
+  page: "wiki_page",
+  chunk: "chunk",
+  concept: "concept",
+  objective: "objective",
+  source: "source",
+};
+
+export function normalizeMasteryNodeRefs(value: unknown): NodeRef[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
+    const record = entry as Record<string, unknown>;
+    const refId =
+      typeof record.refId === "string"
+        ? record.refId
+        : typeof record.id === "string"
+          ? record.id
+          : typeof record.sourceId === "string"
+            ? record.sourceId
+            : null;
+    if (!refId) return [];
+    const rawType =
+      typeof record.refType === "string"
+        ? record.refType
+        : typeof record.type === "string"
+          ? record.type
+          : "source";
+    const refType = masteryNodeRefTypeAliases[normalizeEnumToken(rawType)] ?? "source";
+    return [{ refType, refId }];
+  });
+}
+
+const flexibleMasteryNodeRefsSchema = z.preprocess(
+  (value) => normalizeMasteryNodeRefs(value),
+  z.array(nodeRefSchema).default([]),
+);
 
 const reducerResultInputSchema = z.object({
   mutationType: z.string().min(1),
@@ -716,10 +757,12 @@ export type LearnerTraitRecordSignalInput = z.infer<typeof learnerTraitRecordSig
 export type LearnerTraitRecordSignalOutput = z.infer<typeof learnerTraitRecordSignalOutputSchema>;
 
 export const evaluateLearnerResponseInputSchema = masteryEvidenceInputSchema
-  .omit({ conceptRoles: true, evidenceType: true, triggerSource: true, masterySnapshot: true })
+  .omit({ conceptRoles: true, evidenceType: true, triggerSource: true, masterySnapshot: true, sourceRefs: true, contextRefs: true })
   .extend({
     conceptRoles: z.array(flexibleConceptRoleSchema).min(1),
     masterySnapshot: flexibleMasterySnapshotSchema,
+    sourceRefs: flexibleMasteryNodeRefsSchema.default([]),
+    contextRefs: flexibleMasteryNodeRefsSchema.default([]),
     evidenceType: flexibleMasteryEvidenceTypeSchema.optional(),
     triggerSource: flexibleMasteryTriggerSourceSchema.optional(),
   });
@@ -729,6 +772,9 @@ export const evaluateLearnerResponseOutputSchema = z.object({
   correctnessLabel: masteryCorrectnessLabelSchema,
   tutoringIntervention: tutoringInterventionSchema,
   readiness: z.string().min(1),
+  overallScore: z.number().min(0).max(1).default(0),
+  confidence: z.number().min(0).max(1).default(0),
+  uncertainty: z.number().min(0).max(1).default(1),
   conceptIds: z.array(idSchema).default([]),
   warnings: z.array(candidateWriteWarningSchema).default([]),
   reducerResult: reducerResultSchema,
@@ -978,7 +1024,8 @@ export const WRITE_TOOL_CONTRACTS = [
   },
   {
     name: "objective.update",
-    description: "Rewrites an objective's canonical fields in planning state.",
+    description:
+      "Updates an objective's canonical planning fields. Pass at least one mutable field such as status (not_started|in_progress|completed), title, targetConceptIds, or readinessScore.",
     inputSchema: objectiveUpdateInputSchema,
     outputSchema: objectiveUpdateOutputSchema,
     sideEffectClass: "candidate_write",
@@ -1059,7 +1106,7 @@ export const WRITE_TOOL_CONTRACTS = [
     providerMethod: "evaluateLearnerResponse",
     runtimeExposure: "tutor_runtime_v1",
     reducerExpectation: { required: true, mutationTypes: ["learning.mastery.updated"] },
-    timeoutMs: 8000,
+    timeoutMs: 20_000,
   },
 ] as const satisfies readonly ToolContract<keyof RuntimeWriteToolProvider & string>[];
 
@@ -1453,6 +1500,9 @@ export function createNoopRuntimeWriteToolProvider(): RuntimeWriteToolProvider {
         correctnessLabel: "partial",
         tutoringIntervention: "guided_practice",
         readiness: "developing",
+        overallScore: 0.5,
+        confidence: 0.55,
+        uncertainty: 0.45,
         conceptIds: input.conceptRoles.map((role) => role.conceptId),
         warnings: [],
         reducerResult: buildReducerResult(

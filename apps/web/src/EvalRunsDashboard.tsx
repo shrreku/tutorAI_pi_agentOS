@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo } from "react";
+import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import type { SyntheticLearnerEvalRunRecord } from "@studyagent/schemas";
 
 type EvalRunSummary = {
@@ -18,6 +18,7 @@ type EvalRunSummary = {
   scenarioIds: string[];
   notebookRefs: Array<{ refType: string; refId: string }>;
   transcriptLineCount: number;
+  updatedAt: string;
 };
 
 type EvalRunListItem = {
@@ -37,11 +38,12 @@ export default function EvalRunsDashboard({
   onSelectRun: (runId: string) => void;
   onBackToNotebooks: () => void;
 }) {
+  const queryClient = useQueryClient();
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ["eval-runs"],
-    staleTime: Infinity,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
+    staleTime: 5_000,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
     queryFn: async (): Promise<EvalRunListResponse> => {
       const response = await fetch("/api/v1/eval/runs");
       if (!response.ok) {
@@ -61,9 +63,9 @@ export default function EvalRunsDashboard({
   const detailQuery = useQuery({
     queryKey: ["eval-run", selectedId],
     enabled: Boolean(selectedId),
-    staleTime: Infinity,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
+    staleTime: 5_000,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
     queryFn: async (): Promise<EvalRunDetailResponse> => {
       const response = await fetch(`/api/v1/eval/runs/${encodeURIComponent(selectedId!)}`);
       if (!response.ok) {
@@ -72,6 +74,10 @@ export default function EvalRunsDashboard({
       return (await response.json()) as EvalRunDetailResponse;
     },
   });
+  useEvalRunUpdateStream({
+    after: data ? latestEvalRunUpdateCursor(runs) : null,
+    queryClient,
+  });
 
   const run = detailQuery.data?.run ?? selectedFromList;
   const summary = detailQuery.data?.summary ?? runs.find((entry) => entry.summary.id === run?.id)?.summary;
@@ -79,6 +85,16 @@ export default function EvalRunsDashboard({
   const screenshotRefs = run ? uniqueTraceRefs(run.scenarioRuns.flatMap((scenarioRun) => scenarioRun.screenshotRefs ?? [])) : [];
   const rubricResults = run ? [...(run.rubricResults ?? []), ...run.scenarioRuns.flatMap((scenarioRun) => scenarioRun.rubricResults ?? [])] : [];
   const issueCandidates = run ? [...(run.issueCandidates ?? []), ...run.scenarioRuns.flatMap((scenarioRun) => scenarioRun.issueCandidates ?? [])] : [];
+  const observationEvents = run
+    ? [...(run.observationEvents ?? []), ...run.scenarioRuns.flatMap((scenarioRun) => scenarioRun.observationEvents ?? [])]
+    : [];
+  const snapshotRefs = run
+    ? uniqueTraceRefs([
+        ...(run.evalEvidenceSnapshotRefs ?? []),
+        ...run.scenarioRuns.flatMap((scenarioRun) => scenarioRun.evalEvidenceSnapshotRefs ?? []),
+      ])
+    : [];
+  const evalPlans = run?.evalPlans ?? [];
 
   return (
     <div className="study-shell" data-theme="mist">
@@ -163,6 +179,21 @@ export default function EvalRunsDashboard({
                 </div>
 
                 <section>
+                  <h3 style={{ margin: "0 0 8px", fontSize: 14 }}>Eval plans</h3>
+                  {evalPlans.length ? (
+                    <div style={{ display: "grid", gap: 6, fontSize: 12, color: "#4b5563" }}>
+                      {evalPlans.map((plan) => (
+                        <div key={`${plan.scenarioId}:${plan.personaId}`}>
+                          <strong>{plan.scenarioId}</strong> · {plan.personaId} · {plan.runKind} · {plan.learnerMode} · {plan.gatingPolicy}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <span style={{ fontSize: 12, color: "#6b7280" }}>No eval plans persisted.</span>
+                  )}
+                </section>
+
+                <section>
                   <h3 style={{ margin: "0 0 8px", fontSize: 14 }}>Coverage</h3>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 8, fontSize: 12 }}>
                     <span>{summary.fixtureManifestId}@{summary.fixtureVersion}</span>
@@ -204,15 +235,44 @@ export default function EvalRunsDashboard({
                 </section>
 
                 <section style={{ display: "grid", gap: 8 }}>
-                  <h3 style={{ margin: 0, fontSize: 14 }}>Issue candidates</h3>
-                  {issueCandidates.length ? (
-                    <div style={{ display: "grid", gap: 8 }}>
-                      {issueCandidates.map((candidate, index) => (
-                        <div key={`${candidate.title}:${index}`} style={{ fontSize: 12, color: "#4b5563" }}>
-                          <strong>{candidate.severity}</strong> · {candidate.learnerMode} · {candidate.title} · {candidate.failureSummary}
+                  <h3 style={{ margin: 0, fontSize: 14 }}>Live observation</h3>
+                  {observationEvents.length ? (
+                    <div style={{ display: "grid", gap: 6, maxHeight: 220, overflow: "auto" }}>
+                      {observationEvents.map((event) => (
+                        <div key={event.id} style={{ fontSize: 12, color: "#4b5563" }}>
+                          <strong>{event.kind}</strong>
+                          {event.status ? ` · ${event.status}` : ""} · {event.message}
                         </div>
                       ))}
                     </div>
+                  ) : (
+                    <span style={{ fontSize: 12, color: "#6b7280" }}>No observation events yet.</span>
+                  )}
+                </section>
+
+                <section style={{ display: "grid", gap: 8 }}>
+                  <h3 style={{ margin: 0, fontSize: 14 }}>Evidence snapshots</h3>
+                  {snapshotRefs.length ? (
+                    <div style={{ display: "grid", gap: 6, fontSize: 12, color: "#4b5563" }}>
+                      {snapshotRefs.map((ref) => (
+                        <span key={`${ref.refType}:${ref.refId}`}>{ref.refType}:{ref.refId}</span>
+                      ))}
+                      {run.evalEvidenceSnapshots?.length ? (
+                        <div style={{ marginTop: 4, color: "#6b7280" }}>
+                          Categories:{" "}
+                          {run.evalEvidenceSnapshots.flatMap((snapshot) => snapshot.categories.filter((entry) => entry.status === "available").map((entry) => entry.category)).join(", ") || "none"}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <span style={{ fontSize: 12, color: "#6b7280" }}>None</span>
+                  )}
+                </section>
+
+                <section style={{ display: "grid", gap: 8 }}>
+                  <h3 style={{ margin: 0, fontSize: 14 }}>Issue candidates</h3>
+                  {issueCandidates.length ? (
+                    <IssueCandidateGroups issueCandidates={issueCandidates} />
                   ) : (
                     <span style={{ fontSize: 12, color: "#6b7280" }}>No issue candidates.</span>
                   )}
@@ -286,6 +346,64 @@ export default function EvalRunsDashboard({
           </article>
         </section>
       </main>
+    </div>
+  );
+}
+
+function useEvalRunUpdateStream(input: {
+  after: string | null;
+  queryClient: QueryClient;
+}): void {
+  useEffect(() => {
+    if (input.after === null || typeof EventSource === "undefined") return;
+
+    const es = new EventSource(`/api/v1/eval/runs/stream?after=${encodeURIComponent(input.after)}`);
+    const invalidateEvalRunQueries = (ev: Event) => {
+      let runId: string | undefined;
+      try {
+        const parsed = JSON.parse((ev as MessageEvent).data) as { runId?: unknown };
+        runId = typeof parsed.runId === "string" ? parsed.runId : undefined;
+      } catch {
+        runId = undefined;
+      }
+
+      void input.queryClient.invalidateQueries({ queryKey: ["eval-runs"] });
+      if (runId) {
+        void input.queryClient.invalidateQueries({ queryKey: ["eval-run", runId] });
+      }
+    };
+
+    es.addEventListener("eval_run.updated", invalidateEvalRunQueries);
+    return () => es.close();
+  }, [input.after, input.queryClient]);
+}
+
+function latestEvalRunUpdateCursor(runs: EvalRunListItem[]): string {
+  const latest = runs.reduce((current, entry) => {
+    const timestamp = Date.parse(entry.summary.updatedAt);
+    return Number.isFinite(timestamp) && timestamp > current ? timestamp : current;
+  }, 0);
+  return new Date(latest).toISOString();
+}
+
+function IssueCandidateGroups({ issueCandidates }: { issueCandidates: EvalRunListResponse["runs"][number]["run"]["issueCandidates"] }) {
+  const groups = [
+    { kind: "failure", label: "Failures", candidates: issueCandidates.filter((candidate) => (candidate.kind ?? "failure") === "failure") },
+    { kind: "warning", label: "Warnings", candidates: issueCandidates.filter((candidate) => candidate.kind === "warning") },
+  ];
+
+  return (
+    <div style={{ display: "grid", gap: 8 }}>
+      {groups.filter((group) => group.candidates.length).map((group) => (
+        <div key={group.kind} style={{ display: "grid", gap: 6 }}>
+          <strong style={{ fontSize: 12, color: group.kind === "failure" ? "#b91c1c" : "#92400e" }}>{group.label}</strong>
+          {group.candidates.map((candidate, index) => (
+            <div key={`${candidate.title}:${index}`} style={{ fontSize: 12, color: "#4b5563" }}>
+              <strong>{candidate.severity}</strong> · {candidate.reason ?? "run_failed"} · {candidate.learnerMode} · {candidate.title} · {candidate.failureSummary}
+            </div>
+          ))}
+        </div>
+      ))}
     </div>
   );
 }

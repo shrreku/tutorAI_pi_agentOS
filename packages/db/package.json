@@ -13,6 +13,7 @@
     "seed": "tsx src/seed.ts"
   },
   "dependencies": {
+    "@studyagent/schemas": "workspace:*",
     "drizzle-orm": "^0.44.2",
     "postgres": "^3.4.5"
   },

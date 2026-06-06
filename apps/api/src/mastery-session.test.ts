@@ -5,6 +5,9 @@ const { runRuntimeMasteryEvaluation } = vi.hoisted(() => ({
 }));
 
 vi.mock("./mastery-pipeline.js", () => ({ runRuntimeMasteryEvaluation }));
+vi.mock("./mastery-llm-judge.js", () => ({
+  createOpenRouterMasteryEvaluatorJudge: vi.fn(() => undefined),
+}));
 
 import { maybeRunRuntimeMasteryEvaluation } from "./mastery-session.js";
 import type { AppContext } from "./context.js";
@@ -45,6 +48,7 @@ describe("maybeRunRuntimeMasteryEvaluation", () => {
     expect(runRuntimeMasteryEvaluation).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ turnId: "turn_existing_prompt", runId: "run_1" }),
+      {},
     );
     expect(update).toHaveBeenCalled();
   });
@@ -91,6 +95,52 @@ describe("maybeRunRuntimeMasteryEvaluation", () => {
         sourceRefs: [{ refType: "source", refId: "src_original" }],
         contextRefs: [{ refType: "chunk", refId: "chunk_original" }],
       }),
+      {},
+    );
+  });
+
+  it("keeps objective attribution on prompt objective A after learner focus switches to B", async () => {
+    const updateWhere = vi.fn(async () => undefined);
+    const set = vi.fn(() => ({ where: updateWhere }));
+    const update = vi.fn(() => ({ set }));
+    const ctx = { db: { db: { update } } } as unknown as AppContext;
+
+    await maybeRunRuntimeMasteryEvaluation(ctx, {
+      notebookId: "nb_1",
+      userId: "user_1",
+      sessionId: "sess_1",
+      runId: "run_1",
+      learnerMessage: "Objective A answer",
+      runtimeContext: {
+        pendingMasteryEvaluation: {
+          turnId: "turn_prompt_a",
+          tutorQuestion: "Explain objective A.",
+          conceptIds: ["concept_a"],
+          objectiveId: "objective_a",
+          sourceRefs: [{ refType: "source", refId: "src_a" }],
+          contextRefs: [{ refType: "chunk", refId: "chunk_a" }],
+          sourceScopePolicy: "strict_source_scope",
+          createdAt: "2026-05-16T00:00:00.000Z",
+        },
+        evaluatedMasteryTurnIds: [],
+      },
+      masterySnapshot: { concept_a: 0.4 },
+      sourceRefs: [{ refType: "source", refId: "src_b_after_focus_switch" }],
+      contextRefs: [{ refType: "chunk", refId: "chunk_b_after_focus_switch" }],
+    });
+
+    expect(runRuntimeMasteryEvaluation).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        pending: expect.objectContaining({
+          objectiveId: "objective_a",
+          sourceRefs: [{ refType: "source", refId: "src_a" }],
+          contextRefs: [{ refType: "chunk", refId: "chunk_a" }],
+        }),
+        sourceRefs: [{ refType: "source", refId: "src_a" }],
+        contextRefs: [{ refType: "chunk", refId: "chunk_a" }],
+      }),
+      {},
     );
   });
 

@@ -15,7 +15,6 @@ The web shell is not the teaching engine. Teaching happens through the tutor run
 - `apps/web/src/ProvenanceDrawer.tsx`: Evidence drawer for source excerpts, supporting notes, confidence, and developer metadata.
 - `apps/web/src/DeveloperTimelinePanel.tsx`: Dev Mode harness dashboard for agent runs, tools, state changes, raw events, usage, and node refs.
 - `apps/web/src/whiteboard-utils.ts`: layout/density helpers, `resolveWorkspaceGraph`, `topicsFromReadModel` (API `readModel` only for visibility and Source Wiki topics).
-- `apps/web/src/whiteboard-legacy.ts`: pre-read-model visibility/topic helpers retained for unit tests only.
 - `apps/web/src/whiteboard-node-ref.ts`: graph-node-to-NodeRef mapping.
 
 ## Key Concepts
@@ -34,6 +33,8 @@ Live Plan: current study plan, current objective, upcoming objectives, completed
 
 Session: tutor-session lifecycle with `active`, `paused`, and `completed` states.
 
+Runtime Work View: learner-facing live surface inside tutor chat that shows the tutor runtime working — Runtime Thinking Stream, Runtime Narration, Runtime Activity Steps, then the Learner Response. It mirrors the chronological agent-work pattern (thinking → working text → tool timeline → answer), not a fixed phase checklist. Dev Mode adds identifiers, raw payloads, and cross-turn trace drilldown.
+
 Artifact: durable learning aid such as `note`, `quiz`, `flashcards`, `worked_example`, `formula_sheet`, `comparison_page`, `revision_plan`, `session_digest`, or `concept_card`.
 
 Reference Surface: full-panel, review-oriented node view. The lesson itself stays in tutor chat.
@@ -48,7 +49,7 @@ Notebook entry: user opens `/notebooks`, creates or selects a notebook, and the 
 
 Source ingestion: user uploads a source from the top bar or source controls. The shell posts to `/api/v1/notebooks/:notebookId/sources`. SSE events update source status and graph freshness. Once sources become `tutoring_ready`, tutor/curriculum actions become meaningful.
 
-Tutor study loop: user selects `learn`, `practice`, `revise`, `explore`, or `wiki_maintenance`; starts, continues, resumes, pauses, or ends a session based on `/study-state`; then posts chat to `/api/v1/notebooks/:notebookId/tutor/chat` with `activeMode`, `selectedNodeRefs`, optional `sessionId`, and action `prompt`, `steer`, or `followUp`.
+Tutor study loop: user selects `learn`, `practice`, `revise`, `explore`, or `wiki_maintenance`; starts, continues, resumes, pauses, or ends a session based on `/study-state`; then posts chat to `/api/v1/notebooks/:notebookId/tutor/chat` with `activeMode`, `selectedNodeRefs`, optional `sessionId`, and action `prompt`, `steer`, or `followUp`. During a live turn, tutor chat streams Runtime Work View events (thinking, narration, tool steps) before the Learner Response. Resume rehydrates up to 5 prior turns for the same session; new sessions start without prior-session transcript.
 
 Graph-to-tutor context: user selects a graph node. `Whiteboard` maps it to a `NodeRef` and passes selected refs upward. `TutorPanel` includes the refs in the tutor prompt; if an artifact is open, its artifact ref is included too.
 
@@ -73,6 +74,10 @@ Workspace refresh events include:
 
 Artifact query invalidation is intentionally limited to event names beginning with `artifact.`.
 
+Eval Run update stream: `GET /api/v1/eval/runs/stream?after=<updatedAt>`.
+
+The Synthetic Learner Eval Runs dashboard uses this stream to invalidate `eval-runs` and selected `eval-run` queries when persisted eval-run rows change. It does not run a fixed background polling interval for running evals.
+
 Tutor chat stream: `POST /api/v1/notebooks/:notebookId/tutor/chat`.
 
 The first stream event is custom `SESSION_STARTED`. AG-UI stream events include `RUN_STARTED`, `TEXT_MESSAGE_START`, `TEXT_MESSAGE_CONTENT`, `TEXT_MESSAGE_END`, `TOOL_CALL_START`, `TOOL_CALL_ARGS`, `TOOL_CALL_END`, `RUN_FINISHED`, and `RUN_ERROR`.
@@ -91,6 +96,7 @@ Use:
 - Objective
 - Live Plan
 - Session
+- Tutor Activity
 - Lesson plan
 - Source Wiki
 - Reference surface
@@ -103,6 +109,7 @@ Use:
 Avoid learner-facing debug language:
 
 - raw claim statuses unless the user is in Dev Mode
+- "trace" as learner-facing progress copy; use "Tutor Activity" unless the surface is Dev Mode/debug
 - `coverage_record`, `objective_list`, `session_plan` internals as visible node labels
 - "provenance" as the main Evidence label
 - "whiteboard" as the primary section name when "Workspace" or "Study Map" fits

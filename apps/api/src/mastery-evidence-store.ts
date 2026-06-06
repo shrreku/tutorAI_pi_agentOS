@@ -1,5 +1,6 @@
-import { appendEvent, masteryEvidence as masteryEvidenceTable, type DbClient } from "@studyagent/db";
+import { masteryEvidence as masteryEvidenceTable, type DbClient } from "@studyagent/db";
 import { masteryEvidenceSchema, type MasteryEvidence } from "@studyagent/schemas";
+import { appendEventWithTutorCacheInvalidation as appendEvent } from "./agentic-cache-invalidation.js";
 
 export async function persistMasteryEvidence(
   dbClient: DbClient,

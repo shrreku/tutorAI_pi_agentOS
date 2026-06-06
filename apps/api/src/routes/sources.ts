@@ -1,8 +1,10 @@
 import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { and, asc, desc, eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
-import { appendEvent, chunks, notebooks, sourceVersions, sources } from "@studyagent/db";
+import { chunks, enqueueIngestionJob, notebooks, sourceVersions, sources } from "@studyagent/db";
+import { toSourceLearnerView } from "@studyagent/schemas";
 import type { AppContext } from "../context.js";
+import { appendEventWithTutorCacheInvalidation as appendEvent } from "../agentic-cache-invalidation.js";
 import { resolveActor } from "../auth.js";
 
 export async function registerSourceRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
@@ -28,7 +30,14 @@ export async function registerSourceRoutes(app: FastifyInstance, ctx: AppContext
         .where(eq(sources.notebookId, notebookId))
         .orderBy(desc(sources.createdAt));
 
-      return reply.send({ sources: rows });
+      return reply.send({
+        sources: rows.map((row) => toSourceLearnerView({
+          id: row.id,
+          title: row.title,
+          status: row.status,
+          metadataJson: row.metadataJson,
+        })),
+      });
     },
   );
 
@@ -137,21 +146,32 @@ export async function registerSourceRoutes(app: FastifyInstance, ctx: AppContext
         });
         app.log.info({ notebookId, sourceId, sourceVersionId: versionId, jobName: "ingest_source" }, "ingestion job queued");
       } else {
+        const job = await enqueueIngestionJob(ctx.db, {
+          notebookId,
+          sourceId,
+          sourceVersionId: versionId,
+          jobName: "ingest_source",
+          maxAttempts: 3,
+        });
         await appendEvent(ctx.db, {
           notebookId,
-          eventType: "ingestion.job.failed",
-          payload: {
-            sourceId,
-            sourceVersionId: versionId,
-            reason: "REDIS_URL not configured; BullMQ queue unavailable",
-          },
+          eventType: "ingestion.job.queued",
+          payload: { sourceId, sourceVersionId: versionId, jobName: "ingest_source", jobId: job.id, queueBackend: "postgres" },
         });
-        app.log.warn({ notebookId, sourceId, sourceVersionId: versionId }, "ingestion queue unavailable");
+        app.log.info({ notebookId, sourceId, sourceVersionId: versionId, jobName: "ingest_source", queueBackend: "postgres" }, "ingestion job queued");
       }
 
       const [row] = await ctx.db.db.select().from(sources).where(eq(sources.id, sourceId)).limit(1);
 
-      return reply.status(201).send({ source: row, event: uploaded });
+      return reply.status(201).send({
+        source: toSourceLearnerView({
+          id: row!.id,
+          title: row!.title,
+          status: row!.status,
+          metadataJson: row!.metadataJson,
+        }),
+        event: uploaded,
+      });
     },
   );
 
@@ -229,11 +249,13 @@ export async function registerSourceRoutes(app: FastifyInstance, ctx: AppContext
       });
       return reply.send({
         source: {
-          id: source.id,
-          title: source.title,
+          ...toSourceLearnerView({
+            id: source.id,
+            title: source.title,
+            status: source.status,
+            metadataJson: source.metadataJson,
+          }),
           sourceType: source.sourceType,
-          status: source.status,
-          metadata: source.metadataJson ?? {},
         },
         sourceVersionId: version?.id ?? null,
         chunks: textChunks,

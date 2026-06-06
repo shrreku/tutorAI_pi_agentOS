@@ -1,5 +1,6 @@
 import type { GraphCanvasEdge, GraphCanvasNode, GraphQueryResponse } from "@studyagent/schemas";
-import { learnerVisibleRelationLabel } from "./graph-semantics.js";
+import { learnerVisibleRelationLabel } from "@studyagent/schemas";
+import { deriveSourceWikiTopicAnchors } from "./source-wiki-topics.js";
 
 export type RawNeo4jCanvasNode = { id: string; labels: string[]; props: Record<string, unknown> };
 export type RawNeo4jCanvasEdge = { type: string; startId: string; endId: string; props: Record<string, unknown> };
@@ -78,39 +79,7 @@ export function buildSourceWikiTopicProjection(input: {
     };
   }
 
-  const anchors = topicNodes.map((topicNode) => {
-    const linkedTopicPage = input.edges
-      .filter((edge) => edge.source === topicNode.id && edge.relationType === "CONTAINS_PAGE")
-      .map((edge) => nodeById.get(edge.target))
-      .find((node): node is GraphCanvasNode => Boolean(node && node.nodeType === "wiki_page" && node.properties.pageType === "topic"));
-
-    const conceptIds = new Set<string>();
-    const pageIds = new Set<string>();
-    for (const edge of input.edges) {
-      if (edge.source !== topicNode.id) continue;
-      if (edge.relationType === "CONTAINS_CONCEPT" && nodeById.get(edge.target)?.nodeType === "concept") {
-        conceptIds.add(edge.target);
-      }
-      if (edge.relationType === "CONTAINS_PAGE" && nodeById.get(edge.target)?.nodeType === "wiki_page" && edge.target !== linkedTopicPage?.id) {
-        pageIds.add(edge.target);
-      }
-    }
-
-    const title =
-      typeof linkedTopicPage?.properties.title === "string" && linkedTopicPage.properties.title.trim().length > 0
-        ? linkedTopicPage.properties.title.trim()
-        : typeof topicNode.properties.title === "string" && topicNode.properties.title.trim().length > 0
-          ? topicNode.properties.title.trim()
-          : "Ungrouped";
-
-    return {
-      topicNodeId: topicNode.id,
-      displayNodeId: linkedTopicPage?.id ?? topicNode.id,
-      title,
-      conceptIds,
-      pageIds,
-    };
-  });
+  const anchors = deriveSourceWikiTopicAnchors(input.nodes, input.edges, input.sourceId);
 
   const outNodes = [...input.nodes];
   const outEdges = [...input.edges];

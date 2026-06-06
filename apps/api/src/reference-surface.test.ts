@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { assertLearnerSafeCopy } from "@studyagent/schemas";
 import type { AppContext } from "./context.js";
-import { buildNodeEvidence, buildReferenceSurface } from "./reference-surface.js";
+import { buildNodeEvidence, buildReferenceSurface, toLearnerFacingReferenceSurface } from "./reference-surface.js";
 import { ReferenceSurfaceFakeDb, type FakeTableRows } from "./reference-surface.test-db.js";
 
 const NB = "nb_1";
@@ -428,7 +429,7 @@ describe("reference surface module", () => {
       expect(surface.blocks.some((block) => block.kind === expectedKind)).toBe(true);
       expect(surface.status).toBe("Ready to study");
       expect(surface.primaryActions).toEqual(
-        artifactType === "quiz" ? ["ask_tutor", "quiz", "open_provenance"] : ["ask_tutor", "review", "open_provenance"],
+        artifactType === "quiz" ? ["ask_tutor", "quiz", "regenerate", "open_evidence"] : ["ask_tutor", "review", "regenerate", "open_evidence"],
       );
     });
 
@@ -513,5 +514,33 @@ describe("buildNodeEvidence", () => {
     );
     expect(evidence.entityType).toBe("source");
     expect(evidence.learnerRefs).toEqual([]);
+  });
+
+  it("maps learner-facing primary actions away from provenance vocabulary", async () => {
+    const learnerSurface = await buildReferenceSurface(
+      ctxFor({
+        artifacts: [{
+          id: "artifact_quiz",
+          notebookId: NB,
+          title: "Quiz",
+          artifactType: "quiz",
+          status: "ready",
+          payloadJson: { questions: [{ id: "q1", prompt: "?", answer: "x" }] },
+          createdAt: now,
+          updatedAt: now,
+        }],
+      }, "artifact_quiz"),
+      NB,
+      "artifact_quiz",
+    );
+    expect(learnerSurface.primaryActions).toContain("open_evidence");
+    expect(learnerSurface.primaryActions).not.toContain("open_provenance");
+    expect("provenanceRefs" in learnerSurface).toBe(false);
+    expect(assertLearnerSafeCopy({
+      primaryActions: learnerSurface.primaryActions,
+      title: learnerSurface.title,
+      status: learnerSurface.status,
+      blocks: learnerSurface.blocks.map((block) => ({ title: block.title, kind: block.kind })),
+    })).toEqual([]);
   });
 });

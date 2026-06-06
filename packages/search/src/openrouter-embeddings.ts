@@ -10,6 +10,7 @@ export type OpenRouterEmbedClientOptions = {
   dimensions?: number;
   /** Max strings per HTTP request (OpenRouter/OpenAI batch limit) */
   batchSize?: number;
+  timeoutMs?: number;
 };
 
 export type EmbedTextsResult = {
@@ -39,6 +40,7 @@ export async function embedTextsOpenRouter(
   const base = trimSlash(opts.baseUrl);
   const model = resolveOpenRouterEmbeddingModelId(opts.model);
   const batchSize = opts.batchSize ?? 32;
+  const timeoutMs = opts.timeoutMs ?? 4000;
   const all: number[][] = [];
   let lastUsage: unknown;
 
@@ -70,6 +72,8 @@ export async function embedTextsOpenRouter(
       body.dimensions = opts.dimensions;
     }
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const res = await fetch(`${base}/embeddings`, {
         method: "POST",
@@ -81,6 +85,7 @@ export async function embedTextsOpenRouter(
           "X-Title": "StudyAgent Ingestion",
         },
         body: JSON.stringify(body),
+        signal: controller.signal,
       });
 
       const json = (await res.json()) as OpenAIEmbeddingsResponse;
@@ -120,6 +125,8 @@ export async function embedTextsOpenRouter(
       });
       observation.end();
       throw error;
+    } finally {
+      clearTimeout(timeout);
     }
 
     observation.end();

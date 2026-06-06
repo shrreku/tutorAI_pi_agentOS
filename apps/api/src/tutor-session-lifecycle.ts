@@ -1,5 +1,5 @@
-import { and, desc, eq } from "drizzle-orm";
-import { appendEvent, tutorSessions, tutorTurns, type DbClient } from "@studyagent/db";
+import { desc, eq } from "drizzle-orm";
+import { tutorSessions, tutorTurns, type DbClient } from "@studyagent/db";
 import {
   createRuntimeRun,
   disposeStudyAgentTutorSession,
@@ -7,12 +7,22 @@ import {
   type StudyAgentPromptContext,
 } from "@studyagent/agent-runtime";
 import { nodeRefSchema, type NodeRef } from "@studyagent/schemas";
-import { crystallizeTutorSession } from "./phase7.js";
-import { runLearnerTraitEstimationCycle, type LearnerTraitEstimatorClient } from "./learner-trait-estimation.js";
+import { appendEventWithTutorCacheInvalidation as appendEvent } from "./agentic-cache-invalidation.js";
+import { crystallizeTutorSession } from "./tutor-session-crystallization.js";
+import {
+  planLearnerTraitEstimation,
+  persistLearnerTraitEstimationPlan,
+  runLearnerTraitEstimationCycle,
+  type LearnerTraitEstimatorClient,
+} from "./learner-trait/index.js";
+import { resolveTutorSession } from "./tutor-session-store.js";
+
+export type TutorSessionLifecyclePhase = "full" | "estimation" | "crystallization";
 
 export type TutorSessionCompletionResult =
   | { status: "completed"; artifactId: string; reason: "crystallized" }
-  | { status: "completed"; artifactId: null; reason: "ended_without_turns" };
+  | { status: "completed"; artifactId: null; reason: "ended_without_turns" }
+  | { status: "estimation_boundary"; artifactId: null; reason: "estimation_complete" };
 
 export async function pauseTutorSessionLifecycle(
   dbClient: DbClient,
@@ -28,7 +38,16 @@ export async function pauseTutorSessionLifecycle(
     .set({ status: "paused" })
     .where(eq(tutorSessions.id, input.sessionId));
 
-  await (input.disposeRuntime ?? disposeStudyAgentTutorSession)(input.sessionId);
+  try {
+    await (input.disposeRuntime ?? disposeStudyAgentTutorSession)(input.sessionId);
+  } catch (error) {
+    await appendEvent(dbClient, {
+      notebookId: input.notebookId,
+      sessionId: input.sessionId,
+      eventType: "session.runtime.disposal_failed",
+      payload: { error: error instanceof Error ? error.message : String(error) },
+    });
+  }
 
   await appendEvent(dbClient, {
     notebookId: input.notebookId,
@@ -48,7 +67,7 @@ export async function pauseTutorSessionLifecycleForRequest(
     requestedSessionId?: string;
   },
 ): Promise<{ sessionId: string; status: "paused" } | null> {
-  const session = await resolveTutorSessionLifecycle(dbClient, {
+  const session = await resolveTutorSession(dbClient, {
     notebookId: input.notebookId,
     userId: input.userId,
     ...(input.requestedSessionId ? { requestedSessionId: input.requestedSessionId } : {}),
@@ -117,7 +136,7 @@ export async function resumeTutorSessionLifecycleForRequest(
     model: string;
   },
 ): Promise<{ sessionId: string; status: "active" } | null> {
-  const session = await resolveTutorSessionLifecycle(dbClient, {
+  const session = await resolveTutorSession(dbClient, {
     notebookId: input.notebookId,
     userId: input.userId,
     ...(input.requestedSessionId ? { requestedSessionId: input.requestedSessionId } : {}),
@@ -143,8 +162,10 @@ export async function completeTutorSessionLifecycle(
     runtimeContextJson: unknown;
     estimator?: LearnerTraitEstimatorClient;
     disposeRuntime?: (sessionId: string) => Promise<void>;
+    phase?: TutorSessionLifecyclePhase;
   },
 ): Promise<TutorSessionCompletionResult> {
+  const phase = input.phase ?? "full";
   const [lastTurn] = await dbClient.db
     .select()
     .from(tutorTurns)
@@ -153,6 +174,16 @@ export async function completeTutorSessionLifecycle(
     .limit(1);
 
   if (!lastTurn || !lastTurn.userMessage || !lastTurn.assistantMessage) {
+    if (phase === "crystallization") {
+      return { status: "completed", artifactId: null, reason: "ended_without_turns" };
+    }
+    const skipPlan = await planLearnerTraitEstimation(dbClient, {
+      notebookId: input.notebookId,
+      userId: input.userId,
+      sessionId: input.sessionId,
+      endedWithoutTurns: true,
+    });
+    await persistLearnerTraitEstimationPlan(dbClient, skipPlan);
     await dbClient.db
       .update(tutorSessions)
       .set({ status: "completed", endedAt: new Date() })
@@ -172,6 +203,37 @@ export async function completeTutorSessionLifecycle(
   const citationIds = stringArray(runtimeCtx.citationIds);
   const artifactProposalIds = stringArray(runtimeCtx.artifactProposalIds);
   const currentObjective = typeof runtimeCtx.currentObjective === "string" ? runtimeCtx.currentObjective : undefined;
+  const estimationBoundaryComplete = runtimeCtx.estimationBoundaryComplete === true;
+
+  if (phase !== "crystallization" && !estimationBoundaryComplete) {
+    await runLearnerTraitEstimationCycle({
+      dbClient,
+      notebookId: input.notebookId,
+      userId: input.userId,
+      sessionId: input.sessionId,
+      ...(input.estimator ? { estimator: input.estimator } : {}),
+    });
+  }
+
+  if (phase === "estimation") {
+    await dbClient.db
+      .update(tutorSessions)
+      .set({
+        runtimeContextJson: {
+          ...runtimeCtx,
+          estimationBoundaryComplete: true,
+          estimationBoundaryAt: new Date().toISOString(),
+        },
+      })
+      .where(eq(tutorSessions.id, input.sessionId));
+    await appendEvent(dbClient, {
+      notebookId: input.notebookId,
+      sessionId: input.sessionId,
+      eventType: "session.estimation_boundary.completed",
+      payload: { sessionId: input.sessionId },
+    });
+    return { status: "estimation_boundary", artifactId: null, reason: "estimation_complete" };
+  }
 
   const digest = await crystallizeTutorSession(dbClient, {
     notebookId: input.notebookId,
@@ -185,16 +247,6 @@ export async function completeTutorSessionLifecycle(
     ...(currentObjective ? { currentObjective } : {}),
   });
 
-  if (input.estimator) {
-    await runLearnerTraitEstimationCycle({
-      dbClient,
-      notebookId: input.notebookId,
-      userId: input.userId,
-      sessionId: input.sessionId,
-      estimator: input.estimator,
-    });
-  }
-
   await (input.disposeRuntime ?? disposeStudyAgentTutorSession)(input.sessionId);
 
   return { status: "completed", artifactId: digest.artifactId, reason: "crystallized" };
@@ -207,9 +259,10 @@ export async function completeTutorSessionLifecycleForRequest(
     userId: string;
     requestedSessionId?: string;
     estimator?: LearnerTraitEstimatorClient;
+    phase?: TutorSessionLifecyclePhase;
   },
 ): Promise<(TutorSessionCompletionResult & { sessionId: string }) | null> {
-  const session = await resolveTutorSessionLifecycle(dbClient, {
+  const session = await resolveTutorSession(dbClient, {
     notebookId: input.notebookId,
     userId: input.userId,
     ...(input.requestedSessionId ? { requestedSessionId: input.requestedSessionId } : {}),
@@ -222,6 +275,7 @@ export async function completeTutorSessionLifecycleForRequest(
     sessionId: session.id,
     runtimeContextJson: session.runtimeContextJson,
     ...(input.estimator ? { estimator: input.estimator } : {}),
+    ...(input.phase ? { phase: input.phase } : {}),
   });
   return { ...result, sessionId: session.id };
 }
@@ -232,34 +286,6 @@ function stringArray(value: unknown): string[] {
 
 function isJsonRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-async function resolveTutorSessionLifecycle(
-  dbClient: DbClient,
-  input: {
-    notebookId: string;
-    userId: string;
-    requestedSessionId?: string;
-    allowedStatuses: string[];
-  },
-) {
-  if (input.requestedSessionId) {
-    const [requested] = await dbClient.db
-      .select()
-      .from(tutorSessions)
-      .where(and(eq(tutorSessions.id, input.requestedSessionId), eq(tutorSessions.notebookId, input.notebookId), eq(tutorSessions.userId, input.userId)))
-      .limit(1);
-    if (!requested) return null;
-    return input.allowedStatuses.includes(requested.status) ? requested : null;
-  }
-
-  const rows = await dbClient.db
-    .select()
-    .from(tutorSessions)
-    .where(and(eq(tutorSessions.notebookId, input.notebookId), eq(tutorSessions.userId, input.userId)))
-    .orderBy(desc(tutorSessions.startedAt))
-    .limit(5);
-  return rows.find((row) => input.allowedStatuses.includes(row.status)) ?? null;
 }
 
 function parseNodeRefs(value: unknown): NodeRef[] {

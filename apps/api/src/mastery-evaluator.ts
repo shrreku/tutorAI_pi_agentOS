@@ -62,6 +62,25 @@ function tokenOverlapScore(left: string, right: string): number {
   return overlap / Math.max(a.size, b.size);
 }
 
+type CheckpointStance = "agree" | "disagree";
+
+function extractCheckpointStance(answer: string): CheckpointStance | null {
+  const normalized = normalizeAnswer(answer);
+  if (/^(agree|yes|true|correct|right)$/.test(normalized)) return "agree";
+  if (/^(disagree|no|false|incorrect|wrong)$/.test(normalized)) return "disagree";
+  return null;
+}
+
+function shouldDeferCheckpointToSemanticJudge(input: EvaluateLearnerResponseInput): boolean {
+  const learnerStance = extractCheckpointStance(input.learnerAnswer);
+  if (!learnerStance || !input.referenceAnswer) return false;
+  const reference = normalizeAnswer(input.referenceAnswer);
+  if (reference === normalizeAnswer(input.learnerAnswer)) return false;
+  const referenceStance = extractCheckpointStance(input.referenceAnswer);
+  if (referenceStance) return referenceStance !== learnerStance;
+  return reference.length > 48 || tokenOverlapScore(input.learnerAnswer, input.referenceAnswer) < 0.75;
+}
+
 function deterministicJudge(input: EvaluateLearnerResponseInput): MasteryEvaluatorJudgeResult {
   const learner = normalizeAnswer(input.learnerAnswer);
   if (/\b(i don'?t know|not sure|no idea|idk|maybe)\b/.test(learner)) {
@@ -89,6 +108,47 @@ function deterministicJudge(input: EvaluateLearnerResponseInput): MasteryEvaluat
         notes: "Exact normalized answer match.",
       };
     }
+
+    const learnerStance = extractCheckpointStance(input.learnerAnswer);
+    const referenceStance = extractCheckpointStance(input.referenceAnswer);
+    if (learnerStance && referenceStance) {
+      if (learnerStance === referenceStance) {
+        return {
+          correctnessLabel: "correct",
+          overallScore: 1,
+          confidence: 0.9,
+          uncertainty: 0.1,
+          misconceptions: [],
+          tutoringIntervention: "advance",
+          notes: "Checkpoint stance matched the reference answer.",
+        };
+      }
+      return {
+        correctnessLabel: "incorrect",
+        overallScore: 0.15,
+        confidence: 0.85,
+        uncertainty: 0.15,
+        misconceptions: input.conceptRoles.slice(0, 1).map((role) => ({
+          conceptId: role.conceptId,
+          description: "Checkpoint stance disagreed with the expected answer.",
+        })),
+        tutoringIntervention: "reteach",
+        notes: "Checkpoint stance disagreed with the expected answer.",
+      };
+    }
+
+    if (learnerStance && reference.length > 48) {
+      return {
+        correctnessLabel: "needs_more_evidence",
+        overallScore: 0.35,
+        confidence: 0.4,
+        uncertainty: 0.75,
+        misconceptions: [],
+        tutoringIntervention: "quick_check",
+        notes: "Short checkpoint response needs semantic evaluation against the tutor question.",
+      };
+    }
+
     const overlap = tokenOverlapScore(input.learnerAnswer, input.referenceAnswer);
     if (overlap >= 0.75) {
       return {
@@ -156,8 +216,9 @@ function buildConceptScores(
   judgment: MasteryEvaluatorJudgeResult,
 ): MasteryEvidence["conceptScores"] {
   const baseDelta = labelToDelta(judgment.correctnessLabel);
+  const masterySnapshot = input.masterySnapshot ?? {};
   return input.conceptRoles.map((role) => {
-    const prior = input.masterySnapshot[role.conceptId] ?? 0.35;
+    const prior = masterySnapshot[role.conceptId] ?? 0.35;
     const roleWeight = role.role === "primary" ? 1 : role.role === "secondary" ? 0.7 : 0.45;
     const delta = Number((baseDelta * roleWeight * judgment.confidence).toFixed(4));
     const score = Math.min(1, Math.max(0, prior + delta));
@@ -184,13 +245,18 @@ export async function evaluateLearnerResponse(
 
   const shouldUseLlm =
     Boolean(options.judge) &&
-    (!input.referenceAnswer || evidenceType === "open_explanation" || evidenceType === "self_report");
+    (
+      !input.referenceAnswer
+      || evidenceType === "open_explanation"
+      || evidenceType === "self_report"
+      || shouldDeferCheckpointToSemanticJudge(input)
+    );
 
   if (shouldUseLlm && options.judge) {
     try {
       judgment = await options.judge(input);
       mode = "llm";
-      model = "stub";
+      model = "openrouter";
       const parsedJudgment = masteryEvaluatorJudgeResultSchema.safeParse(judgment);
       if (!parsedJudgment.success) {
         judgment = deterministicJudge(input);

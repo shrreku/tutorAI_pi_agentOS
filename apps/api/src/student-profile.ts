@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
-import { appendEvent, studentProfiles, type DbClient } from "@studyagent/db";
+import { studentProfiles, type DbClient } from "@studyagent/db";
 import type { StudentProfileUpdatePreferencesInput } from "@studyagent/tools";
+import { appendEventWithTutorCacheInvalidation as appendEvent } from "./agentic-cache-invalidation.js";
 
 export type StudentProfileRecord = {
   id: string;

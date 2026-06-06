@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import type { EvidenceReadModel, EvidenceRef } from "@studyagent/schemas";
+import { learnerFacingNodeTypeLabel, learnerFacingPipelineStatus, learnerSafeCopy } from "./learner-copy-guard.js";
 
 type ProvenanceData = EvidenceReadModel;
 
@@ -121,7 +122,7 @@ export const ProvenanceDrawer: React.FC<ProvenanceDrawerProps> = ({
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
             <span style={{ background: badge.bg, color: badge.text, padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700, textTransform: "capitalize" }}>
-              {(nodeType ?? "node").replace(/_/g, " ")}
+              {learnerFacingNodeTypeLabel(nodeType ?? "node", { devMode: isDeveloperMode })}
             </span>
             <h2 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "#111827" }}>Evidence</h2>
           </div>
@@ -196,7 +197,7 @@ export const ProvenanceDrawer: React.FC<ProvenanceDrawerProps> = ({
                       <div key={claim.id} style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 6, padding: "8px 10px" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                         <span style={{ fontSize: 11, fontWeight: 600, color: "#374151", textTransform: "capitalize" }}>
-                          {claim.label.replace(/_/g, " ")}
+                          {learnerSafeCopy(claim.label, { devMode: isDeveloperMode })}
                         </span>
                       </div>
                       <div style={{ fontSize: 12, color: "#1f2937", lineHeight: 1.5, marginBottom: 4 }}>{claim.text}</div>
@@ -237,10 +238,14 @@ export const ProvenanceDrawer: React.FC<ProvenanceDrawerProps> = ({
                       <div key={claim.id} style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 6, padding: "8px 10px" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                           <span style={{ fontSize: 11, fontWeight: 600, color: "#374151", textTransform: "capitalize" }}>
-                            {claim.label.replace(/_/g, " ")}
+                            {learnerSafeCopy(claim.label, { devMode: true })}
                           </span>
                           <span style={{ background: sc.bg, color: sc.text, padding: "1px 6px", borderRadius: 9999, fontSize: 10, fontWeight: 600 }}>
-                            {claim.statementKind?.replace(/_/g, " ") ?? claim.status}
+                            {claim.statementKind
+                              ? learnerFacingPipelineStatus(claim.statementKind, { devMode: true })
+                              : claim.status
+                                ? learnerFacingPipelineStatus(claim.status, { devMode: true })
+                                : null}
                           </span>
                         </div>
                         <div style={{ fontSize: 12, color: "#1f2937", lineHeight: 1.5, marginBottom: 4 }}>{claim.text}</div>

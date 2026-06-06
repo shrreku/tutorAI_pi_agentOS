@@ -6,8 +6,16 @@ import {
   runSyntheticLearnerEvalSuite,
   type SyntheticLearnerModelClient,
   type SyntheticLearnerEvalRunnerApi,
-} from "./synthetic-learner-evals.runner.js";
-import type { SyntheticLearnerAssertionPersistenceEvidence } from "./synthetic-learner-evals.assertions.js";
+} from "../../eval-runner/src/index.js";
+import { buildSyntheticLearnerEvalMatrix } from "./synthetic-learner-evals.js";
+import {
+  syntheticLearnerEvalTracerBulletFixture,
+  syntheticLearnerEvalTracerBulletPersonas,
+  syntheticLearnerTraitArchetypePersonas,
+  syntheticLearnerTraitEstimationScenarios,
+} from "./synthetic-learner-evals.fixtures.js";
+import { buildEvalEvidenceSnapshot } from "./synthetic-learner-evals.snapshot.js";
+import type { SyntheticLearnerAssertionPersistenceEvidence } from "./synthetic-learner-evals-persistence-types.js";
 
 function createSuccessApi(): SyntheticLearnerEvalRunnerApi {
   return {
@@ -106,6 +114,8 @@ describe("synthetic learner eval runner", () => {
   it("runs a deterministic scripted scenario and records transcript and trace refs", async () => {
     const matrix = loadTracerBulletSyntheticLearnerEvalMatrix();
     const lines: string[] = [];
+    const observedStatuses: string[] = [];
+    const observedKinds: string[] = [];
 
     const result = await runSyntheticLearnerEvalScenario({
       matrix,
@@ -116,12 +126,26 @@ describe("synthetic learner eval runner", () => {
       writeTranscript: (line) => {
         lines.push(line);
       },
+      writeObservation: (event, run) => {
+        observedStatuses.push(run.status);
+        observedKinds.push(event.kind);
+      },
       startedAt: "2026-05-22T00:00:00.000Z",
       completedAt: "2026-05-22T00:01:00.000Z",
       runId: "slrun_traceable_live_run",
     });
 
     expect(result.runRecord.status).toBe("passed");
+    expect(observedStatuses[0]).toBe("running");
+    expect(observedKinds).toEqual(expect.arrayContaining(["run", "student", "tutor", "tool", "assertion"]));
+    expect(result.runRecord.observationEvents.map((event) => event.kind)).toEqual(expect.arrayContaining(["run", "student", "tutor", "tool", "assertion"]));
+    expect(result.scenarioRun.evalEvidenceSnapshotRefs).toEqual(
+      expect.arrayContaining([
+        { refType: "eval_evidence_snapshot", refId: "snap_slrun_traceable_live_run_scenario_lesson_remediation_execution" },
+        { refType: "eval_evidence_snapshot", refId: "snap_slrun_traceable_live_run_scenario_lesson_remediation_after" },
+      ]),
+    );
+    expect(result.scenarioRun.evalEvidenceSnapshots.length).toBeGreaterThanOrEqual(2);
     expect(result.scenarioRun.status).toBe("passed");
     expect(result.scenarioRun.steps).toHaveLength(result.scenario.beats.length);
     expect(result.scenarioRun.traceRefs).toEqual(
@@ -195,8 +219,101 @@ describe("synthetic learner eval runner", () => {
     expect(prompts[0]).not.toContain("learner_visible_no_id_leak");
   });
 
+  it("falls back to scripted beat message when beat_llm response contains placeholders", async () => {
+    const matrix = loadTracerBulletSyntheticLearnerEvalMatrix();
+    const sentMessages: string[] = [];
+    const api = createSuccessApi();
+    const originalSendTutorTurn = api.sendTutorTurn;
+    api.sendTutorTurn = async (input) => {
+      sentMessages.push(input.scriptedMessage);
+      return originalSendTutorTurn(input);
+    };
+    const model: SyntheticLearnerModelClient = {
+      async generateActionDecision() {
+        return {
+          action: "chat.respond",
+          rationale: "placeholder response",
+          learnerMessage: "Here is my summary: [Topic] with [KeyPoint].",
+        };
+      },
+      async generateLearnerResponse() {
+        throw new Error("beat_llm should not call generateLearnerResponse.");
+      },
+    };
+
+    const result = await runSyntheticLearnerEvalScenario({
+      matrix,
+      scenarioId: "scenario_lesson_remediation",
+      personaId: "persona_beginner_misconception",
+      api,
+      persistenceEvidence: createSuccessPersistenceEvidence(),
+      learnerMode: "beat_llm",
+      syntheticLearnerModel: model,
+      simulatorModelConfig: {
+        provider: "stub",
+        model: "stub-synthetic-learner",
+        temperature: 0,
+        maxActionRepairAttempts: 1,
+      },
+      startedAt: "2026-05-22T00:00:00.000Z",
+      completedAt: "2026-05-22T00:01:00.000Z",
+      runId: "slrun_beat_llm_placeholder_fallback",
+    });
+
+    expect(result.scenarioRun.status).toBe("passed");
+    expect(sentMessages[0]).toBe(matrix.scenarios[0]?.beats[0]?.scriptedMessage);
+  });
+
+  it("pins mastery-evidence beats to scripted learner phrasing in beat_llm mode", async () => {
+    const matrix = loadTracerBulletSyntheticLearnerEvalMatrix();
+    const sentMessages: string[] = [];
+    const api = createSuccessApi();
+    const originalSendTutorTurn = api.sendTutorTurn;
+    api.sendTutorTurn = async (input) => {
+      sentMessages.push(input.scriptedMessage);
+      return originalSendTutorTurn(input);
+    };
+    const model: SyntheticLearnerModelClient = {
+      async generateActionDecision() {
+        return {
+          action: "chat.respond",
+          rationale: "freeform generation",
+          learnerMessage: "I got this fully; no need to test me.",
+        };
+      },
+      async generateLearnerResponse() {
+        throw new Error("beat_llm should not call generateLearnerResponse.");
+      },
+    };
+
+    await runSyntheticLearnerEvalScenario({
+      matrix,
+      scenarioId: "scenario_lesson_remediation",
+      personaId: "persona_beginner_misconception",
+      api,
+      persistenceEvidence: createSuccessPersistenceEvidence(),
+      learnerMode: "beat_llm",
+      syntheticLearnerModel: model,
+      simulatorModelConfig: {
+        provider: "stub",
+        model: "stub-synthetic-learner",
+        temperature: 0,
+        maxActionRepairAttempts: 1,
+      },
+      startedAt: "2026-05-22T00:00:00.000Z",
+      completedAt: "2026-05-22T00:01:00.000Z",
+      runId: "slrun_beat_llm_mastery_pinned",
+    });
+
+    const scenario = matrix.scenarios.find((candidate) => candidate.id === "scenario_lesson_remediation");
+    expect(sentMessages[2]).toBe(scenario?.beats[2]?.scriptedMessage);
+  });
+
   it("runs scenario-autonomous LLM actions with repair feedback and typed observations", async () => {
     const matrix = loadTracerBulletSyntheticLearnerEvalMatrix();
+    const scenario = matrix.scenarios.find((candidate) => candidate.id === "scenario_artifact_request");
+    if (!scenario) throw new Error("Missing scenario_artifact_request fixture.");
+    scenario.runKind = "scenario_autonomous";
     let actionCalls = 0;
     const lines: string[] = [];
     const model: SyntheticLearnerModelClient = {
@@ -269,6 +386,17 @@ describe("synthetic learner eval runner", () => {
 
   it("runs full-autonomous LLM with oriented start context and session finish", async () => {
     const matrix = loadTracerBulletSyntheticLearnerEvalMatrix();
+    const scenario = matrix.scenarios.find((candidate) => candidate.id === "scenario_session_completion");
+    if (!scenario) throw new Error("Missing scenario_session_completion fixture.");
+    scenario.runKind = "full_autonomous";
+    scenario.autonomousConfig = {
+      enabled: true,
+      maxTurns: 3,
+      allowedProductSurfaces: ["tutor_chat", "workspace", "source_wiki", "study_map", "artifacts"],
+      invariantAssertionRefs: [{ refType: "assertion", refId: "learner_visible_no_id_leak" }],
+      durableWritesScope: "eval_owned_notebooks",
+      gateStatus: "discovery_only",
+    };
     const prompts: string[] = [];
     const result = await runSyntheticLearnerEvalScenario({
       matrix,
@@ -416,5 +544,105 @@ describe("synthetic learner eval runner", () => {
     expect(result.runRecord.id).toBe("slrun_trigger_scheduled_001");
     expect(result.scenarioRuns).toHaveLength(1);
     expect(result.runRecord.status).toBe("passed");
+  });
+
+  it("captures pre/post estimation snapshots and phased session end for trait scenarios", async () => {
+    const matrix = buildSyntheticLearnerEvalMatrix({
+      fixture: structuredClone(syntheticLearnerEvalTracerBulletFixture),
+      personas: structuredClone([
+        ...syntheticLearnerEvalTracerBulletPersonas,
+        ...syntheticLearnerTraitArchetypePersonas,
+      ]),
+      scenarios: structuredClone([syntheticLearnerTraitEstimationScenarios[0]!]),
+    });
+    const lines: string[] = [];
+    const snapshotIds: string[] = [];
+    const endPhases: string[] = [];
+    const stableMastery = [{ ref: { refType: "turn" as const, refId: "turn_stable" }, overallScore: 0.62, confidence: 0.7 }];
+
+    const result = await runSyntheticLearnerEvalScenario({
+      matrix,
+      scenarioId: "scenario_trait_explicit_preference_change",
+      personaId: "persona_careful_self_explainer",
+      api: {
+        ...createSuccessApi(),
+        async endTutorSession(input) {
+          endPhases.push(input.phase ?? "full");
+          return {
+            sessionId: "sess_trait_snapshot",
+            events: [{
+              source: "notebook" as const,
+              eventType: input.phase === "estimation"
+                ? "learner_trait.estimation.planned"
+                : "session.digest.created",
+              payload: { timestamp: "2026-05-25T09:00:05.000Z" },
+            }],
+          };
+        },
+      },
+      captureSnapshot: async ({ snapshotId, notebookId }) => {
+        snapshotIds.push(snapshotId);
+        if (snapshotId.includes("after_estimation")) {
+          return buildEvalEvidenceSnapshot({
+            id: snapshotId,
+            notebookId,
+            capturedAt: "2026-05-25T09:00:06.000Z",
+            masteryEvidence: stableMastery,
+            learnerTraitEstimates: [{ ref: { refType: "trait_estimate", refId: "lte_1" } }],
+            personalizationRecommendations: [{ id: "pr_1", trait: "pacePreference" }],
+            sessionEvents: [{
+              ref: { refType: "trait_guardrail_decision", refId: "ltgd_1" },
+              eventType: "learner_trait.estimation.planned",
+              timestamp: "2026-05-25T09:00:05.000Z",
+            }],
+          });
+        }
+        return buildEvalEvidenceSnapshot({
+          id: snapshotId,
+          notebookId,
+          capturedAt: "2026-05-25T09:00:04.000Z",
+          masteryEvidence: stableMastery,
+          sessionEvents: [{
+            ref: { refType: "trait_signal", refId: "lts_1" },
+            eventType: "learner_trait.signal.recorded",
+            timestamp: "2026-05-25T09:00:04.500Z",
+          }],
+        });
+      },
+      persistenceEvidence: {
+        sessionEvents: [
+          {
+            ref: { refType: "trait_signal", refId: "lts_1" },
+            eventType: "learner_trait.signal.recorded",
+            timestamp: "2026-05-25T09:00:04.500Z",
+          },
+          {
+            ref: { refType: "trait_guardrail_decision", refId: "ltgd_1" },
+            eventType: "learner_trait.estimation.planned",
+            timestamp: "2026-05-25T09:00:05.000Z",
+          },
+        ],
+      },
+      writeTranscript: (line) => {
+        lines.push(line);
+      },
+      startedAt: "2026-05-25T09:00:00.000Z",
+      completedAt: "2026-05-25T09:00:10.000Z",
+      runId: "slrun_trait_snapshot_window",
+    });
+
+    expect(snapshotIds).toEqual(expect.arrayContaining([
+      expect.stringContaining("before_estimation"),
+      expect.stringContaining("after_estimation"),
+    ]));
+    expect(endPhases).toEqual(["estimation", "crystallization"]);
+    expect(lines).toEqual(expect.arrayContaining([
+      "SESSION END: trait estimation boundary",
+      "SESSION END: crystallization boundary",
+    ]));
+    expect(result.scenarioRun.evalEvidenceSnapshots.some((snapshot) => snapshot.traitRecommendationOnlySnapshot)).toBe(true);
+    expect(result.scenarioRun.assertions.filter((assertion) =>
+      assertion.id === "persistence_trait_recommendation_only" || assertion.id === "persistence_trait_no_mastery_mutation",
+    ).every((assertion) => assertion.status === "passed")).toBe(true);
   });
 });

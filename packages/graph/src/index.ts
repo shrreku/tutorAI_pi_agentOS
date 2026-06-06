@@ -51,6 +51,18 @@ export {
 } from "./canvas-projection.js";
 
 export {
+  STUDY_MAP_EXCLUDED_NODE_TYPES,
+  dedupeSourceWikiGraph,
+  filterHierarchicalGraphEdges,
+  filterStudyMapNodes,
+  getGraphNodeLevel,
+  presentSourceWikiCanvas,
+  presentStudyMapCanvas,
+  projectStudyMapEdges,
+  type WorkspacePresentationGraph,
+} from "./workspace-graph-presentation.js";
+
+export {
   buildProjectionPlan,
   applyProjectionPlan,
   loadCanonicalProjectionSnapshot,
@@ -66,4 +78,4 @@ export {
   type ProjectGraphEnv,
   type ProjectGraphResult,
 } from "./graph-projection/index.js";
-export * from "./graph-semantics.js";
+export * from "@studyagent/schemas";

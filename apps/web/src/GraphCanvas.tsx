@@ -15,7 +15,8 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import type { GraphCanvasNode, GraphQueryResponse } from "@studyagent/schemas";
-import { buildIntentAwareLayout, collapseObjectiveHistory, getLearnerNodeTitle } from "./whiteboard-utils.js";
+import { learnerFacingNodeTypeLabel, learnerFacingPipelineStatus } from "./learner-copy-guard.js";
+import { buildIntentAwareLayout, getLearnerNodeTitle } from "./whiteboard-utils.js";
 
 interface GraphCanvasProps {
   graphData: GraphQueryResponse | null;
@@ -42,7 +43,7 @@ const NODE_COLORS: Record<string, string> = {
   study_plan: "#a78bfa",
   session_plan: "#7c3aed",
   wiki_page: "#0ea5e9",
-  tutor_session: "#6b7280",
+  tutor_session: "#2563eb",
   weak_concept: "#ef4444",
   coverage_item: "#14b8a6",
   coverage_record: "#0f766e",
@@ -51,17 +52,9 @@ const NODE_COLORS: Record<string, string> = {
 const NODE_COLOR_DEFAULT = "#6b7280";
 
 const LEARNER_NODE_TYPE_LABELS: Record<string, string> = {
-  source: "Source",
-  topic: "Topic",
-  concept: "Concept",
-  wiki_page: "Wiki page",
-  artifact: "Artifact",
-  curriculum: "Curriculum",
-  curriculum_module: "Module",
-  objective: "Objective",
-  objective_list: "Session objectives",
   study_plan: "Live Plan",
-  session_plan: "Session",
+  session_plan: "Lesson plan",
+  tutor_session: "Session",
 };
 
 interface CustomNodeData {
@@ -107,7 +100,7 @@ const StudyAgentNode: React.FC<{ data: CustomNodeData }> = ({ data }) => {
               textTransform: "uppercase",
             }}
           >
-            {LEARNER_NODE_TYPE_LABELS[data.nodeType] ?? data.nodeType.replace(/_/g, " ")}
+            {LEARNER_NODE_TYPE_LABELS[data.nodeType] ?? learnerFacingNodeTypeLabel(data.nodeType)}
           </span>
           {data.status && (
             <span
@@ -124,7 +117,7 @@ const StudyAgentNode: React.FC<{ data: CustomNodeData }> = ({ data }) => {
                 fontWeight: 700,
               }}
             >
-              {data.status.replace(/_/g, " ")}
+              {learnerFacingPipelineStatus(data.status)}
             </span>
           )}
         </div>
@@ -200,22 +193,25 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       return;
     }
 
-    const preparedGraph = collapseObjectiveHistory(graphData);
-    const laid = buildIntentAwareLayout({ graphData: preparedGraph, savedPositions });
+    const laid = buildIntentAwareLayout({ graphData, savedPositions, alreadyPrepared: true });
 
-    const newEdges: Edge[] = preparedGraph.edges.map((edge) => ({
-      id: edge.id,
-      source: edge.source,
-      target: edge.target,
-      label: edge.relationType.replace(/_/g, " "),
-      animated: selectedNodeId === edge.source || selectedNodeId === edge.target,
-      style: {
-        strokeWidth: 1.5,
-        stroke: selectedNodeId === edge.source || selectedNodeId === edge.target ? "#3b82f6" : "#d1d5db",
-      },
-      labelStyle: { fontSize: 9, fill: "#6b7280" },
-      labelBgStyle: { fill: "#f9fafb", fillOpacity: 0.8 },
-    }));
+    const newEdges: Edge[] = graphData.edges.map((edge) => {
+      const isHighlighted = selectedNodeId === edge.source || selectedNodeId === edge.target;
+      return {
+        id: edge.id,
+        source: edge.source,
+        target: edge.target,
+        type: "smoothstep",
+        label: isHighlighted ? edge.relationType.replace(/_/g, " ") : undefined,
+        animated: isHighlighted,
+        style: {
+          strokeWidth: isHighlighted ? 2.25 : 1.35,
+          stroke: isHighlighted ? "#2563eb" : "#94a3b8",
+        },
+        labelStyle: { fontSize: 9, fill: "#475569", fontWeight: 600 },
+        labelBgStyle: { fill: "#ffffff", fillOpacity: 0.94 },
+      };
+    });
 
     const connectedNodeIds = new Set<string>();
     if (selectedNodeId) {
@@ -327,9 +323,13 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         onPaneClick={handlePaneClick}
         nodeTypes={nodeTypes}
         fitView
-        fitViewOptions={{ padding: 0.15 }}
+        fitViewOptions={{ padding: 0.3, maxZoom: 1 }}
+        nodesDraggable={true}
+        nodesConnectable={false}
+        elementsSelectable={true}
         minZoom={0.1}
         maxZoom={3}
+        defaultEdgeOptions={{ type: "smoothstep" }}
         style={{ background: "var(--panel-strong)" }}
       >
         <Background color="oklch(88% 0.018 255)" gap={22} />
@@ -360,6 +360,10 @@ function getCompactMeta(node: GraphCanvasNode): string | null {
   }
   if (node.nodeType === "session_plan" && typeof properties.sessionGoal === "string") {
     return "lesson route";
+  }
+  if (node.nodeType === "tutor_session") {
+    const mode = typeof properties.mode === "string" ? properties.mode.replace(/_/g, " ") : "chat";
+    return mode;
   }
   if (node.nodeType === "objective_list") {
     return "ordered path";

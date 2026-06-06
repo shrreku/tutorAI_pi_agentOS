@@ -73,11 +73,14 @@ export const eventTypeSchema = z.enum([
   "artifact.updated",
   "artifact.ready",
   "artifact.failed",
+  "reference.regenerated",
   "quiz.attempt.recorded",
   "agent.run.started",
   "agent.tool.started",
   "agent.tool.completed",
   "agent.tool.failed",
+  "agent.thinking.completed",
+  "agent.narration.completed",
   "agent.compaction.started",
   "agent.compaction.completed",
   "agent.run.completed",
@@ -103,6 +106,24 @@ export const eventTypeSchema = z.enum([
   "artifact.insert_into_tutor_context",
 ]);
 
+export const workspaceRefreshTargetSchema = z.enum([
+  "sources",
+  "graph",
+  "studyState",
+  "artifacts",
+  "curriculum",
+  "referenceSurfaces",
+  "quizAttempts",
+  "sourceFiles",
+]);
+
+export const workspaceRefreshHintSchema = z.object({
+  targets: z.array(workspaceRefreshTargetSchema).default([]),
+  nodeIds: z.array(idSchema).default([]),
+  artifactIds: z.array(idSchema).default([]),
+  sourceIds: z.array(idSchema).default([]),
+});
+
 export const eventEnvelopeSchema = z.object({
   id: idSchema,
   notebookId: idSchema,
@@ -112,6 +133,7 @@ export const eventEnvelopeSchema = z.object({
   sequenceNo: z.number().int().nonnegative(),
   createdAt: z.string().datetime(),
   payload: z.record(z.string(), z.unknown()),
+  refreshHint: workspaceRefreshHintSchema.optional(),
 });
 
 export const runtimeStreamChunkKindSchema = z.enum([
@@ -140,5 +162,7 @@ export const runtimeStreamChunkSchema = z.object({
 
 export type EventType = z.infer<typeof eventTypeSchema>;
 export type EventEnvelope = z.infer<typeof eventEnvelopeSchema>;
+export type WorkspaceRefreshTarget = z.infer<typeof workspaceRefreshTargetSchema>;
+export type WorkspaceRefreshHint = z.infer<typeof workspaceRefreshHintSchema>;
 export type RuntimeStreamChunkKind = z.infer<typeof runtimeStreamChunkKindSchema>;
 export type RuntimeStreamChunk = z.infer<typeof runtimeStreamChunkSchema>;

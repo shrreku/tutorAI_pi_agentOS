@@ -2,6 +2,8 @@
 
 Status: critical audit for follow-up planning.
 
+Current status note, 2026-05-31: this audit remains the historical gap analysis. Use `docs/architecture/architecture-remediation-current-plan-2026-05-28.md` for the current remediation status matrix, verification gates, and environment prerequisites.
+
 This audit follows the `improve-codebase-architecture` vocabulary: Module, Interface, Implementation, Depth, Seam, Adapter, Leverage, Locality, and deletion test. It does not reopen accepted ADRs by default. It identifies places where implementation drifted after the first architecture-deepening program or where the earlier docs now overclaim completion.
 
 ## Executive Summary

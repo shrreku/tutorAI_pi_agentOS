@@ -8,12 +8,10 @@ const {
   appendEventMock,
   recordLearnerTraitSignalMock,
   runSessionMock,
-  selectContextMock,
 } = vi.hoisted(() => ({
   appendEventMock: vi.fn(async () => ({ id: "evt_1" })),
   recordLearnerTraitSignalMock: vi.fn(async (dbClient, signal) => ({ signal, eventId: "evt_trait_1" })),
   runSessionMock: vi.fn(),
-  selectContextMock: vi.fn(),
 }));
 
 vi.mock("@studyagent/db", async () => {
@@ -49,7 +47,6 @@ vi.mock("../tutor-tool-provider.js", async () => {
   return {
     ...actual,
     createTutorReadToolProvider: vi.fn(() => ({})),
-    selectContextForTutor: selectContextMock,
   };
 });
 
@@ -70,6 +67,7 @@ vi.mock("../learner-trait-store.js", async () => {
   return {
     ...actual,
     recordLearnerTraitSignal: recordLearnerTraitSignalMock,
+    readLearnerTraitSignalsForTurn: vi.fn(async () => []),
   };
 });
 
@@ -97,6 +95,38 @@ type SessionRow = {
   endedAt: Date | null;
 };
 
+function tutorSessionFilterFromWhere(condition: unknown): {
+  id?: string;
+  notebookId?: string;
+  userId?: string;
+} {
+  const literals: string[] = [];
+  const collect = (node: unknown) => {
+    if (!node || typeof node !== "object") return;
+    const chunk = node as { value?: unknown; queryChunks?: unknown[] };
+    if (typeof chunk.value === "string" && chunk.value && !chunk.value.includes("=") && chunk.value !== "(" && chunk.value !== ")" && chunk.value !== " and ") {
+      literals.push(chunk.value);
+    }
+    if (Array.isArray(chunk.value)) {
+      for (const part of chunk.value) {
+        if (typeof part === "string" && part && !part.includes("=") && part !== "(" && part !== ")" && part !== " and ") {
+          literals.push(part);
+        }
+      }
+    }
+    chunk.queryChunks?.forEach(collect);
+  };
+  collect(condition);
+  const id = literals.find((value) => value.startsWith("sess_"));
+  const notebookId = literals.find((value) => value.startsWith("nb_"));
+  const userId = literals.find((value) => value.startsWith("user_") || value.startsWith("usr_"));
+  return {
+    ...(id ? { id } : {}),
+    ...(notebookId ? { notebookId } : {}),
+    ...(userId ? { userId } : {}),
+  };
+}
+
 class FakeDb {
   notebooks = [{ id: "nb_1", ownerId: "user_1", title: "Notebook A" }];
   sources = [{ id: "src_1", notebookId: "nb_1" }];
@@ -105,6 +135,7 @@ class FakeDb {
   sessions: SessionRow[] = [];
   turns: Array<Record<string, unknown>> = [];
   agentRuns: Array<Record<string, unknown>> = [];
+  tutorSessionFilter: ReturnType<typeof tutorSessionFilterFromWhere> | null = null;
 
   select(selection?: unknown) {
     const db = this;
@@ -115,7 +146,10 @@ class FakeDb {
           return [{ maxTurnIndex }];
         };
         return {
-          where(_condition: unknown) {
+          where(condition: unknown) {
+            if (table === tutorSessions) {
+              db.tutorSessionFilter = tutorSessionFilterFromWhere(condition);
+            }
             if (table === tutorTurns && selection && typeof selection === "object" && "maxTurnIndex" in (selection as Record<string, unknown>)) {
               return Promise.resolve(makeTurnAggregate());
             }
@@ -126,7 +160,15 @@ class FakeDb {
           },
           limit(limitCount: number) {
             if (table === notebooks) return Promise.resolve(db.notebooks.slice(0, limitCount));
-            if (table === tutorSessions) return Promise.resolve(db.sessions.slice(0, limitCount));
+            if (table === tutorSessions) {
+              let rows = db.sessions;
+              const filter = db.tutorSessionFilter;
+              db.tutorSessionFilter = null;
+              if (filter?.id) rows = rows.filter((session) => session.id === filter.id);
+              if (filter?.notebookId) rows = rows.filter((session) => session.notebookId === filter.notebookId);
+              if (filter?.userId) rows = rows.filter((session) => session.userId === filter.userId);
+              return Promise.resolve(rows.slice(0, limitCount));
+            }
             if (table === sources) return Promise.resolve(db.sources.slice(0, limitCount));
             if (table === artifacts) return Promise.resolve(db.artifacts.slice(0, limitCount));
             if (table === concepts) return Promise.resolve(db.concepts.slice(0, limitCount));
@@ -190,9 +232,28 @@ describe("tutor chat route", () => {
     appendEventMock.mockClear();
     recordLearnerTraitSignalMock.mockClear();
     runSessionMock.mockReset();
-    selectContextMock.mockReset();
 
     runSessionMock.mockImplementation(async function* () {
+      yield {
+        type: "thinking_start",
+        data: {},
+      };
+      yield {
+        type: "thinking_delta",
+        data: { text: "Need to inspect the study plan." },
+      };
+      yield {
+        type: "thinking_complete",
+        data: { text: "Need to inspect the study plan.", durationMs: 40 },
+      };
+      yield {
+        type: "narration_delta",
+        data: { text: "Checking the active study plan first.", messageIndex: 0 },
+      };
+      yield {
+        type: "narration_complete",
+        data: { text: "Checking the active study plan first.", messageIndex: 0, durationMs: 20 },
+      };
       yield {
         type: "message_complete",
         data: { text: "Tutor response", stopReason: "end_turn" },
@@ -201,21 +262,6 @@ describe("tutor chat route", () => {
         type: "run_complete",
         data: { runId: "run_x" },
       };
-    });
-
-    selectContextMock.mockResolvedValue({
-      strategy: "selected-nodes-current-objective-weak-concepts-notebook",
-      query: "teach me",
-      retrievalMode: "hybrid",
-      maxChunks: 6,
-      selectedNodeRefs: [{ refType: "concept", refId: "concept_1" }],
-      selectedChunkIds: ["chunk_1"],
-      selectedSourceIds: ["src_1"],
-      objectiveTitle: null,
-      objectivePathConceptIds: [],
-      weakConceptNames: [],
-      recentMistakeConceptIds: [],
-      reason: "selected objective and source context",
     });
 
     fakeDb = new FakeDb();
@@ -232,7 +278,7 @@ describe("tutor chat route", () => {
     await app.close();
   });
 
-  it("creates chat run, streams session started, and persists merged selected refs", async () => {
+  it("creates chat run, streams runtime work view events, and persists user-selected refs only", async () => {
     const response = await app.inject({
       method: "POST",
       url: "/notebooks/nb_1/tutor/chat",
@@ -245,15 +291,56 @@ describe("tutor chat route", () => {
     expect(response.statusCode, response.body).toBe(200);
     expect(response.headers["x-studyagent-session-id"]).toBeTruthy();
     expect(response.body).toContain("SESSION_STARTED");
+    expect(response.body).toContain("THINKING_START");
+    expect(response.body).toContain("THINKING_CONTENT");
+    expect(response.body).toContain("RUNTIME_NARRATION_START");
+    expect(response.body).toContain("RUNTIME_NARRATION_CONTENT");
+    expect(response.body).not.toContain("tutor.message.delta");
 
     expect(fakeDb.turns).toHaveLength(1);
     const savedRefs = (fakeDb.turns[0]?.selectedNodeRefsJson as Array<{ refType: string; refId: string }>) ?? [];
-    expect(savedRefs).toEqual(
-      expect.arrayContaining([
-        { refType: "source", refId: "src_1" },
-        { refType: "concept", refId: "concept_1" },
-        { refType: "chunk", refId: "chunk_1" },
-      ]),
+    expect(savedRefs).toEqual([{ refType: "source", refId: "src_1" }]);
+
+    const appendCalls = appendEventMock.mock.calls as unknown as Array<[unknown, { eventType?: string } | undefined]>;
+    expect(appendCalls.some((call) => call[1]?.eventType === "tutor.message.delta")).toBe(false);
+    expect(appendCalls.some((call) => call[1]?.eventType === "session.context.selected")).toBe(false);
+    expect(appendCalls.some((call) => call[1]?.eventType === "agent.thinking.completed")).toBe(true);
+    expect(appendCalls.some((call) => call[1]?.eventType === "agent.narration.completed")).toBe(true);
+  });
+
+  it("propagates request correlation into SSE headers, run persistence, and durable event payloads", async () => {
+    const traceId = "4bf92f3577b34da6a3ce929d0e0e4736";
+    const response = await app.inject({
+      method: "POST",
+      url: "/notebooks/nb_1/tutor/chat",
+      headers: {
+        traceparent: `00-${traceId}-00f067aa0ba902b7-01`,
+        "x-request-id": "request_1",
+      },
+      payload: {
+        messages: [{ role: "user", content: "teach me this" }],
+        data: { activeMode: "learn", selectedNodeRefs: [] },
+      },
+    });
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.headers["x-studyagent-trace-id"]).toBe(traceId);
+    expect(response.headers["x-studyagent-request-id"]).toBe("request_1");
+    expect(response.headers.traceparent).toMatch(new RegExp(`^00-${traceId}-[0-9a-f]{16}-01$`));
+    expect(fakeDb.agentRuns[0]).toEqual(
+      expect.objectContaining({
+        traceId,
+      }),
+    );
+    expect(appendEventMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        payload: expect.objectContaining({
+          traceId,
+          requestId: "request_1",
+          traceparent: expect.stringMatching(new RegExp(`^00-${traceId}-[0-9a-f]{16}-01$`)),
+        }),
+      }),
     );
   });
 
@@ -276,32 +363,6 @@ describe("tutor chat route", () => {
     expect(response.statusCode).toBe(200);
     const savedRefs = (fakeDb.turns[0]?.selectedNodeRefsJson as Array<{ refType: string; refId: string }>) ?? [];
     expect(savedRefs).toEqual(expect.arrayContaining([{ refType: "artifact", refId: "artifact_1" }]));
-  });
-
-  it("emits context-selection failure telemetry and still completes chat", async () => {
-    selectContextMock.mockRejectedValueOnce(new Error("retrieval unavailable"));
-
-    const response = await app.inject({
-      method: "POST",
-      url: "/notebooks/nb_1/tutor/chat",
-      payload: {
-        messages: [{ role: "user", content: "teach me" }],
-        data: { activeMode: "learn", selectedNodeRefs: [{ refType: "source", refId: "src_1" }] },
-      },
-    });
-
-    expect(response.statusCode).toBe(200);
-    expect(response.body).toContain("RUN_FINISHED");
-    expect(appendEventMock).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({
-        notebookId: "nb_1",
-        eventType: "session.context.selection_failed",
-        payload: { message: "retrieval unavailable" },
-      }),
-    );
-    const savedRefs = (fakeDb.turns[0]?.selectedNodeRefsJson as Array<{ refType: string; refId: string }>) ?? [];
-    expect(savedRefs).toEqual([{ refType: "source", refId: "src_1" }]);
   });
 
   it("does not reuse a requested session from another notebook", async () => {
@@ -373,13 +434,18 @@ describe("tutor chat route", () => {
         suggestedValue: "slow",
       }),
     );
-    expect(signal.evidenceRefs).toEqual([
-      expect.objectContaining({
-        refType: "session_trace",
-        refId: signal.sessionId,
-        summary: expect.stringContaining(String(signal.turnId)),
-      }),
-    ]);
+    expect(signal.evidenceRefs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          refType: "self_report",
+          refId: expect.stringMatching(/^turn_/),
+        }),
+        expect.objectContaining({
+          refType: "session_trace",
+          refId: signal.sessionId,
+        }),
+      ]),
+    );
   });
 
   it("does not record a durable learner trait signal for a generic example request", async () => {

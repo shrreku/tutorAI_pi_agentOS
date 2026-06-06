@@ -10,7 +10,7 @@ export const sourceLevelSchema = z.enum([
 
 export type SourceLevel = z.infer<typeof sourceLevelSchema>;
 
-export const sourceScopePolicySchema = z.enum(["soft_source_scope", "strict_source_scope"]);
+export const sourceScopePolicySchema = z.enum(["soft_source_scope"]);
 
 export type SourceScopePolicy = z.infer<typeof sourceScopePolicySchema>;
 

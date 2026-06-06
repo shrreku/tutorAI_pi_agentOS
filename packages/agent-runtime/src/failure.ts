@@ -50,20 +50,62 @@ export function classifyRuntimeError(error: unknown): RuntimeErrorClassification
     return {
       kind: "unknown",
       code: error.code,
-      safeMessage: "A tool failed while preparing the tutor response.",
-      retryable: false,
+      safeMessage: error.message.startsWith("Mastery evaluation failed:")
+        ? error.message
+        : "A tool failed while preparing the tutor response.",
+      retryable: error.code === "mastery_evaluation_failed",
       originalMessage: error.message,
     };
   }
 
   const message = error instanceof Error ? error.message : String(error);
+  const lower = message.toLowerCase();
+  if (lower.includes("totaltokens") || lower.includes("calculatecontexttokens")) {
+    return {
+      kind: "unknown",
+      code: "session_rehydration_error",
+      safeMessage: "The tutor session could not resume after being idle. Retry the turn.",
+      retryable: true,
+      originalMessage: message,
+    };
+  }
+  if (message === "model dispatch timed out") {
+    return {
+      kind: "model_timeout",
+      code: "model_dispatch_timeout",
+      safeMessage:
+        "The tutor model run exceeded its time budget while calling tools or generating a response. Retry the turn or increase TUTOR_MODEL_TIMEOUT_MS.",
+      retryable: true,
+      originalMessage: message,
+    };
+  }
   return {
     kind: inferFailureKind(message),
-    code: "runtime_error",
-    safeMessage: "The tutor runtime encountered an error.",
-    retryable: false,
+    code: inferFailureCode(message),
+    safeMessage: inferSafeMessage(message),
+    retryable:
+      inferFailureKind(message) === "model_timeout"
+      || (lower.includes("langfuse") && lower.includes("timeout")),
     originalMessage: message,
   };
+}
+
+function inferFailureCode(message: string): string {
+  const lower = message.toLowerCase();
+  if (lower.includes("tool budget exceeded")) return "tool_budget_exceeded";
+  if (lower.includes("timeout")) return "model_dispatch_timeout";
+  return "runtime_error";
+}
+
+function inferSafeMessage(message: string): string {
+  const lower = message.toLowerCase();
+  if (lower.includes("tool budget exceeded")) {
+    return "The tutor exceeded its tool-call budget for this turn. Retry with a narrower question or increase TUTOR_MAX_TOOL_CALLS.";
+  }
+  if (lower.includes("timeout")) {
+    return "The tutor runtime timed out while preparing the response.";
+  }
+  return "The tutor runtime encountered an error.";
 }
 
 export function buildAgentRunFailedEnvelope(input: {

@@ -62,7 +62,6 @@ describe("learnerVisibilityForArtifact", () => {
     "diagram",
     "revision_plan",
     "concept_card",
-    "session_digest",
   ])("shows supported learner type %s when proposed or ready", (artifactType) => {
     expect(learnerVisibilityForArtifact({ artifactType, status: "proposed" })).toBe("learner");
     expect(learnerVisibilityForArtifact({ artifactType, status: "ready" })).toBe("learner");
@@ -77,6 +76,9 @@ describe("learnerVisibilityForArtifact", () => {
       "hidden",
     );
     expect(learnerVisibilityForArtifact({ artifactType: "session_plan", status: "proposed" })).toBe(
+      "hidden",
+    );
+    expect(learnerVisibilityForArtifact({ artifactType: "session_digest", status: "ready" })).toBe(
       "hidden",
     );
     expect(learnerVisibilityForArtifact({ artifactType: "legacy_debug", status: "ready" })).toBe(

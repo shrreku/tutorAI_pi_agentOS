@@ -1,5 +1,5 @@
 import type { IngestConceptRelationKind } from "../neo4j-projection.js";
-import { graphRelationSemantics } from "../graph-semantics.js";
+import { graphRelationSemantics } from "@studyagent/schemas";
 import type { CanonicalProjectionSnapshot, ProjectionOp, ProjectionPlan } from "./types.js";
 import { stableTopicId, topicTitleForSource } from "./topic.js";
 

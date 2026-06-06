@@ -80,7 +80,7 @@ describe("tools runtime registry", () => {
       },
     });
 
-    expect(result).toEqual({ results: [] });
+    expect(result).toEqual({ results: [], warnings: [] });
     expect(events).toEqual(["agent.tool.started", "agent.tool.completed"]);
   });
 
@@ -139,6 +139,33 @@ describe("tools runtime registry", () => {
     await expect(executeTool(registry, "artifact.create_quiz", { title: "Quiz", prompt: "p" }, baseContext)).rejects.toThrow(
       "Write tool artifact.create_quiz requires session, run, and turn identity",
     );
+  });
+
+  it("rejects learning.evaluate_response without tutor turn identity", async () => {
+    const registry = new ToolRegistry();
+    registerWriteToolsV1(registry, createNoopRuntimeWriteToolProvider());
+
+    await expect(
+      executeTool(
+        registry,
+        "learning.evaluate_response",
+        {
+          tutorQuestion: "Quick check",
+          learnerAnswer: "Answer",
+          conceptRoles: [{ conceptId: "cnc_1", role: "core" }],
+        },
+        baseContext,
+      ),
+    ).rejects.toThrow("Write tool learning.evaluate_response requires session, run, and turn identity");
+  });
+
+  it("rejects learner_trait.record_signal without tutor turn identity", async () => {
+    const registry = new ToolRegistry();
+    registerWriteToolsV1(registry, createNoopRuntimeWriteToolProvider());
+
+    await expect(
+      executeTool(registry, "learner_trait.record_signal", { trait: "pacePreference", value: "slow" }, baseContext),
+    ).rejects.toThrow("Write tool learner_trait.record_signal requires session, run, and turn identity");
   });
 
   it("normalizes snake_case LLM tool args before schema validation", async () => {

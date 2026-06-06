@@ -691,6 +691,9 @@ function summarizeLearningEventSummary(eventType: string, payload: Record<string
     const evidenceId = typeof payload.masteryEvidenceId === "string" ? payload.masteryEvidenceId : null;
     return evidenceId ? `adaptive plan from evidence ${evidenceId}` : "adaptive plan regeneration";
   }
+  if (eventType === "agent.thinking.completed" || eventType === "agent.narration.completed") {
+    return typeof payload.text === "string" ? payload.text : summarizePayload(payload);
+  }
   return summarizePayload(payload);
 }
 
@@ -776,11 +779,14 @@ function byTimestampAsc(a: ChatTraceStateChange, b: ChatTraceStateChange): numbe
   return a.timestamp.localeCompare(b.timestamp);
 }
 
+function isNarrationEvent(eventType: string | undefined): boolean {
+  return eventType === "agent.narration.completed";
+}
+
 function isThinkingEvent(eventType: string | undefined): boolean {
   if (!eventType) return false;
   return [
-    "session.context.selected",
-    "session.context.selection_failed",
+    "agent.thinking.completed",
     "agent.compaction.started",
     "agent.compaction.completed",
     "agent.run.started",
@@ -794,6 +800,7 @@ function isStateChangeEvent(eventType: string | undefined): boolean {
   if (!eventType) return false;
   if (eventType === "tutor.message.delta") return false;
   if (eventType.startsWith("agent.tool.")) return false;
+  if (isNarrationEvent(eventType)) return true;
   if (isThinkingEvent(eventType)) return false;
   return (
     eventType.startsWith("artifact.") ||

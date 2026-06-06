@@ -36,6 +36,64 @@ export function detectLearnerIntent(message: string): DetectedIntent {
   return { type: "none", keyword: null };
 }
 
+export type LearnerTurnGoal =
+  | "mastery_answer"
+  | "quiz_or_artifact"
+  | "lesson_opening"
+  | "artifact_followup"
+  | "none";
+
+export function detectLearnerTurnGoal(message: string): LearnerTurnGoal {
+  const lower = message.toLowerCase().trim();
+  if (/\bquiz\b|\bflashcard/.test(lower) || /\bmake me a\b.*\b(study|quiz|flashcard)/.test(lower)) {
+    return "quiz_or_artifact";
+  }
+  if (
+    /\b(is that|was that|am i|are we)\b.*\b(right|correct)\b/.test(lower)
+    || /\bcorrection\b/.test(lower)
+    || /\btangent\b/.test(lower)
+    || /\bsecant\b/.test(lower)
+    || /\bslope\b/.test(lower)
+    || /\bmixing\b/.test(lower)
+  ) {
+    return "mastery_answer";
+  }
+  if (/\brevision\b|\btied to the source\b|\buseful for revision\b|\bkeep it tied\b/.test(lower)) {
+    return "artifact_followup";
+  }
+  if (
+    /\bteach me\b/.test(lower)
+    || /\bmissing a key idea\b/.test(lower)
+    || /\bhelp me understand\b/.test(lower)
+    || /\bwhere i (went|go) wrong\b/.test(lower)
+    || /\bunsure about\b/.test(lower)
+    || /\bconfused\b/.test(lower)
+  ) {
+    return "lesson_opening";
+  }
+  return "none";
+}
+
+export function buildLearnerTurnRoutingInstruction(
+  goal: LearnerTurnGoal,
+  hasPendingMasteryCheck: boolean,
+): string | null {
+  switch (goal) {
+    case "mastery_answer":
+      return hasPendingMasteryCheck
+        ? "The learner is answering your prior mastery checkpoint. Evaluate their answer with learning.evaluate_response (or rely on runtime auto-evaluation if already triggered) before moving on. Do not reply with only a generic greeting."
+        : "The learner is giving a concept answer or correction. Ask a short checkpoint question if needed, then evaluate with learning.evaluate_response when they provide an answer worth scoring.";
+    case "quiz_or_artifact":
+      return "The learner requested a study artifact. Call the appropriate artifact tool (for example artifact.create_quiz) grounded in notebook sources. Do not reply with only a generic greeting.";
+    case "artifact_followup":
+      return "The learner wants a source-grounded revision artifact. Use notebook.get_context and wiki.search if needed, then create or refine the requested artifact. Do not reply with only a generic greeting.";
+    case "lesson_opening":
+      return "The learner asked for foundational help. Teach from the active objective with source grounding and include a checkpoint question that invites their own explanation.";
+    default:
+      return null;
+  }
+}
+
 export function buildIntentRoutingInstruction(intent: DetectedIntent, hasCurrentObjective: boolean, currentObjectiveTitle?: string): string | null {
   if (intent.type === "none" || !hasCurrentObjective || !currentObjectiveTitle) {
     return null;

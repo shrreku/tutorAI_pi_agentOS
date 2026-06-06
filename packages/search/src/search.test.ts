@@ -1,12 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { assembleSearchContextForAgent } from "./assemble-context.js";
 import { resolveOpenRouterEmbeddingModelId } from "./embedding-model.js";
+import { buildLexicalFallbackTsQuery } from "./notebook-search.js";
 import { applyRrfRerankFactors, reciprocalRankFusion, type UnifiedSearchResult } from "./rrf.js";
 
 describe("@studyagent/search", () => {
   it("resolves short Gemini embedding names to OpenRouter model ids", () => {
-    expect(resolveOpenRouterEmbeddingModelId("gemini-embedding-2")).toBe("google/gemini-embedding-2-preview");
+    expect(resolveOpenRouterEmbeddingModelId("gemini-embedding-2")).toBe("google/gemini-embedding-2");
+    expect(resolveOpenRouterEmbeddingModelId("gemini-embedding-2-preview")).toBe("google/gemini-embedding-2-preview");
     expect(resolveOpenRouterEmbeddingModelId("google/gemini-embedding-001")).toBe("google/gemini-embedding-001");
+  });
+
+  it("builds an OR-style lexical fallback query from noisy learner wording", () => {
+    expect(
+      buildLexicalFallbackTsQuery(
+        "I uploaded Chapter 2 and I am confused about Fourier’s law and the negative sign in q = -kA dT/dx for heat flux.",
+      ),
+    ).toBe("fourier:* | law:* | negative:* | sign:* | heat:* | flux:*");
   });
 
   it("fuses lexical, vector, and graph-style lists with RRF then applies deterministic rerank bumps", () => {

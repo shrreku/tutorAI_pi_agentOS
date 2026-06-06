@@ -9,6 +9,7 @@ Current hardening note (2026-05-26): these tickets created useful Modules, but a
 - `docs/architecture/architecture-remediation-audit-2026-05-26.md`
 - `docs/architecture/architecture-remediation-plan.md`
 - `docs/architecture/architecture-remediation-implementation-tickets.md`
+- `docs/architecture/architecture-remediation-current-plan-2026-05-28.md`
 
 The tickets respect the accepted ADRs in `docs/adr/`:
 

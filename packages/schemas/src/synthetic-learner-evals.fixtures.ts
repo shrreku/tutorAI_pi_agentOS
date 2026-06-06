@@ -346,12 +346,11 @@ export const syntheticLearnerEvalTracerBulletScenarios: SyntheticLearnerScenario
       {
         id: "beat_remediation",
         kind: "remediation",
-        scriptedMessage: "Tangent line. I was mixing it up with the secant line because the formula starts from two points.",
-        liveInstruction: "Answer the tutor's checkpoint with a corrected explanation that still mentions the earlier misconception.",
+        scriptedMessage: "I think it is the tangent line, not the secant line, because the limit shrinks to one point. Is that correction right?",
+        liveInstruction: "Answer the tutor's checkpoint with a corrected explanation and explicitly ask the tutor to evaluate whether the correction is right.",
         allowedActions: ["ask_question", "request_summary", "correct_mistake"],
         stopConditions: ["turn_limit"],
         assertionRefs: [
-          { refType: "assertion", refId: "runtime_mastery_evidence" },
           { refType: "assertion", refId: "persistence_conservative_movement" },
         ],
       },

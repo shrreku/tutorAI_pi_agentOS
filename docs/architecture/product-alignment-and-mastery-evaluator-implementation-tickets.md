@@ -145,7 +145,9 @@ User stories covered:
 
 What to build:
 
-Introduce a source-scope policy with at least `soft_source_scope` and `strict_source_scope`. Soft scope prioritizes selected Sources but may use notebook curriculum, prerequisites, weak concepts, and learner state. Strict scope stays within selected Sources and surfaces source coverage gaps when it cannot support a claim.
+**Superseded (2026-06-06):** only `soft_source_scope` remains. `strict_source_scope` and turn-prep source coverage gaps are removed. Selected-source focus is conveyed through selected refs and tutor/`wiki.search` behavior. See amended ADR-0018 and `docs/architecture/tutor-runtime-bootstrap-and-observability-implementation-plan.md`.
+
+~~Introduce a source-scope policy with at least `soft_source_scope` and `strict_source_scope`.~~ Soft scope prioritizes selected Sources but may use notebook curriculum, prerequisites, weak concepts, and learner state.
 
 Acceptance criteria:
 

@@ -1,4 +1,5 @@
 import { buildPageConfidenceSummary, combineConfidence, reinforcementSignalFromCount } from "./confidence.js";
+import { normalizeGraphRelationKind } from "@studyagent/schemas";
 import {
   buildConceptLookup,
   mergeAliases,
@@ -404,7 +405,7 @@ export function compileSourceToWikiChangeSet(input: CompileSourceWikiInput): Wik
 
   const normalizedRelations = [...input.extraction.relations, ...(input.focusedRelations ?? [])]
     .map((relation) => {
-      const relationType = normalizeRelationType(relation.relationType);
+      const relationType = normalizeGraphRelationKind(relation.relationType);
       if (!relationType) return null;
       return { ...relation, relationType };
     })

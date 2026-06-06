@@ -80,7 +80,7 @@ async function recordPreferenceSignals(
       id: `lts_${crypto.randomUUID().replaceAll("-", "")}`,
       notebookId: input.notebookId,
       userId: input.userId,
-      source: "explicit_self_report",
+      source: "onboarding_profile",
       trait: parsed.data.trait,
       suggestedValue: parsed.data.value,
       strength: 0.95,

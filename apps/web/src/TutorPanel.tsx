@@ -1,9 +1,22 @@
 import React, { useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { fetchServerSentEvents, useChat } from "@tanstack/ai-react";
-import katex from "katex";
+import ReactMarkdown from "react-markdown";
+import rehypeKatex from "rehype-katex";
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
 import type { UIMessage } from "@tanstack/ai-client";
-import type { ChatTraceResponse, ChatTraceTurn } from "@studyagent/schemas";
+import type { ChatTraceResponse, ChatTraceTurn, ReferenceSurface } from "@studyagent/schemas";
+import { learnerFacingNodeTypeLabel } from "@studyagent/schemas";
 import { AgentTrace, type LiveTraceRun, updateLiveTraceRun } from "./AgentTrace.js";
+import {
+  buildTutorPanelArtifactReview,
+  buildTutorPromptForArtifactAction,
+  artifactQuizSelfAssessmentLabels,
+} from "./artifact-review.js";
+import { fetchNotebookArtifacts, fetchNotebookStudyState } from "./notebook-queries.js";
+
+const QUIZ_SELF_ASSESSMENT_LABELS = artifactQuizSelfAssessmentLabels();
 
 type SelectedNodeRef = { refType: string; refId: string };
 
@@ -138,25 +151,11 @@ interface TutorPanelProps {
   selectedNodeRefs?: SelectedNodeRef[];
 }
 
-const SELECTED_REF_LABELS: Record<string, string> = {
-  source: "source",
-  topic: "topic",
-  concept: "concept",
-  wiki_page: "wiki page",
-  artifact: "artifact",
-  session: "session",
-  curriculum: "curriculum",
-  curriculum_module: "module",
-  objective: "objective",
-  objective_list: "session objectives",
-  study_plan: "Live Plan",
-  session_plan: "session",
-};
-
 export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorPanelProps) {
   const [input, setInput] = useState("");
   const [mode, setMode] = useState<"learn" | "practice" | "revise" | "explore" | "wiki_maintenance">("learn");
   const [runStatus, setRunStatus] = useState<"idle" | "running" | "completed" | "failed">("idle");
+  const [retryableError, setRetryableError] = useState<string | null>(null);
   const [liveTraceRun, setLiveTraceRun] = useState<LiveTraceRun | null>(null);
   const [traceData, setTraceData] = useState<ChatTraceResponse | null>(null);
   const [studyState, setStudyState] = useState<StudyState | null>(null);
@@ -166,6 +165,7 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
   const [historySearch, setHistorySearch] = useState("");
   const [historyFilter, setHistoryFilter] = useState<"all" | "questions" | "answers">("all");
   const [selectedHistorySessionId, setSelectedHistorySessionId] = useState<string | null>(null);
+  const [showTutorDiagnostics, setShowTutorDiagnostics] = useState(false);
   const [showStudyPlanModal, setShowStudyPlanModal] = useState(false);
   const [artifactTitleDraft, setArtifactTitleDraft] = useState("");
   const [artifactMarkdownDraft, setArtifactMarkdownDraft] = useState("");
@@ -220,6 +220,7 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
   }, [mode]);
 
   const tutorActionRef = useRef<"prompt" | "steer" | "followUp">("prompt");
+  const lastFailedPromptRef = useRef<string | null>(null);
 
   const connection = useMemo(
     () =>
@@ -242,14 +243,13 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
 
   const loadSidebarData = React.useCallback(async () => {
     try {
-      const [studyRes, artifactsRes, settingsRes] = await Promise.all([
-        fetch(`/api/v1/notebooks/${encodeURIComponent(notebookId)}/study-state`),
-        fetch(`/api/v1/notebooks/${encodeURIComponent(notebookId)}/artifacts`),
+      const [nextStudyState, artifacts, settingsRes] = await Promise.all([
+        fetchNotebookStudyState<StudyState>(notebookId).catch(() => null),
+        fetchNotebookArtifacts(notebookId).catch(() => []),
         fetch(`/api/v1/notebooks/${encodeURIComponent(notebookId)}/settings`),
       ]);
 
-      if (studyRes.ok) {
-        const nextStudyState = (await studyRes.json()) as StudyState;
+      if (nextStudyState) {
         setStudyState(nextStudyState);
         const activeSession = nextStudyState.tutorSession?.active;
         if (selectedSessionRefId) {
@@ -266,12 +266,9 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
         setStudyState(null);
       }
 
-      if (artifactsRes.ok) {
-        const payload = (await artifactsRes.json()) as { artifacts: ArtifactSummary[] };
-        setArtifacts((payload.artifacts ?? []).filter((artifact) => artifact.artifactType !== "teaching_arc"));
-      } else {
-        setArtifacts([]);
-      }
+      setArtifacts(
+        (artifacts as ArtifactSummary[]).filter((artifact) => artifact.artifactType !== "teaching_arc"),
+      );
 
       if (settingsRes.ok) {
         const payload = (await settingsRes.json()) as { settings: NotebookSettings };
@@ -467,17 +464,29 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
       } else if (chunk.type === "RUN_FINISHED") {
         tutorActionRef.current = "prompt";
         setRunStatus("completed");
+        setRetryableError(null);
+        lastFailedPromptRef.current = null;
         void loadSidebarData();
         scheduleTraceDataRefresh();
       } else if (chunk.type === "RUN_ERROR") {
         tutorActionRef.current = "prompt";
         setRunStatus("failed");
+        const errorMessage =
+          typeof chunk.error?.message === "string"
+            ? chunk.error.message
+            : "The tutor run failed before it could finish.";
+        setRetryableError(
+          chunk.error?.retryable || errorMessage.toLowerCase().includes("retry")
+            ? errorMessage
+            : null,
+        );
         void loadSidebarData();
         scheduleTraceDataRefresh();
       }
     },
-    onError() {
+    onError(err) {
       setRunStatus("failed");
+      setRetryableError(err instanceof Error ? err.message : "The tutor run failed before it could finish.");
       setLiveTraceRun((prev) => (prev ? { ...prev, status: "failed", completedAt: Date.now() } : prev));
     },
   });
@@ -512,16 +521,26 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
     void loadSidebarData();
   }, [loadSidebarData]);
 
-  const handleSend = async () => {
-    if (!input.trim()) return;
+  const handleSend = async (messageOverride?: string) => {
+    const outgoing = (messageOverride ?? input).trim();
+    if (!outgoing) return;
     setSelectedHistorySessionId(null);
     tutorActionRef.current = isLoading ? "steer" : "prompt";
     setRunStatus("running");
+    setRetryableError(null);
     setLiveTraceRun(null);
-    setInput("");
-    
-    // sendMessage will use the connection which includes sessionId and action if available
-    await sendMessage(input);
+    if (!messageOverride) {
+      lastFailedPromptRef.current = outgoing;
+      setInput("");
+    }
+
+    await sendMessage(outgoing);
+  };
+
+  const handleRetryFailedTurn = async () => {
+    const prompt = lastFailedPromptRef.current?.trim();
+    if (!prompt || isLoading) return;
+    await handleSend(prompt);
   };
 
   const handleSessionPrompt = (prompt: string) => {
@@ -541,6 +560,28 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
       : "agent";
   const quizQuestions = toQuizQuestions(selectedArtifact?.payload.questions);
   const flashcards = toFlashcards(selectedArtifact?.payload.cards);
+  const { data: selectedArtifactSurface } = useQuery({
+    queryKey: ["reference-surface", notebookId, selectedArtifact?.id],
+    enabled: Boolean(selectedArtifact?.id),
+    queryFn: async (): Promise<ReferenceSurface> => {
+      const response = await fetch(
+        `/api/v1/notebooks/${encodeURIComponent(notebookId)}/nodes/${encodeURIComponent(selectedArtifact!.id)}/reference-surface`,
+      );
+      if (!response.ok) {
+        throw new Error(`Failed to load reference surface (${response.status})`);
+      }
+      return (await response.json()) as ReferenceSurface;
+    },
+  });
+  const artifactReview = selectedArtifact
+    ? buildTutorPanelArtifactReview({
+        id: selectedArtifact.id,
+        title: selectedArtifact.title,
+        artifactType: selectedArtifact.artifactType,
+        status: selectedArtifact.status,
+        view: selectedArtifact.view ?? null,
+      }, selectedArtifactSurface)
+    : null;
   const activeFlashcard = flashcards[flashcardIndex] ?? null;
   const currentObjectiveTitle = studyState?.studyPlan?.currentObjective?.title ?? null;
   const upcomingObjectiveTitle = studyState?.studyPlan?.upcomingObjectives[0]?.title ?? null;
@@ -867,7 +908,7 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
         )}
         {selectedNodeRefs.length > 0 && (
           <div className="tutor-selected-context">
-            Using selected {selectedNodeRefs.map((r) => SELECTED_REF_LABELS[r.refType] ?? r.refType.replace(/_/g, " ")).join(", ")}
+            Using selected {selectedNodeRefs.map((r) => learnerFacingNodeTypeLabel(r.refType)).join(", ")}
           </div>
         )}
         <details className="tutor-reference-options">
@@ -893,6 +934,14 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
           <div style={{ marginTop: 4, fontSize: 10, color: "#6b7280", lineHeight: 1.35 }}>
             When disabled, tutor-created learner aids stay proposed/draft until approved.
           </div>
+          <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 11, color: "#4b5563", marginTop: 10 }}>
+            <input
+              type="checkbox"
+              checked={showTutorDiagnostics}
+              onChange={(e) => setShowTutorDiagnostics(e.target.checked)}
+            />
+            Dev Mode tutor activity details
+          </label>
           </div>
         </details>
 
@@ -948,35 +997,70 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
           const latestUserIndex = latestUserMessageIndex(displayMessages);
           const isLatestAssistant = msg.role !== "user" && index === latestAssistantMessageIndex(displayMessages);
           const isActiveAssistantTurn = isLatestAssistant && index > latestUserIndex;
-          const showLiveForMessage = isActiveAssistantTurn && runStatus === "running";
+          const isLatestUser = msg.role === "user" && index === latestUserIndex;
+          const showInlineWorkView =
+            isLatestUser &&
+            !selectedHistoryTraceData &&
+            (runStatus === "running" || runStatus === "failed" || isLoading) &&
+            latestAssistantMessageIndex(displayMessages) <= latestUserIndex;
+          const showAssistantWorkView =
+            msg.role !== "user" &&
+            !selectedHistoryTraceData &&
+            isActiveAssistantTurn &&
+            (liveTraceRun != null || traceTurn != null || runStatus === "failed");
           return (
             <div
               key={msg.id}
               className="tutor-message"
               data-role={msg.role === "user" ? "user" : "assistant"}
             >
-              {msg.role !== "user" && (
+              {msg.role === "user" ? renderMessage(msg) : null}
+              {showInlineWorkView && (
                 <AgentTrace
-                  traceTurn={showLiveForMessage ? null : traceTurn}
-                  liveRun={isActiveAssistantTurn ? liveTraceRun : null}
-                  runStatus={isActiveAssistantTurn ? runStatus : "idle"}
+                  traceTurn={null}
+                  liveRun={liveTraceRun}
+                  runStatus={runStatus}
+                  showDiagnostics={showTutorDiagnostics}
+                  retryErrorMessage={retryableError}
+                  onRetry={retryableError ? () => void handleRetryFailedTurn() : undefined}
                 />
               )}
-              {renderMessage(msg)}
+              {showAssistantWorkView ? (
+                <AgentTrace
+                  traceTurn={traceTurn}
+                  liveRun={liveTraceRun}
+                  runStatus={runStatus}
+                  assistantMessage={messageText(msg)}
+                  showDiagnostics={showTutorDiagnostics}
+                  retryErrorMessage={retryableError}
+                  onRetry={retryableError ? () => void handleRetryFailedTurn() : undefined}
+                />
+              ) : null}
+              {msg.role !== "user" && !isActiveAssistantTurn && traceTurn ? (
+                <AgentTrace
+                  traceTurn={traceTurn}
+                  liveRun={null}
+                  runStatus="idle"
+                  assistantMessage={messageText(msg)}
+                  showDiagnostics={showTutorDiagnostics}
+                />
+              ) : null}
+              {msg.role !== "user" && !(isActiveAssistantTurn && (runStatus === "running" || isLoading))
+                ? renderMessage(msg)
+                : null}
             </div>
           );
         })}
-        {isLoading && (
-          <div>
-            <div style={{ fontSize: 12, color: "#888", fontStyle: "italic" }}>Tutor is responding...</div>
-            {latestAssistantMessageIndex(displayMessages) <= latestUserMessageIndex(displayMessages) && (
-              <AgentTrace traceTurn={null} liveRun={liveTraceRun} runStatus={runStatus} />
-            )}
-          </div>
-        )}
-        {error && (
-          <div style={{ fontSize: 12, color: "#991b1b", background: "#fee2e2", padding: 6, borderRadius: 4 }}>
-            Error: {error.message}
+        {(error || runStatus === "failed") && (
+          <div className="tutor-runtime-error-banner">
+            <p className="tutor-runtime-error">
+              {error?.message ?? retryableError}
+            </p>
+            {(retryableError || error) && !isLoading ? (
+              <button type="button" className="tutor-run-retry-button" onClick={() => void handleRetryFailedTurn()}>
+                Retry
+              </button>
+            ) : null}
           </div>
         )}
         <div ref={messagesEndRef} />
@@ -1028,11 +1112,12 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
             <div>
               <div style={{ fontSize: 13, fontWeight: 700, color: "#111827" }}>{selectedArtifact.title}</div>
               <div style={{ fontSize: 11, color: "#6b7280" }}>
-                {selectedArtifact.artifactType} · {selectedArtifact.status}
+                {artifactReview?.typeLabel ?? selectedArtifact.artifactType}
+                {artifactReview?.statusLabel ? ` · ${artifactReview.statusLabel}` : ""}
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              {(selectedArtifact.status === "proposed" || selectedArtifact.status === "draft") && (
+              {artifactReview?.actions.includes("approve") && artifactReview.actions.includes("reject") && (
                 <>
                   <button
                     type="button"
@@ -1051,6 +1136,33 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
                     Reject
                   </button>
                 </>
+              )}
+              {artifactReview?.actions.includes("ask_tutor") && (
+                <button
+                  type="button"
+                  onClick={() => setInput(buildTutorPromptForArtifactAction(artifactReview, "ask_tutor"))}
+                  style={{ padding: "6px 9px", border: "1px solid #bfdbfe", background: "#eff6ff", color: "#1d4ed8", borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                >
+                  Teach me
+                </button>
+              )}
+              {artifactReview?.actions.includes("practice") && (
+                <button
+                  type="button"
+                  onClick={() => setInput(buildTutorPromptForArtifactAction(artifactReview, "practice"))}
+                  style={{ padding: "6px 9px", border: "1px solid #bfdbfe", background: "#eff6ff", color: "#1d4ed8", borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                >
+                  Practice
+                </button>
+              )}
+              {artifactReview?.actions.includes("review") && (
+                <button
+                  type="button"
+                  onClick={() => setInput(buildTutorPromptForArtifactAction(artifactReview, "review"))}
+                  style={{ padding: "6px 9px", border: "1px solid #d1d5db", background: "#f3f4f6", color: "#374151", borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                >
+                  Review
+                </button>
               )}
               <button
                 type="button"
@@ -1085,7 +1197,7 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
                   </span>
                   {selectedArtifact.sourceNodeRefs.length > 0 && (
                     <span style={{ background: "#dbeafe", color: "#1d4ed8", padding: "2px 8px", borderRadius: 9999, fontSize: 11, fontWeight: 600 }}>
-                      {selectedArtifact.sourceNodeRefs.length} source ref{selectedArtifact.sourceNodeRefs.length > 1 ? "s" : ""}
+                      {selectedArtifact.sourceNodeRefs.length} linked source{selectedArtifact.sourceNodeRefs.length > 1 ? "s" : ""}
                     </span>
                   )}
                 </div>
@@ -1106,22 +1218,25 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
                   />
                 </label>
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button
-                    type="button"
-                    onClick={() => setInput(`Help me improve the note "${artifactTitleDraft || selectedArtifact.title}" using grounded evidence from this notebook.`)}
-                    style={{
-                      padding: "8px 10px",
-                      background: "#f3f4f6",
-                      color: "#374151",
-                      border: "1px solid #d1d5db",
-                      borderRadius: 6,
-                      fontSize: 12,
-                      fontWeight: 600,
-                      cursor: "pointer",
-                    }}
-                  >
-                    Ask Tutor About This Note
-                  </button>
+                  {artifactReview?.actions.includes("ask_tutor") && (
+                    <button
+                      type="button"
+                      onClick={() => setInput(buildTutorPromptForArtifactAction(artifactReview, "ask_tutor"))}
+                      style={{
+                        padding: "8px 10px",
+                        background: "#f3f4f6",
+                        color: "#374151",
+                        border: "1px solid #d1d5db",
+                        borderRadius: 6,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Teach me
+                    </button>
+                  )}
+                  {artifactReview?.actions.includes("save") && (
                   <button
                     type="button"
                     onClick={() => void saveArtifact()}
@@ -1139,11 +1254,12 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
                   >
                     {isArtifactSaving ? "Saving…" : "Save Note"}
                   </button>
+                  )}
                 </div>
               </>
             ) : selectedArtifact.artifactType === "quiz" ? (
               <>
-                <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 600 }}>QUIZ QUESTIONS</div>
+                <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 600 }}>{QUIZ_SELF_ASSESSMENT_LABELS.sectionTitle.toUpperCase()}</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {quizQuestions.map((question, index) => (
                     <div key={question.id} style={{ border: "1px solid #e5e7eb", borderRadius: 8, padding: 10 }}>
@@ -1169,7 +1285,7 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
                             cursor: "pointer",
                           }}
                         >
-                          I got this
+                          {QUIZ_SELF_ASSESSMENT_LABELS.understood}
                         </button>
                         <button
                           type="button"
@@ -1185,7 +1301,7 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
                             cursor: "pointer",
                           }}
                         >
-                          Needs review
+                          {QUIZ_SELF_ASSESSMENT_LABELS.needsReview}
                         </button>
                       </div>
                     </div>
@@ -1634,13 +1750,15 @@ export function normalizeAssistantMessageText(text: string): string {
   let normalized = text.replace(/\r\n/g, "\n").trim();
   normalized = removeRepeatedPrefix(normalized);
   normalized = normalized
-    .replace(/\b(?:chk|clm|src|trace|cnc|artifact|turn|run)_[a-z0-9_]+\b/gi, "")
+    .replace(/\b(?:msg|chk|clm|src|trace|cnc|artifact|turn|run)_[a-z0-9_]+\b/gi, "")
     .replace(/([a-z])(?=Let me\b)/g, "$1 ")
     .replace(/\(\s*(?:,\s*)+\)/g, "")
     .replace(/\(\s*(?:chunk|claim|source|trace)\s*\)/gi, "")
     .replace(/`+\s*`+/g, "")
-    .replace(/[ \t]+/g, " ")
-    .replace(/(?<!\|)[ \t]*---[ \t]*(?!\|)/g, "\n\n")
+    .replace(/[ \t]+/g, " ");
+  normalized = repairInlinePipeTable(normalized);
+  normalized = normalized
+    .replace(/^[ \t]*---[ \t]*$/gm, "\n\n")
     .replace(/[ \t]+(#{2,4}\s+)/g, "\n\n$1")
     .replace(/(#{2,4}\s+[^|\n]+?)\s+(\|)/g, "$1\n$2")
     .replace(/\|\s+\|/g, "|\n|")
@@ -1651,6 +1769,50 @@ export function normalizeAssistantMessageText(text: string): string {
     .replace(/\b(note|notebook|material|anytime)(Now|Here|Great)\b/g, "$1 $2")
     .trim();
   return normalized;
+}
+
+function repairInlinePipeTable(text: string): string {
+  if (!text.includes("|") || text.includes("\n|")) return text;
+  const firstPipe = text.indexOf("|");
+  const prefix = text.slice(0, firstPipe).trimEnd();
+  const cells = text
+    .slice(firstPipe + 1)
+    .split("|")
+    .map((cell) => cell.trim())
+    .filter(Boolean);
+  const firstSeparatorIndex = cells.findIndex(isMarkdownSeparatorCell);
+  if (firstSeparatorIndex < 2) return text;
+
+  const headers = cells.slice(0, firstSeparatorIndex).map(cleanMarkdownTableCell).filter(Boolean);
+  if (headers.length < 2) return text;
+
+  let bodyStart = firstSeparatorIndex;
+  while (bodyStart < cells.length && isMarkdownSeparatorCell(cells[bodyStart] ?? "")) {
+    bodyStart += 1;
+  }
+  const bodyCells = cells.slice(bodyStart).map(cleanMarkdownTableCell);
+  const rows: string[][] = [];
+  for (let index = 0; index < bodyCells.length; index += headers.length) {
+    const row = bodyCells.slice(index, index + headers.length);
+    if (row.length === headers.length) rows.push(row);
+  }
+  if (!rows.length) return text;
+
+  return [
+    prefix,
+    "",
+    `| ${headers.join(" | ")} |`,
+    `| ${headers.map(() => "---").join(" | ")} |`,
+    ...rows.map((row) => `| ${row.join(" | ")} |`),
+  ].join("\n").trim();
+}
+
+function cleanMarkdownTableCell(value: string): string {
+  return value.replace(/^#+\s*/, "").trim();
+}
+
+function isMarkdownSeparatorCell(value: string): boolean {
+  return /^:?-{3,}:?$/.test(value.trim());
 }
 
 function removeRepeatedPrefix(text: string): string {
@@ -1667,241 +1829,26 @@ function removeRepeatedPrefix(text: string): string {
 }
 
 function TutorMessageText({ text }: { text: string }) {
-  const blocks = React.useMemo(() => parseTutorTextBlocks(text), [text]);
   return (
     <div className="tutor-rich-text">
-      {blocks.map((block, index) => {
-        if (block.type === "heading") {
-          return <h4 key={index}>{renderInlineMarkdown(block.text)}</h4>;
-        }
-        if (block.type === "list") {
-          return (
-            <ul key={index}>
-              {block.items.map((item, itemIndex) => (
-                <li key={itemIndex}>{renderInlineMarkdown(item)}</li>
-              ))}
-            </ul>
-          );
-        }
-        if (block.type === "numbered-list") {
-          return (
-            <ol key={index}>
-              {block.items.map((item, itemIndex) => (
-                <li key={itemIndex}>{renderInlineMarkdown(item)}</li>
-              ))}
-            </ol>
-          );
-        }
-        if (block.type === "table") {
-          return (
-            <div key={index} className="tutor-table-scroll">
-              <table>
-                <thead>
-                  <tr>
-                    {block.headers.map((header, cellIndex) => (
-                      <th key={cellIndex}>{renderInlineMarkdown(header)}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {block.rows.map((row, rowIndex) => (
-                    <tr key={rowIndex}>
-                      {row.map((cell, cellIndex) => (
-                        <td key={cellIndex}>{renderInlineMarkdown(cell)}</td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeKatex]}
+        components={{
+          h1: ({ node: _node, ...props }) => <h4 {...props} />,
+          h2: ({ node: _node, ...props }) => <h4 {...props} />,
+          h3: ({ node: _node, ...props }) => <h4 {...props} />,
+          table: ({ node: _node, ...props }) => (
+            <div className="tutor-table-scroll">
+              <table {...props} />
             </div>
-          );
-        }
-        return <p key={index}>{renderInlineMarkdown(block.text)}</p>;
-      })}
+          ),
+        }}
+      >
+        {text}
+      </ReactMarkdown>
     </div>
   );
-}
-
-type TutorTextBlock =
-  | { type: "paragraph"; text: string }
-  | { type: "heading"; text: string }
-  | { type: "list"; items: string[] }
-  | { type: "numbered-list"; items: string[] }
-  | { type: "table"; headers: string[]; rows: string[][] };
-
-export function parseTutorTextBlocks(text: string): TutorTextBlock[] {
-  const lines = repairTutorMarkdownLines(text).map((line) => line.trim()).filter(Boolean);
-  const blocks: TutorTextBlock[] = [];
-  let paragraph: string[] = [];
-  let list: string[] = [];
-  let numberedList: string[] = [];
-  let tableRows: string[][] = [];
-
-  const flushParagraph = () => {
-    if (!paragraph.length) return;
-    blocks.push({ type: "paragraph", text: cleanTutorInlineText(paragraph.join(" ")) });
-    paragraph = [];
-  };
-  const flushList = () => {
-    if (!list.length) return;
-    blocks.push({ type: "list", items: list.map(cleanTutorInlineText) });
-    list = [];
-  };
-  const flushNumberedList = () => {
-    if (!numberedList.length) return;
-    blocks.push({ type: "numbered-list", items: numberedList.map(cleanTutorInlineText) });
-    numberedList = [];
-  };
-  const flushTable = () => {
-    if (tableRows.length < 2) {
-      for (const row of tableRows) paragraph.push(row.join(" | "));
-      tableRows = [];
-      return;
-    }
-    const [headers, ...rows] = tableRows.filter((row) => !row.every((cell) => /^:?-{2,}:?$/.test(cell)));
-    if (!headers || rows.length === 0) {
-      tableRows = [];
-      return;
-    }
-    blocks.push({
-      type: "table",
-      headers: headers.map(cleanTutorInlineText),
-      rows: rows.map((row) => row.map(cleanTutorInlineText)),
-    });
-    tableRows = [];
-  };
-
-  for (const line of lines) {
-    const heading = line.match(/^#{1,4}\s+(.+)$/);
-    const bullet = line.match(/^[-*]\s+(.+)$/);
-    const numbered = line.match(/^\d+[.)]\s+(.+)$/);
-    const table = parseMarkdownTableRow(line);
-    if (heading) {
-      flushTable();
-      flushParagraph();
-      flushList();
-      flushNumberedList();
-      blocks.push({ type: "heading", text: cleanTutorInlineText(heading[1]!.trim()) });
-    } else if (table) {
-      flushParagraph();
-      flushList();
-      flushNumberedList();
-      tableRows.push(table);
-    } else if (bullet) {
-      flushTable();
-      flushParagraph();
-      flushNumberedList();
-      list.push(bullet[1]!.trim());
-    } else if (numbered) {
-      flushTable();
-      flushParagraph();
-      flushList();
-      numberedList.push(numbered[1]!.trim());
-    } else {
-      flushTable();
-      flushList();
-      flushNumberedList();
-      paragraph.push(line);
-    }
-  }
-  flushTable();
-  flushParagraph();
-  flushList();
-  flushNumberedList();
-  return blocks.length ? blocks : [{ type: "paragraph", text }];
-}
-
-function repairTutorMarkdownLines(text: string): string[] {
-  return text
-    .replace(/(?<!\|)[ \t]*---[ \t]*(?!\|)/g, "\n\n")
-    .replace(/[ \t]+(#{2,4}\s+)/g, "\n\n$1")
-    .replace(/(#{2,4}\s+[^|\n]+?)\s+(\|)/g, "$1\n$2")
-    .replace(/\|\s+\|/g, "|\n|")
-    .replace(/(\|[-: ]+\|)\s+(\|)/g, "$1\n$2")
-    .replace(/(\|[^|\n]+(?:\|[^|\n]+){1,}\|)\s+(?=\|)/g, "$1\n")
-    .replace(/\|\s+(\|[-: ]+\|)/g, "|\n$1")
-    .replace(/[ \t]+(\d+[.)]\s+\*\*)/g, "\n$1")
-    .replace(/[ \t]+([-*]\s+\*\*)/g, "\n$1")
-    .replace(/[ \t]+(\|[^|\n]+\|[^|\n]+\|)/g, "\n$1")
-    .split("\n");
-}
-
-function parseMarkdownTableRow(line: string): string[] | null {
-  const trimmed = line.trim();
-  if (!trimmed.includes("|")) return null;
-  const cells = trimmed
-    .replace(/^\|/, "")
-    .replace(/\|$/, "")
-    .split("|")
-    .map((cell) => cell.trim())
-    .filter((cell) => cell.length > 0);
-  return cells.length >= 2 ? cells : null;
-}
-
-function cleanTutorInlineText(text: string): string {
-  return text
-    .replace(/\b(?:chk|clm|src|trace|cnc|artifact|turn|run)_[a-z0-9_]+\b/gi, "")
-    .replace(/\(\s*(?:,\s*)+\)/g, "")
-    .replace(/\(\s*(?:chunk|claim|source|trace)\s*\)/gi, "")
-    .replace(/`+\s*`+/g, "")
-    .replace(/[ \t]{2,}/g, " ")
-    .trim();
-}
-
-function renderInlineMarkdown(text: string): React.ReactNode[] {
-  const nodes: React.ReactNode[] = [];
-  const pattern = /(\*\*[^*]+\*\*|`[^`]+`|\$\$[\s\S]+?\$\$|\$[^$\n]+\$)/g;
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-  while ((match = pattern.exec(text))) {
-    if (match.index > lastIndex) nodes.push(text.slice(lastIndex, match.index));
-    const token = match[0];
-    if (token.startsWith("**")) {
-      nodes.push(<strong key={nodes.length}>{token.slice(2, -2)}</strong>);
-    } else if (token.startsWith("$$")) {
-      nodes.push(<TutorMath key={nodes.length} formula={token.slice(2, -2)} displayMode />);
-    } else if (token.startsWith("$")) {
-      nodes.push(<TutorMath key={nodes.length} formula={token.slice(1, -1)} displayMode={false} />);
-    } else {
-      const value = token.slice(1, -1).trim();
-      if (value && !/^(?:chk|clm|src|trace|cnc|artifact|turn|run)_[a-z0-9_]+$/i.test(value)) {
-        nodes.push(<code key={nodes.length}>{value}</code>);
-      }
-    }
-    lastIndex = match.index + token.length;
-  }
-  if (lastIndex < text.length) nodes.push(text.slice(lastIndex));
-  return nodes;
-}
-
-function TutorMath({ formula, displayMode }: { formula: string; displayMode: boolean }) {
-  const html = React.useMemo(() => {
-    try {
-      return katex.renderToString(normalizeTutorLatex(formula), {
-        displayMode,
-        throwOnError: false,
-        strict: false,
-        trust: false,
-        output: "html",
-      });
-    } catch {
-      return null;
-    }
-  }, [displayMode, formula]);
-  if (!html) return <code>{formula}</code>;
-  return (
-    <span
-      className={displayMode ? "tutor-math tutor-math-display" : "tutor-math"}
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
-  );
-}
-
-function normalizeTutorLatex(value: string): string {
-  return value
-    .replace(/\\\\/g, "\\")
-    .replace(/\\text\{\s*W\/m\s*\}/g, "\\mathrm{W/m}")
-    .trim();
 }
 
 function nearestPreviousUserMessageText(messages: UIMessage[], messageIndex: number): string | null {

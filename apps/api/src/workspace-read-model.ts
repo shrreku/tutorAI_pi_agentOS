@@ -9,7 +9,8 @@ import type {
   WorkspaceNodeDescriptor,
   WorkspaceVisibility,
 } from "@studyagent/schemas";
-import { buildSourceWikiLearnerView, graphRelationSemantics } from "@studyagent/schemas";
+import { presentSourceWikiCanvas, presentStudyMapCanvas } from "@studyagent/graph";
+import { buildSourceWikiLearnerView, graphRelationSemantics, learnerSafeValue } from "@studyagent/schemas";
 import {
   artifacts,
   chunks,
@@ -19,6 +20,9 @@ import {
   objectiveLists,
   objectives,
   studyPlans,
+  toolCalls,
+  tutorSessions,
+  tutorTurns,
   wikiPages,
 } from "@studyagent/db";
 import type { AppContext } from "./context.js";
@@ -34,6 +38,15 @@ const LOW_SIGNAL_STUDY_MAP_TYPES = new Set([
   "objective_list",
 ]);
 
+const CURRICULUM_ONLY_STUDY_MAP_TYPES = new Set([
+  "objective",
+  "study_plan",
+  "studyplan",
+  "objective_list",
+  "session_plan",
+  "weak_concept",
+]);
+
 const LOW_SIGNAL_SOURCE_WIKI_TYPES = new Set([
   "claim",
   "coverage_item",
@@ -43,7 +56,7 @@ const LOW_SIGNAL_SOURCE_WIKI_TYPES = new Set([
   "session_plan",
 ]);
 
-const INTERNAL_ARTIFACT_TYPES = new Set(["teaching_arc", "study_plan", "session_plan"]);
+const INTERNAL_ARTIFACT_TYPES = new Set(["teaching_arc", "study_plan", "session_plan", "session_digest"]);
 
 const REFERENCE_SURFACE_NODE_TYPES = new Set([
   "source",
@@ -172,53 +185,103 @@ export async function augmentStudyMapCanvas(
     }
   }
 
-  if (studyPlan?.weakConceptIds?.length) {
-    const weakConceptRows = await ctx.db.db
-      .select({
-        id: concepts.id,
-        title: concepts.canonicalName,
-      })
-      .from(concepts)
-      .where(and(eq(concepts.notebookId, notebookId), inArray(concepts.id, studyPlan.weakConceptIds)));
+  const recentSessions = await ctx.db.db
+    .select({
+      id: tutorSessions.id,
+      mode: tutorSessions.mode,
+      status: tutorSessions.status,
+      selectedNodeRefsJson: tutorSessions.selectedNodeRefsJson,
+      runtimeContextJson: tutorSessions.runtimeContextJson,
+      startedAt: tutorSessions.startedAt,
+      endedAt: tutorSessions.endedAt,
+    })
+    .from(tutorSessions)
+    .where(and(eq(tutorSessions.notebookId, notebookId), eq(tutorSessions.userId, userId)))
+    .orderBy(desc(tutorSessions.startedAt))
+    .limit(8);
 
-    for (const concept of weakConceptRows) {
-      const weakNodeId = `weak_${concept.id}`;
-      if (!nodeMap.has(concept.id)) {
-        const mastery = masteryByConceptId.get(concept.id);
-        const conceptNode: GraphCanvasNode = {
-          id: concept.id,
-          nodeType: "concept",
-          labels: ["Concept"],
-          properties: {
-            title: concept.title,
-            ...(mastery ? { masteryScore: mastery.masteryScore, learningConfidence: mastery.confidence } : {}),
-          },
-        };
-        nodes.push(conceptNode);
-        nodeMap.set(concept.id, conceptNode);
-      }
-      if (!nodeMap.has(weakNodeId)) {
-        const mastery = masteryByConceptId.get(concept.id);
-        const weakNode: GraphCanvasNode = {
-          id: weakNodeId,
-          nodeType: "weak_concept",
-          labels: ["WeakConcept"],
-          properties: {
-            title: concept.title,
-            conceptId: concept.id,
-            masteryScore: mastery?.masteryScore ?? 0,
-            status: "active",
-          },
-        };
-        nodes.push(weakNode);
-        nodeMap.set(weakNodeId, weakNode);
-      }
+  const recentSessionIds = recentSessions.map((session) => session.id);
+  const sessionTurns = recentSessionIds.length
+    ? await ctx.db.db
+        .select({
+          sessionId: tutorTurns.sessionId,
+          turnIndex: tutorTurns.turnIndex,
+          selectedNodeRefsJson: tutorTurns.selectedNodeRefsJson,
+          citationRefsJson: tutorTurns.citationRefsJson,
+          userMessage: tutorTurns.userMessage,
+          assistantMessage: tutorTurns.assistantMessage,
+        })
+        .from(tutorTurns)
+        .where(inArray(tutorTurns.sessionId, recentSessionIds))
+    : [];
+  const sessionTools = recentSessionIds.length
+    ? await ctx.db.db
+        .select({
+          sessionId: toolCalls.sessionId,
+          inputJson: toolCalls.inputJson,
+          outputJson: toolCalls.outputJson,
+          reducerResultJson: toolCalls.reducerResultJson,
+        })
+        .from(toolCalls)
+        .where(inArray(toolCalls.sessionId, recentSessionIds))
+    : [];
+  const turnsBySessionId = groupBy(sessionTurns, (turn) => turn.sessionId);
+  const toolsBySessionId = groupBy(sessionTools, (tool) => tool.sessionId);
+  const sessionRefsById = new Map<string, NodeRef[]>();
+
+  for (const session of recentSessions) {
+    const turns = turnsBySessionId.get(session.id) ?? [];
+    const turnCount = turns.length;
+    const firstPrompt = turns
+      .slice()
+      .sort((a, b) => a.turnIndex - b.turnIndex)
+      .find((turn) => typeof turn.userMessage === "string" && turn.userMessage.trim())?.userMessage;
+    if (!nodeMap.has(session.id)) {
+      const title =
+        typeof firstPrompt === "string" && firstPrompt.trim()
+          ? compactSessionTitle(firstPrompt)
+          : `Tutor session ${new Date(session.startedAt).toLocaleDateString("en", { month: "short", day: "numeric" })}`;
+      const sessionNode: GraphCanvasNode = {
+        id: session.id,
+        nodeType: "tutor_session",
+        labels: ["TutorSession"],
+        properties: {
+          title,
+          mode: session.mode,
+          status: session.status,
+          startedAt: session.startedAt.toISOString(),
+          ...(session.endedAt ? { endedAt: session.endedAt.toISOString() } : {}),
+          summary: turnCount ? `${turnCount} ${turnCount === 1 ? "turn" : "turns"}` : null,
+        },
+      };
+      nodes.push(sessionNode);
+      nodeMap.set(session.id, sessionNode);
+    }
+
+    const runtimeRefs = refsFromRuntimeContext(session.runtimeContextJson);
+    const selectedRefs = nodeRefsFromPayload({ selectedNodeRefs: session.selectedNodeRefsJson });
+    const turnRefs = turns.flatMap((turn) =>
+      nodeRefsFromPayload(
+        { selectedNodeRefs: turn.selectedNodeRefsJson },
+        { nodeRefs: turn.citationRefsJson },
+      ),
+    );
+    const toolRefs = (toolsBySessionId.get(session.id) ?? []).flatMap((tool) =>
+      nodeRefsFromPayload(tool.inputJson, tool.outputJson ?? undefined, tool.reducerResultJson ?? undefined),
+    );
+    const refs = uniqueNodeRefs([...runtimeRefs, ...selectedRefs, ...turnRefs, ...toolRefs])
+      .filter((ref) => ref.refType !== "session" || ref.refId !== session.id);
+    sessionRefsById.set(session.id, refs);
+
+    for (const ref of refs) {
+      const targetId = ref.refId;
+      if (!nodeMap.has(targetId)) continue;
       edges.push({
-        id: `weak-${weakNodeId}-${concept.id}`,
-        source: weakNodeId,
-        target: concept.id,
-        relationType: "REMEDIATES",
-        properties: {},
+        id: `session-${session.id}-${ref.refType}-${targetId}`,
+        source: session.id,
+        target: targetId,
+        relationType: sessionRelationForRef(ref.refType),
+        properties: { refType: ref.refType, projectedBy: "workspace_read_model.session_refs" },
       });
     }
   }
@@ -301,6 +364,19 @@ export async function augmentStudyMapCanvas(
     }
   }
 
+  for (const [sessionId, refs] of sessionRefsById) {
+    for (const ref of refs) {
+      if (ref.refType !== "artifact" || !nodeMap.has(ref.refId)) continue;
+      edges.push({
+        id: `session-${sessionId}-artifact-${ref.refId}`,
+        source: sessionId,
+        target: ref.refId,
+        relationType: "COMPLETED_BY",
+        properties: { refType: "artifact", projectedBy: "workspace_read_model.session_artifacts" },
+      });
+    }
+  }
+
   for (const sessionNode of nodes) {
     if (sessionNode.nodeType !== "session_plan") continue;
     const moduleId = typeof sessionNode.properties.moduleId === "string" ? sessionNode.properties.moduleId : null;
@@ -324,6 +400,92 @@ export async function augmentStudyMapCanvas(
       return true;
     }),
   };
+}
+
+function groupBy<T, K extends string>(items: T[], keyFor: (item: T) => K): Map<K, T[]> {
+  const map = new Map<K, T[]>();
+  for (const item of items) {
+    const key = keyFor(item);
+    const list = map.get(key) ?? [];
+    list.push(item);
+    map.set(key, list);
+  }
+  return map;
+}
+
+function compactSessionTitle(value: string): string {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  return normalized.length > 72 ? `${normalized.slice(0, 69).trimEnd()}...` : normalized;
+}
+
+function refsFromRuntimeContext(value: Record<string, unknown> | null | undefined): NodeRef[] {
+  if (!value) return [];
+  const refs: NodeRef[] = [];
+  const activeSessionPlanId = value.activeSessionPlanId;
+  const currentObjectiveId = value.currentObjectiveId;
+  if (typeof activeSessionPlanId === "string" && activeSessionPlanId) {
+    refs.push({ refType: "session_plan", refId: activeSessionPlanId });
+  }
+  if (typeof currentObjectiveId === "string" && currentObjectiveId) {
+    refs.push({ refType: "objective", refId: currentObjectiveId });
+  }
+  return refs;
+}
+
+function nodeRefsFromPayload(...payloads: Array<Record<string, unknown> | undefined>): NodeRef[] {
+  const refs: NodeRef[] = [];
+  const push = (refType: NodeRef["refType"], refId: unknown) => {
+    if (typeof refId === "string" && refId.trim()) {
+      refs.push({ refType, refId });
+    }
+  };
+  for (const payload of payloads) {
+    if (!payload) continue;
+    for (const key of ["nodeRefs", "selectedNodeRefs", "sourceNodeRefs"] as const) {
+      const candidateRefs = payload[key];
+      if (!Array.isArray(candidateRefs)) continue;
+      for (const ref of candidateRefs) {
+        if (!ref || typeof ref !== "object") continue;
+        const record = ref as Record<string, unknown>;
+        const refType = record.refType;
+        const refId = record.refId;
+        if (isStudyMapRefType(refType) && typeof refId === "string") {
+          refs.push({ refType, refId });
+        }
+      }
+    }
+    push("artifact", payload.artifactId);
+    push("source", payload.sourceId);
+    push("concept", payload.conceptId);
+    push("objective", payload.objectiveId);
+    push("session_plan", payload.sessionPlanId);
+    const insertedArtifactId = payload.insertedArtifactId;
+    push("artifact", insertedArtifactId);
+  }
+  return uniqueNodeRefs(refs);
+}
+
+function isStudyMapRefType(value: unknown): value is NodeRef["refType"] {
+  return (
+    value === "source" ||
+    value === "concept" ||
+    value === "claim" ||
+    value === "curriculum" ||
+    value === "curriculum_module" ||
+    value === "objective" ||
+    value === "session_plan" ||
+    value === "study_plan" ||
+    value === "wiki_page" ||
+    value === "artifact" ||
+    value === "session"
+  );
+}
+
+function sessionRelationForRef(refType: NodeRef["refType"]): string {
+  if (refType === "artifact") return "COMPLETED_BY";
+  if (refType === "source" || refType === "claim" || refType === "wiki_page") return "CITES";
+  if (refType === "session_plan" || refType === "study_plan") return "PLANS";
+  return "COVERS";
 }
 
 function conceptIdsForArtifactPayload(payload: Record<string, unknown> | null | undefined): string[] {
@@ -360,7 +522,37 @@ function conceptIdsForArtifactPayload(payload: Record<string, unknown> | null | 
 export function nodeRefForCanvasNode(node: GraphCanvasNode): NodeRef | null {
   const refType = mapCanvasNodeTypeToRefType(node.nodeType);
   if (!refType) return null;
-  return { refType, refId: node.id };
+  const title = titleForCanvasNode(node);
+  return {
+    refType,
+    refId: node.id,
+    ...(title ? { handle: title, title, label: title } : {}),
+  };
+}
+
+export function titleForCanvasNode(node: GraphCanvasNode): string | null {
+  const candidates = [
+    node.properties.title,
+    node.properties.name,
+    node.properties.canonicalName,
+    node.properties.canonical_name,
+    node.properties.label,
+  ];
+  for (const candidate of candidates) {
+    if (typeof candidate !== "string") continue;
+    const trimmed = candidate.trim();
+    if (trimmed.length > 0 && !isWeakPlanningTitle(trimmed)) return trimmed;
+  }
+  const fallbackTitleByType: Record<string, string> = {
+    objective_list: "Objective sequence",
+    session_plan: "Lesson plan",
+    study_plan: "Live Plan",
+    studyplan: "Live Plan",
+    curriculum_module: "Course module",
+    curriculum: "Course",
+    tutor_session: "Tutor session",
+  };
+  return fallbackTitleByType[node.nodeType] ?? null;
 }
 
 export function mapCanvasNodeTypeToRefType(nodeType: string): NodeRef["refType"] | null {
@@ -394,7 +586,7 @@ export function workspaceVisibilityForNode(
 ): WorkspaceVisibility {
   if (devMode) return "learner";
 
-  if (node.nodeType === "objective") {
+  if (viewMode === "study_map" && CURRICULUM_ONLY_STUDY_MAP_TYPES.has(node.nodeType)) {
     return "hidden";
   }
 
@@ -620,8 +812,9 @@ export async function buildStudyMapReadModel(
 ): Promise<WorkspaceGraphReadModel & { nodes: GraphCanvasNode[]; edges: GraphCanvasEdge[] }> {
   const augmented = await augmentStudyMapCanvas(ctx, notebookId, userId, canvas);
   const context = await loadStudyPlanContext(ctx, notebookId, userId, augmented);
+  const presented = presentStudyMapCanvas(augmented);
   const nodeCatalog = buildNodeCatalog("study_map", augmented, context, options.devMode);
-  const filtered = filterCanvasByVisibility(augmented, nodeCatalog, options.devMode);
+  const filtered = filterCanvasByVisibility(presented, nodeCatalog, options.devMode);
 
   if (context.currentObjectiveId) {
     for (const entry of nodeCatalog) {
@@ -633,7 +826,7 @@ export async function buildStudyMapReadModel(
     }
   }
 
-  return {
+  return learnerSafeValue({
     viewMode: "study_map",
     devMode: options.devMode,
     emphasis: {
@@ -646,7 +839,7 @@ export async function buildStudyMapReadModel(
     ...(options.projectionHealth ? { projectionHealth: options.projectionHealth } : {}),
     nodes: filtered.nodes,
     edges: filtered.edges,
-  };
+  }, { devMode: options.devMode });
 }
 
 export async function buildSourceWikiReadModel(
@@ -658,12 +851,13 @@ export async function buildSourceWikiReadModel(
   options: { devMode: boolean; projectionWarning?: string | null; projectionHealth?: ProjectionHealth },
 ): Promise<WorkspaceGraphReadModel & { nodes: GraphCanvasNode[]; edges: GraphCanvasEdge[] }> {
   const context = await loadStudyPlanContext(ctx, notebookId, userId, canvas);
-  const nodeCatalog = buildNodeCatalog("source_wiki_map", canvas, context, options.devMode);
-  const filtered = filterCanvasByVisibility(canvas, nodeCatalog, options.devMode);
+  const presented = presentSourceWikiCanvas(canvas);
+  const nodeCatalog = buildNodeCatalog("source_wiki_map", presented, context, options.devMode);
+  const filtered = filterCanvasByVisibility(presented, nodeCatalog, options.devMode);
   const topics = buildSourceWikiTopicGroups(canvas, sourceId, nodeCatalog);
   const sourceWikiPages = await buildSourceWikiPageViews(ctx, notebookId, sourceId, options.devMode, options.projectionWarning ?? null);
 
-  return {
+  return learnerSafeValue({
     viewMode: "source_wiki_map",
     devMode: options.devMode,
     emphasis: {
@@ -678,7 +872,7 @@ export async function buildSourceWikiReadModel(
     ...(options.projectionHealth ? { projectionHealth: options.projectionHealth } : {}),
     nodes: filtered.nodes,
     edges: filtered.edges,
-  };
+  }, { devMode: options.devMode });
 }
 
 export async function buildSourceWikiPageViews(
@@ -778,26 +972,16 @@ function isWeakPlanningTitle(title: string | null | undefined): boolean {
 
 function sanitizeLearnerNodeLabel(node: GraphCanvasNode): GraphCanvasNode {
   const title = typeof node.properties.title === "string" ? node.properties.title : null;
-  const canonicalName = typeof node.properties.canonicalName === "string" ? node.properties.canonicalName : null;
-  const fallbackTitleByType: Record<string, string> = {
-    objective_list: "Objective sequence",
-    session_plan: "Lesson plan",
-    study_plan: "Live Plan",
-    studyplan: "Live Plan",
-    curriculum_module: "Course module",
-    curriculum: "Course",
-  };
-  const nextTitle =
-    isWeakPlanningTitle(title) || isWeakPlanningTitle(canonicalName)
-      ? (fallbackTitleByType[node.nodeType] ?? "Reference needs review")
-      : title;
-  if (!nextTitle || nextTitle === title) return node;
+  const nextTitle = titleForCanvasNode(node);
+  if (!nextTitle) return node;
   return {
     ...node,
     properties: {
       ...node.properties,
       title: nextTitle,
-      needsReview: true,
+      handle: nextTitle,
+      displayTitle: nextTitle,
+      ...(nextTitle !== title ? { needsReview: true } : {}),
     },
   };
 }

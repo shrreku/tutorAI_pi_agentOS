@@ -30,6 +30,8 @@ export const entityRefTypeSchema = z.enum([
   "trait_estimate",
   "trait_proposal",
   "trait_guardrail_decision",
+  "personalization_recommendation",
+  "eval_evidence_snapshot",
   "screenshot",
   "whiteboard_node",
   "whiteboard_edge",
@@ -38,6 +40,9 @@ export const entityRefTypeSchema = z.enum([
 export const nodeRefSchema = z.object({
   refType: entityRefTypeSchema,
   refId: idSchema,
+  handle: z.string().min(1).optional(),
+  title: z.string().min(1).optional(),
+  label: z.string().min(1).optional(),
 });
 
 export const provenanceRoleSchema = z.enum([

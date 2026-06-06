@@ -1,16 +1,15 @@
 services:
   api:
-    image: node:22-bookworm-slim
+    image: studyagent-node-dev:latest
     working_dir: /workspace
     command:
       [
         "sh",
         "-c",
-        "corepack enable && corepack prepare pnpm@10.0.0 --activate && pnpm install && pnpm --filter @studyagent/db migrate && pnpm --filter @studyagent/db seed && pnpm --filter @studyagent/api dev",
+        "pnpm install --prefer-offline && pnpm --filter @studyagent/graph run build && pnpm --filter @studyagent/observability run build && pnpm --filter @studyagent/db migrate && pnpm --filter @studyagent/db seed && pnpm --filter @studyagent/api dev",
       ]
     environment:
       DATABASE_URL: postgres://studyagent:studyagent@postgres:5432/studyagent
-      REDIS_URL: redis://redis:6379
       API_PORT: "4000"
       OBJECT_STORAGE_ENDPOINT: http://minio:9000
       OBJECT_STORAGE_ACCESS_KEY: studyagent
@@ -21,8 +20,10 @@ services:
       DEV_USER_EMAIL: dev@studyagent.local
       LOG_LEVEL: info
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
-      OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
-      EMBEDDING_API_BASE_URL: ${EMBEDDING_API_BASE_URL:-}
+      OPENROUTER_BASE_URL: ${DOCKER_OPENROUTER_BASE_URL:-http://host.docker.internal:8787/api/v1}
+      EMBEDDING_API_BASE_URL: ${DOCKER_EMBEDDING_API_BASE_URL:-http://host.docker.internal:8787/api/v1}
+      TUTOR_MODEL_TIMEOUT_MS: ${TUTOR_MODEL_TIMEOUT_MS:-120000}
+      TUTOR_MAX_TOOL_CALLS: ${TUTOR_MAX_TOOL_CALLS:-16}
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-gemini-embedding-2}
       EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-1536}
       LLAMAPARSE_API_KEY: ${LLAMAPARSE_API_KEY:-}
@@ -48,17 +49,16 @@ services:
       start_period: 20s
 
   worker:
-    image: node:22-bookworm-slim
+    image: studyagent-node-dev:latest
     working_dir: /workspace
     command:
       [
         "sh",
         "-c",
-        "corepack enable && corepack prepare pnpm@10.0.0 --activate && pnpm install && pnpm --filter @studyagent/worker dev",
+        "pnpm install --prefer-offline && pnpm --filter @studyagent/observability run build && pnpm --filter @studyagent/worker dev",
       ]
     environment:
       DATABASE_URL: postgres://studyagent:studyagent@postgres:5432/studyagent
-      REDIS_URL: redis://redis:6379
       OBJECT_STORAGE_ENDPOINT: http://minio:9000
       OBJECT_STORAGE_ACCESS_KEY: studyagent
       OBJECT_STORAGE_SECRET_KEY: studyagent-local
@@ -68,8 +68,10 @@ services:
       DEV_USER_EMAIL: dev@studyagent.local
       LOG_LEVEL: info
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
-      OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
-      EMBEDDING_API_BASE_URL: ${EMBEDDING_API_BASE_URL:-}
+      OPENROUTER_BASE_URL: ${DOCKER_OPENROUTER_BASE_URL:-http://host.docker.internal:8787/api/v1}
+      EMBEDDING_API_BASE_URL: ${DOCKER_EMBEDDING_API_BASE_URL:-http://host.docker.internal:8787/api/v1}
+      TUTOR_MODEL_TIMEOUT_MS: ${TUTOR_MODEL_TIMEOUT_MS:-120000}
+      TUTOR_MAX_TOOL_CALLS: ${TUTOR_MAX_TOOL_CALLS:-16}
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-gemini-embedding-2}
       EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-1536}
       LLAMAPARSE_API_KEY: ${LLAMAPARSE_API_KEY:-}
@@ -83,19 +85,22 @@ services:
       - studyagent-node-modules:/workspace/node_modules
 
   web:
-    image: node:22-bookworm-slim
+    image: studyagent-node-dev:latest
     working_dir: /workspace
     command:
       [
         "sh",
         "-c",
-        "corepack enable && corepack prepare pnpm@10.0.0 --activate && pnpm install && VITE_API_PROXY_TARGET=http://api:4000 pnpm --filter @studyagent/web dev -- --host 0.0.0.0 --port 5173",
+        "pnpm install --prefer-offline && pnpm --filter @studyagent/observability run build && VITE_API_PROXY_TARGET=http://api:4000 pnpm --filter @studyagent/web dev -- --host 0.0.0.0 --port 5173",
       ]
     ports:
       - "5173:5173"
     volumes:
       - .:/workspace
       - studyagent-node-modules:/workspace/node_modules
+    depends_on:
+      api:
+        condition: service_healthy
 
 volumes:
   studyagent-node-modules:

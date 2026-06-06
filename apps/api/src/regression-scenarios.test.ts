@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { deriveArtifactLifecycleEventType, resolveArtifactConsentPolicy } from "./artifact-lifecycle.js";
-import { buildAdaptiveSessionPlanPatch, buildTutorSessionDigestPayload } from "./phase7.js";
+import { buildAdaptiveSessionPlanPatch } from "./curriculum-adaptation.js";
+import { extractContextRefsFromToolSummary } from "./mastery-context-refs.js";
+import { buildTutorSessionDigestPayload } from "./tutor-session-crystallization.js";
 import { buildIntentRoutingInstruction, detectLearnerIntent } from "./tutor-intent.js";
 import { formatLearnerStateSummary, type NotebookStudyState } from "./study-state.js";
-import { buildTutorContextSelectionReason, buildTutorContextSelectionPlan } from "./tutor-tool-provider.js";
 
 describe("tutor regression scenarios", () => {
   it("keeps cold-start teach-me requests un-routed when there is no objective", () => {
@@ -165,24 +166,32 @@ describe("tutor regression scenarios", () => {
     expect(formatLearnerStateSummary(state)).toContain("Progress:");
   });
 
-  it("records explicit context-selection reasoning for selected-source scoped retrieval", () => {
-    const plan = buildTutorContextSelectionPlan({
-      message: "teach me from this source",
-      selectedNodeRefs: [{ refType: "source", refId: "src_42" }],
-      studyState: null,
-    });
-
-    const reason = buildTutorContextSelectionReason({
-      plan,
-      maxChunks: 6,
-      selectedChunkCount: 3,
-      usedSourceScopeFallback: false,
-      sourceIds: ["src_42"],
-    });
-
-    expect(reason).toContain("Applied selected source scope (soft_source_scope): src_42");
-    expect(reason).toContain("Retrieved 3 chunks");
-    expect(reason).not.toContain("fell back to notebook-wide retrieval");
+  it("extracts mastery context refs from wiki search tool summaries", () => {
+    expect(
+      extractContextRefsFromToolSummary({
+        tools: [
+          {
+            toolCallId: "tool_1",
+            toolName: "wiki.search",
+            status: "completed",
+            contextRefs: [
+              { refType: "chunk", refId: "chunk_1" },
+              { refType: "source", refId: "src_1" },
+              { refType: "chunk", refId: "chunk_1" },
+            ],
+          },
+          {
+            toolCallId: "tool_2",
+            toolName: "artifact.create_note",
+            status: "completed",
+            contextRefs: [{ refType: "artifact", refId: "artifact_1" }],
+          },
+        ],
+      }),
+    ).toEqual([
+      { refType: "chunk", refId: "chunk_1" },
+      { refType: "source", refId: "src_1" },
+    ]);
   });
 
   it("adapts session plans toward weak-concept remediation under time constraints", () => {

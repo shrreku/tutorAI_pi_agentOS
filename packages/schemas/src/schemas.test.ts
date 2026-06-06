@@ -17,6 +17,7 @@ import {
   sourceLevelSchema,
   sourceScopePolicySchema,
   sourceSchema,
+  validateEventPayload,
   workspaceGraphReadModelSchema,
 } from "./index.js";
 
@@ -135,6 +136,23 @@ describe("shared schemas", () => {
     expect(parsed.eventType).toBe("session.context.selection_failed");
   });
 
+  it("preserves tutor runtime telemetry fields during event payload validation", () => {
+    const validated = validateEventPayload("tutor.message.completed", {
+      text: "fallback answer",
+      stopReason: "end_turn",
+      model: "studyagent/local-fallback",
+      provider: "local_fallback",
+    });
+
+    expect(validated).toEqual({
+      success: true,
+      data: expect.objectContaining({
+        model: "studyagent/local-fallback",
+        provider: "local_fallback",
+      }),
+    });
+  });
+
   it("accepts extended whiteboard node ref types", () => {
     const refs = [
       { refType: "source_section", refId: "ss_1" },
@@ -154,6 +172,22 @@ describe("shared schemas", () => {
   it("keeps Live Plan as an entity ref but not an artifact type", () => {
     expect(nodeRefSchema.parse({ refType: "study_plan", refId: "plan_1" })).toEqual({ refType: "study_plan", refId: "plan_1" });
     expect(artifactTypeSchema.safeParse("study_plan").success).toBe(false);
+  });
+
+  it("preserves LLM-facing handles on node refs", () => {
+    expect(
+      nodeRefSchema.parse({
+        refType: "objective",
+        refId: "obj_1",
+        handle: "current_objective",
+        title: "Connect Fourier's law with heat flux",
+      }),
+    ).toEqual({
+      refType: "objective",
+      refId: "obj_1",
+      handle: "current_objective",
+      title: "Connect Fourier's law with heat flux",
+    });
   });
 
   it("accepts topic as a graph node type", () => {
@@ -205,7 +239,7 @@ describe("shared schemas", () => {
       ],
       sourceRefs: [{ refType: "chunk", refId: "chunk_1" }],
       provenanceRefs: [{ refType: "chunk", refId: "chunk_1", role: "derived_from" }],
-      primaryActions: ["ask_tutor", "open_provenance"],
+      primaryActions: ["ask_tutor", "regenerate", "open_provenance"],
       quality: { confidence: 0.82, sourceBacked: true, needsReview: false },
     });
 
@@ -278,7 +312,8 @@ describe("shared schemas", () => {
 
   it("validates source and learner level contracts", () => {
     expect(sourceLevelSchema.parse("undergraduate")).toBe("undergraduate");
-    expect(sourceScopePolicySchema.parse("strict_source_scope")).toBe("strict_source_scope");
+    expect(sourceScopePolicySchema.parse("soft_source_scope")).toBe("soft_source_scope");
+    expect(sourceScopePolicySchema.safeParse("strict_source_scope").success).toBe(false);
     expect(inferSourceLevelFromSignals({ title: "High school physics workbook" }).level).toBe("high_school");
     expect(
       learnerReadinessSchema.parse(

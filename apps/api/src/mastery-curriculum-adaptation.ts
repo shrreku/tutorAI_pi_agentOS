@@ -1,6 +1,5 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 import {
-  appendEvent,
   learningState,
   objectives,
   objectiveLists,
@@ -14,7 +13,8 @@ import {
   buildAdaptivePlanSignalsFromMasteryEvidence,
   type MasteryEvidence,
 } from "@studyagent/schemas";
-import { buildAdaptiveSessionPlanPatch } from "./phase7.js";
+import { appendEventWithTutorCacheInvalidation as appendEvent } from "./agentic-cache-invalidation.js";
+import { buildAdaptiveSessionPlanPatch } from "./curriculum-adaptation.js";
 
 export async function applyAdaptiveSessionPlanFromMasteryEvidence(
   dbClient: DbClient,

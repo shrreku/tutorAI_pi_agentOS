@@ -136,9 +136,11 @@ describe("write tools", () => {
       baseContext,
     );
 
-    expect((result as { signal: { trait: string; suggestedValue: string }; reducerResult: { mutationType: string } }).signal).toMatchObject({
+    expect((result as { signal: { trait: string; suggestedValue: string; turnId?: string; runId?: string }; reducerResult: { mutationType: string } }).signal).toMatchObject({
       trait: "pacePreference",
       suggestedValue: "slow",
+      turnId: "turn_1",
+      runId: "run_1",
     });
     expect((result as { reducerResult: { mutationType: string } }).reducerResult.mutationType).toBe("learner_trait.signal.recorded");
   });
@@ -244,6 +246,27 @@ describe("write tools", () => {
 
     expect(onEvent).toHaveBeenCalledTimes(2);
     expect(onEvent.mock.calls[1]?.[0]?.eventType).toBe("agent.tool.failed");
+  });
+
+  it("normalizes invalid mastery evaluator source ref aliases", async () => {
+    const registry = new ToolRegistry();
+    registerWriteToolsV1(registry, createNoopRuntimeWriteToolProvider());
+
+    const result = await executeTool(
+      registry,
+      "learning.evaluate_response",
+      {
+        tutorQuestion: "Quick check: agree or disagree?",
+        learnerAnswer: "disagree",
+        conceptRoles: [{ conceptId: "concept_fourier", role: "primary" }],
+        masterySnapshot: { concept_fourier: 0.5 },
+        sourceRefs: [{ refType: "pdf", refId: "src_1" }],
+        contextRefs: [],
+      },
+      baseContext,
+    );
+
+    expect((result as { conceptIds: string[] }).conceptIds).toEqual(["concept_fourier"]);
   });
 
   it("normalizes common mastery evaluator tool argument variants", async () => {

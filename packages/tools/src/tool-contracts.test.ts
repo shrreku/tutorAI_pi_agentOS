@@ -88,6 +88,62 @@ describe("tool contract catalog", () => {
     );
   });
 
+  it("exposes semantic handles in study plan output", () => {
+    const contract = getToolContract("study_plan.get_current");
+    const parsed = contract?.outputSchema.parse({
+      studyPlan: {
+        id: "plan_1",
+        ref: { refType: "study_plan", refId: "plan_1", handle: "Heat transfer plan", title: "Heat transfer plan" },
+        handle: "Heat transfer plan",
+        notebookId: "nb_1",
+        userId: "user_1",
+        title: "Heat transfer plan",
+        status: "active",
+        currentObjectiveId: "obj_1",
+        upcomingObjectiveIds: [],
+        completedObjectiveIds: [],
+        weakConceptIds: ["concept_1"],
+        currentObjective: {
+          id: "obj_1",
+          ref: { refType: "objective", refId: "obj_1", handle: "current_objective", title: "Connect Fourier's law with heat flux" },
+          handle: "current_objective",
+          title: "Connect Fourier's law with heat flux",
+          status: "in_progress",
+          targetConcepts: [],
+          prerequisiteConcepts: [],
+        },
+        upcomingObjectives: [],
+        completedObjectives: [],
+        weakConcepts: [
+          {
+            id: "concept_1",
+            ref: { refType: "concept", refId: "concept_1", handle: "Heat flux", title: "Heat flux" },
+            handle: "Heat flux",
+            title: "Heat flux",
+            name: "Heat flux",
+          },
+        ],
+      },
+      studentProfile: null,
+      curriculum: null,
+      module: null,
+      objectiveList: null,
+      sessionPlan: null,
+      boundarySignals: [
+        {
+          type: "session_plan_boundary",
+          strength: "likely",
+          scopeRef: { refType: "session_plan", refId: "sessplan_1" },
+          summary: "The active session plan has no remaining current objective.",
+          evidenceRefs: [{ refType: "session_plan", refId: "sessplan_1" }],
+        },
+      ],
+    }) as { studyPlan?: { currentObjective?: { title: string } | null; weakConcepts: Array<{ name?: string }> } | null };
+
+    expect(parsed?.studyPlan?.currentObjective?.title).toBe("Connect Fourier's law with heat flux");
+    expect(parsed?.studyPlan?.weakConcepts[0]?.name).toBe("Heat flux");
+  });
+
   it("fails when a registered tool is missing from the catalog", () => {
     const registry = new ToolRegistry();
     registerReadToolsV1(registry, createNoopRuntimeReadToolProvider());

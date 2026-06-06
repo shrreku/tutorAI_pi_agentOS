@@ -37,8 +37,10 @@ vi.mock("@studyagent/agent-runtime", async () => {
   };
 });
 
-vi.mock("../phase7.js", async () => {
-  const actual = await vi.importActual<typeof import("../phase7.js")>("../phase7.js");
+vi.mock("../tutor-session-crystallization.js", async () => {
+  const actual = await vi.importActual<typeof import("../tutor-session-crystallization.js")>(
+    "../tutor-session-crystallization.js",
+  );
   return {
     ...actual,
     crystallizeTutorSession: crystallizeSessionMock,
@@ -79,7 +81,13 @@ class FakeDb {
             return this;
           },
           orderBy(_order: unknown) {
-            return this;
+            const chain = this;
+            return {
+              ...chain,
+              then(onFulfilled: (value: unknown[]) => unknown, onRejected?: (reason: unknown) => unknown) {
+                return chain.limit(Number.MAX_SAFE_INTEGER).then(onFulfilled, onRejected);
+              },
+            };
           },
           limit(limitCount: number) {
             if (table === tutorSessions) {
@@ -233,7 +241,7 @@ describe("tutor lifecycle routes", () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toEqual({ sessionId: "sess_3", status: "completed", artifactId: null });
+    expect(response.json()).toEqual({ sessionId: "sess_3", status: "completed", artifactId: null, reason: "ended_without_turns" });
     expect(crystallizeSessionMock).not.toHaveBeenCalled();
     expect(disposeSessionMock).toHaveBeenCalledWith("sess_3");
   });
@@ -283,6 +291,31 @@ describe("tutor lifecycle routes", () => {
         assistantMessage: "Let's start.",
       }),
     );
-    expect(response.json()).toEqual({ sessionId: "sess_4", status: "completed", artifactId: "artifact_digest_1" });
+    expect(response.json()).toEqual({ sessionId: "sess_4", status: "completed", artifactId: "artifact_digest_1", reason: "crystallized" });
+  });
+
+  it("returns not found when ending an already completed session", async () => {
+    fakeDb.sessions = [
+      {
+        id: "sess_done",
+        notebookId: "nb_done",
+        userId: "user_1",
+        mode: "learn",
+        status: "completed",
+        selectedNodeRefsJson: [],
+        runtimeContextJson: {},
+        startedAt: new Date(),
+        endedAt: new Date(),
+      },
+    ];
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/notebooks/nb_done/tutor/session/end",
+      payload: {},
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(crystallizeSessionMock).not.toHaveBeenCalled();
   });
 });

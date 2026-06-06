@@ -3,7 +3,7 @@ import { createNeo4jDriver } from "@studyagent/graph";
 import { type DbClient } from "@studyagent/db";
 import { loadNotebookStudyState, formatLearnerStateSummary } from "./study-state.js";
 import { formatStudyPlanSummary } from "./study-state.js";
-import { buildAdaptiveSessionPlanPatch } from "./phase7.js";
+import { buildAdaptiveSessionPlanPatch } from "./curriculum-adaptation.js";
 import { detectLearnerIntent, buildIntentRoutingInstruction } from "./tutor-intent.js";
 import { buildTutorContextSelectionReason } from "./tutor-tool-provider.js";
 

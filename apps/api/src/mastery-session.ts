@@ -2,7 +2,9 @@ import { and, desc, eq } from "drizzle-orm";
 import { learningState, tutorSessions, tutorTurns, type DbClient } from "@studyagent/db";
 import type { MasteryEvidence, MasteryEvidenceInput } from "@studyagent/schemas";
 import type { AppContext } from "./context.js";
+import { createOpenRouterMasteryEvaluatorJudge } from "./mastery-llm-judge.js";
 import { runRuntimeMasteryEvaluation } from "./mastery-pipeline.js";
+import { extractContextRefsFromToolSummary } from "./mastery-context-refs.js";
 import {
   buildPendingEvaluationFromAssistantMessage,
   readEvaluatedTurnIds,
@@ -39,6 +41,7 @@ export async function maybeRunRuntimeMasteryEvaluation(
     return { evaluated: false, runtimeContext: input.runtimeContext ?? {} };
   }
 
+  const judge = createOpenRouterMasteryEvaluatorJudge(ctx.env);
   const result = await runRuntimeMasteryEvaluation(ctx.db, {
     notebookId: input.notebookId,
     userId: input.userId,
@@ -52,7 +55,7 @@ export async function maybeRunRuntimeMasteryEvaluation(
     ...(pending.contextRefs ?? input.contextRefs
       ? { contextRefs: (pending.contextRefs ?? input.contextRefs) as MasteryEvidenceInput["contextRefs"] }
       : {}),
-  });
+  }, judge ? { judge } : {});
   const lastRuntimeMasteryEvidence = result?.evidence
     ? summarizeRuntimeMasteryEvidenceForContext(result.evidence)
     : null;
@@ -122,24 +125,23 @@ async function loadLatestPendingMasteryEvaluationFallback(
 
   if (!latestTurn?.assistantMessage) return null;
   const selectedNodeRefs = parseRefs(latestTurn.selectedNodeRefsJson);
-  const contextSelection = parseContextSelection(latestTurn.toolSummaryJson);
   const conceptIds = [
     ...new Set([
       ...selectedNodeRefs.filter((ref) => ref.refType === "concept").map((ref) => ref.refId),
-      ...stringArray(contextSelection?.objectivePathConceptIds),
-      ...stringArray(contextSelection?.recentMistakeConceptIds),
     ]),
   ];
+  const toolContextRefs = extractContextRefsFromToolSummary(latestTurn.toolSummaryJson);
   const sourceRefs = [
     ...new Map([
-      ...selectedNodeRefs.filter((ref) => ref.refType === "source").map((ref) => [ref.refId, { refType: "source" as const, refId: ref.refId }] as const),
-      ...stringArray(contextSelection?.selectedSourceIds).map((refId) => [refId, { refType: "source" as const, refId }] as const),
+      ...selectedNodeRefs
+        .filter((ref) => ref.refType === "source")
+        .map((ref) => [ref.refId, { refType: "source" as const, refId: ref.refId }] as const),
+      ...toolContextRefs
+        .filter((ref) => ref.refType === "source")
+        .map((ref) => [ref.refId, { refType: "source" as const, refId: ref.refId }] as const),
     ]).values(),
   ];
-  const contextRefs = [
-    ...stringArray(contextSelection?.selectedChunkIds).map((refId) => ({ refType: "chunk", refId })),
-    ...(contextSelection?.sourceCoverageGap ? [{ refType: "source", refId: "gap_strict_source_scope" }] : []),
-  ];
+  const contextRefs = toolContextRefs;
 
   return buildPendingEvaluationFromAssistantMessage({
     turnId: latestTurn.id,
@@ -147,21 +149,69 @@ async function loadLatestPendingMasteryEvaluationFallback(
     conceptIds,
     sourceRefs,
     contextRefs,
-    ...(typeof contextSelection?.sourceScopePolicy === "string" ? { sourceScopePolicy: contextSelection.sourceScopePolicy } : {}),
   });
 }
 
+export function summarizeToolMasteryEvidenceForContext(
+  input: unknown,
+  output: unknown,
+): ReturnType<typeof summarizeRuntimeMasteryEvidenceForContext> {
+  if (!output || typeof output !== "object" || Array.isArray(output)) return null;
+  const record = output as Record<string, unknown>;
+  const masteryEvidenceId = typeof record.masteryEvidenceId === "string" ? record.masteryEvidenceId : null;
+  const correctnessLabel =
+    record.correctnessLabel === "correct" ||
+    record.correctnessLabel === "partial" ||
+    record.correctnessLabel === "incorrect" ||
+    record.correctnessLabel === "needs_more_evidence"
+      ? record.correctnessLabel
+      : null;
+  const tutoringIntervention =
+    record.tutoringIntervention === "clarify" ||
+    record.tutoringIntervention === "reteach" ||
+    record.tutoringIntervention === "worked_example" ||
+    record.tutoringIntervention === "guided_practice" ||
+    record.tutoringIntervention === "quick_check" ||
+    record.tutoringIntervention === "advance"
+      ? record.tutoringIntervention
+      : null;
+  const readiness =
+    record.readiness === "foundational" ||
+    record.readiness === "developing" ||
+    record.readiness === "proficient" ||
+    record.readiness === "advanced"
+      ? record.readiness
+      : null;
+  if (!masteryEvidenceId || !correctnessLabel || !tutoringIntervention || !readiness) return null;
+
+  const inputRecord = input && typeof input === "object" && !Array.isArray(input) ? (input as Record<string, unknown>) : {};
+  const objectiveId = typeof inputRecord.objectiveId === "string" ? inputRecord.objectiveId : undefined;
+
+  return {
+    evidenceId: masteryEvidenceId,
+    ...(objectiveId ? { objectiveId } : {}),
+    correctnessLabel,
+    overallScore: typeof record.overallScore === "number" ? record.overallScore : 0,
+    confidence: typeof record.confidence === "number" ? record.confidence : 0,
+    uncertainty: typeof record.uncertainty === "number" ? record.uncertainty : 1,
+    readiness,
+    tutoringIntervention,
+  };
+}
+
+type MasteryEvidenceContextSummary = {
+  evidenceId: string;
+  objectiveId?: string;
+  correctnessLabel: MasteryEvidence["correctnessLabel"];
+  overallScore: number;
+  confidence: number;
+  uncertainty: number;
+  readiness: MasteryEvidence["readiness"];
+  tutoringIntervention: MasteryEvidence["tutoringIntervention"];
+};
+
 function summarizeRuntimeMasteryEvidenceForContext(evidence: MasteryEvidence):
-  | {
-      evidenceId: string;
-      objectiveId: string;
-      correctnessLabel: MasteryEvidence["correctnessLabel"];
-      overallScore: number;
-      confidence: number;
-      uncertainty: number;
-      readiness: MasteryEvidence["readiness"];
-      tutoringIntervention: MasteryEvidence["tutoringIntervention"];
-    }
+  | MasteryEvidenceContextSummary
   | null {
   if (!evidence.objectiveId) return null;
   return {
@@ -234,21 +284,11 @@ export async function loadSessionRuntimeContext(
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
 
-function stringArray(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
-}
-
 function parseRefs(value: unknown): Array<{ refType: string; refId: string }> {
   if (!Array.isArray(value)) return [];
   return value
     .filter((ref): ref is Record<string, unknown> => Boolean(ref && typeof ref === "object" && !Array.isArray(ref)))
     .filter((ref): ref is { refType: string; refId: string } => typeof ref.refType === "string" && typeof ref.refId === "string");
-}
-
-function parseContextSelection(value: unknown): Record<string, unknown> | null {
-  if (!isJsonRecord(value)) return null;
-  const contextSelection = value.contextSelection;
-  return isJsonRecord(contextSelection) ? contextSelection : null;
 }
 
 function isJsonRecord(value: unknown): value is Record<string, unknown> {

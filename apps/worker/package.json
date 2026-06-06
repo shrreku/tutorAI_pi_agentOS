@@ -20,10 +20,12 @@
     "@studyagent/search": "workspace:*",
     "@studyagent/graph": "workspace:*",
     "@studyagent/wiki-core": "workspace:*",
+    "@studyagent/eval-runner": "workspace:*",
     "@studyagent/schemas": "workspace:*",
     "bullmq": "^5.41.2",
     "drizzle-orm": "^0.44.2",
     "ioredis": "^5.5.0",
+    "postgres": "^3.4.5",
     "zod": "latest"
   },
   "devDependencies": { "tsx": "latest" }

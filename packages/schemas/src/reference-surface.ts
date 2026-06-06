@@ -48,7 +48,7 @@ export const referenceSurfaceSchema = z.object({
   sourceRefs: z.array(nodeRefSchema).default([]),
   provenanceRefs: z.array(provenanceRefSchema).default([]),
   coverageRefs: z.array(nodeRefSchema).default([]),
-  primaryActions: z.array(z.enum(["ask_tutor", "review", "quiz", "open_provenance", "open_source"])).default(["ask_tutor"]),
+  primaryActions: z.array(z.enum(["ask_tutor", "review", "quiz", "regenerate", "open_provenance", "open_evidence", "open_source"])).default(["ask_tutor"]),
   quality: z.object({
     confidence: z.number().min(0).max(1).nullable().default(null),
     sourceBacked: z.boolean().default(false),
@@ -63,6 +63,25 @@ export const referenceSurfaceSchema = z.object({
 
 export type ReferenceBlock = z.infer<typeof referenceBlockSchema>;
 export type ReferenceSurface = z.infer<typeof referenceSurfaceSchema>;
+export type LearnerFacingReferenceSurface = Omit<ReferenceSurface, "provenanceRefs">;
+
+export type ReferenceSurfacePrimaryAction = ReferenceSurface["primaryActions"][number];
+
+const LEARNER_PRIMARY_ACTION_ALIASES: Partial<Record<ReferenceSurfacePrimaryAction, ReferenceSurfacePrimaryAction>> = {
+  open_provenance: "open_evidence",
+};
+
+export function mapLearnerPrimaryActions(actions: ReferenceSurfacePrimaryAction[]): ReferenceSurfacePrimaryAction[] {
+  const seen = new Set<ReferenceSurfacePrimaryAction>();
+  const mapped: ReferenceSurfacePrimaryAction[] = [];
+  for (const action of actions) {
+    const next = LEARNER_PRIMARY_ACTION_ALIASES[action] ?? action;
+    if (seen.has(next)) continue;
+    seen.add(next);
+    mapped.push(next);
+  }
+  return mapped;
+}
 
 const INTERNAL_ARTIFACT_STATUSES = new Set(["draft", "rejected", "failed", "archived"]);
 

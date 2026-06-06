@@ -4,6 +4,7 @@ import type { AppContext } from "../context.js";
 import { notebooks, tutorSessions } from "@studyagent/db";
 import { serializeAgUiEventToSse } from "@studyagent/agent-runtime";
 import { nodeRefSchema, sourceScopePolicySchema } from "@studyagent/schemas";
+import { observeAgenticSpan } from "@studyagent/observability";
 import { z } from "zod";
 import { resolveActor } from "../auth.js";
 import {
@@ -14,9 +15,10 @@ import {
 import {
   createOpenRouterLearnerTraitEstimatorClient,
 } from "../learner-trait-estimation.js";
-import { recordLearnerTraitSignal } from "../learner-trait-store.js";
+import { resolveStudyAgentTutorSystemPrompt } from "../langfuse-prompts.js";
+import { getOrCreateRequestCorrelationContext } from "../request-correlation.js";
 import { executeTutorTurn } from "../tutor-turn.js";
-import { extractLatestUserMessage, mergeSelectedNodeRefs, prepareTutorTurn } from "../tutor-turn-preparation.js";
+import { bootstrapTutorTurn, extractLatestUserMessage, mergeSelectedNodeRefs } from "../tutor-turn-preparation.js";
 
 const tutorChatRequestSchema = z.object({
   messages: z.array(z.unknown()).default([]),
@@ -38,6 +40,7 @@ const tutorChatRequestSchema = z.object({
 
 const tutorSessionLifecycleSchema = z.object({
   sessionId: z.string().min(1).optional(),
+  phase: z.enum(["full", "estimation", "crystallization"]).optional(),
 });
 
 export async function registerTutorRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
@@ -77,63 +80,121 @@ export async function registerTutorRoutes(app: FastifyInstance, ctx: AppContext)
       const activeMode = data.activeMode;
       const sourceScopePolicy = data.sourceScopePolicy;
       const action = data.action;
-      const prepared = await prepareTutorTurn(ctx, {
-        notebookId,
-        userId: actor.id,
-        notebookTitle: notebook.title || "Untitled",
-        message,
-        activeMode,
-        selectedNodeRefs: data.selectedNodeRefs,
-        sourceScopePolicy,
-        ...(data.sessionId ? { requestedSessionId: data.sessionId } : {}),
-      });
-      const sessionId = prepared.sessionId;
-      const run = prepared.run;
-
-      reply.raw.writeHead(200, {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache, no-transform",
-        Connection: "keep-alive",
-        "X-Accel-Buffering": "no",
-        "X-StudyAgent-Session-Id": sessionId,
-        "X-StudyAgent-Run-Id": run.runId,
-      });
-
-      try {
-        const turnResult = await executeTutorTurn({
-          ctx,
-          notebookId,
-          sessionId,
-          userId: actor.id,
-          activeMode,
-          selectedNodeRefs: prepared.selectedNodeRefs,
-          action,
-          message,
-          promptContext: prepared.promptContext,
-          studyState: prepared.studyState,
-          openArtifact: prepared.openArtifact,
-          contextSelection: prepared.contextSelection,
-          previousRuntimeContext: prepared.runtimeContextForTurn,
-          toolRegistry: prepared.toolRegistry,
-          emitStreamEvent: (event) => {
-            reply.raw.write(serializeAgUiEventToSse(event));
-          },
-          logger: app.log,
-          run,
-        });
-        if (turnResult.status === "completed" && turnResult.assistantMessage.trim()) {
-          await recordExplicitPreferenceSignalsFromMessage(ctx, {
+      const correlationContext = getOrCreateRequestCorrelationContext(request);
+      return await observeAgenticSpan(
+        "tutor.turn",
+        {
+          input: {
             notebookId,
             userId: actor.id,
+            activeMode,
+            action,
+            selectedNodeRefCount: data.selectedNodeRefs.length,
+          },
+          metadata: { route: "/notebooks/:notebookId/tutor/chat", traceId: correlationContext.traceId },
+        },
+        async (turnObservation) => {
+          const prepared = await observeAgenticSpan(
+            "tutor.turn.bootstrap",
+            {
+              input: {
+                notebookId,
+                userId: actor.id,
+                activeMode,
+                selectedNodeRefCount: data.selectedNodeRefs.length,
+                requestedSessionId: data.sessionId ?? null,
+              },
+            },
+            async (prepareObservation) => {
+              const preparedTurn = await bootstrapTutorTurn(ctx, {
+                notebookId,
+                userId: actor.id,
+                notebookTitle: notebook.title || "Untitled",
+                message,
+                activeMode,
+                selectedNodeRefs: data.selectedNodeRefs,
+                sourceScopePolicy,
+                ...(data.sessionId ? { requestedSessionId: data.sessionId } : {}),
+                correlationContext,
+              });
+              prepareObservation.update({
+                output: {
+                  sessionId: preparedTurn.sessionId,
+                  selectedNodeRefCount: preparedTurn.selectedNodeRefs.length,
+                  isNewSession: preparedTurn.isNewSession,
+                  hasOpenArtifact: Boolean(preparedTurn.openArtifact),
+                },
+              });
+              return preparedTurn;
+            },
+          );
+          const sessionId = prepared.sessionId;
+          const resolvedPrompt = await resolveStudyAgentTutorSystemPrompt(ctx.env, prepared.promptContext);
+          const run = { ...prepared.run, managedPrompt: resolvedPrompt.metadata };
+
+          turnObservation.updateTrace?.({
+            name: "tutor.turn",
+            userId: actor.id,
             sessionId,
-            turnId: turnResult.turnId,
-            runId: turnResult.runId,
-            message,
+            input: { notebookId, activeMode, action },
+            metadata: {
+              notebookId,
+              runId: run.runId,
+              requestId: run.requestId,
+              managedPrompt: resolvedPrompt.metadata,
+            },
+            tags: ["studyagent", "tutor", "agentic"],
           });
-        }
-      } finally {
-        reply.raw.end();
-      }
+
+          reply.raw.writeHead(200, {
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache, no-transform",
+            Connection: "keep-alive",
+            "X-Accel-Buffering": "no",
+            "X-StudyAgent-Session-Id": sessionId,
+            "X-StudyAgent-Run-Id": run.runId,
+            "X-StudyAgent-Trace-Id": run.traceId,
+            "X-StudyAgent-Request-Id": run.requestId ?? correlationContext.requestId,
+            traceparent: run.traceparent ?? correlationContext.traceparent,
+          });
+
+          try {
+            const turnResult = await executeTutorTurn({
+              ctx,
+              notebookId,
+              sessionId,
+              userId: actor.id,
+              activeMode,
+              selectedNodeRefs: prepared.selectedNodeRefs,
+              action,
+              message,
+              promptContext: prepared.promptContext,
+              systemPrompt: resolvedPrompt.prompt,
+              systemPromptFingerprint: resolvedPrompt.fingerprint,
+              studyState: prepared.studyState,
+              openArtifact: prepared.openArtifact,
+              contextSelection: prepared.contextSelection,
+              previousRuntimeContext: prepared.runtimeContextForTurn,
+              toolRegistry: prepared.toolRegistry,
+              emitStreamEvent: (event) => {
+                reply.raw.write(serializeAgUiEventToSse(event));
+              },
+              logger: app.log,
+              run,
+            });
+            turnObservation.update({
+              output: {
+                status: turnResult.status,
+                runId: turnResult.runId,
+                turnId: turnResult.turnId,
+                toolCount: turnResult.toolSummary.length,
+              },
+            });
+          } finally {
+            reply.raw.end();
+          }
+        },
+      );
     },
   );
 
@@ -207,6 +268,7 @@ export async function registerTutorRoutes(app: FastifyInstance, ctx: AppContext)
         notebookId,
         userId: actor.id,
         ...(parsed.data.sessionId ? { requestedSessionId: parsed.data.sessionId } : {}),
+        ...(parsed.data.phase ? { phase: parsed.data.phase } : {}),
         ...(ctx.env.OPENROUTER_API_KEY
           ? {
               estimator: createOpenRouterLearnerTraitEstimatorClient({
@@ -221,7 +283,12 @@ export async function registerTutorRoutes(app: FastifyInstance, ctx: AppContext)
       if (!result) {
         return reply.status(404).send({ code: "not_found", message: "Tutor session not found" });
       }
-      return reply.send({ sessionId: result.sessionId, status: "completed", artifactId: result.artifactId });
+      return reply.send({
+        sessionId: result.sessionId,
+        status: result.status,
+        reason: result.reason,
+        artifactId: result.artifactId,
+      });
     },
   );
 
@@ -252,70 +319,6 @@ export async function registerTutorRoutes(app: FastifyInstance, ctx: AppContext)
       return reply.send({ sessions: recentSessions });
     },
   );
-}
-
-async function recordExplicitPreferenceSignalsFromMessage(
-  ctx: AppContext,
-  input: { notebookId: string; userId: string; sessionId: string; turnId: string; runId: string; message: string },
-): Promise<void> {
-  const text = input.message.toLowerCase();
-  const candidates: Array<{ trait: string; value: string; notes: string }> = [];
-
-  if (/\b(go\s+)?slower\b|\bslow\s+(down|pace)\b|\bno rush\b/.test(text)) {
-    candidates.push({ trait: "pacePreference", value: "slow", notes: "Learner explicitly requested a slower pace." });
-  } else if (/\bfaster\b|\bquickly\b|\bspeed up\b|\bbrief\b|\bconcise\b/.test(text)) {
-    candidates.push({ trait: "pacePreference", value: "fast", notes: "Learner explicitly requested a faster or more concise pace." });
-  }
-  if (/\bvisual\b|\bdiagram\b|\bgraph\b/.test(text)) {
-    candidates.push({ trait: "examplePreference", value: "visual", notes: "Learner explicitly requested visual examples." });
-  }
-  if (/\bconcrete example\b|\breal[- ]world example\b|\bworked example\b|\bexample preference\b/.test(text)) {
-    candidates.push({ trait: "examplePreference", value: "concrete", notes: "Learner explicitly requested concrete examples." });
-  }
-  if (/\bquiz\b|\btest me\b|\bpractice questions?\b/.test(text)) {
-    candidates.push({ trait: "assessmentPreference", value: "quiz", notes: "Learner explicitly requested quiz-style practice." });
-  }
-  if (/\bworked problem\b|\bworked example\b|\bstep[- ]by[- ]step problem\b/.test(text)) {
-    candidates.push({ trait: "assessmentPreference", value: "worked_problem", notes: "Learner explicitly requested worked-problem practice." });
-  }
-  if (/\bexam\b|\btest tomorrow\b|\bdeadline\b|\btomorrow\b/.test(text)) {
-    candidates.push({ trait: "urgencyContext", value: "exam_prep", notes: "Learner explicitly described exam or deadline urgency." });
-  }
-
-  for (const candidate of dedupePreferenceCandidates(candidates)) {
-    await recordLearnerTraitSignal(ctx.db, {
-      id: `lts_${crypto.randomUUID().replaceAll("-", "")}`,
-      notebookId: input.notebookId,
-      userId: input.userId,
-      source: "explicit_self_report",
-      trait: candidate.trait,
-      suggestedValue: candidate.value,
-      strength: 0.95,
-      confidence: 0.9,
-      evidenceRefs: [
-        {
-          refType: "session_trace",
-          refId: input.sessionId,
-          summary: `Explicit learner self-report after tutor turn ${input.turnId} in run ${input.runId}.`,
-        },
-      ],
-      sessionId: input.sessionId,
-      turnId: input.turnId,
-      runId: input.runId,
-      internalVisibility: true,
-      observedAt: new Date().toISOString(),
-      notes: candidate.notes,
-    } as Parameters<typeof recordLearnerTraitSignal>[1]);
-  }
-}
-
-function dedupePreferenceCandidates<T extends { trait: string }>(candidates: T[]): T[] {
-  const seen = new Set<string>();
-  return candidates.filter((candidate) => {
-    if (seen.has(candidate.trait)) return false;
-    seen.add(candidate.trait);
-    return true;
-  });
 }
 
 export { mergeSelectedNodeRefs };

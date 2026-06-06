@@ -1,5 +1,6 @@
 import React from "react";
 import type { GraphCanvasNode } from "@studyagent/schemas";
+import { learnerFacingNodeTypeLabel, learnerFacingPipelineStatus } from "./learner-copy-guard.js";
 
 interface NodeDetailPanelProps {
   node: GraphCanvasNode | null;
@@ -92,7 +93,7 @@ function StatusBadge({ status }: { status: string | undefined }) {
         textTransform: "capitalize",
       }}
     >
-      {status.replace(/_/g, " ")}
+      {learnerFacingPipelineStatus(status)}
     </span>
   );
 }
@@ -358,7 +359,7 @@ export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
               textTransform: "capitalize",
             }}
           >
-            {node.nodeType.replace(/_/g, " ")}
+            {learnerFacingNodeTypeLabel(node.nodeType)}
           </span>
           <span style={{ fontSize: 13, fontWeight: 600, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 160 }}>
             {(node.properties.title as string) ??

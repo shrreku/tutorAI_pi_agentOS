@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   buildStudyAgentSystemPrompt,
+  buildStudyAgentSystemPromptVariables,
   createRuntimeRun,
   createRuntimeToolRegistry,
   resolveModelConfig,
+  STUDYAGENT_TUTOR_SYSTEM_PROMPT_TEMPLATE_V1,
 } from "./index.js";
 
 describe("agent-runtime", () => {
@@ -40,6 +42,38 @@ describe("agent-runtime", () => {
     expect(run.traceId.startsWith("trace_")).toBe(true);
     expect(run.modelConfig.model).toBe("openrouter/auto");
     expect(run.budgets.maxToolCalls).toBe(12);
+  });
+
+  it("exports Langfuse prompt template variables for tutor prompt management", () => {
+    const variables = buildStudyAgentSystemPromptVariables({
+      notebookTitle: "Linear Algebra",
+      activeMode: "learn",
+      selectedNodeRefs: [{ refType: "concept", refId: "concept_vectors" }],
+      currentObjective: "Understand vectors",
+      additionalInstructions: ["[Extra]", "Use a visual example."],
+    });
+
+    expect(STUDYAGENT_TUTOR_SYSTEM_PROMPT_TEMPLATE_V1).toContain("{{notebookContext}}");
+    expect(STUDYAGENT_TUTOR_SYSTEM_PROMPT_TEMPLATE_V1).toContain("{{additionalInstructions}}");
+    expect(variables.notebookContext).toContain("Notebook: Linear Algebra");
+    expect(variables.notebookContext).toContain("Selected graph refs: concept:concept_vectors");
+    expect(variables.additionalInstructions).toContain("Use a visual example.");
+  });
+
+  it("preserves caller-provided correlation fields on runtime runs", () => {
+    const run = createRuntimeRun({
+      notebookId: "nb_1",
+      sessionId: "sess_1",
+      userId: "user_1",
+      activeMode: "practice",
+      traceId: "4bf92f3577b34da6a3ce929d0e0e4736",
+      requestId: "request_1",
+      traceparent: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+    });
+
+    expect(run.traceId).toBe("4bf92f3577b34da6a3ce929d0e0e4736");
+    expect(run.requestId).toBe("request_1");
+    expect(run.traceparent).toBe("00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01");
   });
 
   it("resolves model overrides safely", () => {

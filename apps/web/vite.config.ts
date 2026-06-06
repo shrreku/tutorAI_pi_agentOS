@@ -11,6 +11,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@studyagent/schemas": path.join(workspaceRoot, "packages/schemas/src/index.ts"),
+      "@studyagent/eval-runner": path.join(workspaceRoot, "packages/eval-runner/src/index.ts"),
       "@studyagent/ui": path.join(workspaceRoot, "packages/ui/src/index.ts"),
     },
   },

@@ -242,8 +242,8 @@ describe("pi session runtime", () => {
       followUpEvents.push(event);
     }
 
-    expect(steerEvents.some((event) => event.type === "message_delta" && event.data.text.includes("[steered]"))).toBe(true);
-    expect(followUpEvents.some((event) => event.type === "message_delta" && event.data.text.includes("[follow-up]"))).toBe(true);
+    expect(steerEvents.some((event) => event.type === "narration_complete" && event.data.text.includes("[steered]"))).toBe(true);
+    expect(followUpEvents.some((event) => event.type === "narration_complete" && event.data.text.includes("[follow-up]"))).toBe(true);
   });
 
   it("makes hosted runtime replacement explicit for material context changes", async () => {
@@ -436,6 +436,93 @@ describe("pi session runtime", () => {
     }));
   });
 
+  it("invokes learning.evaluate_response with turn and run identity through Pi tool execution", async () => {
+    const run = createRuntimeRun({
+      notebookId: "nb_tool_eval",
+      sessionId: "sess_tool_eval",
+      userId: "user_1",
+      activeMode: "learn",
+      selectedNodeRefs: [{ refType: "concept", refId: "concept_vectors" }],
+    });
+    const writeProvider = {
+      evaluateLearnerResponse: vi.fn(async (_input, ctx) => ({
+        evidenceId: "mev_turn_bound",
+        conceptIds: ["concept_vectors"],
+        reducerResult: {
+          accepted: true,
+          mutationType: "learning.mastery_evidence.recorded",
+          appliedChanges: { turnId: ctx.turnId },
+          emittedEventIds: [],
+        },
+      })),
+    };
+    const toolRegistry = createRuntimeToolRegistry({ writeProvider: writeProvider as never });
+
+    for await (const _event of runStudyAgentTutorSession({
+      run,
+      turnId: "turn_eval_1",
+      toolRegistry,
+      config: { useMock: true },
+      userMessage: "evaluate answer: heat flows from hot to cold",
+      promptContext: {
+        notebookTitle: "Thermodynamics",
+        activeMode: "learn",
+        selectedNodeRefs: run.selectedNodeRefs,
+      },
+    })) {
+      // drain
+    }
+
+    expect(writeProvider.evaluateLearnerResponse).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      runId: run.runId,
+      turnId: "turn_eval_1",
+      sessionId: "sess_tool_eval",
+    }));
+  });
+
+  it("invokes learner_trait.record_signal with turn and run identity through Pi tool execution", async () => {
+    const run = createRuntimeRun({
+      notebookId: "nb_tool_trait",
+      sessionId: "sess_tool_trait",
+      userId: "user_1",
+      activeMode: "learn",
+      selectedNodeRefs: [],
+    });
+    const writeProvider = {
+      recordLearnerTraitSignal: vi.fn(async (_input, ctx) => ({
+        signalId: "lts_turn_bound",
+        reducerResult: {
+          accepted: true,
+          mutationType: "learner_trait.signal.recorded",
+          appliedChanges: { turnId: ctx.turnId, runId: ctx.runId },
+          emittedEventIds: [],
+        },
+      })),
+    };
+    const toolRegistry = createRuntimeToolRegistry({ writeProvider: writeProvider as never });
+
+    for await (const _event of runStudyAgentTutorSession({
+      run,
+      turnId: "turn_trait_1",
+      toolRegistry,
+      config: { useMock: true },
+      userMessage: "record trait preference",
+      promptContext: {
+        notebookTitle: "Notebook",
+        activeMode: "learn",
+        selectedNodeRefs: [],
+      },
+    })) {
+      // drain
+    }
+
+    expect(writeProvider.recordLearnerTraitSignal).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      runId: run.runId,
+      turnId: "turn_trait_1",
+      sessionId: "sess_tool_trait",
+    }));
+  });
+
   it("replaces runtime when session id changes", async () => {
     const toolRegistry = createRuntimeToolRegistry();
     const initialRun = createRuntimeRun({
@@ -623,7 +710,7 @@ describe("pi session runtime", () => {
         eventType: "agent.run.started",
       }),
     );
-    expect(delta?.eventType).toBe("tutor.message.delta");
+    expect(delta).toBeNull();
     expect(completed).toEqual(
       expect.objectContaining({
         eventType: "tutor.message.completed",
@@ -663,6 +750,37 @@ describe("pi session runtime", () => {
         payload: expect.objectContaining({ failureKind: "runtime_error", safeMessage: "boom" }),
       }),
     );
+  });
+
+  it("maps thinking and narration runtime events into AG-UI work-view events", () => {
+    const run = createRuntimeRun({
+      notebookId: "nb_trace",
+      sessionId: "sess_trace",
+      userId: "user_1",
+      activeMode: "learn",
+      selectedNodeRefs: [],
+    });
+    const mapper = createAgUiEventMapper(run);
+
+    const thinking = mapper.map({ type: "thinking_delta", data: { text: "considering" } });
+    const thinkingEnd = mapper.map({ type: "thinking_complete", data: { text: "considering", durationMs: 80 } });
+    const narration = mapper.map({
+      type: "narration_complete",
+      data: { text: "Checking the notebook", messageIndex: 0, durationMs: 20 },
+    });
+
+    expect(thinking).toEqual([
+      expect.objectContaining({ type: "THINKING_START" }),
+      expect.objectContaining({ type: "THINKING_CONTENT", delta: "considering" }),
+    ]);
+    expect(thinkingEnd).toEqual([
+      expect.objectContaining({ type: "THINKING_END", content: "considering", durationMs: 80 }),
+    ]);
+    expect(narration).toEqual([
+      expect.objectContaining({ type: "RUNTIME_NARRATION_START" }),
+      expect.objectContaining({ type: "RUNTIME_NARRATION_CONTENT", content: "Checking the notebook", messageIndex: 0 }),
+      expect.objectContaining({ type: "RUNTIME_NARRATION_END", content: "Checking the notebook", messageIndex: 0, durationMs: 20 }),
+    ]);
   });
 
   it("maps empty model responses to run errors in AG-UI contracts", () => {
@@ -721,5 +839,26 @@ describe("pi session runtime", () => {
         content: "there",
       }),
     ]);
+  });
+
+  it("labels AG-UI fallback content with the local fallback model", () => {
+    const run = createRuntimeRun({
+      notebookId: "nb_stream",
+      sessionId: "sess_stream",
+      userId: "user_1",
+      activeMode: "learn",
+      selectedNodeRefs: [],
+      modelConfig: { model: "deepseek/deepseek-v4-flash" },
+    });
+    const mapper = createAgUiEventMapper(run);
+
+    const events = mapper.map({
+      type: "message_delta",
+      data: { text: "Fallback", model: "studyagent/local-fallback", provider: "local_fallback" },
+    });
+
+    expect(events.find((event) => event.type === "TEXT_MESSAGE_CONTENT")).toMatchObject({
+      model: "studyagent/local-fallback",
+    });
   });
 });

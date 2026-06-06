@@ -1,0 +1,2 @@
+# Redis is included in docker-compose.yml by default.
+# This file remains for older docs/commands that still pass -f docker-compose.redis.yml.

@@ -31,7 +31,7 @@ Session digests are not per-turn artifacts.
 ## Current Implementation
 
 - `apps/api/src/routes/tutor.ts` persists tutor turns and agent runs, handles chat streaming, pause/resume/end routes, runtime context, compaction, and crystallization.
-- `apps/api/src/phase7.ts` builds session digest payloads and adaptive session-plan patches.
+- `apps/api/src/tutor-session-crystallization.ts` builds session digest payloads and adaptive session-plan patches.
 - `packages/agent-runtime/src/compaction.ts` models compacted runtime context separately from durable session truth.
 - `apps/web/src/TutorPanel.tsx` exposes active session controls and artifact/session UI.
 

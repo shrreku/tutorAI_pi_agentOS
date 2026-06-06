@@ -66,13 +66,51 @@ describe("FullPanelViewer", () => {
         sourceRefs: [],
         provenanceRefs: [],
         coverageRefs: [],
-        primaryActions: ["ask_tutor"],
+        primaryActions: ["open_source", "ask_tutor"],
         quality: { confidence: 0.9, sourceBacked: true, needsReview: false },
       },
     );
     expect(html).toContain("Artifact");
     expect(html).toContain("Differentiate x^2");
     expect(html).toContain("Apply the power rule");
+  });
+
+  it("detects quiz practice from reference surface blocks instead of graph node properties", () => {
+    const html = renderViewer(
+      baseNode,
+      {
+        id: "surface_2",
+        notebookId: "nb_1",
+        nodeRef: { refType: "artifact", refId: "artifact_1" },
+        title: "Quiz",
+        surfaceType: "artifact",
+        summary: "Quiz summary",
+        status: "ready",
+        blocks: [
+          {
+            id: "questions",
+            kind: "question_list",
+            title: "Questions",
+            content: [{
+              id: "q1",
+              prompt: "What is x? a) x b) y",
+              choices: ["x", "y"],
+              answer: "a",
+              explanation: "x is the reference value.",
+            }],
+            evidenceRefs: [],
+          },
+        ],
+        scopeRefs: [],
+        sourceRefs: [],
+        provenanceRefs: [],
+        coverageRefs: [],
+        primaryActions: ["quiz", "ask_tutor"],
+        quality: { confidence: 0.9, sourceBacked: true, needsReview: false },
+      },
+    );
+    expect(html).toContain("Submit answer");
+    expect(html).not.toContain("Quiz summary");
   });
 
   it("renders quiz artifacts as one-question practice surfaces", () => {
@@ -112,7 +150,7 @@ describe("FullPanelViewer", () => {
         sourceRefs: [],
         provenanceRefs: [],
         coverageRefs: [],
-        primaryActions: ["ask_tutor"],
+        primaryActions: ["open_source", "ask_tutor"],
         quality: { confidence: 0.9, sourceBacked: true, needsReview: false },
       },
     );
@@ -124,7 +162,8 @@ describe("FullPanelViewer", () => {
     expect(html).not.toContain("This intro is not needed.");
     expect(html).toContain("1 / 1");
     expect(html).toContain("Submit answer");
-    expect(html).toContain("Extend with LLM");
+    expect(html).toContain("Extend quiz");
+    expect(html).not.toContain("Extend with LLM");
     expect(html).not.toContain("x is the reference value.");
   });
 
@@ -172,7 +211,7 @@ describe("FullPanelViewer", () => {
         sourceRefs: [],
         provenanceRefs: [],
         coverageRefs: [],
-        primaryActions: ["ask_tutor"],
+        primaryActions: ["open_source", "ask_tutor"],
         quality: { confidence: 0.9, sourceBacked: true, needsReview: false },
       },
     );
@@ -201,7 +240,7 @@ describe("FullPanelViewer", () => {
         sourceRefs: [] as ReferenceSurface["sourceRefs"],
         provenanceRefs: [] as ReferenceSurface["provenanceRefs"],
         coverageRefs: [] as ReferenceSurface["coverageRefs"],
-        primaryActions: ["ask_tutor"],
+        primaryActions: ["open_source", "ask_tutor"],
         quality: { confidence: null, sourceBacked: true, needsReview: false },
       },
     );
@@ -264,8 +303,29 @@ describe("FullPanelViewer", () => {
     expect(html).toContain("min-height:36px");
     expect(html).toContain("← Back");
     expect(html).toContain("Teach me");
-    expect(html).toContain("Evidence");
+    expect(html).not.toContain("Evidence");
     expect(html).not.toContain("Back to Workspace");
+  });
+
+  it("renders Evidence only when Reference Surface primaryActions includes it", () => {
+    const html = renderViewerWithActions(baseNode, {
+      id: "surface_evidence_action",
+      notebookId: "nb_1",
+      nodeRef: { refType: "artifact", refId: "artifact_1" },
+      title: "Artifact",
+      surfaceType: "artifact",
+      summary: "Artifact summary",
+      status: "ready",
+      blocks: [],
+      scopeRefs: [],
+      sourceRefs: [],
+      provenanceRefs: [],
+      coverageRefs: [],
+      primaryActions: ["ask_tutor", "open_provenance"],
+      quality: { confidence: 0.9, sourceBacked: true, needsReview: false },
+    });
+    expect(html).toContain("Teach me");
+    expect(html).toContain("Evidence");
   });
 
   it("renders regeneration controls for artifacts and pages", () => {
@@ -282,11 +342,39 @@ describe("FullPanelViewer", () => {
       sourceRefs: [],
       provenanceRefs: [],
       coverageRefs: [],
-      primaryActions: ["ask_tutor"],
+      primaryActions: ["ask_tutor", "regenerate"],
       quality: { confidence: 0.9, sourceBacked: true, needsReview: false },
     });
     expect(html).toContain("Regenerate");
-    expect(html).toContain("Regenerate with LLM");
+    expect(html).not.toContain("Regenerate with LLM");
+    expect(html).not.toContain("LLM");
+  });
+
+  it("hides body regeneration controls when primaryActions omits regenerate", () => {
+    const html = renderViewerWithActions({
+      ...baseNode,
+      properties: {
+        ...baseNode.properties,
+        artifactType: "worked_example",
+        payload: { problemStatement: "Differentiate x^2" },
+      },
+    }, {
+      id: "surface_no_regen",
+      notebookId: "nb_1",
+      nodeRef: { refType: "artifact", refId: "artifact_1" },
+      title: "Worked Example",
+      surfaceType: "artifact",
+      summary: "Example summary",
+      status: "ready",
+      blocks: [{ id: "body", kind: "markdown", title: "Example", content: "Step 1", evidenceRefs: [] }],
+      scopeRefs: [],
+      sourceRefs: [],
+      provenanceRefs: [],
+      coverageRefs: [],
+      primaryActions: ["ask_tutor"],
+      quality: { confidence: 0.9, sourceBacked: true, needsReview: false },
+    });
+    expect(html).not.toContain("Regenerate");
   });
 
   it("renders generation badges, markdown tables, and latex formulas", () => {
@@ -342,7 +430,8 @@ describe("FullPanelViewer", () => {
       primaryActions: ["ask_tutor"],
       quality: { confidence: 0.7, sourceBacked: true, needsReview: false },
     });
-    expect(html).toContain("Regenerate with LLM");
+    expect(html).not.toContain("Regenerate");
+    expect(html).not.toContain("LLM");
     expect(html).toContain("Understand conduction");
   });
 

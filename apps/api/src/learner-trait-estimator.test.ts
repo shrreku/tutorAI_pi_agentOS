@@ -198,6 +198,133 @@ describe("learner trait estimator client and guardrails", () => {
 });
 
 describe("learner trait session-boundary cycle", () => {
+  it("skips estimation when the planner finds no trigger", async () => {
+    const insertedSignals = [signal({ source: "tutor_observation", strength: 0.3 })];
+    const estimates: LearnerTraitEstimate[] = [];
+    const events: Array<{ eventType: string; payloadJson?: unknown }> = [];
+    const proposeMock = vi.fn(async () => [proposal()]);
+    const dbClient = {
+      db: {
+        select: () => ({
+          from: (table: unknown) => ({
+            where: () => ({
+              orderBy: () => {
+                if (table === learnerTraitSignals) {
+                  return {
+                    limit: async () => insertedSignals.map((entry) => ({ signalJson: entry })),
+                  };
+                }
+                if (table === learnerTraitEstimates) {
+                  return estimates.map((entry) => ({ estimateJson: entry, updatedAt: new Date() }));
+                }
+                return { limit: async () => [] };
+              },
+              limit: async () => [],
+            }),
+            innerJoin: () => ({
+              where: () => ({
+                orderBy: () => ({ limit: async () => [] }),
+              }),
+            }),
+          }),
+        }),
+        insert: () => ({ values: () => ({ onConflictDoUpdate: async () => undefined }) }),
+        transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn({
+          execute: async () => undefined,
+          select: () => ({ from: () => ({ where: async () => [{ m: events.length }] }) }),
+          insert: () => ({ values: async (value: { eventType: string; payloadJson: unknown }) => events.push(value) }),
+        }),
+      },
+    } as never;
+
+    const result = await runLearnerTraitEstimationCycle({
+      dbClient,
+      notebookId: "nb_1",
+      userId: "user_1",
+      sessionId: "sess_1",
+      estimator: { propose: proposeMock },
+    });
+
+    expect(result.plan.decision).toBe("skip");
+    expect(proposeMock).not.toHaveBeenCalled();
+    expect(result.persistedEstimateIds).toEqual([]);
+  });
+
+  it("passes a fully populated evidence packet to the estimator", async () => {
+    const insertedSignals = [signal({ source: "explicit_self_report", trait: "pacePreference", suggestedValue: "slow" })];
+    const estimates: LearnerTraitEstimate[] = [];
+    const events: Array<{ eventType: string; payloadJson?: unknown }> = [];
+    const receivedPackets: Array<Record<string, unknown>> = [];
+    const dbClient = {
+      db: {
+        select: () => ({
+          from: (table: unknown) => ({
+            where: () => ({
+              orderBy: () => {
+                if (table === learnerTraitSignals) {
+                  return {
+                    limit: async () => insertedSignals.map((entry) => ({ signalJson: entry })),
+                  };
+                }
+                if (table === learnerTraitEstimates) {
+                  return estimates.map((entry) => ({ estimateJson: entry, updatedAt: new Date() }));
+                }
+                return { limit: async () => [] };
+              },
+              limit: async () => [],
+            }),
+            innerJoin: () => ({
+              where: () => ({
+                orderBy: () => ({ limit: async () => [] }),
+              }),
+            }),
+          }),
+        }),
+        insert: (table: unknown) => ({
+          values: (value: unknown) => ({
+            onConflictDoUpdate: async () => {
+              const record = value as { estimateJson?: LearnerTraitEstimate };
+              if (table === learnerTraitEstimates && record.estimateJson) estimates.push(record.estimateJson);
+            },
+          }),
+        }),
+        transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn({
+          execute: async () => undefined,
+          select: () => ({ from: () => ({ where: async () => [{ m: events.length }] }) }),
+          insert: () => ({ values: async (value: { eventType: string; payloadJson: unknown }) => events.push(value) }),
+        }),
+      },
+    } as never;
+
+    await runLearnerTraitEstimationCycle({
+      dbClient,
+      notebookId: "nb_1",
+      userId: "user_1",
+      sessionId: "sess_1",
+      estimator: {
+        async propose(packet) {
+          receivedPackets.push(packet as unknown as Record<string, unknown>);
+          return [proposal()];
+        },
+      },
+    });
+
+    expect(receivedPackets[0]).toEqual(
+      expect.objectContaining({
+        notebookId: "nb_1",
+        userId: "user_1",
+        trigger: expect.objectContaining({ shouldEstimate: true }),
+        signals: expect.arrayContaining([
+          expect.objectContaining({ trait: "pacePreference", source: "explicit_self_report" }),
+        ]),
+        currentEstimates: [],
+        masteryEvidenceSummaries: [],
+        sessionSummaries: [],
+        contradictionRefs: [],
+      }),
+    );
+  });
+
   it("persists accepted estimates and skips rejected proposals", async () => {
     const insertedSignals = [signal()];
     const estimates: LearnerTraitEstimate[] = [];
@@ -207,11 +334,27 @@ describe("learner trait session-boundary cycle", () => {
         select: () => ({
           from: (table: unknown) => ({
             where: () => ({
-              orderBy: () => table === learnerTraitSignals
-                ? ({
+              orderBy: () => {
+                if (table === learnerTraitSignals) {
+                  return {
                     limit: async () => insertedSignals.map((entry) => ({ signalJson: entry })),
-                  })
-                : Promise.resolve(estimates.map((entry) => ({ estimateJson: entry, updatedAt: new Date() }))),
+                  };
+                }
+                if (table === learnerTraitEstimates) {
+                  return estimates.map((entry) => ({ estimateJson: entry, updatedAt: new Date() }));
+                }
+                return {
+                  limit: async () => [],
+                };
+              },
+              limit: async () => [],
+            }),
+            innerJoin: () => ({
+              where: () => ({
+                orderBy: () => ({
+                  limit: async () => [],
+                }),
+              }),
             }),
           }),
         }),

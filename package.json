@@ -13,7 +13,8 @@
     "format": "prettier --check .",
     "db:generate": "pnpm --filter @studyagent/db generate",
     "db:migrate": "pnpm --filter @studyagent/db migrate",
-    "db:seed": "pnpm --filter @studyagent/db seed"
+    "db:seed": "pnpm --filter @studyagent/db seed",
+    "dev:openrouter-proxy": "node scripts/openrouter-host-proxy.mjs"
   },
   "devDependencies": {
     "@rolldown/binding-darwin-arm64": "1.0.0-rc.18",

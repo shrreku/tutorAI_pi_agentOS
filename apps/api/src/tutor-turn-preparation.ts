@@ -1,6 +1,5 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import {
-  appendEvent,
   artifacts,
   claims,
   concepts,
@@ -11,7 +10,6 @@ import {
   sessionPlans,
   sources,
   studyPlans,
-  tutorSessions,
   wikiPages,
 } from "@studyagent/db";
 import {
@@ -20,30 +18,33 @@ import {
   type StudyAgentPromptContext,
 } from "@studyagent/agent-runtime";
 import { nodeRefSchema, type NodeRef } from "@studyagent/schemas";
-import { z } from "zod";
+import type { TraceContext } from "@studyagent/observability";
 import type { AppContext } from "./context.js";
-import { buildIntentRoutingInstruction, detectLearnerIntent } from "./tutor-intent.js";
-import { createTutorReadToolProvider, selectContextForTutor, type TutorContextSelection } from "./tutor-tool-provider.js";
+import { createTutorReadToolProvider, type TutorContextSelection } from "./tutor-tool-provider.js";
 import { createTutorWriteToolProvider } from "./tutor-write-provider.js";
-import { formatLearnerProgressForDigest } from "./learner-progress.js";
-import { formatLearnerStateSummary, formatStudyPlanSummary, loadNotebookStudyState } from "./study-state.js";
-import { loadPersonalizationRecommendationsForTutorContext } from "./learner-trait-estimation.js";
+import type { NotebookStudyState } from "./study-state.js";
+import { loadNotebookStudyState } from "./study-state.js";
+import { loadPersonalizationRecommendationsForTutorContext } from "./learner-trait/index.js";
+import { getOrCreateTutorSession, resolveTutorSession } from "./tutor-session-store.js";
+
+export { resolveTutorSession } from "./tutor-session-store.js";
 
 export type PreparedTutorTurn = {
-  session: Awaited<ReturnType<typeof getOrCreateTutorSession>>;
+  session: Awaited<ReturnType<typeof getOrCreateTutorSession>>["session"];
   sessionId: string;
-  studyState: Awaited<ReturnType<typeof loadNotebookStudyState>>;
+  studyState: NotebookStudyState;
   openArtifact: { id: string; artifactType: string; title: string; status: string } | null;
   previousRuntimeContext: Record<string, unknown> | null;
   runtimeContextForTurn: Record<string, unknown> | null;
   promptContext: StudyAgentPromptContext;
   contextSelection: TutorContextSelection | null;
   selectedNodeRefs: StudyAgentPromptContext["selectedNodeRefs"];
+  isNewSession: boolean;
   run: ReturnType<typeof createRuntimeRun>;
   toolRegistry: ReturnType<typeof createRuntimeToolRegistry>;
 };
 
-export async function prepareTutorTurn(
+export async function bootstrapTutorTurn(
   ctx: AppContext,
   input: {
     notebookId: string;
@@ -52,12 +53,13 @@ export async function prepareTutorTurn(
     message: string;
     activeMode: StudyAgentPromptContext["activeMode"];
     selectedNodeRefs: NodeRef[];
-    sourceScopePolicy: "soft_source_scope" | "strict_source_scope";
+    sourceScopePolicy: "soft_source_scope";
     requestedSessionId?: string;
+    correlationContext?: Pick<TraceContext, "traceId" | "requestId" | "traceparent">;
   },
 ): Promise<PreparedTutorTurn> {
   const selectedNodeRefs = await filterSelectedNodeRefsForNotebook(ctx, input.notebookId, input.selectedNodeRefs);
-  const session = await getOrCreateTutorSession(ctx, {
+  const { session, created } = await getOrCreateTutorSession(ctx.db, {
     notebookId: input.notebookId,
     userId: input.userId,
     activeMode: input.activeMode,
@@ -67,91 +69,53 @@ export async function prepareTutorTurn(
   const sessionId = session.id;
   const studyState = await loadNotebookStudyState(ctx.db, input.notebookId, input.userId);
   const openArtifact = await loadSelectedArtifactContext(ctx, input.notebookId, selectedNodeRefs);
-  const previousRuntimeContext = isJsonRecord(session.runtimeContextJson) ? session.runtimeContextJson : null;
-  const promptContext = createPromptContext({
-    notebookTitle: input.notebookTitle || "Untitled",
-    activeMode: input.activeMode,
-    selectedNodeRefs,
-    studyState,
-    openArtifact,
-    previousRuntimeContext,
-  });
-
-  const recommendations = await loadPersonalizationRecommendationsForTutorContext(ctx.db, {
+  const personalizationRecommendations = await loadPersonalizationRecommendationsForTutorContext(ctx.db, {
     notebookId: input.notebookId,
     userId: input.userId,
   });
-  if (recommendations.length) {
+  const previousRuntimeContext = isJsonRecord(session.runtimeContextJson) ? session.runtimeContextJson : null;
+  const promptContext = buildThinPromptContext({
+    notebookId: input.notebookId,
+    notebookTitle: input.notebookTitle || "Untitled",
+    activeMode: input.activeMode,
+    selectedNodeRefs,
+    openArtifact,
+  });
+  promptContext.notebookId = input.notebookId;
+  promptContext.userId = input.userId;
+  promptContext.sessionId = sessionId;
+  promptContext.sourceScopePolicy = input.sourceScopePolicy;
+
+  if (personalizationRecommendations.length) {
+    promptContext.personalizationRecommendations = personalizationRecommendations.map((recommendation) => recommendation.recommendation);
     promptContext.additionalInstructions = [
       ...(promptContext.additionalInstructions ?? []),
       "[Personalization Recommendations]",
-      ...recommendations.map((recommendation) => `- ${recommendation.recommendation}`),
+      ...personalizationRecommendations.map((recommendation) => `- ${recommendation.recommendation}`),
       "Use these as tutor-facing adaptation guidance only. Do not reveal raw inferred trait labels, confidence scores, or evidence IDs to the learner.",
     ];
   }
-
-  const intent = detectLearnerIntent(input.message);
-  const hasCurrentObjective = studyState?.studyPlan?.currentObjective !== null;
-  const currentObjectiveTitle = studyState?.studyPlan?.currentObjective?.title;
-  const intentRoutingInstruction = buildIntentRoutingInstruction(intent, hasCurrentObjective, currentObjectiveTitle);
-  if (intentRoutingInstruction) {
+  if (created) {
     promptContext.additionalInstructions = [
       ...(promptContext.additionalInstructions ?? []),
-      "[Intent-Based Opener]",
-      intentRoutingInstruction,
+      "[New session]",
+      "This session was just created. Prior chat context is not in memory yet. Re-read the notebook state and any needed sources with tools before relying on assumptions from earlier sessions.",
     ];
   }
-
-  let contextSelection: TutorContextSelection | undefined;
-  try {
-    contextSelection = await selectContextForTutor(ctx, {
-      notebookId: input.notebookId,
-      message: input.message,
-      selectedNodeRefs,
-      studyState,
-      openArtifact,
-      previousRuntimeContext,
-      maxChunks: 6,
-      sourceScopePolicy: input.sourceScopePolicy,
-    });
-    if (input.sourceScopePolicy === "strict_source_scope") {
-      promptContext.additionalInstructions = [
-        ...(promptContext.additionalInstructions ?? []),
-        "[Source scope]",
-        "Stay within the selected sources. If support is missing, qualify the answer and surface a source coverage gap instead of inventing source-specific claims.",
-      ];
-    }
-    if (contextSelection?.reason) {
-      promptContext.additionalInstructions = [
-        ...(promptContext.additionalInstructions ?? []),
-        "[Context Selection Reasoning]",
-        contextSelection.reason,
-      ];
-      if (contextSelection.selectedChunkIds?.length) {
-        promptContext.additionalInstructions.push(`[Selected chunks] ${contextSelection.selectedChunkIds.join(", ")}`);
-      }
-    }
-  } catch (error) {
-    contextSelection = undefined;
-    await appendEvent(ctx.db, {
-      notebookId: input.notebookId,
-      sessionId,
-      eventType: "session.context.selection_failed",
-      payload: {
-        message: error instanceof Error ? error.message : String(error),
-      },
-    });
-  }
-
-  const effectiveSelectedNodeRefs = mergeSelectedNodeRefs(selectedNodeRefs, contextSelection);
-  promptContext.selectedNodeRefs = effectiveSelectedNodeRefs;
   const run = createRuntimeRun({
     notebookId: input.notebookId,
     sessionId,
     userId: input.userId,
-    selectedNodeRefs: effectiveSelectedNodeRefs,
+    selectedNodeRefs,
     activeMode: input.activeMode,
+    ...(input.correlationContext?.traceId ? { traceId: input.correlationContext.traceId } : {}),
+    ...(input.correlationContext?.requestId ? { requestId: input.correlationContext.requestId } : {}),
+    ...(input.correlationContext?.traceparent ? { traceparent: input.correlationContext.traceparent } : {}),
     modelConfig: { model: ctx.env.DEFAULT_TUTOR_MODEL },
+    budgets: {
+      maxToolCalls: ctx.env.TUTOR_MAX_TOOL_CALLS,
+      maxContextTokens: 16_000,
+    },
   });
 
   return {
@@ -162,8 +126,9 @@ export async function prepareTutorTurn(
     previousRuntimeContext,
     runtimeContextForTurn: previousRuntimeContext,
     promptContext,
-    contextSelection: contextSelection ?? null,
-    selectedNodeRefs: effectiveSelectedNodeRefs,
+    contextSelection: null,
+    selectedNodeRefs,
+    isNewSession: created,
     run,
     toolRegistry: createRuntimeToolRegistry({
       readProvider: createTutorReadToolProvider(ctx),
@@ -172,202 +137,43 @@ export async function prepareTutorTurn(
   };
 }
 
-async function getOrCreateTutorSession(
-  ctx: AppContext,
-  input: {
-    notebookId: string;
-    userId: string;
-    activeMode: "learn" | "practice" | "revise" | "explore" | "wiki_maintenance";
-    selectedNodeRefs: Array<{ refType: string; refId: string }>;
-    requestedSessionId?: string;
-  },
-) {
-  const existing = await resolveTutorSession(ctx, {
-    notebookId: input.notebookId,
-    userId: input.userId,
-    ...(input.requestedSessionId ? { requestedSessionId: input.requestedSessionId } : {}),
-    allowedStatuses: ["active", "paused"],
-  });
+export const prepareTutorTurn = bootstrapTutorTurn;
 
-  if (existing) {
-    await ctx.db.db
-      .update(tutorSessions)
-      .set({
-        mode: input.activeMode,
-        status: "active",
-        selectedNodeRefsJson: input.selectedNodeRefs as unknown[],
-        runtimeContextJson: isJsonRecord(existing.runtimeContextJson)
-          ? { ...existing.runtimeContextJson, updatedAt: new Date().toISOString() }
-          : { updatedAt: new Date().toISOString() },
-      })
-      .where(eq(tutorSessions.id, existing.id));
-
-    return { ...existing, mode: input.activeMode, status: "active" };
-  }
-
-  const sessionId = `sess_${crypto.randomUUID().replaceAll("-", "")}`;
-  const now = new Date();
-  await ctx.db.db.insert(tutorSessions).values({
-    id: sessionId,
-    notebookId: input.notebookId,
-    userId: input.userId,
-    mode: input.activeMode,
-    status: "active",
-    selectedNodeRefsJson: input.selectedNodeRefs as unknown[],
-    runtimeContextJson: {},
-    startedAt: now,
-  });
-
-  await appendEvent(ctx.db, {
-    notebookId: input.notebookId,
-    sessionId,
-    eventType: "session.started",
-    payload: {
-      sessionId,
-      mode: input.activeMode,
-    },
-  });
-
-  return {
-    id: sessionId,
-    notebookId: input.notebookId,
-    userId: input.userId,
-    mode: input.activeMode,
-    status: "active",
-    selectedNodeRefsJson: input.selectedNodeRefs,
-    runtimeContextJson: {},
-    startedAt: now,
-    endedAt: null,
-  };
-}
-
-export async function resolveTutorSession(
-  ctx: AppContext,
-  input: {
-    notebookId: string;
-    userId: string;
-    requestedSessionId?: string;
-    allowedStatuses: string[];
-  },
-) {
-  if (input.requestedSessionId) {
-    const [requested] = await ctx.db.db
-      .select()
-      .from(tutorSessions)
-      .where(
-        and(
-          eq(tutorSessions.id, input.requestedSessionId),
-          eq(tutorSessions.notebookId, input.notebookId),
-          eq(tutorSessions.userId, input.userId),
-        ),
-      )
-      .limit(1);
-    if (!requested) return null;
-    if (requested.notebookId !== input.notebookId || requested.userId !== input.userId) return null;
-    return input.allowedStatuses.includes(requested.status) ? requested : null;
-  }
-
-  const rows = await ctx.db.db
-    .select()
-    .from(tutorSessions)
-    .where(and(eq(tutorSessions.notebookId, input.notebookId), eq(tutorSessions.userId, input.userId)))
-    .orderBy(desc(tutorSessions.startedAt))
-    .limit(5);
-  return rows.find((row) => input.allowedStatuses.includes(row.status)) ?? null;
-}
-
-export function createPromptContext(input: {
+export function buildThinPromptContext(input: {
+  notebookId: string;
   notebookTitle: string;
   activeMode: StudyAgentPromptContext["activeMode"];
   selectedNodeRefs: StudyAgentPromptContext["selectedNodeRefs"];
-  studyState: Awaited<ReturnType<typeof loadNotebookStudyState>>;
   openArtifact?: { id: string; artifactType: string; title: string; status: string } | null;
-  previousRuntimeContext?: Record<string, unknown> | null;
 }): StudyAgentPromptContext {
-  const plan = input.studyState.studyPlan;
-  const curriculum = input.studyState.curriculum;
-  const moduleRow = input.studyState.module;
-  const objectiveList = input.studyState.objectiveList;
-  const sessionPlan = input.studyState.sessionPlan;
-  const studyPlanSummary = formatStudyPlanSummary(input.studyState);
-  const learnerStateSummary = formatLearnerStateSummary(input.studyState);
-  const learnerProgressSummary = formatLearnerProgressForDigest(input.studyState);
-
   return {
+    notebookId: input.notebookId,
     notebookTitle: input.notebookTitle,
     activeMode: input.activeMode,
     selectedNodeRefs: input.selectedNodeRefs,
-    ...(curriculum ? { curriculumTrackSummary: `${curriculum.title} (${curriculum.status})` } : {}),
-    ...(moduleRow ? { moduleSummary: `${moduleRow.title}${moduleRow.summary ? ` · ${moduleRow.summary}` : ""}` } : {}),
-    ...(objectiveList
-      ? {
-          objectiveListSummary: `${objectiveList.title}${objectiveList.currentObjectiveId ? ` · current ${objectiveList.currentObjectiveId}` : ""}`,
-        }
-      : {}),
-    ...(sessionPlan ? { sessionPlanSummary: `${sessionPlan.title}${sessionPlan.sessionGoal ? ` · ${sessionPlan.sessionGoal}` : ""}` } : {}),
-    currentObjective: plan?.currentObjective?.title ?? "Explore notebook resources",
-    completedObjectivesCount: plan?.completedObjectives.length ?? 0,
-    nextObjectives: plan?.upcomingObjectives.slice(0, 2).map((objective) => objective.title) ?? [],
-    ...(studyPlanSummary ? { studyPlanSummary } : {}),
-    ...(learnerStateSummary ? { learnerStateSummary } : {}),
-    ...(learnerProgressSummary ? { learnerProgressSummary } : {}),
+    sourceScopePolicy: "soft_source_scope",
+    openArtifact: input.openArtifact ?? null,
     additionalInstructions: [
-      "[Host-State Rehydration]",
-      "Treat the notebook, curriculum, module, objective, session-plan, learner-state, selected-ref, and artifact-proposal state above as freshly loaded product state for this run. Do not rely on older Pi memory when it conflicts with this host state.",
-      ...(input.studyState.studentProfile
-        ? [
-            "[Student Profile Behavioral Guidance]",
-            `Adapt your teaching to the student's profile: ${formatLearnerStateSummary(input.studyState) ?? "no preferences set"}`,
-            "Instructions:",
-            "- Pace preference: If 'slow', break explanations into smaller steps and check understanding frequently. If 'fast', you may cover more material quickly.",
-            "- Depth preference: If 'foundational', focus on core concepts and avoid advanced tangents. If 'advanced', include deeper theoretical connections.",
-            "- Example preferences: Include worked examples, analogies, or comparisons according to the student's stated preferences.",
-            "- Assessment preference: Adjust quiz difficulty and frequency based on the student's assessment preferences.",
-            "- Constraints: Respect time budgets or exam deadlines mentioned in constraints.",
-          ]
-        : []),
+      "[Turn Bootstrap]",
+      `Notebook ID: ${input.notebookId}`,
+      input.selectedNodeRefs.length
+        ? `Selected refs: ${input.selectedNodeRefs.map((ref) => `${ref.refType}:${ref.refId}`).join(", ")}`
+        : "Selected refs: none",
       ...(input.openArtifact
         ? [
             "[Open Artifact Context]",
             `The learner currently has artifact "${input.openArtifact.title}" (${input.openArtifact.artifactType}, ${input.openArtifact.status}) in focus. Prefer explaining with direct references to this artifact and insert or update artifacts cohesively instead of switching context abruptly.`,
           ]
         : []),
-      ...(input.previousRuntimeContext && typeof input.previousRuntimeContext.compressedContext === "string"
-        ? [
-            "[Prior Session Context]",
-            `Prior compressed tutoring context: ${String(input.previousRuntimeContext.compressedContext)}`,
-          ]
-        : []),
-      ...(input.previousRuntimeContext && isJsonRecord(input.previousRuntimeContext.sessionDigestDraft)
-        ? [
-            "[Prior Session Digest Draft]",
-            `Use this persisted draft context to maintain continuity: ${JSON.stringify(input.previousRuntimeContext.sessionDigestDraft)}`,
-          ]
-        : []),
-      ...(sessionPlan && sessionPlan.teachingArcTitles.length > 0
-        ? [
-            "[Active Teaching Arcs]",
-            `Prefer this session's teaching arcs when structuring explanation flow and checkpoints: ${sessionPlan.teachingArcTitles.slice(0, 4).join(" | ")}`,
-            ...(sessionPlan.teachingArcBlockTypes.length > 0
-              ? [`Arc blocks available: ${sessionPlan.teachingArcBlockTypes.join(", ")}. Adapt block emphasis when learner struggles (misconception_warning/checkpoint/transfer_prompt).`]
-              : []),
-          ]
-        : []),
-      ...(input.previousRuntimeContext &&
-      Array.isArray(input.previousRuntimeContext.recentMistakeConceptIds) &&
-      input.previousRuntimeContext.recentMistakeConceptIds.length > 0
-        ? [
-            "[Arc Adaptation Hook]",
-            "Recent mistake concepts are present. Reorder the arc to prioritize misconception repair, concrete example, and checkpoint blocks before moving forward.",
-          ]
-        : []),
     ],
   };
 }
 
+export const createPromptContext = buildThinPromptContext;
+
 export function mergeSelectedNodeRefs(
   baseRefs: StudyAgentPromptContext["selectedNodeRefs"],
-  contextSelection?: TutorContextSelection,
+  contextSelection?: TutorContextSelection | null,
 ): StudyAgentPromptContext["selectedNodeRefs"] {
   const merged: StudyAgentPromptContext["selectedNodeRefs"] = [...baseRefs];
   const seen = new Set(merged.map((ref) => `${ref.refType}:${ref.refId}`));

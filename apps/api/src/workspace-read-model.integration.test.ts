@@ -1,11 +1,34 @@
 import { describe, expect, it } from "vitest";
-import { artifacts, learningState, objectiveLists, objectives, studyPlans } from "@studyagent/db";
+import { artifacts, learningState, objectiveLists, objectives, studyPlans, toolCalls, tutorSessions, tutorTurns } from "@studyagent/db";
 import type { AppContext } from "./context.js";
 import { buildStudyMapReadModel } from "./workspace-read-model.js";
 
 function makeCtx(overrides: {
   studyPlan?: { currentObjectiveId: string | null; weakConceptIds?: string[] };
   artifacts?: Array<{ id: string; title: string; artifactType: string; status: string; payloadJson?: Record<string, unknown>; sourceNodeRefsJson?: unknown[] }>;
+  tutorSessions?: Array<{
+    id: string;
+    mode: string;
+    status: string;
+    selectedNodeRefsJson: unknown[];
+    runtimeContextJson: Record<string, unknown>;
+    startedAt: Date;
+    endedAt: Date | null;
+  }>;
+  tutorTurns?: Array<{
+    sessionId: string;
+    turnIndex: number;
+    selectedNodeRefsJson: unknown[];
+    citationRefsJson: unknown[];
+    userMessage: string | null;
+    assistantMessage: string | null;
+  }>;
+  toolCalls?: Array<{
+    sessionId: string;
+    inputJson: Record<string, unknown>;
+    outputJson: Record<string, unknown> | null;
+    reducerResultJson: Record<string, unknown> | null;
+  }>;
 }): AppContext {
   const learningRows: unknown[] = [];
   const objectiveRows: unknown[] = [];
@@ -24,6 +47,9 @@ function makeCtx(overrides: {
         : [];
     }
     if (table === artifacts) return overrides.artifacts ?? [];
+    if (table === tutorSessions) return overrides.tutorSessions ?? [];
+    if (table === tutorTurns) return overrides.tutorTurns ?? [];
+    if (table === toolCalls) return overrides.toolCalls ?? [];
     if (table === learningState) return learningRows;
     if (table === objectiveLists) return objectiveListRows;
     if (table === objectives) return objectiveRows;
@@ -168,6 +194,81 @@ describe("buildStudyMapReadModel scenarios", () => {
         expect.objectContaining({ id: "module-mod_1-session-session_1", source: "mod_1", target: "session_1", relationType: "PLANS" }),
         expect.objectContaining({ id: "artifact-art_quiz-concept_flux", source: "art_quiz", target: "concept_flux", relationType: "TESTS_MASTERY" }),
         expect.objectContaining({ id: "artifact-scope-art_quiz-mod_1", source: "mod_1", target: "art_quiz", relationType: "COVERS" }),
+      ]),
+    );
+  });
+
+  it("projects real tutor sessions and connects them to selected modules, sources, and created artifacts", async () => {
+    const result = await buildStudyMapReadModel(
+      makeCtx({
+        artifacts: [
+          {
+            id: "artifact_quiz",
+            title: "Module quiz",
+            artifactType: "quiz",
+            status: "ready",
+            payloadJson: { conceptIds: ["concept_flux"] },
+            sourceNodeRefsJson: [],
+          },
+        ],
+        tutorSessions: [
+          {
+            id: "sess_1",
+            mode: "learn",
+            status: "completed",
+            selectedNodeRefsJson: [{ refType: "curriculum_module", refId: "mod_1" }],
+            runtimeContextJson: { currentObjectiveId: "obj_1" },
+            startedAt: new Date("2026-06-04T08:00:00.000Z"),
+            endedAt: new Date("2026-06-04T08:02:00.000Z"),
+          },
+        ],
+        tutorTurns: [
+          {
+            sessionId: "sess_1",
+            turnIndex: 0,
+            selectedNodeRefsJson: [{ refType: "source", refId: "src_1" }],
+            citationRefsJson: [],
+            userMessage: "Create a quiz from this module",
+            assistantMessage: "Done.",
+          },
+        ],
+        toolCalls: [
+          {
+            sessionId: "sess_1",
+            inputJson: { selectedNodeRefs: [{ refType: "concept", refId: "concept_flux" }] },
+            outputJson: { artifactId: "artifact_quiz" },
+            reducerResultJson: null,
+          },
+        ],
+      }),
+      "nb_sessions",
+      "user_1",
+      {
+        nodes: [
+          { id: "mod_1", nodeType: "curriculum_module", labels: [], properties: { title: "Module 1" } },
+          { id: "obj_1", nodeType: "objective", labels: [], properties: { title: "Objective 1" } },
+          { id: "src_1", nodeType: "source", labels: [], properties: { title: "Chapter 2.pdf" } },
+          { id: "concept_flux", nodeType: "concept", labels: [], properties: { title: "Heat flux" } },
+        ],
+        edges: [],
+      },
+      { devMode: false },
+    );
+
+    const session = result.nodes.find((node) => node.id === "sess_1");
+    expect(session).toMatchObject({
+      nodeType: "tutor_session",
+      properties: {
+        title: "Create a quiz from this module",
+        status: "completed",
+        summary: "1 turn",
+      },
+    });
+    expect(result.edges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "session-sess_1-curriculum_module-mod_1", source: "sess_1", target: "mod_1", relationType: "COVERS" }),
+        expect.objectContaining({ id: "session-sess_1-source-src_1", source: "sess_1", target: "src_1", relationType: "CITES" }),
+        expect.objectContaining({ id: "session-sess_1-artifact-artifact_quiz", source: "sess_1", target: "artifact_quiz", relationType: "COMPLETED_BY" }),
       ]),
     );
   });

@@ -6,6 +6,9 @@ import {
   createAgUiEventMapper,
   createRuntimeRun,
   buildStudyAgentHostStateSignature,
+  disposeStudyAgentTutorSession,
+  getStudyAgentTutorRuntimeBinding,
+  isRecoverablePiSessionDispatchError,
   mapPiSessionEventToAppendInput,
   replaceStudyAgentTutorRuntime,
   runStudyAgentTutorSession,
@@ -14,17 +17,50 @@ import {
 } from "@studyagent/agent-runtime";
 import { extractValidatedReducerResultForTool } from "@studyagent/tools";
 import { combineConfidence, extractClaimIdsFromText, reinforcementSignalFromCount } from "@studyagent/wiki-core";
+import {
+  DurableEventSummaryCollector,
+  observeAgenticSpan,
+  recordDurableEventMetric,
+  startAgenticObservation,
+  startMetricTimer,
+  type ObservationLike,
+  type TraceContext,
+} from "@studyagent/observability";
 import type { AppContext } from "./context.js";
+import { processCompletedTutorTurnLearnerTraitSignals } from "./learner-trait/index.js";
+import { extractContextRefsFromToolSummary } from "./mastery-context-refs.js";
 import type { TutorContextSelection } from "./tutor-tool-provider.js";
-import { shouldCompactTutorContext, shouldEmitDigestDraftUpdate } from "./tutor-turn-helpers.js";
-import { buildMasteryRuntimeContextPatch, buildMasterySnapshot, prepareRuntimeMasteryEvaluation } from "./mastery-session.js";
+import { shouldCompactTutorContext } from "./tutor-turn-helpers.js";
+import {
+  buildMasteryRuntimeContextPatch,
+  buildMasterySnapshot,
+  prepareRuntimeMasteryEvaluation,
+  summarizeToolMasteryEvidenceForContext,
+} from "./mastery-session.js";
 import { loadNotebookStudyState } from "./study-state.js";
+import { applyMasteryEvidenceObjectiveProgression } from "./objective-progression.js";
+import { loadRehydrationTranscript } from "./pi-session-rehydration.js";
 
 type TutorLogger = {
   info: (data: Record<string, unknown>, message: string) => void;
   warn: (data: Record<string, unknown>, message: string) => void;
   error: (data: Record<string, unknown>, message: string) => void;
 };
+
+type TurnToolSummary = {
+  toolCallId: string;
+  toolName: string;
+  status: string;
+  latencyMs?: number;
+  contextRefs?: Array<{ refType: string; refId: string }>;
+  diagnostics?: Record<string, unknown>;
+};
+
+function getOriginalRuntimeErrorMessage(details: unknown): string | undefined {
+  if (!details || typeof details !== "object" || Array.isArray(details)) return undefined;
+  const originalMessage = (details as Record<string, unknown>).originalMessage;
+  return typeof originalMessage === "string" ? originalMessage : undefined;
+}
 
 export type TutorTurnExecutionInput = {
   ctx: AppContext;
@@ -36,6 +72,8 @@ export type TutorTurnExecutionInput = {
   action: "prompt" | "steer" | "followUp";
   message: string;
   promptContext: StudyAgentPromptContext;
+  systemPrompt?: string;
+  systemPromptFingerprint?: string;
   studyState: Awaited<ReturnType<typeof loadNotebookStudyState>>;
   openArtifact?: { id: string; artifactType: string; title: string; status: string } | null;
   contextSelection?: TutorContextSelection | null;
@@ -44,6 +82,7 @@ export type TutorTurnExecutionInput = {
   emitStreamEvent: (event: AgUiEvent) => void | Promise<void>;
   logger: TutorLogger;
   run?: ReturnType<typeof createRuntimeRun>;
+  correlationContext?: Pick<TraceContext, "traceId" | "requestId" | "traceparent">;
 };
 
 export type TutorTurnExecutionResult = {
@@ -52,12 +91,13 @@ export type TutorTurnExecutionResult = {
   turnId: string;
   status: "completed" | "failed";
   assistantMessage: string;
-  toolSummary: Array<{ toolCallId: string; toolName: string; status: string; latencyMs?: number }>;
+  toolSummary: TurnToolSummary[];
   artifactProposalIds: string[];
   failure?: { code: string; error: string };
 };
 
 export async function executeTutorTurn(input: TutorTurnExecutionInput): Promise<TutorTurnExecutionResult> {
+  const durableEventCollector = createDurableEventCollector();
   const run =
     input.run ??
     createRuntimeRun({
@@ -66,16 +106,28 @@ export async function executeTutorTurn(input: TutorTurnExecutionInput): Promise<
       userId: input.userId,
       selectedNodeRefs: input.selectedNodeRefs,
       activeMode: input.activeMode,
+      ...(input.correlationContext?.traceId ? { traceId: input.correlationContext.traceId } : {}),
+      ...(input.correlationContext?.requestId ? { requestId: input.correlationContext.requestId } : {}),
+      ...(input.correlationContext?.traceparent ? { traceparent: input.correlationContext.traceparent } : {}),
       modelConfig: { model: input.ctx.env.DEFAULT_TUTOR_MODEL },
+      budgets: {
+        maxToolCalls: input.ctx.env.TUTOR_MAX_TOOL_CALLS,
+        maxContextTokens: 16_000,
+      },
     });
 
   const runtimeRun = run.hostStateSignature
     ? run
     : {
         ...run,
-        hostStateSignature: buildStudyAgentHostStateSignature(input.promptContext),
+        hostStateSignature: buildStudyAgentHostStateSignature(input.promptContext, {
+          promptTemplateVersion: input.systemPromptFingerprint
+            ? `${run.modelConfig.promptTemplateVersion}:${input.systemPromptFingerprint}`
+            : run.modelConfig.promptTemplateVersion,
+        }),
       };
 
+  const previousBinding = getStudyAgentTutorRuntimeBinding(input.sessionId);
   const replacement = await replaceStudyAgentTutorRuntime({ previousSessionId: input.sessionId, nextRun: runtimeRun });
 
   const [existingTurn] = await input.ctx.db.db.select({ maxTurnIndex: max(tutorTurns.turnIndex) }).from(tutorTurns).where(eq(tutorTurns.sessionId, input.sessionId));
@@ -96,7 +148,10 @@ export async function executeTutorTurn(input: TutorTurnExecutionInput): Promise<
     turnId,
     runType: "tutor_turn",
     status: "running",
-    modelConfigJson: runtimeRun.modelConfig,
+    modelConfigJson: {
+      ...runtimeRun.modelConfig,
+      ...(runtimeRun.managedPrompt ? { managedPrompt: runtimeRun.managedPrompt } : {}),
+    },
     budgetJson: runtimeRun.budgets,
     traceId: runtimeRun.traceId,
   });
@@ -110,6 +165,7 @@ export async function executeTutorTurn(input: TutorTurnExecutionInput): Promise<
       payload: {
         reason: replacement.binding?.reason ?? "unknown",
         disposedSessionId: replacement.disposedSessionId,
+        previousHostStateSignature: previousBinding?.hostStateSignature ?? null,
         hostStateSignature: replacement.binding?.hostStateSignature ?? runtimeRun.hostStateSignature,
       },
     });
@@ -126,10 +182,6 @@ export async function executeTutorTurn(input: TutorTurnExecutionInput): Promise<
       runtimeContext: input.previousRuntimeContext ?? null,
       masterySnapshot: await buildMasterySnapshot(input.ctx.db, input.notebookId, input.userId),
       sourceRefs: input.selectedNodeRefs.filter((ref) => ref.refType === "source"),
-      contextRefs: [
-        ...(input.contextSelection?.selectedChunkIds?.map((chunkId) => ({ refType: "chunk" as const, refId: chunkId })) ?? []),
-        ...(input.contextSelection?.sourceCoverageGap ? [{ refType: "source" as const, refId: "gap_strict_source_scope" }] : []),
-      ],
     });
     runtimeContextForTurn = runtimeEvaluation.evaluated ? runtimeEvaluation.runtimeContext : runtimeContextForTurn;
   } catch (error) {
@@ -145,7 +197,21 @@ export async function executeTutorTurn(input: TutorTurnExecutionInput): Promise<
     });
   }
 
-  input.logger.info({ notebookId: input.notebookId, sessionId: input.sessionId, runId: runtimeRun.runId, turnId, activeMode: input.activeMode }, "tutor run started");
+  const correlationFields = correlationLogFields(runtimeRun);
+  const turnStartedAt = Date.now();
+  input.logger.info(
+    {
+      notebookId: input.notebookId,
+      sessionId: input.sessionId,
+      runId: runtimeRun.runId,
+      turnId,
+      activeMode: input.activeMode,
+      modelTimeoutMs: input.ctx.env.TUTOR_MODEL_TIMEOUT_MS,
+      maxToolCalls: runtimeRun.budgets.maxToolCalls,
+      ...correlationFields,
+    },
+    "tutor run started",
+  );
 
   await input.emitStreamEvent({
     type: "SESSION_STARTED",
@@ -155,102 +221,280 @@ export async function executeTutorTurn(input: TutorTurnExecutionInput): Promise<
   });
 
   const agui = createAgUiEventMapper(runtimeRun);
-  const toolSummary: Array<{ toolCallId: string; toolName: string; status: string; latencyMs?: number }> = [];
+  const toolSummary: TurnToolSummary[] = [];
+  const toolObservations = new Map<string, ObservationLike>();
   const artifactProposalIds: string[] = [];
+  const completedAssistantMessages: string[] = [];
   let lastAssistantText = "";
-  let streamedRunFailure: { error: string; code: string } | undefined;
+  let streamedRunFailure: { error: string; code: string; retryable?: boolean; details?: Record<string, unknown> } | undefined;
+  let initialMessages = getStudyAgentTutorRuntimeBinding(input.sessionId)
+    ? undefined
+    : await loadRehydrationTranscript(
+        input.ctx.db,
+        input.sessionId,
+        input.ctx.env.TUTOR_REHYDRATE_TURN_LIMIT ?? 5,
+      );
+  let sessionRetried = false;
 
   try {
-    for await (const sessionEvent of runStudyAgentTutorSession({
-      run: runtimeRun,
-      turnId,
-      promptContext: input.promptContext,
-      userMessage: input.message,
-      toolRegistry: input.toolRegistry,
-      action: input.action,
-      config: {
-        ...(input.ctx.env.OPENROUTER_API_KEY ? { providerApiKey: input.ctx.env.OPENROUTER_API_KEY } : {}),
-        baseUrl: input.ctx.env.OPENROUTER_BASE_URL,
+    await observeAgenticSpan(
+      "model.run",
+      {
+        input: {
+          action: input.action,
+          userMessage: input.message,
+        },
+        model: runtimeRun.modelConfig.model,
+        modelParameters: {
+          temperature: runtimeRun.modelConfig.temperature,
+          topP: runtimeRun.modelConfig.topP,
+          maxOutputTokens: runtimeRun.modelConfig.maxOutputTokens,
+        },
+        ...(runtimeRun.managedPrompt?.version
+          ? {
+              prompt: {
+                name: runtimeRun.managedPrompt.name,
+                version: runtimeRun.managedPrompt.version,
+                isFallback: runtimeRun.managedPrompt.isFallback,
+              },
+            }
+          : {}),
+        metadata: {
+          notebookId: input.notebookId,
+          sessionId: input.sessionId,
+          runId: runtimeRun.runId,
+          turnId,
+          managedPrompt: runtimeRun.managedPrompt ?? null,
+          modelTimeoutMs: input.ctx.env.TUTOR_MODEL_TIMEOUT_MS,
+          maxToolCalls: runtimeRun.budgets.maxToolCalls,
+        },
       },
-      onToolLifecycleEvent: async (event) => {
-        if (event.phase === "started") {
-          await input.ctx.db.db.insert(toolCalls).values({
-            id: event.toolCallId,
-            runId: runtimeRun.runId,
-            sessionId: input.sessionId,
-            turnId,
-            toolName: event.toolName,
-            sideEffectClass: event.sideEffectClass,
-            inputJson: toJsonRecord(event.input),
-            status: "started",
-          });
-          upsertToolSummary(toolSummary, { toolCallId: event.toolCallId, toolName: event.toolName, status: "started" });
-          return;
-        }
+      async (modelObservation) => {
+        sessionLoop: while (true) {
+          for await (const sessionEvent of runStudyAgentTutorSession({
+          run: runtimeRun,
+          turnId,
+          promptContext: input.promptContext,
+          ...(initialMessages?.length ? { initialMessages } : {}),
+          ...(input.systemPrompt ? { systemPrompt: input.systemPrompt } : {}),
+          userMessage: input.message,
+          toolRegistry: input.toolRegistry,
+          action: input.action,
+          config: {
+            ...(input.ctx.env.OPENROUTER_API_KEY ? { providerApiKey: input.ctx.env.OPENROUTER_API_KEY } : {}),
+            baseUrl: input.ctx.env.OPENROUTER_BASE_URL,
+            modelTimeoutMs: input.ctx.env.TUTOR_MODEL_TIMEOUT_MS,
+          },
+          onToolLifecycleEvent: async (event) => {
+            if (event.phase === "started") {
+              toolObservations.set(
+                event.toolCallId,
+                startAgenticObservation("tool.call", {
+                  input: {
+                    toolName: event.toolName,
+                    args: event.input,
+                  },
+                  metadata: {
+                    notebookId: input.notebookId,
+                    sessionId: input.sessionId,
+                    runId: runtimeRun.runId,
+                    turnId,
+                    sideEffectClass: event.sideEffectClass,
+                  },
+                }),
+              );
+              await input.ctx.db.db.insert(toolCalls).values({
+                id: event.toolCallId,
+                runId: runtimeRun.runId,
+                sessionId: input.sessionId,
+                turnId,
+                toolName: event.toolName,
+                sideEffectClass: event.sideEffectClass,
+                inputJson: toJsonRecord(event.input),
+                status: "started",
+              });
+              upsertToolSummary(toolSummary, { toolCallId: event.toolCallId, toolName: event.toolName, status: "started" });
+              return;
+            }
 
-        if (event.phase === "completed") {
-          await input.ctx.db.db
-            .update(toolCalls)
-            .set({
-              outputJson: toJsonRecord(event.output),
-              status: "completed",
+            if (event.phase === "completed") {
+              await input.ctx.db.db
+                .update(toolCalls)
+                .set({
+                  outputJson: toJsonRecord(event.output),
+                  status: "completed",
+                  latencyMs: event.latencyMs,
+                  reducerResultJson: extractValidatedReducerResultForTool(event.toolName, event.output),
+                })
+                .where(eq(toolCalls.id, event.toolCallId));
+              finishToolObservation(toolObservations, event.toolCallId, {
+                output: { status: "completed", latencyMs: event.latencyMs, result: event.output },
+              });
+              {
+                const completedSummary: TurnToolSummary = {
+                  toolCallId: event.toolCallId,
+                  toolName: event.toolName,
+                  status: "completed",
+                  latencyMs: event.latencyMs,
+                };
+                const contextRefs = extractToolContextRefs(event.toolName, event.output);
+                if (contextRefs) completedSummary.contextRefs = contextRefs;
+                const diagnostics = extractToolDiagnostics(event.toolName, event.output);
+                if (diagnostics) completedSummary.diagnostics = diagnostics;
+                upsertToolSummary(toolSummary, completedSummary);
+              }
+              if (event.toolName === "learning.evaluate_response") {
+                const masteryPatch = summarizeToolMasteryEvidenceForContext(event.input, event.output);
+                if (masteryPatch) {
+                  const objectiveId =
+                    ("objectiveId" in masteryPatch && typeof masteryPatch.objectiveId === "string"
+                      ? masteryPatch.objectiveId
+                      : null)
+                    ?? input.studyState.studyPlan?.currentObjective?.id
+                    ?? null;
+                  runtimeContextForTurn = {
+                    ...runtimeContextForTurn,
+                    lastRuntimeMasteryEvidence: objectiveId ? { ...masteryPatch, objectiveId } : masteryPatch,
+                    lastRuntimeMasteryEvaluationAt: new Date().toISOString(),
+                  };
+                }
+              }
+              const artifactId = extractArtifactProposalId(event.output);
+              if (artifactId) artifactProposalIds.push(artifactId);
+              input.logger.info(
+                { notebookId: input.notebookId, sessionId: input.sessionId, runId: runtimeRun.runId, toolCallId: event.toolCallId, toolName: event.toolName, latencyMs: event.latencyMs, ...correlationFields },
+                "tutor tool completed",
+              );
+              return;
+            }
+
+            await input.ctx.db.db
+              .update(toolCalls)
+              .set({
+                status: "failed",
+                latencyMs: event.latencyMs,
+                outputJson: { error: event.error, code: event.code, ...(event.details !== undefined ? { details: event.details } : {}) },
+              })
+              .where(eq(toolCalls.id, event.toolCallId));
+            finishToolObservation(toolObservations, event.toolCallId, {
+              level: "ERROR",
+              statusMessage: event.error,
+              output: { status: "failed", code: event.code, error: event.error, latencyMs: event.latencyMs },
+            });
+            upsertToolSummary(toolSummary, {
+              toolCallId: event.toolCallId,
+              toolName: event.toolName,
+              status: "failed",
               latencyMs: event.latencyMs,
-              reducerResultJson: extractValidatedReducerResultForTool(event.toolName, event.output),
-            })
-            .where(eq(toolCalls.id, event.toolCallId));
-          upsertToolSummary(toolSummary, {
-            toolCallId: event.toolCallId,
-            toolName: event.toolName,
-            status: "completed",
-            latencyMs: event.latencyMs,
-          });
-          const artifactId = extractArtifactProposalId(event.output);
-          if (artifactId) artifactProposalIds.push(artifactId);
-          input.logger.info(
-            { notebookId: input.notebookId, sessionId: input.sessionId, runId: runtimeRun.runId, toolCallId: event.toolCallId, toolName: event.toolName, latencyMs: event.latencyMs },
-            "tutor tool completed",
-          );
-          return;
+            });
+            input.logger.warn(
+              {
+                notebookId: input.notebookId,
+                sessionId: input.sessionId,
+                runId: runtimeRun.runId,
+                toolCallId: event.toolCallId,
+                toolName: event.toolName,
+                code: event.code,
+                error: event.error,
+                details: event.details,
+                ...(getOriginalRuntimeErrorMessage(event.details) ? { originalMessage: getOriginalRuntimeErrorMessage(event.details) } : {}),
+                ...correlationFields,
+              },
+              "tutor tool failed",
+            );
+          },
+        })) {
+          if (sessionEvent.type === "message_complete") {
+            lastAssistantText = sessionEvent.data.text;
+            completedAssistantMessages.push(sessionEvent.data.text);
+            modelObservation.update({ output: { text: sessionEvent.data.text, stopReason: sessionEvent.data.stopReason } });
+          }
+          if (sessionEvent.type === "run_complete") {
+            modelObservation.update({
+              usageDetails: usageDetailsFromRuntimeUsage(sessionEvent.data.usage),
+              output: { status: "completed", runId: sessionEvent.data.runId },
+            });
+          }
+          if (sessionEvent.type === "run_error") {
+            streamedRunFailure = sessionEvent.data;
+            const originalMessage = getOriginalRuntimeErrorMessage(sessionEvent.data.details) ?? sessionEvent.data.error;
+            const shouldRetrySession =
+              !sessionRetried
+              && (sessionEvent.data.retryable || isRecoverablePiSessionDispatchError(new Error(originalMessage)))
+              && toolSummary.length === 0;
+            if (shouldRetrySession) {
+              sessionRetried = true;
+              streamedRunFailure = undefined;
+              await disposeStudyAgentTutorSession(input.sessionId);
+              initialMessages = await loadRehydrationTranscript(
+                input.ctx.db,
+                input.sessionId,
+                input.ctx.env.TUTOR_REHYDRATE_TURN_LIMIT ?? 5,
+              );
+              input.logger.warn(
+                {
+                  notebookId: input.notebookId,
+                  sessionId: input.sessionId,
+                  runId: runtimeRun.runId,
+                  turnId,
+                  code: sessionEvent.data.code,
+                  originalMessage,
+                  ...correlationFields,
+                },
+                "retrying tutor session after recoverable runtime dispatch failure",
+              );
+              continue sessionLoop;
+            }
+            modelObservation.update({
+              level: "ERROR",
+              statusMessage: sessionEvent.data.error,
+              output: {
+                status: "failed",
+                code: sessionEvent.data.code,
+                error: sessionEvent.data.error,
+                retryable: sessionEvent.data.retryable ?? false,
+                toolCount: toolSummary.length,
+                completedToolCount: toolSummary.filter((tool) => tool.status === "completed").length,
+                failedToolCount: toolSummary.filter((tool) => tool.status === "failed").length,
+                ...(sessionEvent.data.details ?? {}),
+              },
+            });
+          }
+
+          const appendInput = mapPiSessionEventToAppendInput(sessionEvent, runtimeRun);
+          if (appendInput) {
+            await appendObservedEvent(input.ctx, appendInput, durableEventCollector);
+          }
+
+          for (const chunk of agui.map(sessionEvent)) {
+            await input.emitStreamEvent(chunk);
+          }
         }
-
-        await input.ctx.db.db
-          .update(toolCalls)
-          .set({
-            status: "failed",
-            latencyMs: event.latencyMs,
-            outputJson: { error: event.error, code: event.code, ...(event.details !== undefined ? { details: event.details } : {}) },
-          })
-          .where(eq(toolCalls.id, event.toolCallId));
-        upsertToolSummary(toolSummary, {
-          toolCallId: event.toolCallId,
-          toolName: event.toolName,
-          status: "failed",
-          latencyMs: event.latencyMs,
-        });
-        input.logger.warn(
-          { notebookId: input.notebookId, sessionId: input.sessionId, runId: runtimeRun.runId, toolCallId: event.toolCallId, toolName: event.toolName, code: event.code, error: event.error, details: event.details },
-          "tutor tool failed",
-        );
+        break sessionLoop;
+        }
       },
-    })) {
-      if (sessionEvent.type === "message_complete") {
-        lastAssistantText = sessionEvent.data.text;
-      }
-      if (sessionEvent.type === "run_error") {
-        streamedRunFailure = sessionEvent.data;
-      }
-
-      const appendInput = mapPiSessionEventToAppendInput(sessionEvent, runtimeRun);
-      if (appendInput) {
-        await appendEvent(input.ctx.db, appendInput);
-      }
-
-      for (const chunk of agui.map(sessionEvent)) {
-        await input.emitStreamEvent(chunk);
-      }
-    }
+    );
 
     if (streamedRunFailure) {
+      input.logger.warn(
+        {
+          notebookId: input.notebookId,
+          sessionId: input.sessionId,
+          runId: runtimeRun.runId,
+          turnId,
+          code: streamedRunFailure.code,
+          error: streamedRunFailure.error,
+          durationMs: Date.now() - turnStartedAt,
+          toolCount: toolSummary.length,
+          completedToolCount: toolSummary.filter((tool) => tool.status === "completed").length,
+          failedToolCount: toolSummary.filter((tool) => tool.status === "failed").length,
+          modelTimeoutMs: input.ctx.env.TUTOR_MODEL_TIMEOUT_MS,
+          maxToolCalls: runtimeRun.budgets.maxToolCalls,
+          failureDetails: streamedRunFailure.details ?? null,
+          ...correlationFields,
+        },
+        "tutor run failed",
+      );
       await input.ctx.db.db
         .update(agentRuns)
         .set({ status: "failed", completedAt: new Date() })
@@ -259,6 +503,12 @@ export async function executeTutorTurn(input: TutorTurnExecutionInput): Promise<
         .update(tutorTurns)
         .set({ assistantMessage: lastAssistantText || streamedRunFailure.error, toolSummaryJson: { tools: toolSummary } })
         .where(eq(tutorTurns.id, turnId));
+      await durableEventCollector.flush({
+        traceId: runtimeRun.traceId,
+        sessionId: input.sessionId,
+        runId: runtimeRun.runId,
+        metadata: { notebookId: input.notebookId, turnId },
+      });
       return {
         sessionId: input.sessionId,
         runId: runtimeRun.runId,
@@ -284,6 +534,7 @@ export async function executeTutorTurn(input: TutorTurnExecutionInput): Promise<
       promptContext: input.promptContext,
       toolSummary,
       artifactProposalIds,
+      durableEventCollector,
       contextSelection: input.contextSelection ?? null,
       openArtifact: input.openArtifact ?? null,
       activeSessionPlanId: input.studyState.sessionPlan?.id ?? null,
@@ -291,7 +542,25 @@ export async function executeTutorTurn(input: TutorTurnExecutionInput): Promise<
       previousRuntimeContext: runtimeContextForTurn,
     });
 
-    input.logger.info({ notebookId: input.notebookId, sessionId: input.sessionId, runId: runtimeRun.runId, status: "completed" }, "tutor run finished");
+    if (lastAssistantText.trim()) {
+      await processCompletedTutorTurnLearnerTraitSignals(input.ctx, {
+        notebookId: input.notebookId,
+        userId: input.userId,
+        sessionId: input.sessionId,
+        turnId,
+        runId: runtimeRun.runId,
+        userMessage: input.message,
+        assistantMessage: lastAssistantText,
+      });
+    }
+
+    input.logger.info({ notebookId: input.notebookId, sessionId: input.sessionId, runId: runtimeRun.runId, status: "completed", ...correlationFields }, "tutor run finished");
+    await durableEventCollector.flush({
+      traceId: runtimeRun.traceId,
+      sessionId: input.sessionId,
+      runId: runtimeRun.runId,
+      metadata: { notebookId: input.notebookId, turnId },
+    });
     return {
       sessionId: input.sessionId,
       runId: runtimeRun.runId,
@@ -303,7 +572,8 @@ export async function executeTutorTurn(input: TutorTurnExecutionInput): Promise<
     };
   } catch (error) {
     const failure = classifyRuntimeError(error);
-    input.logger.error({ notebookId: input.notebookId, sessionId: input.sessionId, runId: runtimeRun.runId, code: failure.code, error: failure.safeMessage }, "tutor run failed");
+    finishPendingToolObservations(toolObservations, failure.safeMessage);
+    input.logger.error({ notebookId: input.notebookId, sessionId: input.sessionId, runId: runtimeRun.runId, code: failure.code, error: failure.safeMessage, ...correlationFields }, "tutor run failed");
     await input.ctx.db.db
       .update(agentRuns)
       .set({ status: "failed", completedAt: new Date() })
@@ -318,6 +588,12 @@ export async function executeTutorTurn(input: TutorTurnExecutionInput): Promise<
       model: runtimeRun.modelConfig.model,
       timestamp: Date.now(),
       error: { message: failure.safeMessage, code: failure.code },
+    });
+    await durableEventCollector.flush({
+      traceId: runtimeRun.traceId,
+      sessionId: input.sessionId,
+      runId: runtimeRun.runId,
+      metadata: { notebookId: input.notebookId, turnId },
     });
     return {
       sessionId: input.sessionId,
@@ -373,8 +649,9 @@ async function persistTutorTurnSummary(
     assistantMessage: string;
     selectedNodeRefs: Array<{ refType: string; refId: string }>;
     promptContext: StudyAgentPromptContext;
-    toolSummary: Array<{ toolCallId: string; toolName: string; status: string; latencyMs?: number }>;
+    toolSummary: TurnToolSummary[];
     artifactProposalIds: string[];
+    durableEventCollector: DurableEventSummaryCollector;
     contextSelection?: TutorContextSelection | null;
     openArtifact?: { id: string; artifactType: string; title: string; status: string } | null;
     activeSessionPlanId?: string | null;
@@ -407,40 +684,8 @@ async function persistTutorTurnSummary(
     openArtifactProposals: input.artifactProposalIds.map((artifactId) => ({ artifactId })),
   });
 
-  if (input.contextSelection) {
-    await appendEvent(ctx.db, {
-      notebookId: input.run.notebookId,
-      sessionId: input.sessionId,
-      runId: input.runId,
-      eventType: "session.context.selected",
-      payload: {
-        strategy: input.contextSelection.strategy,
-        query: input.contextSelection.query,
-        retrievalMode: input.contextSelection.retrievalMode,
-        maxChunks: input.contextSelection.maxChunks,
-        selectedNodeRefs: input.contextSelection.selectedNodeRefs,
-        selectedChunkIds: input.contextSelection.selectedChunkIds ?? [],
-        selectedSourceIds: input.contextSelection.selectedSourceIds ?? [],
-        objectiveTitle: input.contextSelection.objectiveTitle,
-        weakConceptNames: input.contextSelection.weakConceptNames,
-        reason: input.contextSelection.reason ?? null,
-      },
-    });
-  }
-
   const [existingSession] = await ctx.db.db.select({ runtimeContextJson: tutorSessions.runtimeContextJson }).from(tutorSessions).where(eq(tutorSessions.id, input.sessionId)).limit(1);
   const previousRuntimeContext = isJsonRecord(existingSession?.runtimeContextJson) ? existingSession.runtimeContextJson : {};
-  const previousDraft = asDigestDraft(previousRuntimeContext.sessionDigestDraft);
-  const nextDraft = {
-    summary: input.assistantMessage,
-    currentObjective: input.promptContext.currentObjective ?? null,
-    studyPlanSummary: input.promptContext.studyPlanSummary ?? null,
-    learnerStateSummary: input.promptContext.learnerStateSummary ?? null,
-    learnerProgressSummary: input.promptContext.learnerProgressSummary ?? null,
-    citationIds,
-    sourceIds,
-    artifactProposalIds: input.artifactProposalIds,
-  };
   const compactionDecision = shouldCompactTutorContext({
     turnIndex: input.turnIndex,
     previousRuntimeContext,
@@ -458,16 +703,16 @@ async function persistTutorTurnSummary(
     contextSelection: input.contextSelection ?? null,
     toolSummary: input.toolSummary,
   });
-  const compactionEventIds: string[] = [];
+    const compactionEventIds: string[] = [];
   if (compactionDecision.shouldCompact) {
-    const compactionStarted = await appendEvent(ctx.db, {
+    const compactionStarted = await appendObservedEvent(ctx, {
       notebookId: input.run.notebookId,
       sessionId: input.sessionId,
       runId: input.runId,
       eventType: "agent.compaction.started",
       payload: { turnId: input.turnId, turnIndex: input.turnIndex, reasons: compactionDecision.reasons, estimatedChars: compactionDecision.estimatedChars },
-    });
-    const compactionCompleted = await appendEvent(ctx.db, {
+    }, input.durableEventCollector);
+    const compactionCompleted = await appendObservedEvent(ctx, {
       notebookId: input.run.notebookId,
       sessionId: input.sessionId,
       runId: input.runId,
@@ -481,7 +726,7 @@ async function persistTutorTurnSummary(
         sourceIds: compacted.sourceIds,
         citationIds: compacted.citationIds,
       },
-    });
+    }, input.durableEventCollector);
     compactionEventIds.push(compactionStarted.id, compactionCompleted.id);
   }
 
@@ -497,47 +742,19 @@ async function persistTutorTurnSummary(
           reasons: compactionDecision.reasons,
           estimatedChars: compactionDecision.estimatedChars,
         },
-        contextSelection: input.contextSelection
-          ? {
-              strategy: input.contextSelection.strategy,
-              query: input.contextSelection.query,
-              retrievalMode: input.contextSelection.retrievalMode,
-              maxChunks: input.contextSelection.maxChunks,
-              selectedNodeRefs: input.contextSelection.selectedNodeRefs,
-              objectiveTitle: input.contextSelection.objectiveTitle,
-              weakConceptNames: input.contextSelection.weakConceptNames,
-              selectedChunkIds: input.contextSelection.selectedChunkIds,
-              selectedSourceIds: input.contextSelection.selectedSourceIds,
-              sourceScopePolicy: input.contextSelection.sourceScopePolicy,
-              usedSourceScopeFallback: input.contextSelection.usedSourceScopeFallback,
-              sourceCoverageGap: input.contextSelection.sourceCoverageGap,
-              reason: input.contextSelection.reason,
-            }
-          : null,
       },
       citationRefsJson: citationIds.map((claimId) => ({ refType: "claim", refId: claimId })),
     })
     .where(eq(tutorTurns.id, input.turnId));
 
-  if (compactionDecision.shouldCompact && shouldEmitDigestDraftUpdate(previousDraft, nextDraft)) {
-    await appendEvent(ctx.db, {
-      notebookId: input.run.notebookId,
-      sessionId: input.sessionId,
-      ...(input.runId ? { runId: input.runId } : {}),
-      eventType: "session.digest.draft.updated",
-      payload: { status: "draft", ...nextDraft, turnId: input.turnId },
-    });
-  }
-
-  await applyDeterministicTutorProgression(ctx, {
+  await applyMasteryEvidenceObjectiveProgression(ctx.db, {
     notebookId: input.run.notebookId,
     userId: input.run.userId,
     sessionId: input.sessionId,
     runId: input.runId,
     turnId: input.turnId,
-    learnerMessage: input.message,
     assistantMessage: input.assistantMessage,
-    runtimeContext: input.previousRuntimeContext,
+    runtimeContext: input.previousRuntimeContext ?? {},
   });
 
   await ctx.db.db
@@ -552,7 +769,7 @@ async function persistTutorTurnSummary(
     conceptIds: activeConceptIds,
     objectiveId: input.currentObjectiveId ?? null,
     sourceRefs: sourceIds.map((sourceId) => ({ refType: "source" as const, refId: sourceId })),
-    contextRefs: input.contextSelection?.selectedChunkIds?.map((chunkId) => ({ refType: "chunk", refId: chunkId })) ?? [],
+    contextRefs: extractContextRefsFromToolSummary({ tools: input.toolSummary }),
     ...(input.contextSelection?.sourceScopePolicy ? { sourceScopePolicy: input.contextSelection.sourceScopePolicy } : {}),
   });
 
@@ -564,24 +781,6 @@ async function persistTutorTurnSummary(
         compressedContext: compacted.compressedContext,
         activeConceptIds,
         sourceIds,
-        selectedChunkIds: input.contextSelection?.selectedChunkIds ?? [],
-        selectedSourceIds: input.contextSelection?.selectedSourceIds ?? [],
-        recentMistakeConceptIds: input.contextSelection?.recentMistakeConceptIds ?? [],
-        contextSelection: input.contextSelection
-          ? {
-              strategy: input.contextSelection.strategy,
-              query: input.contextSelection.query,
-              retrievalMode: input.contextSelection.retrievalMode,
-              maxChunks: input.contextSelection.maxChunks,
-              selectedNodeRefs: input.contextSelection.selectedNodeRefs,
-              objectiveTitle: input.contextSelection.objectiveTitle,
-              weakConceptNames: input.contextSelection.weakConceptNames,
-              selectedChunkIds: input.contextSelection.selectedChunkIds,
-              selectedSourceIds: input.contextSelection.selectedSourceIds,
-              recentMistakeConceptIds: input.contextSelection.recentMistakeConceptIds,
-              reason: input.contextSelection.reason,
-            }
-          : null,
         citationIds,
         artifactProposalIds: input.artifactProposalIds,
         currentObjective: input.promptContext.currentObjective,
@@ -589,7 +788,7 @@ async function persistTutorTurnSummary(
         openArtifact: input.openArtifact ?? null,
         studyPlanSummary: input.promptContext.studyPlanSummary ?? null,
         learnerStateSummary: input.promptContext.learnerStateSummary ?? null,
-        sessionDigestDraft: { ...nextDraft, updatedAt: new Date().toISOString() },
+        sessionDigestDraft: null,
         lastCompaction: compactionDecision.shouldCompact
           ? { turnIndex: input.turnIndex, runId: input.runId, reasons: compactionDecision.reasons, estimatedChars: compactionDecision.estimatedChars, updatedAt: new Date().toISOString() }
           : isJsonRecord(previousRuntimeContext.lastCompaction)
@@ -602,124 +801,54 @@ async function persistTutorTurnSummary(
     .where(eq(tutorSessions.id, input.sessionId));
 }
 
-async function applyDeterministicTutorProgression(
-  ctx: AppContext,
-  input: {
-    notebookId: string;
-    userId: string;
-    sessionId: string;
-    runId: string;
-    turnId: string;
-    learnerMessage: string;
-    assistantMessage: string;
-    runtimeContext: Record<string, unknown>;
-  },
-): Promise<void> {
-  const progressionEvidence = readObjectiveProgressionEvidence(input.runtimeContext);
-  if (!progressionEvidence) return;
-  const state = await loadNotebookStudyState(ctx.db, input.notebookId, input.userId);
-  const current = state.studyPlan?.currentObjective;
-  if (!state.studyPlan || !current) return;
-  if (progressionEvidence.objectiveId !== current.id) return;
-  if (state.studyPlan.completedObjectives.some((objective) => objective.id === current.id)) return;
+function correlationLogFields(run: ReturnType<typeof createRuntimeRun>): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries({
+      traceId: run.traceId,
+      requestId: run.requestId,
+      traceparent: run.traceparent,
+    }).filter(([, value]) => typeof value === "string" && value.length > 0),
+  ) as Record<string, string>;
+}
 
-  const upcomingIds = state.studyPlan.upcomingObjectives.map((objective) => objective.id);
-  const nextObjectiveId = upcomingIds[0] ?? null;
-  const completedIds = [...new Set([...state.studyPlan.completedObjectives.map((objective) => objective.id), current.id])];
-  const remainingUpcomingIds = upcomingIds.filter((id) => id !== nextObjectiveId);
+function finishToolObservation(
+  observations: Map<string, ObservationLike>,
+  toolCallId: string,
+  payload: Record<string, unknown>,
+): void {
+  const observation = observations.get(toolCallId);
+  observations.delete(toolCallId);
+  observation?.update(payload);
+  observation?.end();
+}
 
-  await ctx.db.db.update(objectives).set({ status: "completed", updatedAt: new Date() }).where(eq(objectives.id, current.id));
-  await ctx.db.db
-    .update(studyPlans)
-    .set({
-      currentObjectiveId: nextObjectiveId,
-      upcomingObjectiveIds: remainingUpcomingIds,
-      completedObjectiveIds: completedIds,
-      progressSummaryJson: {
-        lastCompletedObjectiveId: current.id,
-        lastCompletedObjectiveTitle: current.title,
-        lastProgressTurnId: input.turnId,
-        lastAssistantSummary: input.assistantMessage.slice(0, 400),
-        masteryEvidenceId: progressionEvidence.evidenceId,
-      },
-      updatedAt: new Date(),
-    })
-    .where(eq(studyPlans.id, state.studyPlan.id));
-
-  if (state.objectiveList?.id) {
-    await ctx.db.db.update(objectiveLists).set({ currentObjectiveId: nextObjectiveId, updatedAt: new Date() }).where(eq(objectiveLists.id, state.objectiveList.id));
+function finishPendingToolObservations(observations: Map<string, ObservationLike>, error: string): void {
+  for (const [toolCallId] of observations) {
+    finishToolObservation(observations, toolCallId, {
+      level: "ERROR",
+      statusMessage: error,
+      output: { status: "failed", error },
+    });
   }
-
-  await appendEvent(ctx.db, {
-    notebookId: input.notebookId,
-    sessionId: input.sessionId,
-    runId: input.runId,
-    eventType: "objective.completed",
-    payload: {
-      objectiveId: current.id,
-      title: current.title,
-      nextObjectiveId,
-      reason: "mastery_evidence",
-      masteryEvidenceId: progressionEvidence.evidenceId,
-    },
-  });
-  await appendEvent(ctx.db, {
-    notebookId: input.notebookId,
-    sessionId: input.sessionId,
-    runId: input.runId,
-    eventType: "study_plan.updated",
-    payload: {
-      studyPlanId: state.studyPlan.id,
-      currentObjectiveId: nextObjectiveId,
-      completedObjectiveIds: completedIds,
-      reason: "mastery_evidence",
-      masteryEvidenceId: progressionEvidence.evidenceId,
-    },
-  });
 }
 
-function readObjectiveProgressionEvidence(
-  runtimeContext: Record<string, unknown>,
-): { evidenceId: string; objectiveId: string } | null {
-  const value = runtimeContext.lastRuntimeMasteryEvidence;
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const record = value as Record<string, unknown>;
-  if (typeof record.evidenceId !== "string" || typeof record.objectiveId !== "string") return null;
-  const correctnessLabel = typeof record.correctnessLabel === "string" ? record.correctnessLabel : "";
-  const readiness = typeof record.readiness === "string" ? record.readiness : "";
-  const tutoringIntervention = typeof record.tutoringIntervention === "string" ? record.tutoringIntervention : "";
-  const confidence = typeof record.confidence === "number" ? record.confidence : 0;
-  const uncertainty = typeof record.uncertainty === "number" ? record.uncertainty : 1;
-  const overallScore = typeof record.overallScore === "number" ? record.overallScore : 0;
-  const strongEnough =
-    correctnessLabel === "correct" &&
-    confidence >= 0.7 &&
-    uncertainty <= 0.35 &&
-    overallScore >= 0.75 &&
-    (readiness === "proficient" || readiness === "advanced" || tutoringIntervention === "advance");
-  return strongEnough ? { evidenceId: record.evidenceId, objectiveId: record.objectiveId } : null;
-}
-
-function asDigestDraft(value: unknown): {
-  summary: string | null;
-  currentObjective: string | null;
-  studyPlanSummary: string | null;
-  learnerStateSummary: string | null;
-  citationIds: string[];
-  sourceIds: string[];
-  artifactProposalIds: string[];
-} | null {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
-  const record = value as Record<string, unknown>;
-  return {
-    summary: typeof record.summary === "string" ? record.summary : null,
-    currentObjective: typeof record.currentObjective === "string" ? record.currentObjective : null,
-    studyPlanSummary: typeof record.studyPlanSummary === "string" ? record.studyPlanSummary : null,
-    learnerStateSummary: typeof record.learnerStateSummary === "string" ? record.learnerStateSummary : null,
-    citationIds: Array.isArray(record.citationIds) ? record.citationIds.filter((v): v is string => typeof v === "string") : [],
-    sourceIds: Array.isArray(record.sourceIds) ? record.sourceIds.filter((v): v is string => typeof v === "string") : [],
-    artifactProposalIds: Array.isArray(record.artifactProposalIds) ? record.artifactProposalIds.filter((v): v is string => typeof v === "string") : [],
-  };
+function usageDetailsFromRuntimeUsage(usage: unknown): Record<string, number> | undefined {
+  if (!usage || typeof usage !== "object") return undefined;
+  const record = usage as Record<string, unknown>;
+  const details: Record<string, number> = {};
+  for (const [target, keys] of Object.entries({
+    input: ["input", "promptTokens", "prompt_tokens"],
+    output: ["output", "completionTokens", "completion_tokens"],
+    total: ["totalTokens", "total_tokens", "total"],
+    cacheRead: ["cacheRead", "cache_read"],
+    cacheWrite: ["cacheWrite", "cache_write"],
+  })) {
+    const value = keys.map((key) => record[key]).find((candidate) => typeof candidate === "number");
+    if (typeof value === "number" && Number.isFinite(value)) {
+      details[target] = value;
+    }
+  }
+  return Object.keys(details).length ? details : undefined;
 }
 
 function extractArtifactProposalId(output: unknown): string | undefined {
@@ -732,13 +861,55 @@ function toJsonRecord(value: unknown): Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : { value };
 }
 
+async function appendObservedEvent(
+  ctx: AppContext,
+  input: { notebookId: string; sessionId?: string; runId?: string; eventType: string; payload: Record<string, unknown> },
+  collector: { recordSuccess(eventType: string): void; recordError(eventType: string): void },
+): Promise<{ id: string; sequenceNo: number }> {
+  const stopTimer = startMetricTimer();
+  try {
+    const event = await appendEvent(ctx.db, input);
+    collector.recordSuccess(input.eventType);
+    recordDurableEventMetric({
+      eventType: input.eventType,
+      outcome: "success",
+      durationMs: stopTimer(),
+    });
+    return event;
+  } catch (error) {
+    collector.recordError(input.eventType);
+    recordDurableEventMetric({
+      eventType: input.eventType,
+      outcome: "error",
+      durationMs: stopTimer(),
+    });
+    throw error;
+  }
+}
+
 function isJsonRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function createDurableEventCollector(): DurableEventSummaryCollector {
+  return new DurableEventSummaryCollector();
+}
+
+function runtimeEventMetadata(run: ReturnType<typeof createRuntimeRun>): Record<string, unknown> {
+  return {
+    runId: run.runId,
+    traceId: run.traceId,
+    ...(run.requestId ? { requestId: run.requestId } : {}),
+    ...(run.traceparent ? { traceparent: run.traceparent } : {}),
+    model: run.modelConfig.model,
+    provider: run.modelConfig.provider,
+    promptTemplateVersion: run.modelConfig.promptTemplateVersion,
+  };
+}
+
 function upsertToolSummary(
-  toolSummary: Array<{ toolCallId: string; toolName: string; status: string; latencyMs?: number }>,
-  update: { toolCallId: string; toolName: string; status: string; latencyMs?: number },
+  toolSummary: TurnToolSummary[],
+  update: TurnToolSummary,
 ): void {
   const index = toolSummary.findIndex((item) => item.toolCallId === update.toolCallId);
   if (index === -1) {
@@ -746,4 +917,56 @@ function upsertToolSummary(
     return;
   }
   toolSummary[index] = { ...toolSummary[index], ...update };
+}
+
+function extractToolContextRefs(toolName: string, output: unknown): Array<{ refType: string; refId: string }> | undefined {
+  if (toolName !== "wiki.search" || !isJsonRecord(output)) return undefined;
+  const results = Array.isArray(output.results) ? output.results : [];
+  const refs: Array<{ refType: string; refId: string }> = [];
+  for (const result of results) {
+    if (!isJsonRecord(result)) continue;
+    if (typeof result.refType === "string" && typeof result.refId === "string") {
+      refs.push({ refType: result.refType, refId: result.refId });
+    }
+    if (Array.isArray(result.provenanceRefs)) {
+      for (const ref of result.provenanceRefs) {
+        if (isJsonRecord(ref) && typeof ref.refType === "string" && typeof ref.refId === "string") {
+          refs.push({ refType: ref.refType, refId: ref.refId });
+        }
+      }
+    }
+    if (Array.isArray(result.sourceRefs)) {
+      for (const ref of result.sourceRefs) {
+        if (isJsonRecord(ref) && typeof ref.sourceId === "string") {
+          refs.push({ refType: "source", refId: ref.sourceId });
+        }
+        if (isJsonRecord(ref) && typeof ref.sourceVersionId === "string") {
+          refs.push({ refType: "source_version", refId: ref.sourceVersionId });
+        }
+      }
+    }
+  }
+  if (!refs.length) return undefined;
+  const seen = new Set<string>();
+  return refs.filter((ref) => {
+    const key = `${ref.refType}:${ref.refId}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function extractToolDiagnostics(toolName: string, output: unknown): Record<string, unknown> | undefined {
+  if (toolName !== "wiki.search" || !isJsonRecord(output)) return undefined;
+  const diagnostics: Record<string, unknown> = {};
+  if (typeof output.retrievalMode === "string") diagnostics.retrievalMode = output.retrievalMode;
+  if (typeof output.fallbackReason === "string") diagnostics.fallbackReason = output.fallbackReason;
+  if (Array.isArray(output.results)) diagnostics.resultCount = output.results.length;
+  if (Array.isArray(output.warnings)) {
+    diagnostics.warningCodes = output.warnings
+      .filter(isJsonRecord)
+      .map((warning) => warning.code)
+      .filter((code): code is string => typeof code === "string");
+  }
+  return Object.keys(diagnostics).length ? diagnostics : undefined;
 }

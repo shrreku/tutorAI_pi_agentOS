@@ -57,4 +57,30 @@ describe("projection rebuild scopes", () => {
     expect(run.mock.calls.length).toBe(firstCallCount * 2);
     expect(buildProjectionPlan(minimalSnapshot("source")).operations).toEqual(plan.operations);
   });
+
+  it("clears source-owned projection scope before replaying a canonical snapshot", async () => {
+    const plan = buildProjectionPlan(minimalSnapshot("source"));
+    const run = vi.fn().mockResolvedValue({ records: [] });
+    const session = { run } as unknown as import("neo4j-driver").Session;
+    const calls: string[] = [];
+
+    run.mockImplementation(async (query: string) => {
+      calls.push(query.includes("DETACH DELETE") ? "clear" : "apply");
+      return { records: [] };
+    });
+
+    await clearSourceProjectionScope(session, "nb_rebuild", "src_1");
+    await applyProjectionPlan(session, plan);
+
+    expect(calls[0]).toBe("clear");
+    expect(calls.some((entry) => entry === "apply")).toBe(true);
+    expect(calls.indexOf("clear")).toBeLessThan(calls.findIndex((entry) => entry === "apply"));
+  });
+
+  it("preserves Concept nodes in the source clear scope query", async () => {
+    const run = vi.fn().mockResolvedValue(undefined);
+    const session = { run } as unknown as import("neo4j-driver").Session;
+    await clearSourceProjectionScope(session, "nb_rebuild", "src_1");
+    expect(run.mock.calls.at(-1)?.[0]).toContain("NOT n:Concept");
+  });
 });

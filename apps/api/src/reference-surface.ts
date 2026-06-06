@@ -2,7 +2,6 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import {
   artifacts,
   concepts,
-  claimConceptLinks,
   claims,
   curricula,
   curriculumModules,
@@ -18,12 +17,25 @@ import {
 } from "@studyagent/db";
 import type { AppContext } from "./context.js";
 import { buildLearningArtifactView } from "./artifact-view.js";
-import type { EvidenceReadModel, EvidenceRef, ReferenceBlock, ReferenceSurface, NodeRef } from "@studyagent/schemas";
-import { learnerFacingSurfaceStatus } from "@studyagent/schemas";
+import {
+  buildEvidenceFromClaimAndChunkIds,
+  isLearnerSafeClaim,
+  loadConceptClaimIds,
+  loadSourceChunkEvidence,
+  mapChunkRefsWithSourceTitles,
+  resolveNodeOpenTarget,
+  sanitizeLearnerEvidenceRefs,
+  toChunkEvidenceRefs,
+  toLearnerClaimEvidenceRefs,
+} from "./node-open-target.js";
+import type { EvidenceReadModel, EvidenceRef, ReferenceBlock, ReferenceSurface, LearnerFacingReferenceSurface, NodeRef } from "@studyagent/schemas";
+import { learnerFacingSurfaceStatus, learnerSafeValue, mapLearnerPrimaryActions } from "@studyagent/schemas";
 
-export function toLearnerFacingReferenceSurface(surface: ReferenceSurface): ReferenceSurface {
-  return {
-    ...surface,
+export function toLearnerFacingReferenceSurface(surface: ReferenceSurface): LearnerFacingReferenceSurface {
+  const { provenanceRefs: _provenanceRefs, ...learnerSurface } = surface;
+  return learnerSafeValue({
+    ...learnerSurface,
+    primaryActions: mapLearnerPrimaryActions(surface.primaryActions),
     quality: {
       ...surface.quality,
       confidence: null,
@@ -32,10 +44,10 @@ export function toLearnerFacingReferenceSurface(surface: ReferenceSurface): Refe
       ...block,
       evidenceRefs: sanitizeLearnerEvidenceRefs(block.evidenceRefs ?? [], false),
     })),
-  };
+  });
 }
 
-export async function buildReferenceSurface(ctx: AppContext, notebookId: string, nodeId: string): Promise<ReferenceSurface> {
+export async function buildReferenceSurface(ctx: AppContext, notebookId: string, nodeId: string): Promise<LearnerFacingReferenceSurface> {
   const base = (overrides: Partial<ReferenceSurface> & Pick<ReferenceSurface, "nodeRef" | "title" | "surfaceType">): ReferenceSurface => ({
     id: `surface_${nodeId}`,
     notebookId,
@@ -52,15 +64,16 @@ export async function buildReferenceSurface(ctx: AppContext, notebookId: string,
     ...overrides,
   });
 
-  const [concept] = await ctx.db.db.select().from(concepts).where(and(eq(concepts.id, nodeId), eq(concepts.notebookId, notebookId))).limit(1);
-  if (concept) {
+  const openTarget = await resolveNodeOpenTarget(ctx, notebookId, nodeId);
+
+  if (openTarget.kind === "concept" && openTarget.entity) {
+    const concept = openTarget.entity;
     const [conceptWikiPage] = await ctx.db.db
       .select()
       .from(wikiPages)
       .where(and(eq(wikiPages.notebookId, notebookId), eq(wikiPages.pageType, "concept"), eq(wikiPages.pageKey, `concept:${concept.id}`)))
       .limit(1);
-    const links = await ctx.db.db.select({ claimId: claimConceptLinks.claimId }).from(claimConceptLinks).where(eq(claimConceptLinks.conceptId, nodeId));
-    const claimIds = links.map((link) => link.claimId);
+    const claimIds = await loadConceptClaimIds(ctx, nodeId);
     const claimRows = claimIds.length ? await ctx.db.db.select().from(claims).where(inArray(claims.id, claimIds)).limit(12) : [];
     const chunkIds = Array.from(new Set(claimRows.flatMap((claim) => claim.sourceChunkIds ?? [])));
     const chunkRows = chunkIds.length ? await ctx.db.db.select({ id: chunks.id, chunkType: chunks.chunkType, text: chunks.text, pageStart: chunks.pageStart, pageEnd: chunks.pageEnd, sourceVersionId: chunks.sourceVersionId }).from(chunks).where(inArray(chunks.id, chunkIds)).limit(10) : [];
@@ -132,7 +145,7 @@ export async function buildReferenceSurface(ctx: AppContext, notebookId: string,
       evidenceRefs: toLearnerClaimEvidenceRefs(acceptedClaims),
     });
     return toLearnerFacingReferenceSurface(base({
-      nodeRef: { refType: "concept", refId: concept.id },
+      nodeRef: semanticRef("concept", concept.id, concept.canonicalName),
       title: concept.canonicalName,
       surfaceType: "concept",
       summary: concept.description,
@@ -142,14 +155,14 @@ export async function buildReferenceSurface(ctx: AppContext, notebookId: string,
       provenanceRefs: [
         ...chunkEvidence.map((item) => ({ refType: "chunk" as const, refId: item.id, role: "derived_from" as const })),
       ],
-      primaryActions: ["ask_tutor", "quiz", "open_provenance"],
+      primaryActions: ["ask_tutor", "quiz", "regenerate", "open_provenance"],
       quality: { confidence: conceptWikiPage?.qualityScore ?? concept.confidence ?? null, sourceBacked: chunkEvidence.length > 0 || (conceptWikiPage?.sourceChunkIds ?? []).length > 0, needsReview: acceptedClaims.length === 0 || claimRows.some((claim) => claim.status === "candidate") },
       generation: generationFromRecord(conceptWikiPage?.structuredJson),
     }));
   }
 
-  const [wikiPage] = await ctx.db.db.select().from(wikiPages).where(and(eq(wikiPages.id, nodeId), eq(wikiPages.notebookId, notebookId))).limit(1);
-  if (wikiPage) {
+  if (openTarget.kind === "wiki_page" && openTarget.entity) {
+    const wikiPage = openTarget.entity;
     const sourceRefs = (wikiPage.sourceChunkIds ?? []).map((id) => ({ refType: "chunk" as const, refId: id }));
     const learnerEvidence = [
       ...toChunkEvidenceRefs(
@@ -161,14 +174,14 @@ export async function buildReferenceSurface(ctx: AppContext, notebookId: string,
       ),
     ];
     return toLearnerFacingReferenceSurface(base({
-      nodeRef: { refType: "wiki_page", refId: wikiPage.id },
+      nodeRef: semanticRef("wiki_page", wikiPage.id, wikiPage.title),
       title: wikiPage.title,
       surfaceType: "wiki_page",
       status: wikiPage.status,
       blocks: [{ id: "markdown", kind: "markdown", title: "Reference", content: wikiPage.markdown, evidenceRefs: learnerEvidence }],
       sourceRefs,
       provenanceRefs: sourceRefs.map((ref) => ({ ...ref, role: "derived_from" })),
-      primaryActions: ["ask_tutor", "open_provenance"],
+      primaryActions: ["ask_tutor", "regenerate", "open_provenance"],
       quality: { confidence: wikiPage.qualityScore ?? null, sourceBacked: sourceRefs.length > 0, needsReview: wikiPage.status !== "published" },
       generation: generationFromRecord(wikiPage.structuredJson),
     }));
@@ -187,7 +200,7 @@ export async function buildReferenceSurface(ctx: AppContext, notebookId: string,
       : readablePlanningSummary(null, curriculum.title) ?? `${curriculum.title} study path.`;
     const regeneratedMarkdown = jsonString(curriculum.scopeJson, "regeneratedMarkdown");
     return toLearnerFacingReferenceSurface(base({
-      nodeRef: { refType: "curriculum", refId: curriculum.id },
+      nodeRef: semanticRef("curriculum", curriculum.id, curriculum.title),
       title: curriculum.title,
       surfaceType: "curriculum",
       summary: curriculumSummary,
@@ -208,7 +221,7 @@ export async function buildReferenceSurface(ctx: AppContext, notebookId: string,
       ],
       sourceRefs: curriculum.sourceIds.map((id) => ({ refType: "source", refId: id })),
       provenanceRefs: curriculum.sourceIds.map((id) => ({ refType: "source", refId: id, role: "derived_from" })),
-      primaryActions: ["ask_tutor", "review"],
+      primaryActions: ["ask_tutor", "review", "regenerate"],
       quality: { confidence: curriculum.confidence ?? null, sourceBacked: curriculum.sourceIds.length > 0, needsReview: isWeakPlanningLabel(curriculum.title) },
       generation: generationFromRecord(curriculum.scopeJson),
     }));
@@ -248,7 +261,7 @@ export async function buildReferenceSurface(ctx: AppContext, notebookId: string,
           .filter((ref): ref is { refType: "source" | "chunk"; refId: string } => Boolean(ref))
       : [];
     return toLearnerFacingReferenceSurface(base({
-      nodeRef: { refType: "curriculum_module", refId: module.id },
+      nodeRef: semanticRef("curriculum_module", module.id, module.title),
       title: module.title,
       surfaceType: "module",
       summary: moduleSummary,
@@ -267,10 +280,10 @@ export async function buildReferenceSurface(ctx: AppContext, notebookId: string,
           evidenceRefs: [],
         },
       ],
-      scopeRefs: [{ refType: "curriculum", refId: module.curriculumId }],
+      scopeRefs: [semanticRef("curriculum", module.curriculumId)],
       sourceRefs,
       provenanceRefs: sourceRefs.map((ref) => ({ ...ref, role: "derived_from" })),
-      primaryActions: ["ask_tutor", "review"],
+      primaryActions: ["ask_tutor", "review", "regenerate"],
       quality: { confidence: null, sourceBacked: sourceRefs.length > 0, needsReview: isWeakPlanningLabel(module.title) },
       generation: generationFromRecord(module.coverageRequirementsJson),
     }));
@@ -295,7 +308,7 @@ export async function buildReferenceSurface(ctx: AppContext, notebookId: string,
     const sourceRefs = orderedObjectives.flatMap((objective) => parseSourceRefs(objective.sourceRefsJson));
     const regeneratedMarkdown = jsonString(objectiveList.coverageSnapshotJson, "regeneratedMarkdown");
     return toLearnerFacingReferenceSurface(base({
-      nodeRef: { refType: "objective_list", refId: objectiveList.id },
+      nodeRef: semanticRef("objective_list", objectiveList.id, objectiveList.title),
       title: objectiveList.title,
       surfaceType: "objective_list",
       summary: null,
@@ -314,10 +327,13 @@ export async function buildReferenceSurface(ctx: AppContext, notebookId: string,
           evidenceRefs: [],
         },
       ],
-      scopeRefs: [{ refType: "curriculum", refId: objectiveList.curriculumId }, { refType: "curriculum_module", refId: objectiveList.moduleId }],
+      scopeRefs: [
+        semanticRef("curriculum", objectiveList.curriculumId),
+        semanticRef("curriculum_module", objectiveList.moduleId),
+      ],
       sourceRefs,
       provenanceRefs: sourceRefs.map((ref) => ({ ...ref, role: "derived_from" })),
-      primaryActions: ["ask_tutor", "review"],
+      primaryActions: ["ask_tutor", "review", "regenerate"],
       quality: { confidence: null, sourceBacked: sourceRefs.length > 0, needsReview: isWeakPlanningLabel(objectiveList.title) },
       generation: generationFromRecord(objectiveList.coverageSnapshotJson),
     }));
@@ -325,7 +341,18 @@ export async function buildReferenceSurface(ctx: AppContext, notebookId: string,
 
   const [objective] = await ctx.db.db.select().from(objectives).where(and(eq(objectives.id, nodeId), eq(objectives.notebookId, notebookId))).limit(1);
   if (objective) {
-    const conceptRefs = [...(objective.prerequisiteConceptIds ?? []), ...(objective.targetConceptIds ?? [])].map((id) => ({ refType: "concept" as const, refId: id }));
+    const conceptIds = [...new Set([...(objective.prerequisiteConceptIds ?? []), ...(objective.targetConceptIds ?? [])])];
+    const conceptRows = conceptIds.length
+      ? await ctx.db.db
+          .select({
+            id: concepts.id,
+            title: concepts.canonicalName,
+          })
+          .from(concepts)
+          .where(and(eq(concepts.notebookId, notebookId), inArray(concepts.id, conceptIds)))
+      : [];
+    const conceptTitleById = new Map(conceptRows.map((row) => [row.id, row.title]));
+    const conceptRefs = conceptIds.map((id) => semanticRef("concept", id, conceptTitleById.get(id)));
     const sourceRefs = Array.isArray(objective.sourceRefsJson)
       ? objective.sourceRefsJson
           .map((ref): { refType: "source" | "chunk"; refId: string } | null => {
@@ -352,7 +379,7 @@ export async function buildReferenceSurface(ctx: AppContext, notebookId: string,
       }))
       .map((artifact) => ({ id: artifact.id, title: artifact.title, type: artifact.artifactType, status: artifact.status }));
     return toLearnerFacingReferenceSurface(base({
-      nodeRef: { refType: "objective", refId: objective.id },
+      nodeRef: semanticRef("objective", objective.id, objective.title),
       title: objective.title,
       surfaceType: "objective",
       summary: null,
@@ -360,13 +387,28 @@ export async function buildReferenceSurface(ctx: AppContext, notebookId: string,
       blocks: [
         ...(regeneratedMarkdown ? [{ id: "overview", kind: "markdown" as const, title: "Overview", content: regeneratedMarkdown, evidenceRefs: [] }] : []),
         { id: "success", kind: "metadata", title: "Success criteria", content: objective.successCriteriaJson ?? {}, evidenceRefs: [] },
-        { id: "concepts", kind: "metadata", title: "Concepts", content: { prerequisites: objective.prerequisiteConceptIds, targets: objective.targetConceptIds }, evidenceRefs: [] },
+        {
+          id: "concepts",
+          kind: "metadata",
+          title: "Concepts",
+          content: {
+            prerequisites: (objective.prerequisiteConceptIds ?? []).map((id) => ({
+              id,
+              title: conceptTitleById.get(id) ?? "Concept needs review",
+            })),
+            targets: (objective.targetConceptIds ?? []).map((id) => ({
+              id,
+              title: conceptTitleById.get(id) ?? "Concept needs review",
+            })),
+          },
+          evidenceRefs: [],
+        },
         { id: "linked_artifacts", kind: "metadata", title: "Linked artifacts", content: linkedArtifacts, evidenceRefs: [] },
       ],
-      scopeRefs: [{ refType: "curriculum", refId: objective.curriculumId }, ...conceptRefs],
+      scopeRefs: [semanticRef("curriculum", objective.curriculumId), ...conceptRefs],
       sourceRefs,
       provenanceRefs: sourceRefs.map((ref) => ({ ...ref, role: "derived_from" })),
-      primaryActions: ["ask_tutor", "quiz", "review"],
+      primaryActions: ["ask_tutor", "quiz", "review", "regenerate"],
       quality: { confidence: objective.readinessScore ?? null, sourceBacked: sourceRefs.length > 0, needsReview: isWeakPlanningLabel(objective.title) },
       generation: generationFromRecord(objective.successCriteriaJson),
     }));
@@ -399,7 +441,7 @@ export async function buildReferenceSurface(ctx: AppContext, notebookId: string,
     });
     return toLearnerFacingReferenceSurface(
       base({
-        nodeRef: { refType: "session", refId: tutorSession.id },
+        nodeRef: semanticRef("session", tutorSession.id, "Tutor session"),
         title: "Tutor session",
         surfaceType: "session",
         summary: runtimeGoal ?? (orderedTurns.length > 0 ? `${orderedTurns.length} recorded turns.` : null),
@@ -436,7 +478,7 @@ export async function buildReferenceSurface(ctx: AppContext, notebookId: string,
         scopeRefs: sessionRefs,
         sourceRefs,
         provenanceRefs: sourceRefs.map((ref) => ({ ...ref, role: "derived_from" as const })),
-        primaryActions: ["ask_tutor", "review"],
+        primaryActions: ["ask_tutor", "review", "regenerate"],
         quality: { confidence: null, sourceBacked: sourceRefs.length > 0, needsReview: tutorSession.status !== "completed" && orderedTurns.length === 0 },
       }),
     );
@@ -445,7 +487,7 @@ export async function buildReferenceSurface(ctx: AppContext, notebookId: string,
   const [sessionPlan] = await ctx.db.db.select().from(sessionPlans).where(and(eq(sessionPlans.id, nodeId), eq(sessionPlans.notebookId, notebookId))).limit(1);
   if (sessionPlan) {
     const regeneratedMarkdown = jsonString(sessionPlan.recommendationReasonJson, "regeneratedMarkdown");
-    const objectiveRefs = (sessionPlan.plannedObjectiveIds ?? []).map((id) => ({ refType: "objective" as const, refId: id }));
+    const objectiveRefs = (sessionPlan.plannedObjectiveIds ?? []).map((id) => semanticRef("objective", id));
     const sessionObjectiveRows = sessionPlan.plannedObjectiveIds.length
       ? await ctx.db.db
           .select({
@@ -460,7 +502,7 @@ export async function buildReferenceSurface(ctx: AppContext, notebookId: string,
     const objectiveOrder = new Map(sessionPlan.plannedObjectiveIds.map((id, index) => [id, index] as const));
     const sessionObjectives = [...sessionObjectiveRows].sort((a, b) => (objectiveOrder.get(a.id) ?? 0) - (objectiveOrder.get(b.id) ?? 0));
     return toLearnerFacingReferenceSurface(base({
-      nodeRef: { refType: "session_plan", refId: sessionPlan.id },
+      nodeRef: semanticRef("session_plan", sessionPlan.id, sessionPlan.title),
       title: sessionPlan.title,
       surfaceType: "session",
       summary: sessionPlan.sessionGoal,
@@ -477,15 +519,19 @@ export async function buildReferenceSurface(ctx: AppContext, notebookId: string,
         { id: "opener", kind: "metadata", title: "Opener", content: sessionPlan.openerJson ?? {}, evidenceRefs: [] },
         { id: "exit", kind: "metadata", title: "Exit criteria", content: sessionPlan.exitCriteriaJson ?? {}, evidenceRefs: [] },
       ],
-      scopeRefs: [{ refType: "curriculum", refId: sessionPlan.curriculumId }, { refType: "curriculum_module", refId: sessionPlan.moduleId }, ...objectiveRefs],
-      primaryActions: ["ask_tutor", "review"],
+      scopeRefs: [
+        semanticRef("curriculum", sessionPlan.curriculumId),
+        semanticRef("curriculum_module", sessionPlan.moduleId),
+        ...objectiveRefs,
+      ],
+      primaryActions: ["ask_tutor", "review", "regenerate"],
       quality: { confidence: null, sourceBacked: false, needsReview: isWeakPlanningLabel(sessionPlan.title) },
       generation: generationFromRecord(sessionPlan.recommendationReasonJson),
     }));
   }
 
-  const [artifact] = await ctx.db.db.select().from(artifacts).where(and(eq(artifacts.id, nodeId), eq(artifacts.notebookId, notebookId))).limit(1);
-  if (artifact) {
+  if (openTarget.kind === "artifact" && openTarget.entity) {
+    const artifact = openTarget.entity;
     const view = buildLearningArtifactView({
       id: artifact.id,
       notebookId: artifact.notebookId,
@@ -502,7 +548,7 @@ export async function buildReferenceSurface(ctx: AppContext, notebookId: string,
     const sourceRefs = view.sourceRefs;
     const blocks = view.sections.map(sectionToReferenceBlock);
     return toLearnerFacingReferenceSurface(base({
-      nodeRef: { refType: "artifact", refId: artifact.id },
+      nodeRef: semanticRef("artifact", artifact.id, view.title),
       title: view.title,
       surfaceType: "artifact",
       summary: `${view.purpose} ${view.studentAction}`,
@@ -518,16 +564,16 @@ export async function buildReferenceSurface(ctx: AppContext, notebookId: string,
       blocks,
       sourceRefs,
       provenanceRefs: sourceRefs.map((ref) => ({ ...ref, role: "derived_from" })),
-      primaryActions: artifact.artifactType === "quiz" ? ["ask_tutor", "quiz", "open_provenance"] : ["ask_tutor", "review", "open_provenance"],
+      primaryActions: artifact.artifactType === "quiz" ? ["ask_tutor", "quiz", "regenerate", "open_provenance"] : ["ask_tutor", "review", "regenerate", "open_provenance"],
       quality: { confidence: view.confidence, sourceBacked: view.quality.sourceBacked, needsReview: view.quality.needsReview },
       generation: generationFromRecord(artifact.payloadJson),
     }));
   }
 
-  const [source] = await ctx.db.db.select().from(sources).where(and(eq(sources.id, nodeId), eq(sources.notebookId, notebookId))).limit(1);
-  if (source) {
+  if (openTarget.kind === "source" && openTarget.entity) {
+    const source = openTarget.entity;
     return toLearnerFacingReferenceSurface(base({
-      nodeRef: { refType: "source", refId: source.id },
+      nodeRef: semanticRef("source", source.id, source.title),
       title: source.title,
       surfaceType: "source",
       status: source.status,
@@ -567,63 +613,65 @@ export async function buildNodeEvidence(
   nodeId: string,
   options: { devMode?: boolean } = {},
 ): Promise<EvidenceReadModel> {
-  const [concept] = await ctx.db.db.select().from(concepts).where(and(eq(concepts.id, nodeId), eq(concepts.notebookId, notebookId))).limit(1);
-  if (concept) {
-    const links = await ctx.db.db.select({ claimId: claimConceptLinks.claimId }).from(claimConceptLinks).where(eq(claimConceptLinks.conceptId, nodeId));
-    const claimIds = links.map((link) => link.claimId);
-    const evidence = await buildEvidenceFromClaimAndChunkIds(ctx, claimIds, []);
+  const target = await resolveNodeOpenTarget(ctx, notebookId, nodeId);
+  const devMode = options.devMode === true;
 
+  if (target.kind === "concept" && target.entity) {
+    const concept = target.entity;
+    const claimIds = await loadConceptClaimIds(ctx, concept.id);
+    const evidence = await buildEvidenceFromClaimAndChunkIds(ctx, claimIds, []);
     return {
       nodeId: concept.id,
       entityType: "concept",
-      entity: { id: concept.id, title: concept.canonicalName, conceptType: concept.conceptType, description: concept.description, confidence: concept.confidence },
-      ...evidenceForMode(evidence, options.devMode === true),
+      entity: {
+        id: concept.id,
+        title: concept.canonicalName,
+        conceptType: concept.conceptType,
+        description: concept.description,
+        confidence: concept.confidence,
+      },
+      ...evidenceForMode(evidence, devMode),
     };
   }
 
-  const [wikiPage] = await ctx.db.db.select().from(wikiPages).where(and(eq(wikiPages.id, nodeId), eq(wikiPages.notebookId, notebookId))).limit(1);
-  if (wikiPage) {
-    const evidence = await buildEvidenceFromClaimAndChunkIds(ctx, wikiPage.sourceClaimIds ?? [], wikiPage.sourceChunkIds ?? []);
+  if (target.kind === "wiki_page" && target.entity) {
+    const wikiPage = target.entity;
+    const evidence = await buildEvidenceFromClaimAndChunkIds(
+      ctx,
+      wikiPage.sourceClaimIds ?? [],
+      wikiPage.sourceChunkIds ?? [],
+    );
     return {
       nodeId: wikiPage.id,
       entityType: "wiki_page",
       entity: { id: wikiPage.id, title: wikiPage.title, status: wikiPage.status, markdown: wikiPage.markdown },
-      ...evidenceForMode(evidence, options.devMode === true),
+      ...evidenceForMode(evidence, devMode),
     };
   }
 
-  const [artifact] = await ctx.db.db.select().from(artifacts).where(and(eq(artifacts.id, nodeId), eq(artifacts.notebookId, notebookId))).limit(1);
-  if (artifact) {
-    const evidence = await buildEvidenceFromClaimAndChunkIds(ctx, artifact.sourceClaimIds ?? [], artifact.sourceChunkIds ?? []);
+  if (target.kind === "artifact" && target.entity) {
+    const artifact = target.entity;
+    const evidence = await buildEvidenceFromClaimAndChunkIds(
+      ctx,
+      artifact.sourceClaimIds ?? [],
+      artifact.sourceChunkIds ?? [],
+    );
     return {
       nodeId: artifact.id,
       entityType: "artifact",
       entity: { id: artifact.id, title: artifact.title, artifactType: artifact.artifactType, status: artifact.status },
-      ...evidenceForMode(evidence, options.devMode === true),
+      ...evidenceForMode(evidence, devMode),
     };
   }
 
-  const [source] = await ctx.db.db.select().from(sources).where(and(eq(sources.id, nodeId), eq(sources.notebookId, notebookId))).limit(1);
-  if (source) {
-    const [latestVersion] = await ctx.db.db
-      .select()
-      .from(sourceVersions)
-      .where(eq(sourceVersions.sourceId, nodeId))
-      .orderBy(desc(sourceVersions.version))
-      .limit(1);
-    const chunkRows = latestVersion
-      ? await ctx.db.db
-          .select({ id: chunks.id, chunkType: chunks.chunkType, text: chunks.text, pageStart: chunks.pageStart, pageEnd: chunks.pageEnd, sourceVersionId: chunks.sourceVersionId })
-          .from(chunks)
-          .where(eq(chunks.sourceVersionId, latestVersion.id))
-          .limit(10)
-      : [];
-    const learnerRefs = toChunkEvidenceRefs(await mapChunkRefsWithSourceTitles(ctx, chunkRows), "learner");
+  if (target.kind === "source" && target.entity) {
+    const source = target.entity;
+    const learnerRefs = await loadSourceChunkEvidence(ctx, source.id);
     return {
       nodeId: source.id,
       entityType: "source",
       entity: { id: source.id, title: source.title, status: source.status, sourceType: source.sourceType },
-      learnerRefs: sanitizeLearnerEvidenceRefs(learnerRefs, options.devMode === true),
+      learnerRefs: sanitizeLearnerEvidenceRefs(learnerRefs, devMode),
       developerRefs: [],
     };
   }
@@ -637,61 +685,6 @@ export async function buildNodeEvidence(
   };
 }
 
-async function buildEvidenceFromClaimAndChunkIds(
-  ctx: AppContext,
-  claimIds: string[],
-  chunkIds: string[],
-): Promise<Pick<EvidenceReadModel, "learnerRefs" | "developerRefs">> {
-  const claimRows = claimIds.length ? await ctx.db.db.select().from(claims).where(inArray(claims.id, claimIds)).limit(20) : [];
-  const linkedChunkIds = Array.from(new Set([...chunkIds, ...claimRows.flatMap((claim) => claim.sourceChunkIds ?? [])]));
-  const chunkRows = linkedChunkIds.length
-    ? await ctx.db.db
-        .select({ id: chunks.id, chunkType: chunks.chunkType, text: chunks.text, pageStart: chunks.pageStart, pageEnd: chunks.pageEnd, sourceVersionId: chunks.sourceVersionId })
-        .from(chunks)
-        .where(inArray(chunks.id, linkedChunkIds))
-        .limit(10)
-    : [];
-  const learnerChunks = toChunkEvidenceRefs(await mapChunkRefsWithSourceTitles(ctx, chunkRows), "learner");
-  const learnerClaims = toClaimEvidenceRefs(claimRows.filter((claim) => isLearnerSafeClaim(claim)), "learner");
-  const developerClaims = toClaimEvidenceRefs(
-    claimRows.filter((claim) => !isLearnerSafeClaim(claim)),
-    "developer",
-  );
-  return { learnerRefs: [...learnerChunks, ...learnerClaims], developerRefs: developerClaims };
-}
-
-function isLearnerSafeClaim(claim: { status: string; confidence: number; sourceChunkIds?: string[] | null }): boolean {
-  return ["accepted", "active", "published"].includes(claim.status) && claim.confidence >= 0.45 && (claim.sourceChunkIds ?? []).length > 0;
-}
-
-function toClaimEvidenceRefs(
-  claimRows: Array<{ id: string; claimText: string; confidence: number; status: string; sourceChunkIds?: string[] | null }>,
-  visibility: "learner" | "developer",
-): EvidenceRef[] {
-  return claimRows.map((claim) => ({
-    id: claim.id,
-    kind: "claim",
-    visibility,
-    label: "Supporting note",
-    text: claim.claimText,
-    confidence: claim.confidence,
-    status: claim.status,
-    statementKind: classifyClaimStatement(claim),
-    chunkType: null,
-    pageStart: null,
-    pageEnd: null,
-    sourceId: null,
-    sourceTitle: null,
-    metadata: { sourceChunkCount: claim.sourceChunkIds?.length ?? 0 },
-  }));
-}
-
-function toLearnerClaimEvidenceRefs(
-  claimRows: Array<{ id: string; claimText: string; confidence: number; status: string; sourceChunkIds?: string[] | null }>,
-): EvidenceRef[] {
-  return sanitizeLearnerEvidenceRefs(toClaimEvidenceRefs(claimRows, "learner"), false);
-}
-
 function evidenceForMode(
   evidence: Pick<EvidenceReadModel, "learnerRefs" | "developerRefs">,
   devMode: boolean,
@@ -702,55 +695,13 @@ function evidenceForMode(
   };
 }
 
-function sanitizeLearnerEvidenceRefs(refs: EvidenceRef[], devMode: boolean): EvidenceRef[] {
-  if (devMode) return refs;
-  return refs.map((ref) => {
-    if (ref.kind !== "claim") return ref;
-    return {
-      ...ref,
-      id: `evidence_${stableHash(ref.id)}`,
-      confidence: null,
-      status: null,
-      metadata: {},
-    };
-  });
-}
-
-function stableHash(value: string): string {
-  let hash = 0;
-  for (let i = 0; i < value.length; i += 1) {
-    hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
-  }
-  return hash.toString(36);
-}
-
-function toChunkEvidenceRefs(
-  chunkRows: Array<{ id: string; chunkType: string; text: string; pageStart: number | null; pageEnd: number | null; sourceId: string | null; sourceTitle: string | null }>,
-  visibility: "learner" | "developer",
-): EvidenceRef[] {
-  return chunkRows.map((chunk) => ({
-    id: chunk.id,
-    kind: "chunk",
-    visibility,
-    label: chunk.sourceTitle ?? chunk.id,
-    text: chunk.text.slice(0, 400),
-    confidence: null,
-    status: null,
-    chunkType: chunk.chunkType,
-    pageStart: chunk.pageStart,
-    pageEnd: chunk.pageEnd,
-    sourceId: chunk.sourceId,
-    sourceTitle: chunk.sourceTitle,
-    metadata: {},
-  }));
-}
-
-function classifyClaimStatement(claim: { sourceChunkIds?: string[] | null; confidence: number; status: string }): "source_backed" | "inferred" | "generated" {
-  if ((claim.sourceChunkIds ?? []).length > 0 && ["accepted", "active", "published"].includes(claim.status) && claim.confidence >= 0.45) {
-    return "source_backed";
-  }
-  if ((claim.sourceChunkIds ?? []).length > 0) return "inferred";
-  return "generated";
+function semanticRef(refType: NodeRef["refType"], refId: string, title?: string | null): NodeRef {
+  const trimmedTitle = title?.trim();
+  return {
+    refType,
+    refId,
+    ...(trimmedTitle ? { handle: trimmedTitle, title: trimmedTitle, label: trimmedTitle } : {}),
+  };
 }
 
 export function readablePlanningSummary(summary: string | null | undefined, title: string): string | null {
@@ -894,46 +845,4 @@ function generationFromRecord(value: unknown): ReferenceSurface["generation"] {
 
 function isJsonRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-async function mapChunkRefsWithSourceTitles(
-  ctx: AppContext,
-  chunkRows: Array<{ id: string; chunkType: string; text: string; pageStart: number | null; pageEnd: number | null; sourceVersionId: string }>,
-): Promise<Array<{ id: string; chunkType: string; text: string; pageStart: number | null; pageEnd: number | null; sourceId: string | null; sourceTitle: string | null }>> {
-  const versionIds = Array.from(new Set(chunkRows.map((chunk) => chunk.sourceVersionId)));
-  if (!versionIds.length) {
-    return chunkRows.map((chunk) => ({
-      id: chunk.id,
-      chunkType: chunk.chunkType,
-      text: chunk.text.slice(0, 400),
-      pageStart: chunk.pageStart,
-      pageEnd: chunk.pageEnd,
-      sourceId: null,
-      sourceTitle: null,
-    }));
-  }
-
-  const versions = await ctx.db.db
-    .select({ id: sourceVersions.id, sourceId: sourceVersions.sourceId })
-    .from(sourceVersions)
-    .where(inArray(sourceVersions.id, versionIds));
-  const sourceIds = Array.from(new Set(versions.map((version) => version.sourceId)));
-  const sourceRows = sourceIds.length
-    ? await ctx.db.db.select({ id: sources.id, title: sources.title }).from(sources).where(inArray(sources.id, sourceIds))
-    : [];
-  const sourceIdByVersionId = new Map(versions.map((version) => [version.id, version.sourceId] as const));
-  const sourceTitleById = new Map(sourceRows.map((source) => [source.id, source.title] as const));
-
-  return chunkRows.map((chunk) => {
-    const sourceId = sourceIdByVersionId.get(chunk.sourceVersionId) ?? null;
-    return {
-      id: chunk.id,
-      chunkType: chunk.chunkType,
-      text: chunk.text.slice(0, 400),
-      pageStart: chunk.pageStart,
-      pageEnd: chunk.pageEnd,
-      sourceId,
-      sourceTitle: sourceId ? sourceTitleById.get(sourceId) ?? null : null,
-    };
-  });
 }

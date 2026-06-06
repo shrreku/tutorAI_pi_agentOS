@@ -1,42 +1,20 @@
-import type { NodeRef } from "./ids.js";
 import type {
+  NodeRef,
   SyntheticLearnerAssertion,
+  SyntheticLearnerAssertionEngineInput,
+  SyntheticLearnerAssertionPersistenceEvidence,
   SyntheticLearnerAssertionReference,
   SyntheticLearnerAssertionStatus,
+  SyntheticLearnerForbiddenProductStateSnapshot,
   SyntheticLearnerRuntimeEvent,
   SyntheticLearnerToolEvent,
-} from "./synthetic-learner-evals.js";
+} from "@studyagent/schemas";
 
-export type SyntheticLearnerAssertionPersistenceEvidence = {
-  masteryEvidence?: Array<{
-    ref: NodeRef;
-    correctnessLabel?: string;
-    overallScore?: number;
-    confidence?: number;
-    triggerSource?: string;
-  }>;
-  artifacts?: Array<{
-    ref: NodeRef;
-    status: string;
-  }>;
-  sessionEvents?: Array<{
-    ref?: NodeRef;
-    eventType: string;
-    timestamp?: string;
-  }>;
-};
-
-export type SyntheticLearnerAssertionEngineInput = {
-  assertionRefs: SyntheticLearnerAssertionReference[];
-  transcript?: string[];
-  tutorMessages?: string[];
-  toolEvents?: SyntheticLearnerToolEvent[];
-  runtimeEvents?: SyntheticLearnerRuntimeEvent[];
-  notebookEvents?: SyntheticLearnerRuntimeEvent[];
-  traceRefs?: NodeRef[];
-  notebookRefs?: NodeRef[];
-  persistence?: SyntheticLearnerAssertionPersistenceEvidence;
-};
+export type {
+  SyntheticLearnerAssertionEngineInput,
+  SyntheticLearnerAssertionPersistenceEvidence,
+  SyntheticLearnerForbiddenProductStateSnapshot,
+} from "@studyagent/schemas";
 
 const ALLOWED_ARTIFACT_STATUSES = new Set(["proposed", "generating", "ready", "published", "archived", "failed", "discarded"]);
 const DEBUG_NARRATION_PREFIXES = ["TOOL START:", "TOOL COMPLETE:", "RUNTIME:", "NOTEBOOK EVENT:", "ASSERTION pending:"];
@@ -73,7 +51,7 @@ export function evaluateSyntheticLearnerAssertion(
   }
 
   if (category === "persistence") {
-    return evaluatePersistenceAssertion(ref, runtimeEvents, persistence, evidenceRefs);
+    return evaluatePersistenceAssertion(ref, runtimeEvents, persistence, evidenceRefs, input.disableRuntimeFallback);
   }
 
   return buildAssertion({
@@ -161,7 +139,7 @@ function evaluateRuntimeAssertion(
 ): SyntheticLearnerAssertion {
   let hasTutorTurns = false;
   let hasAgentRun = evidenceRefs.some((ref) => ref.refType === "session");
-  let hasContextSelection = false;
+  let hasSearchRetrieval = false;
   let hasEvaluateResponse = false;
   let hasArtifactLifecycle = false;
   let hasSessionLifecycle = false;
@@ -186,8 +164,11 @@ function evaluateRuntimeAssertion(
     if (event.eventType.includes("session") || event.eventType.includes("digest") || event.eventType.includes("crystall")) {
       hasSessionLifecycle = true;
     }
-    if (event.eventType === "session.context.selected" || event.eventType.includes("context")) {
-      hasContextSelection = true;
+    if (
+      event.eventType === "agent.narration.completed" ||
+      event.eventType === "agent.thinking.completed"
+    ) {
+      hasSearchRetrieval = true;
     }
     if (event.eventType.startsWith("learner_trait.")) {
       hasToolCalls = true;
@@ -196,6 +177,9 @@ function evaluateRuntimeAssertion(
 
   if (toolEvents.some((event) => event.toolName.includes("artifact"))) {
     hasArtifactLifecycle = true;
+  }
+  if (toolEvents.some((event) => event.toolName === "wiki.search")) {
+    hasSearchRetrieval = true;
   }
 
   if (!runtimeEvents.length && !notebookEvents.length && !toolEvents.length && !textCorpus.length) {
@@ -214,7 +198,7 @@ function evaluateRuntimeAssertion(
   if (required.tutorTurns && !hasTutorTurns) missing.push("tutor turns");
   if (required.agentRun && !hasAgentRun) missing.push("agent run");
   if (required.toolCalls && !hasToolCalls) missing.push("tool calls");
-  if (required.contextSelection && !hasContextSelection) missing.push("context selection");
+  if (required.searchRetrieval && !hasSearchRetrieval) missing.push("wiki.search retrieval");
   if (required.evaluateResponse && !hasEvaluateResponse) missing.push("mastery evaluation evidence");
   if (required.artifactLifecycle && !hasArtifactLifecycle) missing.push("artifact lifecycle");
   if (required.sessionLifecycle && !hasSessionLifecycle) missing.push("session lifecycle");
@@ -252,7 +236,7 @@ function runtimeRequirementsFor(refId: string): {
   tutorTurns: boolean;
   agentRun: boolean;
   toolCalls: boolean;
-  contextSelection: boolean;
+  searchRetrieval: boolean;
   evaluateResponse: boolean;
   artifactLifecycle: boolean;
   sessionLifecycle: boolean;
@@ -261,7 +245,7 @@ function runtimeRequirementsFor(refId: string): {
     tutorTurns: true,
     agentRun: true,
     toolCalls: true,
-    contextSelection: true,
+    searchRetrieval: false,
     evaluateResponse: false,
     artifactLifecycle: false,
     sessionLifecycle: false,
@@ -276,7 +260,7 @@ function runtimeRequirementsFor(refId: string): {
     return { ...base, toolCalls: false, sessionLifecycle: true };
   }
   if (refId === "runtime_trait_estimation") {
-    return { ...base, tutorTurns: false, agentRun: false, contextSelection: false, toolCalls: true };
+    return { ...base, tutorTurns: false, agentRun: false, searchRetrieval: false, toolCalls: true };
   }
   return base;
 }
@@ -286,8 +270,9 @@ function evaluatePersistenceAssertion(
   runtimeEvents: SyntheticLearnerRuntimeEvent[],
   persistence: SyntheticLearnerAssertionPersistenceEvidence | undefined,
   evidenceRefs: NodeRef[],
+  disableRuntimeFallback = false,
 ): SyntheticLearnerAssertion {
-  const effectivePersistence = persistence ?? persistenceEvidenceFromRuntimeEvents(runtimeEvents);
+  const effectivePersistence = persistence ?? (disableRuntimeFallback ? undefined : persistenceEvidenceFromRuntimeEvents(runtimeEvents));
   if (!effectivePersistence) {
     if (ref.required === false) {
       return buildAssertion({
@@ -428,52 +413,141 @@ function evaluatePersistenceAssertion(
   }
 
   if (ref.refId === "persistence_trait_estimates") {
-    const sessionEvents = effectivePersistence.sessionEvents ?? [];
-    const hasSignal = sessionEvents.some((event) => event.eventType === "learner_trait.signal.recorded");
-    const hasDecision = sessionEvents.some((event) => event.eventType === "learner_trait.guardrail_decision.recorded");
-    if (!hasSignal || !hasDecision) {
+    const snapshot = effectivePersistence.traitRecommendationOnlySnapshot;
+    if (!snapshot) {
       return buildAssertion({
         ref,
         status: "failed",
         passed: false,
-        failureMessage: "Trait estimation did not persist both signal and guardrail decision evidence.",
+        failureMessage: "Required trait estimation snapshot was unavailable.",
         evidenceRefs,
-        details: { hasSignal, hasDecision },
+        details: { reason: "unavailable_required_trait_snapshot" },
       });
     }
+
+    const forbiddenDeltas = collectForbiddenTraitDeltas(snapshot);
+    if (forbiddenDeltas.length) {
+      return buildAssertion({
+        ref,
+        status: "failed",
+        passed: false,
+        failureMessage: "Trait estimation introduced forbidden product-state deltas.",
+        evidenceRefs: [...evidenceRefs, ...forbiddenDeltas.flatMap((delta) => delta.addedRefs)],
+        details: { forbiddenDeltas },
+      });
+    }
+
+    const traitEstimateDelta = refDelta(snapshot.before.traitEstimateRefs, snapshot.after.traitEstimateRefs).length;
+    const traitSignalDelta = refDelta(snapshot.before.traitSignalRefs, snapshot.after.traitSignalRefs).length;
+    const recommendationDelta = refDelta(
+      snapshot.before.personalizationRecommendationRefs,
+      snapshot.after.personalizationRecommendationRefs,
+    ).length;
+    const sessionEvents = effectivePersistence.sessionEvents ?? [];
+    const hasDurableSignal = sessionEvents.some((event) => event.eventType === "learner_trait.signal.recorded");
+    const estimationSkipped = (effectivePersistence.sessionEvents ?? []).some(
+      (event) => event.eventType === "learner_trait.estimation.skipped",
+    );
+    const hasEstimationGovernance = sessionEvents.some(
+      (event) =>
+        event.eventType === "learner_trait.estimation.planned" ||
+        event.eventType === "learner_trait.estimation.skipped" ||
+        event.eventType === "learner_trait.guardrail_decision.recorded",
+    );
+    if (traitEstimateDelta === 0 && recommendationDelta === 0 && traitSignalDelta === 0) {
+      if (hasDurableSignal && hasEstimationGovernance) {
+        return buildAssertion({
+          ref,
+          status: "passed",
+          passed: true,
+          evidenceRefs,
+          details: {
+            traitSignalDelta,
+            traitEstimateDelta,
+            recommendationDelta,
+            hasDurableSignal,
+            hasEstimationGovernance,
+            estimationSkipped,
+          },
+        });
+      }
+      return buildAssertion({
+        ref,
+        status: "failed",
+        passed: false,
+        failureMessage:
+          "Trait estimation did not persist trait-signal, trait-estimate, or personalization-recommendation deltas.",
+        evidenceRefs,
+        details: {
+          traitSignalDelta,
+          traitEstimateDelta,
+          recommendationDelta,
+          hasDurableSignal,
+          hasEstimationGovernance,
+        },
+      });
+    }
+
     return buildAssertion({
       ref,
       status: "passed",
       passed: true,
-      evidenceRefs: [...evidenceRefs, ...sessionEvents.flatMap((event) => (event.ref ? [event.ref] : []))],
-      details: { hasSignal, hasDecision },
+      evidenceRefs: [
+        ...evidenceRefs,
+        ...(snapshot.after.traitSignalRefs ?? []),
+        ...(snapshot.after.traitEstimateRefs ?? []),
+        ...(snapshot.after.personalizationRecommendationRefs ?? []),
+      ],
+      details: {
+        traitSignalDelta,
+        traitEstimateDelta,
+        recommendationDelta,
+        hasDurableSignal,
+        hasEstimationGovernance,
+        estimationSkipped,
+      },
     });
   }
 
   if (ref.refId === "persistence_trait_recommendation_only" || ref.refId === "persistence_trait_no_mastery_mutation") {
-    const sessionEvents = effectivePersistence.sessionEvents ?? [];
-    const traitEvents = sessionEvents.filter((event) => event.eventType.startsWith("learner_trait."));
-    const forbidden = traitEvents.filter((event) =>
-      event.eventType.includes("mastery") ||
-      event.eventType.includes("curriculum") ||
-      event.eventType.includes("artifact"),
-    );
-    if (forbidden.length) {
+    const snapshot = effectivePersistence.traitRecommendationOnlySnapshot;
+    if (!snapshot) {
       return buildAssertion({
         ref,
         status: "failed",
         passed: false,
-        failureMessage: "Trait events crossed the recommendation-only boundary.",
+        failureMessage: "Required trait recommendation-only pre/post snapshot was unavailable.",
         evidenceRefs,
-        details: { forbiddenEventTypes: forbidden.map((event) => event.eventType) },
+        details: { reason: "unavailable_required_trait_snapshot" },
       });
     }
+    const forbiddenDeltas = collectForbiddenTraitDeltas(snapshot);
+    if (forbiddenDeltas.length) {
+      return buildAssertion({
+        ref,
+        status: "failed",
+        passed: false,
+        failureMessage: "Trait estimation mutated forbidden product state instead of only recommendations.",
+        evidenceRefs: [...evidenceRefs, ...forbiddenDeltas.flatMap((delta) => delta.addedRefs)],
+        details: { forbiddenDeltas },
+      });
+    }
+    const allowedRefs = [
+      ...(snapshot.after.traitEstimateRefs ?? []),
+      ...(snapshot.after.personalizationRecommendationRefs ?? []),
+    ];
     return buildAssertion({
       ref,
       status: "passed",
       passed: true,
-      evidenceRefs: [...evidenceRefs, ...traitEvents.flatMap((event) => (event.ref ? [event.ref] : []))],
-      details: { traitEventCount: traitEvents.length },
+      evidenceRefs: [...evidenceRefs, ...allowedRefs],
+      details: {
+        traitEstimateDelta: refDelta(snapshot.before.traitEstimateRefs, snapshot.after.traitEstimateRefs).length,
+        personalizationRecommendationDelta: refDelta(
+          snapshot.before.personalizationRecommendationRefs,
+          snapshot.after.personalizationRecommendationRefs,
+        ).length,
+      },
     });
   }
 
@@ -487,7 +561,63 @@ function evaluatePersistenceAssertion(
   });
 }
 
-function persistenceEvidenceFromRuntimeEvents(
+function collectForbiddenTraitDeltas(snapshot: {
+  before: SyntheticLearnerForbiddenProductStateSnapshot;
+  after: SyntheticLearnerForbiddenProductStateSnapshot;
+}): Array<{ field: keyof SyntheticLearnerForbiddenProductStateSnapshot; addedRefs: NodeRef[] }> {
+  const forbiddenFields: Array<keyof SyntheticLearnerForbiddenProductStateSnapshot> = [
+    "masteryEvidenceRefs",
+    "learningStateRefs",
+    "weakConceptRefs",
+    "objectiveRefs",
+    "curriculumRefs",
+    "studyPlanRefs",
+    "artifactRefs",
+    "sourceGroundingRefs",
+    "explicitLearnerGoalRefs",
+    "readinessRefs",
+  ];
+  return forbiddenFields.flatMap((field) => {
+    const addedRefs = refDelta(snapshot.before[field], snapshot.after[field]);
+    return addedRefs.length ? [{ field, addedRefs }] : [];
+  });
+}
+
+function refDelta(before: NodeRef[] | undefined, after: NodeRef[] | undefined): NodeRef[] {
+  const beforeKeys = new Set((before ?? []).map((ref) => `${ref.refType}:${ref.refId}`));
+  return (after ?? []).filter((ref) => !beforeKeys.has(`${ref.refType}:${ref.refId}`));
+}
+
+export function mergePersistenceEvidenceWithRuntime(
+  snapshot: SyntheticLearnerAssertionPersistenceEvidence | undefined,
+  runtime: SyntheticLearnerAssertionPersistenceEvidence | undefined,
+): SyntheticLearnerAssertionPersistenceEvidence | undefined {
+  if (!snapshot && !runtime) return undefined;
+  return {
+    ...(runtime ?? {}),
+    ...(snapshot ?? {}),
+    ...(snapshot?.masteryEvidence?.length
+      ? { masteryEvidence: snapshot.masteryEvidence }
+      : runtime?.masteryEvidence?.length
+        ? { masteryEvidence: runtime.masteryEvidence }
+        : {}),
+    ...(snapshot?.sessionEvents?.length
+      ? { sessionEvents: snapshot.sessionEvents }
+      : runtime?.sessionEvents?.length
+        ? { sessionEvents: runtime.sessionEvents }
+        : {}),
+    ...(snapshot?.artifacts?.length
+      ? { artifacts: snapshot.artifacts }
+      : runtime?.artifacts?.length
+        ? { artifacts: runtime.artifacts }
+        : {}),
+    ...(snapshot?.traitRecommendationOnlySnapshot
+      ? { traitRecommendationOnlySnapshot: snapshot.traitRecommendationOnlySnapshot }
+      : {}),
+  };
+}
+
+export function persistenceEvidenceFromRuntimeEvents(
   runtimeEvents: SyntheticLearnerRuntimeEvent[],
 ): SyntheticLearnerAssertionPersistenceEvidence | undefined {
   const masteryEvidence = runtimeEvents.flatMap((event) => {
@@ -630,3 +760,4 @@ function dedupeNodeRefs(refs: NodeRef[]): NodeRef[] {
 function describeRef(ref: NodeRef): string {
   return `${ref.refType}:${ref.refId}`;
 }
+

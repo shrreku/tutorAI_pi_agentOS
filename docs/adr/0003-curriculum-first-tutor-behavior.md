@@ -6,7 +6,7 @@ Date: 2026-05-15
 
 ## Context
 
-The product goal is professor-like tutoring inside a learning path, not open-ended chat. The current runtime prompt and API route assemble study state, selected refs, objective context, learner state, and context-selection reasoning before each tutor run.
+The product goal is professor-like tutoring inside a learning path, not open-ended chat. The tutor obtains curriculum and Live Plan state through read tools (`study_plan.get_current`, `learning.get_state`, etc.) and selected Workspace context rather than turn-prep preload.
 
 ## Decision
 
@@ -16,16 +16,18 @@ Ad hoc questions are allowed, but the tutor should answer them inside the broade
 
 ## Consequences
 
-- Study state loading and prompt construction are part of tutor correctness.
-- Context selection must prefer active objective and session-plan evidence before generic retrieval.
+- Curriculum-first behavior is enforced through system prompt rules and on-demand read tools, not turn-prep retrieval.
+- Corpus search via `wiki.search` should respect selected refs and active objective context gathered through tools.
 - The UI should make the active plan visible so the learner understands why the tutor is teaching a topic.
 - Missing or weak planning state should be surfaced as incomplete planning, not hidden behind generic chat behavior.
 
 ## Current Implementation
 
-- `packages/agent-runtime/src/index.ts` includes curriculum-first prompt sections and prompt context fields for curriculum, module, objective list, session plan, current objective, upcoming objectives, study plan, and learner state.
-- `apps/api/src/routes/tutor.ts` loads `loadNotebookStudyState`, selected artifact context, intent routing, and `selectContextForTutor` before a run.
-- `apps/web/src/TutorPanel.tsx` renders tutor modes and session/study-state controls.
+- `packages/agent-runtime/src/index.ts` includes curriculum-first prompt sections instructing the tutor to read plan state through tools and teach the current objective path.
+- `apps/api/src/routes/tutor.ts` runs Turn Bootstrap (session, run, refs, thin prompt) then delegates to the Pi runtime; notebook facts and `wiki.search` run on demand.
+- `apps/web/src/TutorPanel.tsx` renders tutor modes, Runtime Work View, and session/study-state controls.
+
+Target implementation: `docs/architecture/tutor-runtime-bootstrap-and-observability-implementation-plan.md`.
 
 ## References
 

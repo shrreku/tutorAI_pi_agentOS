@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import type { GraphCanvasNode, GraphQueryResponse } from "@studyagent/schemas";
 import { GraphCanvas } from "./GraphCanvas.js";
@@ -12,16 +12,30 @@ import {
   topicsFromReadModel,
   collapseObjectiveHistory,
   limitLearnerGraphDensity,
+  prepareGraphForCanvas,
   promoteCurrentPathConcepts,
   type CurriculumOutline,
   type CurriculumObjectiveOutline,
   type TopicLayer,
 } from "./whiteboard-utils.js";
 import { mapGraphNodeToNodeRef, mapGraphNodeTypeToRefType } from "./whiteboard-node-ref.js";
+import { useWorkspaceShell } from "./workspace-shell-context.js";
+import { learnerFacingNodeTypeLabel, learnerFacingPipelineStatus } from "./learner-copy-guard.js";
+import {
+  curriculumOutlineQueryKey,
+  fetchCurriculumOutline,
+  fetchNotebookGraphQuery,
+  fetchNotebookSources,
+  fetchNotebookStudyState,
+  notebookGraphQueryKey,
+  notebookSourcesQueryKey,
+  notebookStudyStateQueryKey,
+  saveGraphNodeLayout,
+  clearGraphLayout,
+} from "./notebook-queries.js";
 
 interface WhiteboardProps {
   notebookId: string;
-  onSelectedNodeRefsChange?: (refs: Array<{ refType: string; refId: string }>) => void;
   externalRefreshToken?: number;
 }
 
@@ -60,8 +74,6 @@ const STATUS_OPTIONS = [
   "uploaded",
 ] as const;
 
-type Source = { id: string; title: string; status: string };
-
 type StudyStateSummary = {
   studentProfile: {
     goalSummary: string | null;
@@ -89,60 +101,47 @@ type StudyStateSummary = {
   };
 };
 
-type RightPanelMode = "workspace" | "viewer";
-
-export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, onSelectedNodeRefsChange, externalRefreshToken }) => {
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>("study_map");
-  const [showProvenance, setShowProvenance] = useState(false);
-  const [isDeveloperMode, setIsDeveloperMode] = useState(false);
-  const [rightPanelMode, setRightPanelMode] = useState<RightPanelMode>("workspace");
-
-  // GF-0607: type + status filters
-  const [activeTypeFilters, setActiveTypeFilters] = useState<Set<string>>(new Set());
-  const [activeStatusFilters, setActiveStatusFilters] = useState<Set<string>>(new Set());
-  const [showFilters, setShowFilters] = useState(false);
-  // Track layout reset version so GraphCanvas reloads saved positions
-  const [layoutVersion, setLayoutVersion] = useState(0);
+export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, externalRefreshToken }) => {
+  const { shell: shellState, dispatchShell, setSelectedNodeRefs } = useWorkspaceShell();
+  const {
+    selectedNodeId,
+    viewMode,
+    showEvidence: showProvenance,
+    isDeveloperMode,
+    rightPanelMode,
+    selectedSourceId,
+    activeTypeFilters,
+    activeStatusFilters,
+    showFilters,
+    layoutVersion,
+  } = shellState;
+  const activeTypeFilterSet = new Set(activeTypeFilters);
+  const activeStatusFilterSet = new Set(activeStatusFilters);
 
   // GF-0608: source picker for source_wiki_map
-  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
   const {
     data: sources = [],
     isLoading: isSourcesLoading,
   } = useQuery({
-    queryKey: ["notebook-sources", notebookId],
+    queryKey: notebookSourcesQueryKey(notebookId),
     enabled: viewMode === "source_wiki_map",
-    queryFn: async (): Promise<Source[]> => {
-      const response = await fetch(`/api/v1/notebooks/${notebookId}/sources`);
-      if (!response.ok) {
-        throw new Error(`Failed to load sources (${response.status})`);
-      }
-      const data = (await response.json()) as { sources: Source[] };
-      return data.sources ?? [];
-    },
+    queryFn: () => fetchNotebookSources(notebookId),
   });
 
   useEffect(() => {
     if (viewMode !== "source_wiki_map") return;
     if (!sources.length) {
-      setSelectedSourceId(null);
+      dispatchShell({ type: "setSelectedSource", sourceId: null });
       return;
     }
     if (!selectedSourceId || !sources.some((source) => source.id === selectedSourceId)) {
-      setSelectedSourceId(sources[0]!.id);
+      dispatchShell({ type: "setSelectedSource", sourceId: sources[0]!.id });
     }
   }, [viewMode, sources, selectedSourceId]);
 
   const { data: studyState } = useQuery({
-    queryKey: ["whiteboard-study-state", notebookId],
-    queryFn: async (): Promise<StudyStateSummary> => {
-      const response = await fetch(`/api/v1/notebooks/${notebookId}/study-state`);
-      if (!response.ok) {
-        throw new Error(`Failed to load study state (${response.status})`);
-      }
-      return (await response.json()) as StudyStateSummary;
-    },
+    queryKey: notebookStudyStateQueryKey(notebookId),
+    queryFn: () => fetchNotebookStudyState<StudyStateSummary>(notebookId),
   });
 
   const {
@@ -152,14 +151,13 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, onSelectedNo
     isFetching: isGraphFetching,
     refetch: refetchGraph,
   } = useQuery({
-    queryKey: [
-      "notebook-graph",
+    queryKey: notebookGraphQueryKey(
       notebookId,
       viewMode,
-      viewMode === "source_wiki_map" ? selectedSourceId : "study_map",
+      viewMode === "source_wiki_map" ? (selectedSourceId ?? "none") : "study_map",
       isDeveloperMode,
       externalRefreshToken ?? 0,
-    ],
+    ),
     enabled: viewMode === "curriculum" || viewMode === "study_map" || Boolean(selectedSourceId),
     placeholderData: keepPreviousData,
     queryFn: async (): Promise<GraphQueryResponse> => {
@@ -167,30 +165,14 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, onSelectedNo
         viewMode === "source_wiki_map" && selectedSourceId
           ? { name: viewMode, sourceId: selectedSourceId, limit: 80, devMode: isDeveloperMode }
           : { name: "study_map", limit: 80, devMode: isDeveloperMode };
-
-      const response = await fetch(`/api/v1/notebooks/${notebookId}/graph/query`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      return (await response.json()) as GraphQueryResponse;
+      return fetchNotebookGraphQuery({ notebookId, body });
     },
   });
 
   const { data: curriculumReadModel } = useQuery({
-    queryKey: ["curriculum-outline", notebookId, externalRefreshToken ?? 0],
+    queryKey: curriculumOutlineQueryKey(notebookId, externalRefreshToken ?? 0),
     enabled: viewMode === "curriculum",
-    queryFn: async (): Promise<CurriculumOutline> => {
-      const response = await fetch(`/api/v1/notebooks/${notebookId}/curriculum-outline`);
-      if (!response.ok) {
-        throw new Error(`Failed to load curriculum outline (${response.status})`);
-      }
-      return (await response.json()) as CurriculumOutline;
-    },
+    queryFn: () => fetchCurriculumOutline<CurriculumOutline>(notebookId),
   });
 
   const error = graphError instanceof Error ? graphError.message : null;
@@ -204,25 +186,17 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, onSelectedNo
   useEffect(() => {
     if (!selectedNodeId) return;
     if (graphData?.nodes.some((node) => node.id === selectedNodeId)) return;
-    setSelectedNodeId(null);
+    dispatchShell({ type: "removeMissingSelectedNode", availableNodeIds: graphData?.nodes.map((node) => node.id) ?? [] });
   }, [graphData, selectedNodeId]);
-
-  useEffect(() => {
-    if (rightPanelMode === "viewer" && !selectedNodeId) {
-      setRightPanelMode("workspace");
-    }
-  }, [rightPanelMode, selectedNodeId]);
 
   const handleLayoutChange = async (nodeId: string, position: { x: number; y: number }, nodeType?: string) => {
     try {
-      await fetch(`/api/v1/notebooks/${notebookId}/graph/layout/${nodeId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          position,
-          nodeType: nodeType ?? "unknown",
-          refType: mapGraphNodeTypeToRefType(nodeType ?? "unknown"),
-        }),
+      await saveGraphNodeLayout({
+        notebookId,
+        nodeId,
+        position,
+        nodeType: nodeType ?? "unknown",
+        refType: mapGraphNodeTypeToRefType(nodeType ?? "unknown"),
       });
     } catch (err) {
       console.error("Failed to save layout:", err);
@@ -230,42 +204,44 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, onSelectedNo
   };
 
   // GF-0605: propagate selected node as nodeRef upward
-  // GF-1 (NEW): When clicking a node, enter viewer mode
   const handleNodeSelect = useCallback(
     (nodeId: string | null) => {
-      setSelectedNodeId(nodeId);
-      if (nodeId) {
-        setRightPanelMode("viewer");
-      }
-      if (!onSelectedNodeRefsChange) return;
+      dispatchShell({ type: "selectNode", nodeId });
       if (!nodeId) {
-        onSelectedNodeRefsChange([]);
+        setSelectedNodeRefs([]);
         return;
       }
       const node = graphData?.nodes.find((n) => n.id === nodeId);
       if (node) {
-        onSelectedNodeRefsChange([mapGraphNodeToNodeRef(node)]);
+        setSelectedNodeRefs([mapGraphNodeToNodeRef(node)]);
+        if (node.nodeType === "tutor_session") {
+          dispatchShell({ type: "closeViewer" });
+        }
       }
     },
-    [graphData, onSelectedNodeRefsChange],
+    [graphData, setSelectedNodeRefs, dispatchShell],
   );
 
   // GF-1 (NEW): Return from viewer to workspace
   const handleExitViewer = useCallback(() => {
-    setRightPanelMode("workspace");
-    // Keep node selected for reference but hide the viewer
+    dispatchShell({ type: "closeViewer" });
   }, []);
 
   const handleDraftTutorPrompt = useCallback(
     (prompt: string, node: GraphCanvasNode) => {
-      onSelectedNodeRefsChange?.([mapGraphNodeToNodeRef(node)]);
+      setSelectedNodeRefs([mapGraphNodeToNodeRef(node)]);
       window.dispatchEvent(new CustomEvent("studyagent:tutor-draft-prompt", { detail: { prompt, mode: "wiki_maintenance" } }));
     },
-    [onSelectedNodeRefsChange],
+    [setSelectedNodeRefs],
   );
 
   const selectedNode = graphData?.nodes.find((n) => n.id === selectedNodeId) ?? null;
   const curriculumOutline = curriculumReadModel ?? (graphData ? buildCurriculumOutline(graphData) : null);
+
+  const applyGraphViewPresentation = (data: GraphQueryResponse): GraphQueryResponse => {
+    if (viewMode !== "study_map" && viewMode !== "source_wiki_map") return data;
+    return prepareGraphForCanvas(data);
+  };
 
   // GF-0607: filtered graph data (type + status)
   // GF-3A: Promote current-path concepts in study_map mode
@@ -273,16 +249,16 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, onSelectedNo
     ? (() => {
         const byDefaultVisibility = resolveWorkspaceGraph(graphData, viewMode, isDeveloperMode);
         const nodePassesType = (n: GraphQueryResponse["nodes"][number]) =>
-          activeTypeFilters.size === 0 || activeTypeFilters.has(n.nodeType);
+          activeTypeFilterSet.size === 0 || activeTypeFilterSet.has(n.nodeType);
         const nodePassesStatus = (n: GraphQueryResponse["nodes"][number]) => {
-          if (activeStatusFilters.size === 0) return true;
+          if (activeStatusFilterSet.size === 0) return true;
           const status = typeof n.properties.status === "string" ? n.properties.status : undefined;
-          return status !== undefined && activeStatusFilters.has(status);
+          return status !== undefined && activeStatusFilterSet.has(status);
         };
         const filteredNodes = byDefaultVisibility.nodes.filter((n) => nodePassesType(n) && nodePassesStatus(n));
         const visibleIds = new Set(filteredNodes.map((n) => n.id));
         const filteredEdges =
-          activeTypeFilters.size === 0 && activeStatusFilters.size === 0
+          activeTypeFilterSet.size === 0 && activeStatusFilterSet.size === 0
             ? byDefaultVisibility.edges
             : byDefaultVisibility.edges.filter((e) => visibleIds.has(e.source) && visibleIds.has(e.target));
 
@@ -311,38 +287,33 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, onSelectedNo
             { ...byDefaultVisibility, nodes: filteredNodes, edges: filteredEdges },
             currentPathIds,
           );
-          return isDeveloperMode ? promoted : limitLearnerGraphDensity(collapseObjectiveHistory(promoted), 80);
+          const presented = isDeveloperMode ? promoted : limitLearnerGraphDensity(collapseObjectiveHistory(promoted), 80);
+          return applyGraphViewPresentation(presented);
         }
         const filtered = { ...byDefaultVisibility, nodes: filteredNodes, edges: filteredEdges };
-        return viewMode === "study_map" && !isDeveloperMode ? limitLearnerGraphDensity(collapseObjectiveHistory(filtered), 80) : filtered;
+        const presented =
+          viewMode === "study_map" && !isDeveloperMode
+            ? limitLearnerGraphDensity(collapseObjectiveHistory(filtered), 80)
+            : filtered;
+        return applyGraphViewPresentation(presented);
       })()
     : null;
 
   const toggleTypeFilter = (type: string) => {
-    setActiveTypeFilters((prev) => {
-      const next = new Set(prev);
-      if (next.has(type)) next.delete(type);
-      else next.add(type);
-      return next;
-    });
+    dispatchShell({ type: "toggleTypeFilter", filter: type });
   };
 
   const toggleStatusFilter = (status: string) => {
-    setActiveStatusFilters((prev) => {
-      const next = new Set(prev);
-      if (next.has(status)) next.delete(status);
-      else next.add(status);
-      return next;
-    });
+    dispatchShell({ type: "toggleStatusFilter", filter: status });
   };
 
   const handleClearLayout = async () => {
     try {
-      await fetch(`/api/v1/notebooks/${notebookId}/graph/layout`, { method: "DELETE" });
+      await clearGraphLayout(notebookId);
     } catch {
       // non-fatal
     }
-    setLayoutVersion((v) => v + 1);
+    dispatchShell({ type: "incrementLayoutVersion" });
   };
 
   return (
@@ -366,7 +337,7 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, onSelectedNo
           {(["curriculum", "study_map", "source_wiki_map"] as const).map((mode) => (
             <button
               key={mode}
-              onClick={() => setViewMode(mode)}
+              onClick={() => dispatchShell({ type: "setViewMode", viewMode: mode })}
               className="study-chip-button"
               data-active={viewMode === mode}
               style={{ padding: "6px 10px", fontSize: 11 }}
@@ -380,7 +351,7 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, onSelectedNo
         {viewMode === "source_wiki_map" && sources.length > 0 && (
           <select
             value={selectedSourceId ?? ""}
-            onChange={(e) => setSelectedSourceId(e.target.value)}
+            onChange={(e) => dispatchShell({ type: "setSelectedSource", sourceId: e.target.value })}
             aria-label="Source Wiki source"
             style={{ fontSize: 11, padding: "6px 8px", border: "1px solid var(--line)", borderRadius: 8, background: "var(--panel)", color: "var(--text)" }}
           >
@@ -408,12 +379,12 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, onSelectedNo
 
         <div className="whiteboard-filter-menu">
           <button
-            onClick={() => setShowFilters(!showFilters)}
+            onClick={() => dispatchShell({ type: "setShowFilters", show: !showFilters })}
             className="study-chip-button"
-            data-active={showFilters || (activeTypeFilters.size + activeStatusFilters.size) > 0}
+            data-active={showFilters || (activeTypeFilterSet.size + activeStatusFilterSet.size) > 0}
             aria-expanded={showFilters}
           >
-            Filters{(activeTypeFilters.size + activeStatusFilters.size) > 0 ? ` (${activeTypeFilters.size + activeStatusFilters.size})` : ""}
+            Filters{(activeTypeFilterSet.size + activeStatusFilterSet.size) > 0 ? ` (${activeTypeFilterSet.size + activeStatusFilterSet.size})` : ""}
           </button>
           {showFilters && (
             <div className="whiteboard-filter-popover">
@@ -421,10 +392,10 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, onSelectedNo
                 <summary>Node type</summary>
                 <div className="whiteboard-filter-options">
                   {NODE_TYPES.map((type) => {
-                    const active = activeTypeFilters.has(type);
+                    const active = activeTypeFilterSet.has(type);
                     return (
                       <button key={type} type="button" onClick={() => toggleTypeFilter(type)} data-active={active}>
-                        {type.replace(/_/g, " ")}
+                        {learnerFacingNodeTypeLabel(type, { devMode: isDeveloperMode })}
                       </button>
                     );
                   })}
@@ -434,20 +405,20 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, onSelectedNo
                 <summary>Status</summary>
                 <div className="whiteboard-filter-options">
                   {STATUS_OPTIONS.map((status) => {
-                    const active = activeStatusFilters.has(status);
+                    const active = activeStatusFilterSet.has(status);
                     return (
                       <button key={status} type="button" onClick={() => toggleStatusFilter(status)} data-active={active}>
-                        {status.replace(/_/g, " ")}
+                        {learnerFacingPipelineStatus(status, { devMode: isDeveloperMode })}
                       </button>
                     );
                   })}
                 </div>
               </details>
-              {(activeTypeFilters.size > 0 || activeStatusFilters.size > 0) && (
+              {(activeTypeFilterSet.size > 0 || activeStatusFilterSet.size > 0) && (
                 <button
                   type="button"
                   className="whiteboard-filter-clear"
-                  onClick={() => { setActiveTypeFilters(new Set()); setActiveStatusFilters(new Set()); }}
+                  onClick={() => dispatchShell({ type: "clearFilters" })}
                 >
                   Clear filters
                 </button>
@@ -486,7 +457,7 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, onSelectedNo
         {/* Evidence toggle */}
         {selectedNode && (
           <button
-            onClick={() => setShowProvenance(!showProvenance)}
+            onClick={() => dispatchShell({ type: "toggleEvidence" })}
             className="study-chip-button"
             data-active={showProvenance}
             style={{
@@ -500,7 +471,7 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, onSelectedNo
 
         {/* Dev mode */}
         <button
-          onClick={() => setIsDeveloperMode(!isDeveloperMode)}
+          onClick={() => dispatchShell({ type: "setDeveloperMode", enabled: !isDeveloperMode })}
           className="study-chip-button"
           data-active={isDeveloperMode}
           style={{
@@ -522,7 +493,7 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, onSelectedNo
           </strong>
           <span>{filteredGraphData.nodes.length} nodes</span>
           <span>{filteredGraphData.edges.length} edges</span>
-          {(activeTypeFilters.size + activeStatusFilters.size) > 0 && (
+          {(activeTypeFilterSet.size + activeStatusFilterSet.size) > 0 && (
             <span style={{ color: "var(--accent)" }}>
               {graphData!.nodes.length - filteredGraphData.nodes.length} filtered
             </span>
@@ -647,16 +618,16 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, onSelectedNo
             )}
             
             {/* GF-0604: Node Detail Panel Overlay (workspace mode only) */}
-            {selectedNode && !showProvenance && (
+            {selectedNode && selectedNode.nodeType !== "tutor_session" && !showProvenance && (
               <NodeDetailPanel
                 node={selectedNode}
                 onClose={() => handleNodeSelect(null)}
                 onLaunchTutor={(node) => {
-                  if (onSelectedNodeRefsChange) {
-                    onSelectedNodeRefsChange([mapGraphNodeToNodeRef(node)]);
-                  }
+                  setSelectedNodeRefs([mapGraphNodeToNodeRef(node)]);
                 }}
-                onShowProvenance={() => setShowProvenance(true)}
+                onShowProvenance={() => {
+                  if (!showProvenance) dispatchShell({ type: "toggleEvidence" });
+                }}
               />
             )}
           </>
@@ -669,11 +640,11 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, onSelectedNo
             node={selectedNode}
             onClose={handleExitViewer}
             onLaunchTutor={(node) => {
-              if (onSelectedNodeRefsChange) {
-                onSelectedNodeRefsChange([mapGraphNodeToNodeRef(node)]);
-              }
+              setSelectedNodeRefs([mapGraphNodeToNodeRef(node)]);
             }}
-            onShowProvenance={() => setShowProvenance(true)}
+            onShowProvenance={() => {
+              if (!showProvenance) dispatchShell({ type: "toggleEvidence" });
+            }}
             onDraftTutorPrompt={handleDraftTutorPrompt}
           />
         )}
@@ -685,7 +656,7 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, onSelectedNo
           <DeveloperTimelinePanel
             notebookId={notebookId}
             onSelectNodeRefs={(refs) => {
-              onSelectedNodeRefsChange?.(refs);
+              setSelectedNodeRefs(refs);
             }}
           />
         </div>
@@ -694,7 +665,7 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, onSelectedNo
       {/* Evidence drawer - overlays both workspace and viewer modes */}
       <ProvenanceDrawer
         isOpen={showProvenance}
-        onClose={() => setShowProvenance(false)}
+        onClose={() => dispatchShell({ type: "closeEvidence" })}
         nodeId={selectedNode?.id}
         nodeTitle={(selectedNode?.properties?.title ?? selectedNode?.properties?.canonicalName ?? selectedNode?.properties?.canonical_name) as string | undefined}
         nodeType={selectedNode?.nodeType}
@@ -867,9 +838,9 @@ function ObjectiveList({
             </span>
             <span style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end", color: "#6b7280", fontSize: 12 }}>
               {isCurrent && <span style={{ color: "#1d4ed8", fontWeight: 700 }}>Current</span>}
-              <InlineNodeList label="session" nodeIds={objective.sessionIds} onOpenNode={onOpenNode} />
-              <InlineNodeList label="artifact" nodeIds={objective.artifactIds} onOpenNode={onOpenNode} />
-              <InlineNodeList label="concept" nodeIds={objective.conceptIds} onOpenNode={onOpenNode} />
+              <InlineNodeList label="session" refs={refsForInlineList(objective.sessionRefs, objective.sessionIds)} onOpenNode={onOpenNode} />
+              <InlineNodeList label="artifact" refs={refsForInlineList(objective.artifactRefs, objective.artifactIds)} onOpenNode={onOpenNode} />
+              <InlineNodeList label="concept" refs={refsForInlineList(objective.conceptRefs, objective.conceptIds)} onOpenNode={onOpenNode} />
             </span>
           </div>
         );
@@ -878,20 +849,33 @@ function ObjectiveList({
   );
 }
 
-function InlineNodeList({ label, nodeIds, onOpenNode }: { label: string; nodeIds: string[]; onOpenNode: (nodeId: string) => void }) {
-  if (nodeIds.length === 0) return null;
-  const shown = nodeIds.slice(0, 3);
+function refsForInlineList(refs: Array<{ id: string; title: string }> | undefined, ids: string[]): Array<{ id: string; title: string | null }> {
+  if (refs?.length) return refs.map((ref) => ({ id: ref.id, title: ref.title }));
+  return ids.map((id) => ({ id, title: null }));
+}
+
+function InlineNodeList({
+  label,
+  refs,
+  onOpenNode,
+}: {
+  label: string;
+  refs: Array<{ id: string; title: string | null }>;
+  onOpenNode: (nodeId: string) => void;
+}) {
+  if (refs.length === 0) return null;
+  const shown = refs.slice(0, 3);
   return (
     <>
-      {shown.map((nodeId, index) => (
+      {shown.map((ref, index) => (
         <InlineOpenButton
-          key={nodeId}
-          label={nodeIds.length === 1 ? label : `${label} ${index + 1}`}
-          nodeId={nodeId}
+          key={ref.id}
+          label={ref.title ?? (refs.length === 1 ? label : `${label} ${index + 1}`)}
+          nodeId={ref.id}
           onOpenNode={onOpenNode}
         />
       ))}
-      {nodeIds.length > shown.length && <span style={{ color: "#6b7280", padding: "1px 0" }}>+{nodeIds.length - shown.length} more</span>}
+      {refs.length > shown.length && <span style={{ color: "#6b7280", padding: "1px 0" }}>+{refs.length - shown.length} more</span>}
     </>
   );
 }

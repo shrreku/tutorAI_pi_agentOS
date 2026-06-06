@@ -46,7 +46,7 @@ Initial mastery application should use simple weighted deltas rather than a Baye
 - `apps/api/src/mastery-evaluator.ts` implements hybrid deterministic/LLM/fallback evaluation.
 - `learning.evaluate_response` is a governed write tool that evaluates, persists evidence, and applies reducer-governed mastery updates.
 - `apps/api/src/mastery-runtime.ts` and `apps/api/src/mastery-session.ts` runtime-trigger evaluation on eligible learner answers to mastery-check prompts.
-- `apps/api/src/mastery-reducer.ts` and `apps/api/src/mastery-learning.ts` apply weighted mastery deltas with uncertainty gating; `apps/api/src/phase7.ts` routes legacy quiz/flashcard outcomes through the same evidence pipeline.
+- `apps/api/src/mastery-reducer.ts` and `apps/api/src/mastery-learning.ts` apply weighted mastery deltas with uncertainty gating; `apps/api/src/learning-outcome.ts` and `apps/api/src/assessment-artifacts.ts` route legacy quiz/flashcard outcomes through the same evidence pipeline.
 - `docs/contexts/product-domain/CONTEXT.md` defines Mastery Evaluator and Mastery Evidence.
 - `docs/contexts/api-runtime/CONTEXT.md` records the runtime/tool boundary for mastery evaluation.
 

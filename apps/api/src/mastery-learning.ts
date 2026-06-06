@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
-import { appendEvent, learningState, studyPlans, type DbClient } from "@studyagent/db";
+import { learningState, studyPlans, type DbClient } from "@studyagent/db";
 import type { MasteryEvidence } from "@studyagent/schemas";
+import { appendEventWithTutorCacheInvalidation as appendEvent } from "./agentic-cache-invalidation.js";
 import { computeMasteryDeltaForEvidence, computeNextReviewDays } from "./mastery-reducer.js";
 
 function clamp(value: number, min = 0, max = 1): number {

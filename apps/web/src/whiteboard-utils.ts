@@ -12,6 +12,7 @@ export interface SourceWikiMapData extends GraphQueryResponse {
 export interface IntentAwareLayoutInput {
   graphData: GraphQueryResponse;
   savedPositions: Record<string, { x: number; y: number }>;
+  alreadyPrepared?: boolean;
 }
 
 export interface CurriculumObjectiveOutline {
@@ -22,6 +23,9 @@ export interface CurriculumObjectiveOutline {
   artifactIds: string[];
   sessionIds: string[];
   conceptIds: string[];
+  artifactRefs?: Array<{ id: string; title: string }>;
+  sessionRefs?: Array<{ id: string; title: string }>;
+  conceptRefs?: Array<{ id: string; title: string }>;
 }
 
 export interface CurriculumModuleOutline {
@@ -80,6 +84,9 @@ export function getLearnerNodeTitle(node: GraphQueryResponse["nodes"][number]): 
   if (typeof title === "string" && title.trim().length > 0) return title.trim();
   if (node.nodeType === "concept" && typeof props.name === "string" && props.name.trim().length > 0) {
     return props.name.trim();
+  }
+  if (node.nodeType === "tutor_session") {
+    return "Tutor session";
   }
   if (["curriculum", "curriculum_module", "objective", "session_plan", "study_plan"].includes(node.nodeType)) {
     return "Planning needs review";
@@ -140,6 +147,9 @@ export function buildCurriculumOutline(graphData: GraphQueryResponse): Curriculu
         artifactIds: [],
         sessionIds: [],
         conceptIds: [],
+        artifactRefs: [],
+        sessionRefs: [],
+        conceptRefs: [],
       });
     }
   }
@@ -160,21 +170,27 @@ export function buildCurriculumOutline(graphData: GraphQueryResponse): Curriculu
 
     if (source.nodeType === "objective" && target.nodeType === "artifact") {
       objectivesById.get(source.id)?.artifactIds.push(target.id);
+      objectivesById.get(source.id)?.artifactRefs?.push({ id: target.id, title: getNodeTitle(target) });
     }
     if (target.nodeType === "objective" && source.nodeType === "artifact") {
       objectivesById.get(target.id)?.artifactIds.push(source.id);
+      objectivesById.get(target.id)?.artifactRefs?.push({ id: source.id, title: getNodeTitle(source) });
     }
     if (source.nodeType === "objective" && target.nodeType === "session_plan") {
       objectivesById.get(source.id)?.sessionIds.push(target.id);
+      objectivesById.get(source.id)?.sessionRefs?.push({ id: target.id, title: getNodeTitle(target) });
     }
     if (target.nodeType === "objective" && source.nodeType === "session_plan") {
       objectivesById.get(target.id)?.sessionIds.push(source.id);
+      objectivesById.get(target.id)?.sessionRefs?.push({ id: source.id, title: getNodeTitle(source) });
     }
     if (source.nodeType === "objective" && target.nodeType === "concept") {
       objectivesById.get(source.id)?.conceptIds.push(target.id);
+      objectivesById.get(source.id)?.conceptRefs?.push({ id: target.id, title: getNodeTitle(target) });
     }
     if (target.nodeType === "objective" && source.nodeType === "concept") {
       objectivesById.get(target.id)?.conceptIds.push(source.id);
+      objectivesById.get(target.id)?.conceptRefs?.push({ id: source.id, title: getNodeTitle(source) });
     }
   }
 
@@ -245,6 +261,7 @@ export function limitLearnerGraphDensity(graphData: GraphQueryResponse, maxNodes
     ["curriculum_module", 90],
     ["objective", 80],
     ["session_plan", 70],
+    ["tutor_session", 65],
     ["artifact", 60],
     ["wiki_page", 50],
     ["concept", 40],
@@ -293,25 +310,409 @@ export function promoteCurrentPathConcepts(
   return { ...graphData, nodes: visibleNodes, edges: visibleEdges };
 }
 
+const LAYOUT_NODE_WIDTH = 168;
+const LAYOUT_NODE_HEIGHT = 110;
+const LAYOUT_NODE_GAP_X = 80;
+const LAYOUT_NODE_GAP_Y = 96;
+const LAYOUT_LEVEL_HEIGHT = LAYOUT_NODE_HEIGHT + LAYOUT_NODE_GAP_Y;
+const LAYOUT_NODE_SPACING = LAYOUT_NODE_WIDTH + LAYOUT_NODE_GAP_X;
+const LAYOUT_START_X = 120;
+const LAYOUT_START_Y = 56;
+
+const STUDY_MAP_LEVEL_4_SUBROW: Record<string, number> = {
+  artifact: 0,
+  concept: 1,
+  wiki_page: 2,
+};
+
+const STUDY_MAP_LEVEL_4_SUBROW_HEIGHT = LAYOUT_NODE_HEIGHT + 40;
+
+/** Planning nodes belong in Curriculum view; they still bridge graph paths in Study Map. */
+export const STUDY_MAP_EXCLUDED_NODE_TYPES = new Set([
+  "objective",
+  "study_plan",
+  "studyplan",
+  "objective_list",
+  "session_plan",
+  "weak_concept",
+]);
+
+const STUDY_MAP_BRIDGE_NODE_TYPES = STUDY_MAP_EXCLUDED_NODE_TYPES;
+
+const STUDY_MAP_LEVEL_BY_TYPE: Record<string, number> = {
+  source: 0,
+  curriculum: 1,
+  curriculum_module: 2,
+  tutor_session: 3,
+  artifact: 4,
+  concept: 4,
+  wiki_page: 4,
+};
+
+const STUDY_MAP_LEVEL_FALLBACK = 4;
+
+const SOURCE_WIKI_TOPIC_LEVEL_TYPES = new Set(["topic"]);
+
+function isSourceWikiTopicPage(node: GraphQueryResponse["nodes"][number]): boolean {
+  return node.nodeType === "wiki_page" && node.properties.pageType === "topic";
+}
+
+function isSourceWikiConceptPage(node: GraphQueryResponse["nodes"][number]): boolean {
+  return node.nodeType === "wiki_page" && node.properties.pageType !== "topic";
+}
+
+export function getGraphNodeLevel(
+  graphName: string | undefined,
+  node: GraphQueryResponse["nodes"][number],
+): number {
+  if (graphName === "source_wiki_map") {
+    if (node.nodeType === "source") return 0;
+    if (SOURCE_WIKI_TOPIC_LEVEL_TYPES.has(node.nodeType) || isSourceWikiTopicPage(node)) return 1;
+    if (node.nodeType === "concept" || isSourceWikiConceptPage(node)) return 2;
+    return 2;
+  }
+
+  if (graphName === "study_map") {
+    return STUDY_MAP_LEVEL_BY_TYPE[node.nodeType] ?? STUDY_MAP_LEVEL_FALLBACK;
+  }
+
+  return 0;
+}
+
+function normalizeEdgeLevels(
+  graphName: string | undefined,
+  sourceNode: GraphQueryResponse["nodes"][number],
+  targetNode: GraphQueryResponse["nodes"][number],
+): { parent: GraphQueryResponse["nodes"][number]; child: GraphQueryResponse["nodes"][number]; parentLevel: number; childLevel: number } {
+  const sourceLevel = getGraphNodeLevel(graphName, sourceNode);
+  const targetLevel = getGraphNodeLevel(graphName, targetNode);
+  if (sourceLevel <= targetLevel) {
+    return { parent: sourceNode, child: targetNode, parentLevel: sourceLevel, childLevel: targetLevel };
+  }
+  return { parent: targetNode, child: sourceNode, parentLevel: targetLevel, childLevel: sourceLevel };
+}
+
+function isAllowedStudyMapEdge(
+  parent: GraphQueryResponse["nodes"][number],
+  child: GraphQueryResponse["nodes"][number],
+): boolean {
+  if (child.nodeType === "artifact") {
+    return parent.nodeType === "curriculum_module" || parent.nodeType === "tutor_session";
+  }
+  if (parent.nodeType === "artifact") {
+    return false;
+  }
+  if (parent.nodeType === "source" && (child.nodeType === "artifact" || child.nodeType === "tutor_session")) {
+    return false;
+  }
+  if (parent.nodeType === "source" && child.nodeType === "concept") {
+    return false;
+  }
+  return true;
+}
+
+function isStudyMapLevelGapAllowed(
+  parent: GraphQueryResponse["nodes"][number],
+  child: GraphQueryResponse["nodes"][number],
+  parentLevel: number,
+  childLevel: number,
+): boolean {
+  if (childLevel - parentLevel === 1) return true;
+  if (child.nodeType === "artifact") {
+    return (
+      (parent.nodeType === "curriculum_module" || parent.nodeType === "tutor_session") &&
+      childLevel > parentLevel
+    );
+  }
+  return false;
+}
+
+function buildUndirectedAdjacency(
+  edges: GraphQueryResponse["edges"],
+  nodeIds: Set<string>,
+): Map<string, Set<string>> {
+  const adjacency = new Map<string, Set<string>>();
+  const touch = (nodeId: string) => {
+    if (!adjacency.has(nodeId)) adjacency.set(nodeId, new Set());
+    return adjacency.get(nodeId)!;
+  };
+
+  for (const nodeId of nodeIds) touch(nodeId);
+  for (const edge of edges) {
+    if (!nodeIds.has(edge.source) || !nodeIds.has(edge.target)) continue;
+    touch(edge.source).add(edge.target);
+    touch(edge.target).add(edge.source);
+  }
+  return adjacency;
+}
+
+function pushProjectedEdge(
+  edges: GraphQueryResponse["edges"],
+  seen: Set<string>,
+  source: string,
+  target: string,
+  relationType: string,
+): void {
+  const key = `${source}->${target}`;
+  if (seen.has(key)) return;
+  seen.add(key);
+  edges.push({
+    id: `projected-${source}-${target}-${relationType}`,
+    source,
+    target,
+    relationType,
+    properties: { projectedBy: "graph.study_map_hierarchy" },
+  });
+}
+
+function projectStudyMapEdges(graphData: GraphQueryResponse): GraphQueryResponse["edges"] {
+  const nodeById = new Map(graphData.nodes.map((node) => [node.id, node] as const));
+  const allNodeIds = new Set(graphData.nodes.map((node) => node.id));
+  const visibleNodes = graphData.nodes.filter((node) => !STUDY_MAP_EXCLUDED_NODE_TYPES.has(node.nodeType));
+  const visibleIds = new Set(visibleNodes.map((node) => node.id));
+  const adjacency = buildUndirectedAdjacency(graphData.edges, allNodeIds);
+  const projected: GraphQueryResponse["edges"] = [];
+  const seen = new Set<string>();
+
+  for (const edge of graphData.edges) {
+    if (!visibleIds.has(edge.source) || !visibleIds.has(edge.target)) continue;
+    const sourceNode = nodeById.get(edge.source);
+    const targetNode = nodeById.get(edge.target);
+    if (!sourceNode || !targetNode) continue;
+    const { parent, child } = normalizeEdgeLevels(graphData.name, sourceNode, targetNode);
+    pushProjectedEdge(projected, seen, parent.id, child.id, edge.relationType);
+  }
+
+  for (const startNode of visibleNodes) {
+    const startLevel = getGraphNodeLevel(graphData.name, startNode);
+    const queue = [startNode.id];
+    const visited = new Set([startNode.id]);
+
+    while (queue.length > 0) {
+      const currentId = queue.shift()!;
+      for (const neighborId of adjacency.get(currentId) ?? []) {
+        if (visited.has(neighborId)) continue;
+        const neighbor = nodeById.get(neighborId);
+        if (!neighbor) continue;
+        visited.add(neighborId);
+
+        if (!visibleIds.has(neighborId)) {
+          if (STUDY_MAP_BRIDGE_NODE_TYPES.has(neighbor.nodeType)) {
+            queue.push(neighborId);
+          }
+          continue;
+        }
+
+        if (neighborId === startNode.id) continue;
+        const neighborLevel = getGraphNodeLevel(graphData.name, neighbor);
+        if (neighborLevel === startLevel) continue;
+        const { parent, child, parentLevel, childLevel } = normalizeEdgeLevels(graphData.name, startNode, neighbor);
+        if (!isAllowedStudyMapEdge(parent, child)) continue;
+        if (!isStudyMapLevelGapAllowed(parent, child, parentLevel, childLevel)) continue;
+        pushProjectedEdge(projected, seen, parent.id, child.id, "CONNECTS");
+      }
+    }
+  }
+
+  const childrenByParent = new Map<string, Set<string>>();
+  for (const edge of projected) {
+    const bucket = childrenByParent.get(edge.source) ?? new Set();
+    bucket.add(edge.target);
+    childrenByParent.set(edge.source, bucket);
+  }
+
+  const modules = visibleNodes.filter((node) => node.nodeType === "curriculum_module");
+  const sessions = visibleNodes.filter((node) => node.nodeType === "tutor_session");
+  const preferredModule = modules.find((node) => node.properties.status === "active") ?? modules[0] ?? null;
+
+  const hasParentEdge = (nodeId: string): boolean =>
+    [...childrenByParent.values()].some((children) => children.has(nodeId));
+
+  for (const session of sessions) {
+    if (hasParentEdge(session.id) || !preferredModule) continue;
+    pushProjectedEdge(projected, seen, preferredModule.id, session.id, "HOSTS");
+    const moduleChildren = childrenByParent.get(preferredModule.id) ?? new Set<string>();
+    moduleChildren.add(session.id);
+    childrenByParent.set(preferredModule.id, moduleChildren);
+  }
+
+  const artifacts = visibleNodes.filter((node) => node.nodeType === "artifact");
+  for (const artifact of artifacts) {
+    const hasParent = hasParentEdge(artifact.id);
+    if (hasParent) continue;
+    const parentSession = sessions[sessions.length - 1] ?? null;
+    const parentModule = preferredModule;
+    if (parentSession) {
+      pushProjectedEdge(projected, seen, parentSession.id, artifact.id, "COMPLETED_BY");
+    } else if (parentModule) {
+      pushProjectedEdge(projected, seen, parentModule.id, artifact.id, "COVERS");
+    }
+  }
+
+  return projected;
+}
+
+function isTopicWikiPage(node: GraphQueryResponse["nodes"][number]): boolean {
+  return node.nodeType === "wiki_page" && node.properties.pageType === "topic";
+}
+
+function dedupeSourceWikiGraph(graphData: GraphQueryResponse): GraphQueryResponse {
+  const nodeById = new Map(graphData.nodes.map((node) => [node.id, node] as const));
+  const hiddenIds = new Set<string>();
+  const remapIds = new Map<string, string>();
+
+  for (const node of graphData.nodes) {
+    if (node.nodeType !== "topic") continue;
+    const linkedTopicPage = graphData.edges
+      .filter((edge) => edge.source === node.id && edge.relationType.toUpperCase() === "CONTAINS_PAGE")
+      .map((edge) => nodeById.get(edge.target))
+      .find((candidate): candidate is GraphQueryResponse["nodes"][number] => Boolean(candidate && isTopicWikiPage(candidate)));
+
+    if (linkedTopicPage) {
+      hiddenIds.add(node.id);
+      remapIds.set(node.id, linkedTopicPage.id);
+    }
+  }
+
+  for (const node of graphData.nodes) {
+    if (node.nodeType !== "wiki_page" || isTopicWikiPage(node)) continue;
+    const linkedConcept = graphData.edges
+      .flatMap((edge) => {
+        if (edge.source === node.id) return [nodeById.get(edge.target)];
+        if (edge.target === node.id) return [nodeById.get(edge.source)];
+        return [];
+      })
+      .find((candidate) => candidate?.nodeType === "concept");
+    if (linkedConcept) hiddenIds.add(node.id);
+  }
+
+  const remapNodeId = (nodeId: string): string => {
+    let current = nodeId;
+    const visited = new Set<string>();
+    while (remapIds.has(current) && !visited.has(current)) {
+      visited.add(current);
+      current = remapIds.get(current)!;
+    }
+    return current;
+  };
+
+  const nodes = graphData.nodes.filter((node) => !hiddenIds.has(node.id));
+  const visibleIds = new Set(nodes.map((node) => node.id));
+  const edges = graphData.edges
+    .map((edge) => ({
+      ...edge,
+      source: remapNodeId(edge.source),
+      target: remapNodeId(edge.target),
+    }))
+    .filter((edge) => visibleIds.has(edge.source) && visibleIds.has(edge.target));
+
+  return { ...graphData, nodes, edges };
+}
+
+function isHiddenStudyMapArtifact(node: GraphQueryResponse["nodes"][number]): boolean {
+  if (node.nodeType !== "artifact") return false;
+  const artifactType =
+    typeof node.properties.artifactType === "string"
+      ? node.properties.artifactType
+      : typeof node.properties.artifact_type === "string"
+        ? node.properties.artifact_type
+        : "";
+  return artifactType === "session_digest";
+}
+
+function filterStudyMapNodes(graphData: GraphQueryResponse): GraphQueryResponse {
+  const nodes = graphData.nodes.filter(
+    (node) => !STUDY_MAP_EXCLUDED_NODE_TYPES.has(node.nodeType) && !isHiddenStudyMapArtifact(node),
+  );
+  const visibleIds = new Set(nodes.map((node) => node.id));
+  const edges = graphData.edges.filter((edge) => visibleIds.has(edge.source) && visibleIds.has(edge.target));
+  return { ...graphData, nodes, edges };
+}
+
+function isPreferredSourceWikiEdge(relationType: string): boolean {
+  const normalized = relationType.trim().toUpperCase();
+  return normalized === "HAS_TOPIC" || normalized === "CONTAINS_CONCEPT" || normalized === "CONTAINS_PAGE";
+}
+
+export function filterHierarchicalGraphEdges(graphData: GraphQueryResponse): GraphQueryResponse["edges"] {
+  const nodeById = new Map(graphData.nodes.map((node) => [node.id, node] as const));
+  const graphName = graphData.name;
+
+  const candidates = graphData.edges.filter((edge) => {
+    const sourceNode = nodeById.get(edge.source);
+    const targetNode = nodeById.get(edge.target);
+    if (!sourceNode || !targetNode) return false;
+
+    const { parent, child, parentLevel, childLevel } = normalizeEdgeLevels(graphName, sourceNode, targetNode);
+    const isAdjacentLevel = childLevel - parentLevel === 1;
+
+    if (graphName === "study_map") {
+      if (!isAllowedStudyMapEdge(parent, child)) return false;
+      return isStudyMapLevelGapAllowed(parent, child, parentLevel, childLevel);
+    }
+
+    if (!isAdjacentLevel) return false;
+
+    if (graphName === "source_wiki_map") {
+      return isPreferredSourceWikiEdge(edge.relationType);
+    }
+
+    return isAdjacentLevel;
+  });
+
+  if (graphName !== "source_wiki_map") {
+    return candidates;
+  }
+
+  const seenPairs = new Set<string>();
+  return candidates.filter((edge) => {
+    const pairKey = `${edge.source}->${edge.target}`;
+    if (seenPairs.has(pairKey)) return false;
+    seenPairs.add(pairKey);
+    return true;
+  });
+}
+
+export function prepareGraphForCanvas(graphData: GraphQueryResponse): GraphQueryResponse {
+  const collapsed = collapseObjectiveHistory(graphData);
+
+  if (graphData.name === "source_wiki_map") {
+    const deduped = dedupeSourceWikiGraph(collapsed);
+    return { ...deduped, edges: filterHierarchicalGraphEdges(deduped) };
+  }
+
+  if (graphData.name === "study_map") {
+    const projected = { ...collapsed, edges: projectStudyMapEdges(collapsed) };
+    const visible = filterStudyMapNodes(projected);
+    return { ...visible, edges: filterHierarchicalGraphEdges(visible) };
+  }
+
+  return { ...collapsed, edges: filterHierarchicalGraphEdges(collapsed) };
+}
+
 export function getIntentAwareNodePosition(
   nodeType: string,
   nodeIndex: number,
   saved: { x: number; y: number } | undefined,
+  graphName?: string,
 ): { x: number; y: number } {
   if (saved) return saved;
-  const laneByType: Record<string, number> = {
-    curriculum: 0,
-    curriculum_module: 1,
-    objective_list: 2,
-    objective: 3,
-    session_plan: 4,
-    artifact: 5,
+
+  const level =
+    graphName === "study_map"
+      ? (STUDY_MAP_LEVEL_BY_TYPE[nodeType] ?? STUDY_MAP_LEVEL_FALLBACK)
+      : graphName === "source_wiki_map"
+        ? nodeType === "source"
+          ? 0
+          : nodeType === "topic"
+            ? 1
+            : 2
+        : 0;
+
+  return {
+    x: LAYOUT_START_X + (nodeIndex % 5) * LAYOUT_NODE_SPACING,
+    y: LAYOUT_START_Y + level * LAYOUT_LEVEL_HEIGHT + Math.floor(nodeIndex / 5) * 28,
   };
-  const lane = laneByType[nodeType];
-  if (lane === undefined) {
-    return { x: (nodeIndex % 6) * 210, y: Math.floor(nodeIndex / 6) * 160 };
-  }
-  return { x: lane * 260 + 80, y: nodeIndex * 140 + 60 };
 }
 
 function getHeadingBucket(properties: Record<string, unknown>): string {
@@ -321,56 +722,384 @@ function getHeadingBucket(properties: Record<string, unknown>): string {
   return typeof heading === "string" && heading.trim().length > 0 ? heading : "Ungrouped";
 }
 
-export function buildIntentAwareLayout({ graphData, savedPositions }: IntentAwareLayoutInput): Array<{
-  node: GraphQueryResponse["nodes"][number];
-  position: { x: number; y: number };
-}> {
-  const isSourceWiki = graphData.name === "source_wiki_map";
-  const topicByNodeId = new Map<string, string>();
-  const topicOrder = new Map<string, number>();
-  let topicCounter = 0;
+const STUDY_MAP_SIBLING_ORDER: Record<string, number> = {
+  artifact: 0,
+  concept: 1,
+  wiki_page: 2,
+};
 
-  if (isSourceWiki) {
-    for (const node of graphData.nodes) {
-      const topic = getHeadingBucket(node.properties);
-      topicByNodeId.set(node.id, topic);
-      if (!topicOrder.has(topic)) {
-        topicOrder.set(topic, topicCounter++);
-      }
+function compareNodesForLayout(
+  graphName: string | undefined,
+  a: GraphQueryResponse["nodes"][number],
+  b: GraphQueryResponse["nodes"][number],
+): number {
+  const levelDiff = getGraphNodeLevel(graphName, a) - getGraphNodeLevel(graphName, b);
+  if (levelDiff !== 0) return levelDiff;
+  if (graphName === "study_map") {
+    const orderDiff = (STUDY_MAP_SIBLING_ORDER[a.nodeType] ?? 9) - (STUDY_MAP_SIBLING_ORDER[b.nodeType] ?? 9);
+    if (orderDiff !== 0) return orderDiff;
+  }
+  return getLearnerNodeTitle(a).localeCompare(getLearnerNodeTitle(b));
+}
+
+function buildParentChildMaps(
+  graphData: GraphQueryResponse,
+): {
+  childrenByParent: Map<string, string[]>;
+  parentsByChild: Map<string, string[]>;
+} {
+  const nodeById = new Map(graphData.nodes.map((node) => [node.id, node] as const));
+  const childrenByParent = new Map<string, string[]>();
+  const parentsByChild = new Map<string, string[]>();
+
+  for (const edge of filterHierarchicalGraphEdges(graphData)) {
+    const sourceNode = nodeById.get(edge.source);
+    const targetNode = nodeById.get(edge.target);
+    if (!sourceNode || !targetNode) continue;
+
+    const { parent, child } = normalizeEdgeLevels(graphData.name, sourceNode, targetNode);
+    const parentChildren = childrenByParent.get(parent.id) ?? [];
+    if (!parentChildren.includes(child.id)) parentChildren.push(child.id);
+    childrenByParent.set(parent.id, parentChildren);
+
+    const childParents = parentsByChild.get(child.id) ?? [];
+    if (!childParents.includes(parent.id)) childParents.push(parent.id);
+    parentsByChild.set(child.id, childParents);
+  }
+
+  return { childrenByParent, parentsByChild };
+}
+
+function getLayoutY(
+  graphName: string | undefined,
+  node: GraphQueryResponse["nodes"][number],
+  level: number,
+): number {
+  let y = LAYOUT_START_Y + level * LAYOUT_LEVEL_HEIGHT;
+  if (graphName === "study_map" && level === 4) {
+    y += (STUDY_MAP_LEVEL_4_SUBROW[node.nodeType] ?? 2) * STUDY_MAP_LEVEL_4_SUBROW_HEIGHT;
+  }
+  return y;
+}
+
+function nodeCenterX(position: { x: number; y: number }): number {
+  return position.x + LAYOUT_NODE_WIDTH / 2;
+}
+
+function nodeRightX(position: { x: number; y: number }): number {
+  return position.x + LAYOUT_NODE_WIDTH;
+}
+
+type LayoutCluster = {
+  parentId: string | null;
+  nodes: GraphQueryResponse["nodes"][number][];
+  idealLeft: number;
+  placedLeft: number;
+};
+
+function primaryParentId(
+  graphName: string | undefined,
+  nodeId: string,
+  nodeById: Map<string, GraphQueryResponse["nodes"][number]>,
+  parentsByChild: Map<string, string[]>,
+  positions: Map<string, { x: number; y: number }>,
+): string | null {
+  const node = nodeById.get(nodeId);
+  if (!node) return null;
+  const nodeLevel = getGraphNodeLevel(graphName, node);
+  const parents = (parentsByChild.get(nodeId) ?? [])
+    .filter((parentId) => positions.has(parentId))
+    .map((parentId) => {
+      const parent = nodeById.get(parentId);
+      return parent ? { id: parentId, level: getGraphNodeLevel(graphName, parent) } : null;
+    })
+    .filter((entry): entry is { id: string; level: number } => entry !== null && entry.level < nodeLevel)
+    .sort((a, b) => a.level - b.level);
+
+  const directParent = parents.find((entry) => entry.level === nodeLevel - 1);
+  return directParent?.id ?? parents[0]?.id ?? null;
+}
+
+function clusterBounds(
+  cluster: LayoutCluster,
+  positions: Map<string, { x: number; y: number }>,
+): { left: number; right: number } | null {
+  const placed = cluster.nodes
+    .map((node) => positions.get(node.id))
+    .filter((position): position is { x: number; y: number } => position !== undefined);
+  if (!placed.length) return null;
+  return {
+    left: Math.min(...placed.map((position) => position.x)),
+    right: Math.max(...placed.map((position) => nodeRightX(position))),
+  };
+}
+
+function placeClusterNodes(
+  cluster: LayoutCluster,
+  left: number,
+  y: number,
+  positions: Map<string, { x: number; y: number }>,
+  savedPositions: Record<string, { x: number; y: number }>,
+): void {
+  cluster.placedLeft = left;
+  cluster.nodes.forEach((node, index) => {
+    const saved = savedPositions[node.id];
+    if (saved) {
+      positions.set(node.id, saved);
+      return;
+    }
+    positions.set(node.id, { x: left + index * LAYOUT_NODE_SPACING, y });
+  });
+}
+
+function buildParentCenteredClusters(
+  graphName: string | undefined,
+  rowNodes: GraphQueryResponse["nodes"][number][],
+  nodeById: Map<string, GraphQueryResponse["nodes"][number]>,
+  parentsByChild: Map<string, string[]>,
+  positions: Map<string, { x: number; y: number }>,
+): LayoutCluster[] {
+  const nodesByParent = new Map<string, GraphQueryResponse["nodes"][number][]>();
+  const orphanNodes: GraphQueryResponse["nodes"][number][] = [];
+
+  for (const node of rowNodes) {
+    const parentId = primaryParentId(graphName, node.id, nodeById, parentsByChild, positions);
+    if (parentId) {
+      const bucket = nodesByParent.get(parentId) ?? [];
+      bucket.push(node);
+      nodesByParent.set(parentId, bucket);
+    } else {
+      orphanNodes.push(node);
     }
   }
 
-  const laneCounts = new Map<string, number>();
-  return graphData.nodes.map((node, index) => {
+  const clusters: LayoutCluster[] = [];
+
+  for (const [parentId, nodes] of nodesByParent) {
+    const sorted = [...nodes].sort((a, b) => compareNodesForLayout(graphName, a, b));
+    const parentPosition = positions.get(parentId);
+    const parentCenter = parentPosition ? nodeCenterX(parentPosition) : LAYOUT_START_X + LAYOUT_NODE_WIDTH / 2;
+    const clusterWidth = sorted.length * LAYOUT_NODE_SPACING;
+    clusters.push({
+      parentId,
+      nodes: sorted,
+      idealLeft: parentCenter - clusterWidth / 2,
+      placedLeft: 0,
+    });
+  }
+
+  if (orphanNodes.length > 0) {
+    const sorted = [...orphanNodes].sort((a, b) => compareNodesForLayout(graphName, a, b));
+    const clusterWidth = sorted.length * LAYOUT_NODE_SPACING;
+    clusters.push({
+      parentId: null,
+      nodes: sorted,
+      idealLeft: LAYOUT_START_X,
+      placedLeft: 0,
+    });
+  }
+
+  return clusters.sort((a, b) => a.idealLeft - b.idealLeft);
+}
+
+function resolveClusterOverlaps(
+  clusters: LayoutCluster[],
+  y: number,
+  positions: Map<string, { x: number; y: number }>,
+  savedPositions: Record<string, { x: number; y: number }>,
+): void {
+  let cursorX = LAYOUT_START_X;
+  for (const cluster of clusters) {
+    const clusterWidth = cluster.nodes.length * LAYOUT_NODE_SPACING;
+    const placedLeft = Math.max(cursorX, cluster.idealLeft);
+    placeClusterNodes(cluster, placedLeft, y, positions, savedPositions);
+    cursorX = placedLeft + clusterWidth + LAYOUT_NODE_GAP_X;
+  }
+}
+
+function nudgeClusterTowardParent(
+  cluster: LayoutCluster,
+  clusters: LayoutCluster[],
+  positions: Map<string, { x: number; y: number }>,
+  savedPositions: Record<string, { x: number; y: number }>,
+  y: number,
+): void {
+  if (!cluster.parentId || cluster.nodes.length === 0) return;
+  const parentPosition = positions.get(cluster.parentId);
+  if (!parentPosition) return;
+
+  const bounds = clusterBounds(cluster, positions);
+  if (!bounds) return;
+
+  const parentCenter = nodeCenterX(parentPosition);
+  const groupCenter = (bounds.left + bounds.right) / 2;
+  const shift = parentCenter - groupCenter;
+  if (Math.abs(shift) < 1) return;
+
+  const shiftedLeft = bounds.left + shift;
+  const shiftedRight = bounds.right + shift;
+
+  for (const other of clusters) {
+    if (other === cluster) continue;
+    const otherBounds = clusterBounds(other, positions);
+    if (!otherBounds) continue;
+    if (shiftedLeft < otherBounds.right + LAYOUT_NODE_GAP_X && shiftedRight > otherBounds.left - LAYOUT_NODE_GAP_X) {
+      return;
+    }
+  }
+
+  for (const node of cluster.nodes) {
+    if (savedPositions[node.id]) continue;
+    const current = positions.get(node.id);
+    if (!current) continue;
+    positions.set(node.id, { x: current.x + shift, y: current.y });
+  }
+  cluster.placedLeft += shift;
+}
+
+function centerParentOverChildren(
+  parentId: string,
+  childrenByParent: Map<string, string[]>,
+  positions: Map<string, { x: number; y: number }>,
+  savedPositions: Record<string, { x: number; y: number }>,
+): void {
+  if (savedPositions[parentId]) return;
+  const parentPosition = positions.get(parentId);
+  if (!parentPosition) return;
+
+  const childBounds = (childrenByParent.get(parentId) ?? [])
+    .map((childId) => positions.get(childId))
+    .filter((position): position is { x: number; y: number } => position !== undefined);
+  if (!childBounds.length) return;
+
+  const left = Math.min(...childBounds.map((position) => position.x));
+  const right = Math.max(...childBounds.map((position) => nodeRightX(position)));
+  const groupCenter = (left + right) / 2;
+  positions.set(parentId, {
+    x: groupCenter - LAYOUT_NODE_WIDTH / 2,
+    y: parentPosition.y,
+  });
+}
+
+function enforceRowMinimumSpacing(
+  rowNodes: GraphQueryResponse["nodes"][number][],
+  y: number,
+  positions: Map<string, { x: number; y: number }>,
+  savedPositions: Record<string, { x: number; y: number }>,
+): void {
+  const sorted = [...rowNodes]
+    .filter((node) => positions.has(node.id))
+    .sort((a, b) => (positions.get(a.id)?.x ?? 0) - (positions.get(b.id)?.x ?? 0));
+
+  let cursorX = LAYOUT_START_X;
+  for (const node of sorted) {
     const saved = savedPositions[node.id];
     if (saved) {
-      return { node, position: saved };
+      positions.set(node.id, saved);
+      cursorX = Math.max(cursorX, saved.x + LAYOUT_NODE_SPACING);
+      continue;
     }
+    const current = positions.get(node.id);
+    if (!current) continue;
+    const x = Math.max(cursorX, current.x);
+    positions.set(node.id, { x, y });
+    cursorX = x + LAYOUT_NODE_SPACING;
+  }
+}
 
-    if (!isSourceWiki) {
-      return {
-        node,
-        position: getIntentAwareNodePosition(node.nodeType, index, undefined),
-      };
+function layoutRowParentCentered(
+  graphName: string | undefined,
+  rowNodes: GraphQueryResponse["nodes"][number][],
+  nodeById: Map<string, GraphQueryResponse["nodes"][number]>,
+  parentsByChild: Map<string, string[]>,
+  positions: Map<string, { x: number; y: number }>,
+  savedPositions: Record<string, { x: number; y: number }>,
+  y: number,
+): void {
+  const clusters = buildParentCenteredClusters(graphName, rowNodes, nodeById, parentsByChild, positions);
+  resolveClusterOverlaps(clusters, y, positions, savedPositions);
+  for (const cluster of clusters) {
+    nudgeClusterTowardParent(cluster, clusters, positions, savedPositions, y);
+  }
+  enforceRowMinimumSpacing(rowNodes, y, positions, savedPositions);
+}
+
+function layoutHierarchy(
+  graphData: GraphQueryResponse,
+  savedPositions: Record<string, { x: number; y: number }>,
+): Map<string, { x: number; y: number }> {
+  const positions = new Map<string, { x: number; y: number }>();
+  const nodeById = new Map(graphData.nodes.map((node) => [node.id, node] as const));
+  const { childrenByParent, parentsByChild } = buildParentChildMaps(graphData);
+
+  const byLevel = new Map<number, GraphQueryResponse["nodes"][number][]>();
+  for (const node of graphData.nodes) {
+    const level = getGraphNodeLevel(graphData.name, node);
+    const bucket = byLevel.get(level) ?? [];
+    bucket.push(node);
+    byLevel.set(level, bucket);
+  }
+
+  const levels = [...byLevel.keys()].sort((a, b) => a - b);
+  if (levels.length === 0) return positions;
+
+  const rootLevel = levels[0] ?? 0;
+  const rootNodes = [...(byLevel.get(rootLevel) ?? [])].sort((a, b) => compareNodesForLayout(graphData.name, a, b));
+  rootNodes.forEach((node, index) => {
+    const saved = savedPositions[node.id];
+    if (saved) {
+      positions.set(node.id, saved);
+      return;
     }
-
-    const topic = topicByNodeId.get(node.id) ?? "Ungrouped";
-    const topicIndex = topicOrder.get(topic) ?? 0;
-    const clusterOffsetY = topicIndex * 220;
-    const laneKey = `${topic}:${node.nodeType}`;
-    const laneCount = laneCounts.get(laneKey) ?? 0;
-    laneCounts.set(laneKey, laneCount + 1);
-
-    const xByType: Record<string, number> = {
-      source: 80,
-      topic: 320,
-      concept: 620,
-      wiki_page: 900,
-      claim: 1120,
-      source_section: 1120,
-    };
-    const x = xByType[node.nodeType] ?? 1280;
-    const y = clusterOffsetY + 60 + laneCount * 92;
-    return { node, position: { x, y } };
+    positions.set(node.id, {
+      x: LAYOUT_START_X + index * LAYOUT_NODE_SPACING,
+      y: getLayoutY(graphData.name, node, rootLevel),
+    });
   });
+
+  for (const level of levels) {
+    if (level === rootLevel) continue;
+
+    const levelNodes = byLevel.get(level) ?? [];
+    const nodesByRow = new Map<number, GraphQueryResponse["nodes"][number][]>();
+    for (const node of levelNodes) {
+      const y = getLayoutY(graphData.name, node, level);
+      const bucket = nodesByRow.get(y) ?? [];
+      bucket.push(node);
+      nodesByRow.set(y, bucket);
+    }
+
+    for (const [y, rowNodes] of [...nodesByRow.entries()].sort(([a], [b]) => a - b)) {
+      layoutRowParentCentered(graphData.name, rowNodes, nodeById, parentsByChild, positions, savedPositions, y);
+    }
+  }
+
+  for (let level = Math.max(...levels) - 1; level >= rootLevel; level -= 1) {
+    for (const parent of byLevel.get(level) ?? []) {
+      centerParentOverChildren(parent.id, childrenByParent, positions, savedPositions);
+    }
+  }
+
+  for (const [nodeId, saved] of Object.entries(savedPositions)) {
+    if (saved) positions.set(nodeId, saved);
+  }
+
+  return positions;
+}
+
+export function buildIntentAwareLayout({
+  graphData,
+  savedPositions,
+  alreadyPrepared = false,
+}: IntentAwareLayoutInput): Array<{
+  node: GraphQueryResponse["nodes"][number];
+  position: { x: number; y: number };
+}> {
+  const prepared = alreadyPrepared ? graphData : prepareGraphForCanvas(graphData);
+  const positions = layoutHierarchy(prepared, savedPositions);
+
+  return prepared.nodes.map((node) => ({
+    node,
+    position: positions.get(node.id) ?? getIntentAwareNodePosition(node.nodeType, 0, savedPositions[node.id], prepared.name),
+  }));
 }

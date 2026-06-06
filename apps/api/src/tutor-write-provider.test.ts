@@ -3,11 +3,8 @@ import {
   resolveArtifactLifecycleOutcome,
   resolveArtifactConsentPolicy,
 } from "./artifact-lifecycle.js";
-import {
-  findCoverageRecordForScope,
-  sanitizeArtifactSourceNodeRefs,
-  selectPreferredCoverageGapRow,
-} from "./tutor-write-provider.js";
+import { sanitizeArtifactSourceNodeRefs } from "./tutor-write-artifacts.js";
+import { findCoverageRecordForScope, selectPreferredCoverageGapRow } from "./tutor-write-coverage.js";
 
 describe("findCoverageRecordForScope", () => {
   it("matches only the exact scope tuple including nulls", () => {

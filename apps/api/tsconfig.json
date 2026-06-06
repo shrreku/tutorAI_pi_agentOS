@@ -9,7 +9,8 @@
     { "path": "../../packages/search" },
     { "path": "../../packages/wiki-core" },
     { "path": "../../packages/graph" },
-    { "path": "../../packages/agent-runtime" }
+    { "path": "../../packages/agent-runtime" },
+    { "path": "../../packages/eval-runner" }
   ],
   "include": ["src/**/*.ts"]
 }

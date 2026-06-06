@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { eventTypeSchema } from "@studyagent/schemas";
-import { WORKSPACE_REFRESH_EVENT_TYPES, shouldInvalidateArtifactsForEvent } from "./App.js";
+import { WORKSPACE_REFRESH_EVENT_TYPES, shouldInvalidateArtifactsForEvent } from "./workspace-refresh-policy.js";
 
 describe("app event listener contract", () => {
   it("subscribes only to schema-defined event names", () => {
@@ -18,14 +18,9 @@ describe("app event listener contract", () => {
     }
   });
 
-  it("invalidates artifact queries only for artifact-scoped events", () => {
-    for (const eventType of WORKSPACE_REFRESH_EVENT_TYPES) {
-      const shouldInvalidate = shouldInvalidateArtifactsForEvent(eventType);
-      if (eventType.startsWith("artifact.")) {
-        expect(shouldInvalidate).toBe(true);
-      } else {
-        expect(shouldInvalidate).toBe(false);
-      }
-    }
+  it("invalidates artifact queries for artifact and quiz-attempt events", () => {
+    expect(shouldInvalidateArtifactsForEvent("artifact.ready")).toBe(true);
+    expect(shouldInvalidateArtifactsForEvent("quiz.attempt.recorded")).toBe(true);
+    expect(shouldInvalidateArtifactsForEvent("session_plan.updated")).toBe(false);
   });
 });

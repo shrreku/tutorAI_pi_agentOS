@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { idSchema, nodeRefSchema } from "./ids.js";
 import { learnerTraitValuesSchema } from "./learner-traits.js";
+import { evalEvidenceSnapshotSchema } from "./synthetic-learner-evals.snapshot.js";
 
 export const syntheticLearnerModeSchema = z.enum(["scripted", "beat_llm", "scenario_autonomous_llm", "full_autonomous_llm"]);
 export const syntheticLearnerRunKindSchema = z.enum([
@@ -380,9 +381,38 @@ export const syntheticLearnerSimulatorEvidenceSchema = z.object({
   timestamp: z.string().datetime(),
 });
 
+export const syntheticLearnerIssueCandidatePolicySchema = z.enum(["emit_all", "failures_only"]);
+
+export const syntheticLearnerEvalRunPlanSchema = z.object({
+  scenarioId: idSchema,
+  personaId: idSchema,
+  runKind: syntheticLearnerRunKindSchema,
+  learnerMode: syntheticLearnerModeSchema,
+  gatingPolicy: syntheticLearnerGatingPolicySchema,
+  issueCandidatePolicy: syntheticLearnerIssueCandidatePolicySchema.default("emit_all"),
+  autonomyStartProfile: syntheticLearnerAutonomyStartProfileSchema.optional(),
+  simulatorModel: syntheticLearnerModelConfigSchema.optional(),
+  assertionRefs: z.array(syntheticLearnerAssertionReferenceSchema).default([]),
+});
+
 export const syntheticLearnerEvalIssueCandidateSchema = z.object({
   title: z.string().min(1),
+  kind: z.enum(["warning", "failure"]).default("failure"),
+  reason: z.enum([
+    "run_failed",
+    "invalid_action_repaired",
+    "required_snapshot_unavailable",
+    "optional_assertion_skipped",
+    "required_action_not_covered",
+    "suspicious_finish",
+    "raw_id_leak_repaired",
+    "simulator_tool_mismatch",
+    "degraded_observation",
+    "flaky_retry",
+    "quality_warning",
+  ]).default("run_failed"),
   severity: z.enum(["low", "medium", "high", "critical"]),
+  publishEligible: z.boolean().default(true),
   learnerMode: syntheticLearnerModeSchema,
   runKind: syntheticLearnerRunKindSchema,
   personaId: idSchema,
@@ -430,6 +460,18 @@ export const syntheticLearnerRuntimeEventSchema = z.object({
 
 export const syntheticLearnerRunStatusSchema = z.enum(["planned", "running", "passed", "failed", "skipped"]);
 
+export const syntheticLearnerEvalObservationEventSchema = z.object({
+  id: idSchema,
+  runId: idSchema,
+  scenarioRunId: idSchema.optional(),
+  timestamp: z.string().datetime(),
+  kind: z.enum(["run", "student", "tutor", "tool", "runtime", "notebook", "assertion", "artifact", "issue_candidate"]),
+  status: syntheticLearnerRunStatusSchema.optional(),
+  message: z.string().min(1),
+  payload: z.record(z.string(), z.unknown()).default({}),
+  evidenceRefs: z.array(nodeRefSchema).default([]),
+});
+
 export const syntheticLearnerEvalRunSchema = z.object({
   id: idSchema,
   fixtureManifestId: idSchema,
@@ -455,6 +497,8 @@ export const syntheticLearnerEvalRunSchema = z.object({
   actionRepairAttempts: z.number().int().nonnegative().default(0),
   simulatorEvidence: z.array(syntheticLearnerSimulatorEvidenceSchema).default([]),
   issueCandidates: z.array(syntheticLearnerEvalIssueCandidateSchema).default([]),
+  observationEvents: z.array(syntheticLearnerEvalObservationEventSchema).default([]),
+  evalEvidenceSnapshotRefs: z.array(nodeRefSchema).default([]),
   finalState: z.object({
     passed: z.boolean(),
     summary: z.string().min(1),
@@ -520,6 +564,10 @@ export const syntheticLearnerEvalScenarioRunSchema = z.object({
   simulatorEvidence: z.array(syntheticLearnerSimulatorEvidenceSchema).default([]),
   issueCandidates: z.array(syntheticLearnerEvalIssueCandidateSchema).default([]),
   rubricResults: z.array(syntheticLearnerRubricResultSchema).default([]),
+  observationEvents: z.array(syntheticLearnerEvalObservationEventSchema).default([]),
+  evalEvidenceSnapshotRefs: z.array(nodeRefSchema).default([]),
+  evalEvidenceSnapshots: z.array(evalEvidenceSnapshotSchema).default([]),
+  evalPlan: syntheticLearnerEvalRunPlanSchema.optional(),
   finalState: z.object({
     passed: z.boolean(),
     summary: z.string().min(1),
@@ -551,6 +599,10 @@ export const syntheticLearnerEvalRunRecordSchema = z.object({
   rubricResults: z.array(syntheticLearnerRubricResultSchema).default([]),
   reportMetadata: z.array(syntheticLearnerEvalReportMetadataSchema).default([]),
   issueCandidates: z.array(syntheticLearnerEvalIssueCandidateSchema).default([]),
+  observationEvents: z.array(syntheticLearnerEvalObservationEventSchema).default([]),
+  evalEvidenceSnapshotRefs: z.array(nodeRefSchema).default([]),
+  evalEvidenceSnapshots: z.array(evalEvidenceSnapshotSchema).default([]),
+  evalPlans: z.array(syntheticLearnerEvalRunPlanSchema).default([]),
 });
 
 export const syntheticLearnerEvalMatrixSchema = z.object({
@@ -600,6 +652,7 @@ export type SyntheticLearnerAssertion = z.infer<typeof syntheticLearnerAssertion
 export type SyntheticLearnerToolEvent = z.infer<typeof syntheticLearnerToolEventSchema>;
 export type SyntheticLearnerRuntimeEvent = z.infer<typeof syntheticLearnerRuntimeEventSchema>;
 export type SyntheticLearnerRunStatus = z.infer<typeof syntheticLearnerRunStatusSchema>;
+export type SyntheticLearnerEvalObservationEvent = z.infer<typeof syntheticLearnerEvalObservationEventSchema>;
 export type SyntheticLearnerEvalRun = z.infer<typeof syntheticLearnerEvalRunSchema>;
 export type SyntheticLearnerEvalStep = z.infer<typeof syntheticLearnerEvalStepSchema>;
 export type SyntheticLearnerEvalScenarioRun = z.infer<typeof syntheticLearnerEvalScenarioRunSchema>;
@@ -607,6 +660,9 @@ export type SyntheticLearnerEvalReportFormat = z.infer<typeof syntheticLearnerEv
 export type SyntheticLearnerEvalReportMetadata = z.infer<typeof syntheticLearnerEvalReportMetadataSchema>;
 export type SyntheticLearnerEvalRunRecord = z.infer<typeof syntheticLearnerEvalRunRecordSchema>;
 export type SyntheticLearnerEvalMatrix = z.infer<typeof syntheticLearnerEvalMatrixSchema>;
+
+export type SyntheticLearnerIssueCandidatePolicy = z.infer<typeof syntheticLearnerIssueCandidatePolicySchema>;
+export type SyntheticLearnerEvalRunPlan = z.infer<typeof syntheticLearnerEvalRunPlanSchema>;
 
 export function formatSyntheticLearnerList(items: string[], separator: string): string {
   return items.length ? items.join(separator) : "none";
@@ -695,6 +751,8 @@ export function buildSyntheticLearnerEvalMatrix(input: {
       actionRepairAttempts: 0,
       simulatorEvidence: [],
       issueCandidates: [],
+      observationEvents: [],
+      evalEvidenceSnapshotRefs: [],
       finalState: {
         passed: false,
         summary: "Planned run",
@@ -708,6 +766,68 @@ export function buildSyntheticLearnerEvalMatrix(input: {
     scenarios: input.scenarios,
     runs,
   };
+}
+
+export function planSyntheticLearnerEvalRun(input: {
+  scenario: SyntheticLearnerScenario;
+  persona: SyntheticLearnerPersona;
+  learnerMode?: SyntheticLearnerMode;
+  gatingPolicy?: SyntheticLearnerGatingPolicy;
+  autonomyStartProfile?: SyntheticLearnerAutonomyStartProfile;
+  simulatorModelConfig?: SyntheticLearnerModelConfig;
+  issueCandidatePolicy?: SyntheticLearnerIssueCandidatePolicy;
+}): SyntheticLearnerEvalRunPlan {
+  const learnerMode = input.learnerMode ?? "scripted";
+  const runKind = input.scenario.runKind;
+  const autonomyStartProfile = input.autonomyStartProfile;
+  const compatible = isLearnerModeCompatibleWithRunKind(runKind, learnerMode);
+  if (!compatible) {
+    throw new Error(`Synthetic Learner runKind ${runKind} is incompatible with learnerMode ${learnerMode}.`);
+  }
+  if (learnerMode === "full_autonomous_llm" && !input.scenario.autonomousConfig) {
+    throw new Error(`Synthetic Learner full_autonomous_llm requires autonomousConfig for scenario ${input.scenario.id}.`);
+  }
+  if (learnerMode !== "full_autonomous_llm" && autonomyStartProfile) {
+    throw new Error(`Synthetic Learner autonomyStartProfile requires full_autonomous_llm, received ${learnerMode}.`);
+  }
+  const gatingPolicy = input.gatingPolicy ?? defaultGatingPolicyForPlan(runKind, learnerMode, input.scenario.autonomousConfig?.gateStatus);
+  if (learnerMode !== "scripted" && gatingPolicy === "ci_gating") {
+    throw new Error(`Synthetic Learner learnerMode ${learnerMode} is non-CI-gating by default and cannot be promoted without an explicit suite decision.`);
+  }
+  return syntheticLearnerEvalRunPlanSchema.parse({
+    scenarioId: input.scenario.id,
+    personaId: input.persona.id,
+    runKind,
+    learnerMode,
+    gatingPolicy,
+    issueCandidatePolicy: input.issueCandidatePolicy ?? "emit_all",
+    ...(autonomyStartProfile ? { autonomyStartProfile } : {}),
+    ...(input.simulatorModelConfig ? { simulatorModel: input.simulatorModelConfig } : {}),
+    assertionRefs: learnerMode === "full_autonomous_llm"
+      ? input.scenario.autonomousConfig?.invariantAssertionRefs ?? input.scenario.assertionRefs
+      : input.scenario.assertionRefs,
+  });
+}
+
+function isLearnerModeCompatibleWithRunKind(
+  runKind: SyntheticLearnerRunKind,
+  learnerMode: SyntheticLearnerMode,
+): boolean {
+  if (runKind === "regression") return learnerMode === "scripted" || learnerMode === "beat_llm";
+  if (runKind === "golden_journey") return learnerMode === "scripted" || learnerMode === "beat_llm";
+  if (runKind === "scenario_autonomous") return learnerMode === "scenario_autonomous_llm";
+  if (runKind === "full_autonomous") return learnerMode === "full_autonomous_llm";
+  return true;
+}
+
+function defaultGatingPolicyForPlan(
+  runKind: SyntheticLearnerRunKind,
+  learnerMode: SyntheticLearnerMode,
+  autonomousGateStatus?: SyntheticLearnerGatingPolicy,
+): SyntheticLearnerGatingPolicy {
+  if (autonomousGateStatus) return autonomousGateStatus;
+  if (learnerMode !== "scripted") return runKind === "full_autonomous" ? "discovery_only" : "non_ci_gating";
+  return runKind === "regression" || runKind === "golden_journey" ? "ci_gating" : "discovery_only";
 }
 
 export function evaluateEvalSourceFixtureFreshness(input: {
@@ -862,6 +982,8 @@ export function buildSyntheticLearnerEvalRunRecord(input: {
   format?: SyntheticLearnerEvalReportFormat;
   notebookRefs?: Array<{ refType: string; refId: string }>;
   rubricResults?: SyntheticLearnerRubricResult[];
+  status?: SyntheticLearnerRunStatus;
+  observationEvents?: SyntheticLearnerEvalObservationEvent[];
 }): SyntheticLearnerEvalRunRecord {
   const runId = input.runId ?? `slrun_${input.matrix.fixture.id}_${input.matrix.personas.length}x${input.matrix.scenarios.length}`;
   const scenarioRuns = (input.scenarioRuns ?? input.matrix.runs.map((run) =>
@@ -883,6 +1005,8 @@ export function buildSyntheticLearnerEvalRunRecord(input: {
       actionRepairAttempts: run.actionRepairAttempts ?? 0,
       simulatorEvidence: run.simulatorEvidence ?? [],
       issueCandidates: run.issueCandidates ?? [],
+      observationEvents: run.observationEvents ?? [],
+      evalEvidenceSnapshotRefs: run.evalEvidenceSnapshotRefs ?? [],
       rubricResults: [],
       finalState: run.finalState,
     }),
@@ -892,17 +1016,19 @@ export function buildSyntheticLearnerEvalRunRecord(input: {
   const completedAt = input.completedAt ?? scenarioRuns
     .map((run) => run.completedAt)
     .find((value): value is string => Boolean(value));
-  const status = deriveSyntheticLearnerEvalRunStatus(scenarioRuns);
+  const status = input.status ?? deriveSyntheticLearnerEvalRunStatus(scenarioRuns);
   const durationMs = input.durationMs ?? deriveSyntheticLearnerEvalDurationMs(startedAt, completedAt, scenarioRuns);
-  const notebookRefs = input.notebookRefs ?? [
-    { refType: "notebook", refId: input.matrix.fixture.seededNotebookId },
-  ];
+  const notebookRefs = input.notebookRefs ?? resolveEvalRunNotebookRefs(scenarioRuns, input.matrix.fixture.seededNotebookId);
+  const seededNotebookId =
+    scenarioRuns.find((run) => run.seededNotebookId && run.seededNotebookId !== input.matrix.fixture.seededNotebookId)?.seededNotebookId ??
+    notebookRefs.find((ref) => ref.refType === "notebook")?.refId ??
+    input.matrix.fixture.seededNotebookId;
 
   return syntheticLearnerEvalRunRecordSchema.parse({
     id: runId,
     fixtureManifestId: input.matrix.fixture.id,
     fixtureVersion: input.matrix.fixture.version,
-    seededNotebookId: input.matrix.fixture.seededNotebookId,
+    seededNotebookId,
     status,
     startedAt,
     completedAt,
@@ -913,7 +1039,31 @@ export function buildSyntheticLearnerEvalRunRecord(input: {
     rubricResults: input.rubricResults ?? scenarioRuns.flatMap((scenarioRun) => scenarioRun.rubricResults),
     reportMetadata: [],
     issueCandidates: scenarioRuns.flatMap((scenarioRun) => scenarioRun.issueCandidates ?? []),
+    observationEvents: input.observationEvents ?? scenarioRuns.flatMap((scenarioRun) => scenarioRun.observationEvents ?? []),
+    evalEvidenceSnapshotRefs: scenarioRuns.flatMap((scenarioRun) => scenarioRun.evalEvidenceSnapshotRefs ?? []),
+    evalEvidenceSnapshots: scenarioRuns.flatMap((scenarioRun) => scenarioRun.evalEvidenceSnapshots ?? []),
+    evalPlans: scenarioRuns.flatMap((scenarioRun) => (scenarioRun.evalPlan ? [scenarioRun.evalPlan] : [])),
   });
+}
+
+export function formatEvalRunPlanLine(plan: SyntheticLearnerEvalRunPlan): string {
+  return `PLAN: scenario=${plan.scenarioId} persona=${plan.personaId} runKind=${plan.runKind} learnerMode=${plan.learnerMode} gating=${plan.gatingPolicy}`;
+}
+
+function resolveEvalRunNotebookRefs(
+  scenarioRuns: SyntheticLearnerEvalScenarioRun[],
+  fixtureSeededNotebookId: string,
+): Array<{ refType: string; refId: string }> {
+  for (const run of scenarioRuns) {
+    const notebookRef = run.notebookRefs.find((ref) => ref.refType === "notebook");
+    if (notebookRef && notebookRef.refId !== fixtureSeededNotebookId) {
+      return run.notebookRefs;
+    }
+  }
+  for (const run of scenarioRuns) {
+    if (run.notebookRefs.length) return run.notebookRefs;
+  }
+  return [{ refType: "notebook", refId: fixtureSeededNotebookId }];
 }
 
 export function buildSkippedSyntheticLearnerRubricResults(input: {
@@ -938,6 +1088,164 @@ export function deriveDeterministicGateStatus(input: {
   scenarioRuns: SyntheticLearnerEvalScenarioRun[];
 }): SyntheticLearnerRunStatus {
   return deriveSyntheticLearnerEvalRunStatus(input.scenarioRuns);
+}
+
+export function buildSyntheticLearnerIssueCandidates(input: {
+  scenarioRun: SyntheticLearnerEvalScenarioRun;
+  fixture: EvalSourceFixtureManifest;
+  transcript?: string[];
+  assertionRefs?: SyntheticLearnerAssertionReference[];
+  observationEventCount?: number;
+  executedActions?: string[];
+  issueCandidatePolicy?: SyntheticLearnerIssueCandidatePolicy;
+}): SyntheticLearnerEvalIssueCandidate[] {
+  const policy = input.issueCandidatePolicy ?? input.scenarioRun.evalPlan?.issueCandidatePolicy ?? "emit_all";
+  const assertionRefs = input.assertionRefs ?? input.scenarioRun.evalPlan?.assertionRefs ?? [];
+  const assertionRequiredById = new Map(assertionRefs.map((ref) => [ref.refId, ref.required !== false]));
+  const transcriptExcerpt = (input.transcript?.slice(-8) ?? []).length
+    ? input.transcript!.slice(-8)
+    : [input.scenarioRun.finalState.summary];
+  const base = {
+    learnerMode: input.scenarioRun.learnerMode,
+    runKind: input.scenarioRun.runKind,
+    personaId: input.scenarioRun.personaId,
+    scenarioId: input.scenarioRun.scenarioId,
+    ...(input.scenarioRun.autonomyStartProfile ? { autonomyStartProfile: input.scenarioRun.autonomyStartProfile } : {}),
+    fixtureManifestId: input.fixture.id,
+    fixtureVersion: input.fixture.version,
+    seededNotebookId: input.scenarioRun.seededNotebookId,
+    transcriptExcerpt,
+    evidenceRefs: input.scenarioRun.assertions.flatMap((assertion) => assertion.evidenceRefs),
+    traceRefs: input.scenarioRun.traceRefs,
+    artifactRefs: input.scenarioRun.artifactRefs,
+    reproductionCommand: `pnpm --filter @studyagent/worker synthetic-learner-evals -- --learner-mode=${input.scenarioRun.learnerMode} --scenario=${input.scenarioRun.scenarioId} --persona=${input.scenarioRun.personaId}`,
+    publishEligible: true,
+  };
+  const candidates: SyntheticLearnerEvalIssueCandidate[] = [];
+  const pushCandidate = (candidate: SyntheticLearnerEvalIssueCandidate) => {
+    if (policy === "failures_only" && candidate.kind === "warning") return;
+    candidates.push(candidate);
+  };
+
+  if (input.scenarioRun.status === "failed") {
+    pushCandidate(syntheticLearnerEvalIssueCandidateSchema.parse({
+      ...base,
+      kind: "failure",
+      reason: "run_failed",
+      title: `Synthetic Learner failure: ${input.scenarioRun.scenarioId}`,
+      severity: "medium",
+      failureSummary: input.scenarioRun.finalState.summary,
+    }));
+  }
+  if (input.scenarioRun.simulatorEvidence.some((event) => event.eventType === "action_repaired")) {
+    pushCandidate(syntheticLearnerEvalIssueCandidateSchema.parse({
+      ...base,
+      kind: "warning",
+      reason: "invalid_action_repaired",
+      title: `Synthetic Learner repaired invalid action: ${input.scenarioRun.scenarioId}`,
+      severity: "low",
+      failureSummary: "The Synthetic Learner produced an invalid action that was repaired before the run continued.",
+    }));
+  }
+  if (input.scenarioRun.simulatorEvidence.some((event) => event.eventType === "model_output_invalid")) {
+    pushCandidate(syntheticLearnerEvalIssueCandidateSchema.parse({
+      ...base,
+      kind: "warning",
+      reason: "simulator_tool_mismatch",
+      title: `Synthetic Learner simulator output mismatch: ${input.scenarioRun.scenarioId}`,
+      severity: "medium",
+      failureSummary: "The Synthetic Learner model output did not match the typed simulator contract.",
+    }));
+  }
+  if (input.scenarioRun.actionRepairAttempts > 1) {
+    pushCandidate(syntheticLearnerEvalIssueCandidateSchema.parse({
+      ...base,
+      kind: "warning",
+      reason: "flaky_retry",
+      title: `Synthetic Learner required multiple action repairs: ${input.scenarioRun.scenarioId}`,
+      severity: "low",
+      failureSummary: `The Synthetic Learner needed ${input.scenarioRun.actionRepairAttempts} action repair attempts.`,
+    }));
+  }
+  if ((input.observationEventCount ?? input.scenarioRun.observationEvents.length) === 0) {
+    pushCandidate(syntheticLearnerEvalIssueCandidateSchema.parse({
+      ...base,
+      kind: "warning",
+      reason: "degraded_observation",
+      title: `Synthetic Learner observation stream was empty: ${input.scenarioRun.scenarioId}`,
+      severity: "medium",
+      failureSummary: "No live observation events were recorded for this scenario run.",
+    }));
+  }
+  if (input.scenarioRun.status === "passed" && /too quickly|without evidence|suspicious|premature/i.test(input.scenarioRun.finalState.summary)) {
+    pushCandidate(syntheticLearnerEvalIssueCandidateSchema.parse({
+      ...base,
+      kind: "warning",
+      reason: "suspicious_finish",
+      title: `Synthetic Learner suspicious pass: ${input.scenarioRun.scenarioId}`,
+      severity: "medium",
+      failureSummary: input.scenarioRun.finalState.summary,
+    }));
+  }
+  for (const rubric of input.scenarioRun.rubricResults) {
+    if (rubric.enabled && rubric.status === "skipped") {
+      pushCandidate(syntheticLearnerEvalIssueCandidateSchema.parse({
+        ...base,
+        kind: "warning",
+        reason: "quality_warning",
+        title: `Synthetic Learner qualitative rubric skipped: ${rubric.rubricId}`,
+        severity: "low",
+        failureSummary: rubric.summary,
+      }));
+    }
+  }
+  for (const assertion of input.scenarioRun.assertions) {
+    if (assertion.details.reason === "unavailable_required_snapshot") {
+      pushCandidate(syntheticLearnerEvalIssueCandidateSchema.parse({
+        ...base,
+        kind: "failure",
+        reason: "required_snapshot_unavailable",
+        title: `Synthetic Learner missing required snapshot: ${assertion.id}`,
+        severity: "high",
+        failureSummary: assertion.failureMessage ?? "Required persisted state snapshot was unavailable.",
+      }));
+    }
+    if (assertion.status === "skipped" && (assertionRequiredById.get(assertion.id) === false || assertion.details.reason === "skipped_optional_snapshot")) {
+      pushCandidate(syntheticLearnerEvalIssueCandidateSchema.parse({
+        ...base,
+        kind: "warning",
+        reason: "optional_assertion_skipped",
+        title: `Synthetic Learner skipped optional assertion: ${assertion.id}`,
+        severity: "low",
+        failureSummary: assertion.failureMessage ?? "An optional assertion was skipped.",
+      }));
+    }
+    if (assertion.id === "learner_visible_no_id_leak" && assertion.status === "failed") {
+      pushCandidate(syntheticLearnerEvalIssueCandidateSchema.parse({
+        ...base,
+        kind: "warning",
+        reason: "raw_id_leak_repaired",
+        title: `Synthetic Learner learner-visible leak detected: ${assertion.id}`,
+        severity: "high",
+        failureSummary: assertion.failureMessage ?? "Learner-visible output leaked machine-generated identifiers.",
+      }));
+    }
+  }
+  if (input.executedActions?.length) {
+    const runtimeAssertions = assertionRefs.map((ref) => ref.refId).filter((refId) => refId.startsWith("runtime_"));
+    const uncovered = runtimeAssertions.filter((refId) => !input.executedActions!.includes(refId));
+    if (uncovered.length) {
+      pushCandidate(syntheticLearnerEvalIssueCandidateSchema.parse({
+        ...base,
+        kind: "warning",
+        reason: "required_action_not_covered",
+        title: `Synthetic Learner did not cover required runtime evidence: ${input.scenarioRun.scenarioId}`,
+        severity: "medium",
+        failureSummary: `Missing runtime coverage for ${uncovered.join(", ")}.`,
+      }));
+    }
+  }
+  return candidates;
 }
 
 export function exportSyntheticLearnerEvalRunReport(input: {

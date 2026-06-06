@@ -1,10 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { buildAdaptivePlanSignals, shouldApplyDurablePlanChange } from "@studyagent/schemas";
-import {
-  buildAdaptiveSessionPlanPatch,
-  buildTutorSessionDigestPayload,
-  decideObjectiveCompletion,
-} from "./phase7.js";
+import { buildAdaptiveSessionPlanPatch } from "./curriculum-adaptation.js";
+import { buildTutorSessionDigestPayload } from "./tutor-session-crystallization.js";
+import { decideObjectiveCompletion } from "./objective-progression.js";
 
 describe("buildTutorSessionDigestPayload", () => {
   it("includes session provenance and objective context for drafts", () => {

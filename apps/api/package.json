@@ -6,9 +6,11 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "pnpm --filter @studyagent/graph run build && tsx watch src/index.ts",
     "build": "tsc -b",
-    "check": "tsc -b --pretty false"
+    "check": "tsc -b --pretty false",
+    "langfuse:sync-prompts": "tsx src/scripts/sync-langfuse-prompts.ts",
+    "cache:cleanup-stale-host-context": "tsx src/scripts/cleanup-stale-agentic-cache.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.758.0",
@@ -30,6 +32,7 @@
     "zod": "latest"
   },
   "devDependencies": {
+    "@studyagent/eval-runner": "workspace:*",
     "tsx": "latest"
   }
 }

@@ -25,7 +25,7 @@ Event envelopes must carry notebook scope, sequence number, timestamp, type, and
 
 - `packages/db/src/events.ts` appends notebook events with sequence numbers.
 - `packages/schemas/src/events.ts` defines event and runtime stream schemas.
-- `apps/api/src/routes/events-stream.ts` exposes notebook and session event streams.
+- `apps/api/src/routes/events-stream.ts` exposes notebook and session event streams with durable sequence catch-up and Postgres notification fanout.
 - `packages/agent-runtime/src/pi-session.ts` maps runtime events to append inputs.
 - `apps/web/src/App.tsx` and related web code subscribe to notebook events for refresh behavior.
 

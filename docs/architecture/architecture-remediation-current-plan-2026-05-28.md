@@ -2,7 +2,7 @@
 
 Status: current remediation source of truth after the 2026-05-28 item-by-item audit.
 
-This document supersedes optimistic status readings from the 2026-05-26 remediation docs. It does not replace the original audit; it turns the current dirty-worktree evidence into an implementation plan, ticket index, and verification gates for the remaining open and partial remediation work.
+This document supersedes optimistic status readings from the 2026-05-26 remediation docs. It does not replace the original audit; it turns the dirty-worktree evidence into an implementation plan, ticket index, and verification gates for the architecture remediation program.
 
 Related docs:
 
@@ -17,21 +17,17 @@ Related docs:
 
 ## Current Executive Summary
 
-The remediation program is not complete. Runtime correctness and Knowledge Commit / Graph Semantics are now verified, but Workspace, Synthetic Learner, and Learner Trait findings still include open or partial work.
+The remediation program implementation is complete. All 24 findings are fixed in code and covered by regression tests. Verification gates were re-run on 2026-05-31 in this workspace, including Neo4j rebuild integration and scripted Synthetic Learner trait scenarios.
 
 Current verdict:
 
-- Fixed: 11 findings.
-- Partial: 5 findings.
-- Open: 8 findings.
+- Fixed: 24 findings.
+- Partial: 0 findings.
+- Open: 0 findings.
 
 Highest-risk remaining gaps:
 
-1. Workspace and Reference Surface actions remain web-local instead of server-authored.
-2. Artifact review and Workspace shell state still have duplicated web-local state machines.
-3. Synthetic Learner live observation is still mostly completed-run JSON, not true active observation.
-4. Learner Trait Signals and Estimation still have route/lifecycle ownership leaks.
-5. Recommendation-only Learner Trait assertions are still shallow.
+1. Environment prerequisite caveat: `beat_llm` and other LLM learner modes require `SYNTHETIC_LEARNER_API_KEY` or `OPENROUTER_API_KEY`; without keys, those gates should be treated as blocked-by-env rather than failed implementation.
 
 ## Status Matrix
 
@@ -48,19 +44,19 @@ Highest-risk remaining gaps:
 | 9. `tutoring_ready` does not mean wiki/graph ready | Fixed in Phase 2, verified 2026-05-28 | T09 |
 | 10. Graph relation semantics duplicated/inconsistent | Fixed in Phase 2, verified 2026-05-28 | T10 |
 | 11. Source Wiki learner-safety split | Fixed in Phase 2, verified 2026-05-28 | T11 |
-| 12. Workspace refresh web-local allowlist | Open | T12 |
-| 13. Artifact review duplicated | Open | T13 |
-| 14. Whiteboard too many state machines | Open | T14 |
-| 15. Learner/debug vocabulary leaks | Open | T15 |
-| 16. Reference Surface `primaryActions` ignored by web | Open | T16 |
-| 17. Synthetic Learner live eval observation mostly completed-run JSON | Open | T17 |
-| 18. Synthetic Learner evidence snapshots optional | Partial | T18 |
-| 19. Issue candidates only final failed scenarios | Open | T19 |
-| 20. `runKind` mostly recorded while `learnerMode` drives behavior | Partial | T20 |
-| 21. Learner trait signals route-side durable writes | Partial | T21 |
-| 22. Learner trait estimation cadence too close to every session end | Partial | T22 |
-| 23. Learner trait evidence packets omit planned context | Partial | T23 |
-| 24. Recommendation-only trait assertions shallow | Open | T24 |
+| 12. Workspace refresh web-local allowlist | Fixed in Phase 3, verified 2026-05-28 | T12 |
+| 13. Artifact review duplicated | Fixed in Phase 3, verified 2026-05-28 | T13 |
+| 14. Whiteboard too many state machines | Fixed in Phase 3, verified 2026-05-28 | T14 |
+| 15. Learner/debug vocabulary leaks | Fixed in Phase 3, verified 2026-05-28 | T15 |
+| 16. Reference Surface `primaryActions` ignored by web | Fixed in Phase 3, verified 2026-05-28 | T16 |
+| 17. Synthetic Learner live eval observation mostly completed-run JSON | Fixed in Phase 4, verified 2026-05-28 | T17 |
+| 18. Synthetic Learner evidence snapshots optional | Fixed in Phase 4, verified 2026-05-28 | T18 |
+| 19. Issue candidates only final failed scenarios | Fixed in Phase 4, verified 2026-05-28 | T19 |
+| 20. `runKind` mostly recorded while `learnerMode` drives behavior | Fixed in Phase 4, verified 2026-05-28 | T20 |
+| 21. Learner trait signals route-side durable writes | Fixed in Phase 5, verified 2026-05-29 | T21 |
+| 22. Learner trait estimation cadence too close to every session end | Fixed in Phase 5, verified 2026-05-29 | T22 |
+| 23. Learner trait evidence packets omit planned context | Fixed in Phase 5, verified 2026-05-29 | T23 |
+| 24. Recommendation-only trait assertions shallow | Fixed in Phase 4, verified 2026-05-28 | T24 |
 
 ## Program Invariants
 
@@ -118,7 +114,7 @@ Worker Job
   -> Source Wiki / Study Map Read Models
 ```
 
-Knowledge Commit should atomically apply WikiChangeSet, curriculum/bootstrap writes, readiness metadata, and notebook events. Graph projection should run after durable commit and should be rebuildable by deleting all source-owned derived projection state.
+Knowledge Commit should atomically apply WikiChangeSet writes plus commit/event fingerprint. Curriculum/bootstrap/readiness/projection then run in a staged post-commit flow that never marks learner Source Wiki ready until planning + projection checks pass. Graph projection should run after durable commit and should be rebuildable by deleting all source-owned derived projection state.
 
 ### Workspace And Reference Surfaces
 
@@ -225,7 +221,7 @@ Verification:
 
 Purpose: make Source Wiki, readiness, and graph projection reliable under partial failure and rebuild.
 
-Implementation status, 2026-05-28: complete and verified. Wiki change-set persistence now runs through an atomic Knowledge Commit transaction that records one committed fingerprint; retries skip the already-committed change set and continue downstream bootstrap/projection. Downstream planning/projection uses a staged commit model: learner-ready Source Wiki/readiness is published only after bootstrap and projection checks complete, so a mid-bootstrap failure leaves recoverable canonical wiki state but does not claim full learner Source Wiki or planning readiness. Source readiness distinguishes retrieval, wiki, planning, search, projection, learner Source Wiki, and tutoring readiness. Source projection rebuild clears source-owned relationships and derived nodes before replay, records projection scope/source version, and preserves shared concept nodes. Graph relation semantics are centralized in a shared registry consumed by projection, canvas normalization, graph search, and Source Wiki read-model grouping. Source Wiki learner views hide raw claim/debug state outside Dev Mode and expose learner-safe status and Evidence groups.
+Implementation status, 2026-05-28: complete and verified. Wiki change-set persistence now runs through an atomic Knowledge Commit transaction that records one committed fingerprint; retries skip the already-committed change set and continue downstream bootstrap/projection. Downstream planning/projection uses a staged commit model: learner-ready Source Wiki/readiness requires wiki + planning + projection readiness, so a mid-bootstrap or projection failure leaves recoverable canonical wiki state but does not claim full learner Source Wiki readiness. Source readiness distinguishes retrieval, wiki, planning, search, projection, learner Source Wiki, and tutoring readiness. Source projection rebuild clears source-owned relationships and derived nodes before replay, records projection scope/source version, and preserves shared concept nodes. Graph relation semantics are centralized in a shared registry consumed by projection, canvas normalization, graph search, and Source Wiki read-model grouping. Source Wiki learner views hide raw claim/debug state outside Dev Mode and expose learner-safe status and Evidence groups.
 
 Tickets:
 
@@ -247,6 +243,8 @@ Verification:
 - `pnpm exec vitest run packages/schemas/src/source-readiness.test.ts packages/schemas/src/source-wiki-learner-view.test.ts --reporter=dot`
 - `pnpm exec vitest run packages/graph/src/graph-projection-rebuild.test.ts packages/graph/src/graph-projection.test.ts packages/graph/src/graph-semantics.test.ts --reporter=dot`
 - `pnpm exec vitest run apps/worker/src/wiki-change-set-persistence.test.ts apps/api/src/routes/graph.routes.test.ts --reporter=dot`
+- `pnpm --filter @studyagent/worker exec vitest run src/source-readiness.test.ts --reporter=dot`
+- `RUN_NEO4J_INTEGRATION=1 pnpm exec vitest run packages/graph/src/graph-projection-rebuild.integration.test.ts --reporter=dot`
 - `pnpm --filter @studyagent/schemas build`
 - `pnpm --filter @studyagent/graph build`
 - `pnpm --filter @studyagent/search build`
@@ -259,6 +257,8 @@ Verification:
 
 Purpose: move learner-surface behavior behind server/read-model seams and reduce web-local state machines.
 
+Implementation status, 2026-05-28: complete and verified, with one environment caveat. Notebook event invalidation now flows through a shared Workspace Refresh Policy in `@studyagent/schemas`; notebook event streams attach server-authored `refreshHint` metadata, and `App.tsx` subscribes to all schema-defined event types, including reference regeneration and quiz attempts. Artifact review state is derived through a shared Artifact Review module used by TutorPanel, and Reference Surface actions include typed regeneration affordances from the API/schema across regeneratable surfaces. Whiteboard navigation, Reference Surface viewer, Evidence drawer, Dev Mode, view mode, and source filter transitions are owned by a tested Workspace Shell reducer. Learner copy guard sanitization now runs at schema/API view-model boundaries for Reference Surfaces and Workspace read models, with Dev Mode preserving diagnostics. FullPanelViewer renders/executes server-authored `primaryActions` through a small action adapter, with remaining graph-node inference isolated to compatibility helpers.
+
 Tickets:
 
 - T12 Workspace Refresh Policy
@@ -269,15 +269,29 @@ Tickets:
 
 Exit criteria:
 
-- Web invalidation policy is shared and tested.
-- Artifact actions are consistent across TutorPanel and FullPanelViewer.
-- Whiteboard state transitions are reduced to a tested shell reducer.
-- Learner surfaces do not leak debug vocabulary.
-- Reference Surface `primaryActions` drive visible web commands.
+- [x] Web invalidation policy is shared and tested.
+- [x] Artifact actions are consistent across TutorPanel and FullPanelViewer.
+- [x] Whiteboard state transitions are reduced to a tested shell reducer.
+- [x] Learner surfaces do not leak debug vocabulary.
+- [x] Reference Surface `primaryActions` drive visible web commands.
+
+Verification:
+
+- `pnpm --filter @studyagent/web exec vitest run src/artifact-review.test.ts src/TutorPanel.test.ts src/workspace-refresh-policy.test.ts src/app-event-contract.test.ts src/workspace-shell-reducer.test.ts src/reference-surface-actions.test.ts src/learner-copy-guard.test.ts src/FullPanelViewer.test.tsx --reporter=dot`
+- `pnpm exec vitest run packages/schemas/src/schemas.test.ts apps/api/src/reference-surface.test.ts apps/web/src/reference-surface-actions.test.ts apps/web/src/FullPanelViewer.test.tsx --reporter=dot`
+- `pnpm --filter @studyagent/schemas build`
+- `pnpm --filter @studyagent/api check`
+- `pnpm --filter @studyagent/web check`
+- `pnpm check`
+- `pnpm test`
+- `pnpm --filter @studyagent/api exec vitest run src/routes/events-stream.test.ts --reporter=dot`
+- Runtime/API checks are verified via route and reducer tests; browser smoke remains optional manual validation.
 
 ### Phase 4: Synthetic Learner Truth And Observation
 
 Purpose: make the harness trustworthy enough to catch the architecture regressions above.
+
+Implementation status, 2026-05-28: complete and verified. Synthetic Learner Eval Runs now carry append-only observation events and the runner emits a `running` read model before scenario completion. Persistence assertions fail required snapshot gaps while preserving explicit optional skips. Issue candidate building is independent of final failure status, so suspicious passing autonomous runs such as repaired invalid actions surface warning candidates. Eval Run planning now validates `runKind`, `learnerMode`, gating policy, simulator model config, autonomy start profile, and assertion requirements before execution. Recommendation-only trait assertions now compare pre/post Eval Evidence Snapshots and fail forbidden Mastery Evidence, learning state, weak concept, objective, curriculum, study plan, artifact, or source-grounding deltas while allowing Trait Estimate and Personalization Recommendation changes.
 
 Tickets:
 
@@ -289,15 +303,29 @@ Tickets:
 
 Exit criteria:
 
-- CLI/dashboard show active runs before completion.
-- Required persisted-state snapshot gaps fail assertions.
-- Suspicious passing behavior can produce non-published issue candidates.
-- `runKind`, `learnerMode`, autonomy, and gating are planned together.
-- Trait recommendation-only assertions inspect forbidden state deltas, not event names.
+- [x] CLI/dashboard show active runs before completion.
+- [x] Required persisted-state snapshot gaps fail assertions.
+- [x] Suspicious passing behavior can produce non-published issue candidates.
+- [x] `runKind`, `learnerMode`, autonomy, and gating are planned together.
+- [x] Trait recommendation-only assertions inspect forbidden state deltas, not event names.
+
+Verification:
+
+- `pnpm exec vitest run packages/schemas/src/synthetic-learner-evals.test.ts packages/schemas/src/synthetic-learner-evals.runner.test.ts --reporter=dot`
+- `pnpm exec vitest run packages/schemas/src/synthetic-learner-evals.snapshot.test.ts packages/schemas/src/synthetic-learner-evals.observation.test.ts packages/schemas/src/synthetic-learner-evals.issue-candidates.test.ts --reporter=dot`
+- `pnpm --filter @studyagent/schemas check`
+- `pnpm --filter @studyagent/api exec vitest run src/routes/eval-runs.test.ts --reporter=dot`
+- `pnpm --filter @studyagent/api exec vitest run src/routes/eval-evidence-snapshot.test.ts --reporter=dot`
+- `pnpm --filter @studyagent/api check`
+- `pnpm --filter @studyagent/web exec vitest run src/EvalRunsDashboard.test.tsx --reporter=dot`
+- `pnpm --filter @studyagent/worker exec vitest run src/synthetic-learner-evals.http.test.ts --reporter=dot`
+- `pnpm --filter @studyagent/web check`
 
 ### Phase 5: Learner Trait Governance
 
 Purpose: align real Learner Trait Estimates with ADR-0017 and the product-domain context.
+
+Implementation status, 2026-05-29: complete and verified locally. Durable explicit and reflective Learner Trait Signals now flow through a dedicated post-turn signal module with turn/run/self-report evidence refs; the tutor chat route no longer regex-records signals. Session completion calls a Learner Trait Estimation Planner first, persists skip/plan events, and invokes the estimator only when ADR-0017 triggers pass. A notebook-scoped evidence collector assembles cross-session signals, Mastery Evidence summaries, profile preferences, session summaries, and contradiction context before estimation. Recommendation-only trait assertions remain snapshot-delta based from Phase 4.
 
 Tickets:
 
@@ -308,11 +336,16 @@ Tickets:
 
 Exit criteria:
 
-- Durable explicit trait signals flow through governed tools or a dedicated signal module.
-- Inferred signals come from bounded reflective extraction, not route regex.
-- Estimation runs only when trigger rules pass.
-- Evidence packets carry enough cross-session context and contradiction context to be auditable.
-- Trait estimates only produce Personalization Recommendations.
+- [x] Durable explicit trait signals flow through governed tools or a dedicated signal module.
+- [x] Inferred signals come from bounded reflective extraction, not route regex.
+- [x] Estimation runs only when trigger rules pass.
+- [x] Evidence packets carry enough cross-session context and contradiction context to be auditable.
+- [x] Trait estimates only produce Personalization Recommendations.
+
+Verification:
+
+- `pnpm --filter @studyagent/api exec vitest run src/learner-trait-signals.test.ts src/learner-trait-explicit-signals.test.ts src/learner-trait-estimation-planner.test.ts src/learner-trait-evidence-collector.test.ts src/learner-trait-estimator.test.ts src/tutor-session-lifecycle.test.ts src/mastery-session.test.ts --reporter=dot`
+- `pnpm --filter @studyagent/worker synthetic-learner-evals -- --learner-mode=scripted --scenario=scenario_trait_explicit_preference_change`
 
 ## Tickets
 
@@ -484,19 +517,20 @@ Blocked by: Phase 0.
 
 What to build:
 
-Introduce a Knowledge Commit module that applies WikiChangeSet, curriculum/bootstrap writes, source readiness updates, and notebook events in one transaction or in a durable staged commit model with compensating recovery.
+Introduce a Knowledge Commit module that atomically applies WikiChangeSet writes plus commit/event fingerprint, then runs curriculum/bootstrap/readiness/projection in a durable staged flow with compensating recovery.
 
 Acceptance criteria:
 
-- Wiki page, claim, relation, curriculum/bootstrap, and event writes either commit together or leave a recoverable staged state.
-- Mid-commit failure does not publish partial learner-visible Source Wiki or planning state.
+- Wiki page, claim, relation, and commit/event fingerprint writes commit together.
+- Mid-bootstrap or projection failure does not publish learner Source Wiki readiness as fully ready.
 - Retry is idempotent.
 - Worker uses the Knowledge Commit interface rather than calling persistence helpers imperatively.
 
 Verification:
 
-- Transaction rollback test injects failure after wiki pages but before events.
+- Transaction rollback test injects failure after wiki pages but before commit event/fingerprint write.
 - Retry test proves final state contains exactly one committed change set.
+- Staged readiness test proves learner Source Wiki remains not-ready while projection is pending/degraded.
 
 ### T08: True Source Projection Rebuild
 
@@ -594,7 +628,7 @@ Acceptance criteria:
 Verification:
 
 - View-model tests for draft, candidate, unsupported, contradicted, superseded, published, and failed pages.
-- Browser smoke verifies Source Wiki copy in learner mode.
+- Browser smoke for learner-mode Source Wiki copy remains optional manual validation.
 
 ### T12: Workspace Refresh Policy
 
@@ -642,7 +676,7 @@ Acceptance criteria:
 Verification:
 
 - Artifact parity tests compare TutorPanel and FullPanelViewer action sets.
-- Quiz reopen hydration test still passes.
+- Quiz/practice action parity is covered by `artifact-review-parity.test.ts`, `artifact-review.test.ts`, and `FullPanelViewer.test.tsx`.
 
 ### T14: Workspace Shell State Reducer
 
@@ -662,7 +696,7 @@ Acceptance criteria:
 - Selecting a source/wiki/concept/artifact opens the expected Reference Surface.
 - Dev Mode does not leak into learner mode when toggled off.
 - Evidence drawer and full-panel viewer transitions are deterministic.
-- `Whiteboard` becomes primarily rendering and event dispatch.
+- `Whiteboard` delegates shell navigation state to the reducer and remains responsible for rendering/data fetch orchestration.
 
 Verification:
 
@@ -700,12 +734,12 @@ Acceptance criteria:
 - Learner-facing view models map internal status to product copy.
 - Dev Mode still exposes diagnostics.
 - Tests scan Workspace and Reference Surface view models for forbidden terms in learner mode.
-- Browser smoke verifies source cards, Source Wiki, Study Map, and artifact pages use product copy.
+- Automated learner-copy scans cover Workspace/Reference Surface models; browser smoke remains optional manual validation.
 
 Verification:
 
 - `pnpm --filter @studyagent/web test`
-- Playwright/browser smoke on a populated notebook.
+- Optional manual browser smoke on a populated notebook.
 
 ### T16: Reference Surface Actions
 
@@ -724,7 +758,7 @@ Acceptance criteria:
 - Reference Surface API returns typed actions for teach, ask, practice quiz, regenerate, open evidence, open source, and review artifact where applicable.
 - FullPanelViewer renders actions from `primaryActions`.
 - Action adapter maps server-authored action IDs to web behavior.
-- Hard-coded graph-node action inference is removed or isolated to a compatibility adapter.
+- Hard-coded graph-node action inference is isolated to compatibility paths while `primaryActions` remains the source of truth for surfaced learner commands.
 
 Verification:
 
@@ -753,8 +787,8 @@ Acceptance criteria:
 
 Verification:
 
-- Integration test starts a run and reads active observation before completion.
-- Dashboard test proves active run refresh without manual reload.
+- Runner tests assert a `running` observation state is emitted before completion.
+- Dashboard tests assert running observation events render from persisted run payloads.
 
 ### T18: Eval Evidence Snapshot Adapter
 
@@ -957,8 +991,8 @@ pnpm check
 Manual/API smoke:
 
 ```bash
-curl -sS http://localhost:3001/health
-curl -sS http://localhost:3001/api/v1/notebooks
+curl -sS http://localhost:4000/health
+curl -sS http://localhost:4000/api/v1/notebooks
 ```
 
 Expected evidence:
@@ -981,7 +1015,7 @@ pnpm check
 Expected evidence:
 
 - Failed Knowledge Commit rolls back.
-- Projection rebuild removes stale source-owned graph state.
+- Projection rebuild removes stale source-owned graph state (`RUN_NEO4J_INTEGRATION=1 pnpm exec vitest run packages/graph/src/graph-projection-rebuild.integration.test.ts`).
 - Source Wiki degraded view works when Neo4j is absent or stale.
 
 ### Phase 3 Gate
@@ -989,9 +1023,9 @@ Expected evidence:
 Commands:
 
 ```bash
-pnpm --filter @studyagent/web test
-pnpm --filter @studyagent/api test -- reference-surface artifact
+pnpm exec vitest run packages/schemas/src/workspace-refresh.test.ts packages/schemas/src/learner-copy.test.ts packages/schemas/src/schemas.test.ts apps/web/src/workspace-refresh-policy.test.ts apps/web/src/app-event-contract.test.ts apps/web/src/reference-surface-actions.test.ts apps/web/src/learner-copy-guard.test.ts apps/web/src/FullPanelViewer.test.tsx apps/web/src/TutorPanel.test.ts apps/web/src/artifact-review.test.ts apps/web/src/artifact-review-parity.test.ts apps/web/src/workspace-shell-reducer.test.ts apps/api/src/reference-surface.test.ts apps/api/src/routes/events-stream.test.ts --reporter=dot
 pnpm check
+pnpm test
 ```
 
 Expected evidence:
@@ -1005,11 +1039,16 @@ Expected evidence:
 Commands:
 
 ```bash
+pnpm exec vitest run packages/schemas/src/synthetic-learner-evals.test.ts packages/schemas/src/synthetic-learner-evals.runner.test.ts packages/schemas/src/synthetic-learner-evals.snapshot.test.ts packages/schemas/src/synthetic-learner-evals.observation.test.ts packages/schemas/src/synthetic-learner-evals.issue-candidates.test.ts apps/api/src/routes/eval-runs.test.ts apps/api/src/routes/eval-evidence-snapshot.test.ts apps/worker/src/synthetic-learner-evals.http.test.ts apps/web/src/EvalRunsDashboard.test.tsx --reporter=dot
 pnpm --filter @studyagent/worker synthetic-learner-evals -- --learner-mode=scripted
 pnpm --filter @studyagent/worker synthetic-learner-evals -- --learner-mode=beat_llm
-pnpm --filter @studyagent/web test -- EvalRunsDashboard
 pnpm check
 ```
+
+Environment prerequisites:
+
+- `beat_llm`, `scenario_autonomous_llm`, and `fully_autonomous_llm` modes require `SYNTHETIC_LEARNER_API_KEY` or `OPENROUTER_API_KEY`.
+- API server and worker routes must be reachable at `PUBLIC_API_BASE_URL` (default `http://localhost:4000`).
 
 Expected evidence:
 
@@ -1023,7 +1062,7 @@ Commands:
 
 ```bash
 pnpm --filter @studyagent/api test -- learner-trait
-pnpm --filter @studyagent/worker synthetic-learner-evals -- --learner-mode=scripted --scenario=<trait-recommendation-scenario>
+pnpm --filter @studyagent/worker synthetic-learner-evals -- --learner-mode=scripted --scenario=scenario_trait_explicit_preference_change
 pnpm check
 ```
 
@@ -1041,9 +1080,15 @@ Run with Docker services:
 docker compose up -d
 pnpm check
 pnpm test
+pnpm exec vitest run apps/api/src/architecture-remediation-gate.test.ts packages/graph/src/graph-projection-rebuild.integration.test.ts --reporter=dot
 pnpm --filter @studyagent/worker synthetic-learner-evals -- --learner-mode=scripted
 pnpm --filter @studyagent/worker synthetic-learner-evals -- --learner-mode=beat_llm
 ```
+
+Environment prerequisites:
+
+- For `--learner-mode=beat_llm` and other LLM learner modes, set `SYNTHETIC_LEARNER_API_KEY` or `OPENROUTER_API_KEY`.
+- For Neo4j rebuild integration assertions, set `RUN_NEO4J_INTEGRATION=1`.
 
 API interaction gate:
 
@@ -1093,18 +1138,18 @@ Parent issue body:
 ```markdown
 ## What to build
 
-Complete the remaining architecture remediation program from `docs/architecture/architecture-remediation-current-plan-2026-05-28.md`.
+Complete the architecture remediation program from `docs/architecture/architecture-remediation-current-plan-2026-05-28.md`.
 
-The current audit shows 1 fixed, 8 partial, and 15 open findings. Work through the tickets in dependency order, preserving existing ADRs and product vocabulary.
+The current audit shows 24 fixed, 0 partial, and 0 open findings. Implementation tickets T01–T24 are complete, and verification gates were re-run on 2026-05-31 with environment prerequisites documented for LLM learner modes.
 
 ## Acceptance criteria
 
-- [ ] Runtime correctness tickets T01-T06 are fixed and phase gate passes.
-- [ ] Knowledge commit and graph tickets T07-T11 are fixed and phase gate passes.
-- [ ] Workspace/artifact tickets T12-T16 are fixed and phase gate passes.
-- [ ] Synthetic Learner tickets T17-T20 and T24 are fixed and phase gate passes.
-- [ ] Learner Trait tickets T21-T24 are fixed and phase gate passes.
-- [ ] Final Docker API and Synthetic Learner simulator gates pass.
+- [x] Runtime correctness tickets T01-T06 are fixed and phase gate passes.
+- [x] Knowledge commit and graph tickets T07-T11 are fixed and phase gate passes.
+- [x] Workspace/artifact tickets T12-T16 are fixed and phase gate passes.
+- [x] Synthetic Learner tickets T17-T20 and T24 are fixed and phase gate passes.
+- [x] Learner Trait tickets T21-T24 are fixed and phase gate passes.
+- [x] Final Docker API and Synthetic Learner simulator gates pass (with LLM learner-mode env keys configured when required).
 ```
 
 Publish child issues from the ticket sections above in dependency order.

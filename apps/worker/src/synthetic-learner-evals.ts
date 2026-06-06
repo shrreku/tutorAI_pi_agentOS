@@ -1,11 +1,20 @@
 import { pathToFileURL } from "node:url";
 import {
+  loadTracerBulletSyntheticLearnerEvalMatrix,
+  runSyntheticLearnerEvalSuite,
+  type SyntheticLearnerEvalRunnerApi,
+  type SyntheticLearnerEvalStreamEvent,
+  type SyntheticLearnerModelClient,
+  type SyntheticLearnerSimulatorActions,
+} from "@studyagent/eval-runner";
+import {
   buildSyntheticLearnerEvalMatrix,
   evaluateEvalSourceFixtureFreshness,
-  loadTracerBulletSyntheticLearnerEvalMatrix,
   nodeRefSchema,
+  planSyntheticLearnerEvalRun,
   regenerateEvalSourceFixtureManifest,
-  runSyntheticLearnerEvalSuite,
+  formatEvalRunPlanLine,
+  evalEvidenceSnapshotSchema,
   syntheticLearnerLearnerResponseSchema,
   syntheticLearnerModelConfigSchema,
   type SyntheticLearnerActionDecision,
@@ -13,12 +22,10 @@ import {
   type SyntheticLearnerAutonomyStartProfile,
   type NodeRef,
   type EvalSourceFixtureFreshnessMode,
-  type SyntheticLearnerEvalRunnerApi,
-  type SyntheticLearnerEvalStreamEvent,
   type SyntheticLearnerMode,
-  type SyntheticLearnerModelClient,
   type SyntheticLearnerModelConfig,
-  type SyntheticLearnerSimulatorActions,
+  type SyntheticLearnerEvalRunRecord,
+  type SyntheticLearnerEvalRunPlan,
   syntheticLearnerTraitArchetypePersonas,
   syntheticLearnerTraitEstimationScenarios,
 } from "@studyagent/schemas";
@@ -87,6 +94,19 @@ function createHttpSyntheticLearnerEvalApi(
         notebookEvents: [],
         ...(sessionId ? { traceRefs: [{ refType: "session" as const, refId: sessionId }] } : {}),
       };
+    },
+    async endTutorSession({ notebookId, phase = "full" }) {
+      const response = await fetch(`${baseUrl}/api/v1/notebooks/${encodeURIComponent(notebookId)}/tutor/session/end`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ phase }),
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to end tutor session (${response.status}): ${await response.text()}`);
+      }
+      const payload = (await response.json()) as { sessionId?: string };
+      const sessionId = payload.sessionId ?? `sess_${notebookId}`;
+      return { sessionId, events: [] };
     },
   };
 }
@@ -232,9 +252,39 @@ function dedupeTraceStates(
   return result;
 }
 
+async function isApiHealthy(baseUrl: string): Promise<boolean> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 2500);
+  try {
+    const response = await fetch(`${baseUrl.replace(/\/+$/, "")}/health`, { signal: controller.signal });
+    return response.ok;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function resolveSyntheticLearnerApiBaseUrl(): Promise<{ baseUrl: string; fallbackUsed: boolean }> {
+  const explicit = process.env.PUBLIC_API_BASE_URL?.trim() || undefined;
+  const candidates = Array.from(new Set([explicit, "http://localhost:4000", "http://api:4000"].filter(Boolean) as string[]));
+  for (const candidate of candidates) {
+    if (await isApiHealthy(candidate)) {
+      return { baseUrl: candidate, fallbackUsed: Boolean(explicit && explicit !== candidate) };
+    }
+  }
+  return { baseUrl: explicit ?? "http://localhost:4000", fallbackUsed: false };
+}
+
 async function main() {
   const args = parseSyntheticLearnerEvalArgs(process.argv.slice(2));
-  const baseUrl = process.env.PUBLIC_API_BASE_URL ?? "http://localhost:4000";
+  const resolvedApiBase = await resolveSyntheticLearnerApiBaseUrl();
+  const baseUrl = resolvedApiBase.baseUrl;
+  if (resolvedApiBase.fallbackUsed) {
+    process.stderr.write(
+      `WARNING: PUBLIC_API_BASE_URL=${process.env.PUBLIC_API_BASE_URL} was unreachable; using ${baseUrl}.\n`,
+    );
+  }
   const loadedMatrix = loadTracerBulletSyntheticLearnerEvalMatrix();
   if (args.regenerateFixture) {
     const regenerated = regenerateEvalSourceFixtureManifest({
@@ -290,12 +340,39 @@ async function main() {
         ]
       : loadedMatrix.scenarios,
   });
+
+  const selectedScenarios = matrix.scenarios.filter((scenario) =>
+    !args.scenarioIds.length || args.scenarioIds.includes(scenario.id),
+  );
+  const selectedPersonas = matrix.personas.filter((persona) =>
+    !args.personaIds.length || args.personaIds.includes(persona.id),
+  );
+  const evalPlans: SyntheticLearnerEvalRunPlan[] = [];
+  for (const scenario of selectedScenarios) {
+    for (const persona of selectedPersonas.filter((candidate) => scenario.personaIds.includes(candidate.id))) {
+      const plan = planSyntheticLearnerEvalRun({
+        scenario,
+        persona,
+        learnerMode: args.learnerMode,
+        ...(args.autonomyStartProfile ? { autonomyStartProfile: args.autonomyStartProfile } : {}),
+        ...(args.learnerMode !== "scripted" ? { simulatorModelConfig } : {}),
+      });
+      evalPlans.push(plan);
+      process.stdout.write(`${formatEvalRunPlanLine(plan)}\n`);
+    }
+  }
+
+  const runId = `slrun_${fixture.id}_${selectedPersonas.length}x${selectedScenarios.length}_${Date.now()}`;
+  const captureSnapshot = createHttpEvalEvidenceSnapshotClient(baseUrl, process.env.STUDYAGENT_API_COOKIE);
+  let persistedRunningRunIds = new Set<string>();
   const result = await runSyntheticLearnerEvalSuite({
     matrix,
     api,
+    captureSnapshot,
     ...(args.scenarioIds.length ? { scenarioIds: args.scenarioIds } : {}),
     ...(args.personaIds.length ? { personaIds: args.personaIds } : {}),
     learnerMode: args.learnerMode,
+    runId,
     ...(args.learnerMode !== "scripted" ? { simulatorModelConfig } : {}),
     ...(syntheticLearnerModel ? { syntheticLearnerModel } : {}),
     ...(simulatorActions ? { simulatorActions } : {}),
@@ -303,9 +380,31 @@ async function main() {
     writeTranscript: (line) => {
       process.stdout.write(`${line}\n`);
     },
+    writeObservation: async (event, run) => {
+      process.stdout.write(`OBS: ${JSON.stringify({ kind: event.kind, status: event.status ?? run.status, message: event.message })}\n`);
+      const notebookId = run.notebookRefs.find((ref) => ref.refType === "notebook")?.refId ?? run.seededNotebookId;
+      const hasSeededNotebook = Boolean(notebookId && notebookId !== fixture.seededNotebookId);
+      if (!persistedRunningRunIds.has(run.id)) {
+        if (!hasSeededNotebook) return;
+        persistedRunningRunIds.add(run.id);
+        await persistSyntheticLearnerEvalRun(baseUrl, process.env.STUDYAGENT_API_COOKIE, {
+          ...run,
+          evalPlans,
+        });
+      } else {
+        await patchSyntheticLearnerEvalRun(baseUrl, process.env.STUDYAGENT_API_COOKIE, {
+          id: run.id,
+          status: run.status,
+          observationEvents: [event],
+        });
+      }
+    },
   });
 
-  await persistSyntheticLearnerEvalRun(baseUrl, process.env.STUDYAGENT_API_COOKIE, result.runRecord);
+  await persistSyntheticLearnerEvalRun(baseUrl, process.env.STUDYAGENT_API_COOKIE, {
+    ...result.runRecord,
+    evalPlans,
+  });
 
   process.stdout.write(`REPORT: ${result.runRecord.status} ${result.runRecord.id}\n`);
 }
@@ -533,6 +632,44 @@ async function persistSyntheticLearnerEvalRun(baseUrl: string, cookie: string | 
     throw new Error(`Failed to persist eval run (${response.status}): ${await response.text()}`);
   }
 }
+
+function createHttpEvalEvidenceSnapshotClient(baseUrl: string, cookie?: string) {
+  const headers = {
+    ...(cookie ? { cookie } : {}),
+  } as Record<string, string>;
+
+  return async (input: { notebookId: string; snapshotId: string }) => {
+    const response = await fetch(
+      `${baseUrl}/api/v1/eval/notebooks/${encodeURIComponent(input.notebookId)}/evidence-snapshot?snapshotId=${encodeURIComponent(input.snapshotId)}`,
+      { headers },
+    );
+    if (!response.ok) {
+      throw new Error(`Failed to capture eval evidence snapshot (${response.status}): ${await response.text()}`);
+    }
+    const payload = (await response.json()) as { snapshot: unknown };
+    return evalEvidenceSnapshotSchema.parse(payload.snapshot);
+  };
+}
+
+async function patchSyntheticLearnerEvalRun(
+  baseUrl: string,
+  cookie: string | undefined,
+  run: SyntheticLearnerEvalRunRecord | Pick<SyntheticLearnerEvalRunRecord, "id" | "status" | "observationEvents">,
+): Promise<void> {
+  const response = await fetch(`${baseUrl}/api/v1/eval/runs/${encodeURIComponent(run.id)}`, {
+    method: "PATCH",
+    headers: {
+      ...(cookie ? { cookie } : {}),
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(run),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to patch live eval run (${response.status}): ${await response.text()}`);
+  }
+}
+
+export { patchSyntheticLearnerEvalRun, persistSyntheticLearnerEvalRun };
 
 if (isMain) {
   void main().catch((error) => {

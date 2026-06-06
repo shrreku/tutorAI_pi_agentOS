@@ -4,6 +4,9 @@ import {
   buildCurriculumOutline,
   buildIntentAwareLayout,
   collapseObjectiveHistory,
+  filterHierarchicalGraphEdges,
+  prepareGraphForCanvas,
+  getGraphNodeLevel,
   getIntentAwareNodePosition,
   getLearnerNodeTitle,
   getStickyStudyPlanPosition,
@@ -175,11 +178,168 @@ describe("whiteboard utils", () => {
     expect(collapsed.edges).toHaveLength(1);
   });
 
-  it("positions study-map planning nodes in deterministic lanes", () => {
-    expect(getIntentAwareNodePosition("curriculum", 0, undefined)).toEqual({ x: 80, y: 60 });
-    expect(getIntentAwareNodePosition("objective", 2, undefined)).toEqual({ x: 860, y: 340 });
-    expect(getIntentAwareNodePosition("concept", 7, undefined)).toEqual({ x: 210, y: 160 });
-    expect(getIntentAwareNodePosition("objective", 2, { x: 10, y: 20 })).toEqual({ x: 10, y: 20 });
+  it("assigns study-map node levels for hierarchy and layout", () => {
+    expect(getGraphNodeLevel("study_map", { id: "s1", nodeType: "source", labels: [], properties: {} })).toBe(0);
+    expect(getGraphNodeLevel("study_map", { id: "c1", nodeType: "curriculum", labels: [], properties: {} })).toBe(1);
+    expect(getGraphNodeLevel("study_map", { id: "m1", nodeType: "curriculum_module", labels: [], properties: {} })).toBe(2);
+    expect(getGraphNodeLevel("study_map", { id: "sess1", nodeType: "tutor_session", labels: [], properties: {} })).toBe(3);
+    expect(getGraphNodeLevel("study_map", { id: "art1", nodeType: "artifact", labels: [], properties: {} })).toBe(4);
+    expect(getGraphNodeLevel("study_map", { id: "cnc1", nodeType: "concept", labels: [], properties: {} })).toBe(4);
+    expect(getIntentAwareNodePosition("tutor_session", 2, { x: 10, y: 20 }, "study_map")).toEqual({ x: 10, y: 20 });
+  });
+
+  it("projects study-map edges through hidden planning nodes", () => {
+    const graph = {
+      name: "study_map",
+      notebookId: "nb_1",
+      nodes: [
+        { id: "mod", nodeType: "curriculum_module", labels: [], properties: { status: "active" } },
+        { id: "obj", nodeType: "objective", labels: [], properties: {} },
+        { id: "sess", nodeType: "tutor_session", labels: [], properties: {} },
+        { id: "concept", nodeType: "concept", labels: [], properties: {} },
+      ],
+      edges: [
+        { id: "e1", source: "mod", target: "obj", relationType: "contains", properties: {} },
+        { id: "e2", source: "sess", target: "obj", relationType: "covers", properties: {} },
+        { id: "e3", source: "obj", target: "concept", relationType: "covers", properties: {} },
+      ],
+    };
+
+    const prepared = prepareGraphForCanvas(graph as never);
+    expect(prepared.nodes.map((node) => node.nodeType)).not.toContain("objective");
+    expect(prepared.edges.some((edge) => edge.source === "mod" && edge.target === "sess")).toBe(true);
+    expect(prepared.edges.some((edge) => edge.source === "sess" && edge.target === "concept")).toBe(true);
+  });
+
+  it("filters study-map edges to adjacent levels and artifact scope", () => {
+    const graph = {
+      name: "study_map",
+      notebookId: "nb_1",
+      nodes: [
+        { id: "src", nodeType: "source", labels: [], properties: {} },
+        { id: "cur", nodeType: "curriculum", labels: [], properties: {} },
+        { id: "mod", nodeType: "curriculum_module", labels: [], properties: {} },
+        { id: "sess", nodeType: "tutor_session", labels: [], properties: {} },
+        { id: "art", nodeType: "artifact", labels: [], properties: {} },
+      ],
+      edges: [
+        { id: "e1", source: "src", target: "cur", relationType: "contains", properties: {} },
+        { id: "e2", source: "mod", target: "cur", relationType: "contains", properties: {} },
+        { id: "e3", source: "src", target: "sess", relationType: "cites", properties: {} },
+        { id: "e4", source: "src", target: "art", relationType: "derived_from", properties: {} },
+        { id: "e5", source: "sess", target: "art", relationType: "completed_by", properties: {} },
+        { id: "e6", source: "mod", target: "art", relationType: "covers", properties: {} },
+      ],
+    };
+
+    const filtered = filterHierarchicalGraphEdges(graph as never);
+    expect(filtered.map((edge) => edge.id).sort()).toEqual(["e1", "e2", "e5", "e6"]);
+  });
+
+  it("lays out sibling nodes without horizontal overlap", () => {
+    const graph = {
+      name: "study_map",
+      notebookId: "nb_1",
+      nodes: [
+        { id: "mod", nodeType: "curriculum_module", labels: [], properties: { title: "Module A" } },
+        { id: "s1", nodeType: "tutor_session", labels: [], properties: { title: "Session 1" } },
+        { id: "s2", nodeType: "tutor_session", labels: [], properties: { title: "Session 2" } },
+        { id: "s3", nodeType: "tutor_session", labels: [], properties: { title: "Session 3" } },
+      ],
+      edges: [
+        { id: "e1", source: "mod", target: "s1", relationType: "HOSTS", properties: {} },
+        { id: "e2", source: "mod", target: "s2", relationType: "HOSTS", properties: {} },
+        { id: "e3", source: "mod", target: "s3", relationType: "HOSTS", properties: {} },
+      ],
+    };
+
+    const layout = buildIntentAwareLayout({ graphData: prepareGraphForCanvas(graph as never), savedPositions: {}, alreadyPrepared: true });
+    const sessionXs = layout
+      .filter((entry) => entry.node.nodeType === "tutor_session")
+      .map((entry) => entry.position.x)
+      .sort((a, b) => a - b);
+    expect(sessionXs).toHaveLength(3);
+    for (let index = 1; index < sessionXs.length; index += 1) {
+      expect(sessionXs[index]! - sessionXs[index - 1]!).toBeGreaterThanOrEqual(240);
+    }
+  });
+
+  it("centers child rows under their parent node", () => {
+    const graph = {
+      name: "study_map",
+      notebookId: "nb_1",
+      nodes: [
+        { id: "src", nodeType: "source", labels: [], properties: { title: "Chapter 2.pdf" } },
+        { id: "cur", nodeType: "curriculum", labels: [], properties: { title: "Course" } },
+        { id: "mod", nodeType: "curriculum_module", labels: [], properties: { title: "Module A" } },
+        { id: "s1", nodeType: "tutor_session", labels: [], properties: { title: "Session 1" } },
+        { id: "s2", nodeType: "tutor_session", labels: [], properties: { title: "Session 2" } },
+      ],
+      edges: [
+        { id: "e1", source: "src", target: "cur", relationType: "contains", properties: {} },
+        { id: "e2", source: "cur", target: "mod", relationType: "contains", properties: {} },
+        { id: "e3", source: "mod", target: "s1", relationType: "HOSTS", properties: {} },
+        { id: "e4", source: "mod", target: "s2", relationType: "HOSTS", properties: {} },
+      ],
+    };
+
+    const layout = buildIntentAwareLayout({ graphData: prepareGraphForCanvas(graph as never), savedPositions: {}, alreadyPrepared: true });
+    const byId = Object.fromEntries(layout.map((entry) => [entry.node.id, entry.position]));
+    const nodeCenter = (id: string) => byId[id]!.x + 84;
+
+    const sessionCenter = (nodeCenter("s1") + nodeCenter("s2")) / 2;
+    expect(Math.abs(nodeCenter("mod") - sessionCenter)).toBeLessThan(4);
+    expect(Math.abs(nodeCenter("cur") - nodeCenter("mod"))).toBeLessThan(4);
+    expect(Math.abs(nodeCenter("src") - nodeCenter("cur"))).toBeLessThan(4);
+  });
+
+  it("centers source wiki concepts under topic parents", () => {
+    const graph = {
+      name: "source_wiki_map",
+      notebookId: "nb_1",
+      nodes: [
+        { id: "src", nodeType: "source", labels: [], properties: {} },
+        { id: "topic", nodeType: "wiki_page", labels: [], properties: { title: "Kinematics", pageType: "topic" } },
+        { id: "c1", nodeType: "concept", labels: [], properties: { name: "Velocity" } },
+        { id: "c2", nodeType: "concept", labels: [], properties: { name: "Acceleration" } },
+      ],
+      edges: [
+        { id: "e1", source: "src", target: "topic", relationType: "HAS_TOPIC", properties: {} },
+        { id: "e2", source: "topic", target: "c1", relationType: "CONTAINS_CONCEPT", properties: {} },
+        { id: "e3", source: "topic", target: "c2", relationType: "CONTAINS_CONCEPT", properties: {} },
+      ],
+    };
+
+    const layout = buildIntentAwareLayout({ graphData: prepareGraphForCanvas(graph as never), savedPositions: {}, alreadyPrepared: true });
+    const byId = Object.fromEntries(layout.map((entry) => [entry.node.id, entry.position]));
+    const nodeCenter = (id: string) => byId[id]!.x + 84;
+    const conceptCenter = (nodeCenter("c1") + nodeCenter("c2")) / 2;
+
+    expect(Math.abs(nodeCenter("topic") - conceptCenter)).toBeLessThan(4);
+    expect(Math.abs(nodeCenter("src") - nodeCenter("topic"))).toBeLessThan(4);
+  });
+
+  it("dedupes source-wiki topic nodes when a topic page exists", () => {
+    const graph = {
+      name: "source_wiki_map",
+      notebookId: "nb_1",
+      nodes: [
+        { id: "src", nodeType: "source", labels: [], properties: {} },
+        { id: "topic", nodeType: "topic", labels: [], properties: { title: "Chapter 2.pdf" } },
+        { id: "topic_page", nodeType: "wiki_page", labels: [], properties: { title: "Topic · Chapter 2.pdf", pageType: "topic" } },
+        { id: "concept", nodeType: "concept", labels: [], properties: { name: "Fourier's law" } },
+      ],
+      edges: [
+        { id: "e1", source: "src", target: "topic", relationType: "HAS_TOPIC", properties: {} },
+        { id: "e2", source: "topic", target: "topic_page", relationType: "CONTAINS_PAGE", properties: {} },
+        { id: "e3", source: "topic", target: "concept", relationType: "CONTAINS_CONCEPT", properties: {} },
+      ],
+    };
+
+    const prepared = prepareGraphForCanvas(graph as never);
+    expect(prepared.nodes.map((node) => node.id)).toEqual(["src", "topic_page", "concept"]);
+    expect(prepared.edges.some((edge) => edge.source === "topic")).toBe(false);
+    expect(prepared.edges.some((edge) => edge.target === "concept")).toBe(true);
   });
 
   it("builds topic layers from heading paths and source pages", () => {
@@ -229,25 +389,30 @@ describe("whiteboard utils", () => {
     expect(promoted.edges).toEqual([]);
   });
 
-  it("builds source-wiki clustered layout lanes by topic", () => {
+  it("builds source-wiki top-down layout with topic and concept levels", () => {
     const graph = {
       name: "source_wiki_map",
       notebookId: "nb_1",
       nodes: [
-        { id: "src1", nodeType: "source", labels: [], properties: { headingPath: ["Linear Algebra"] } },
+        { id: "src1", nodeType: "source", labels: [], properties: {} },
+        { id: "topic1", nodeType: "topic", labels: [], properties: { title: "Linear Algebra" } },
         { id: "c1", nodeType: "concept", labels: [], properties: { headingPath: ["Linear Algebra"] } },
-        { id: "p1", nodeType: "wiki_page", labels: [], properties: { headingPath: ["Linear Algebra"] } },
+        { id: "p1", nodeType: "wiki_page", labels: [], properties: { headingPath: ["Linear Algebra"], pageType: "topic" } },
         { id: "c2", nodeType: "concept", labels: [], properties: { headingPath: ["Calculus"] } },
       ],
-      edges: [],
+      edges: [
+        { id: "e1", source: "src1", target: "topic1", relationType: "HAS_TOPIC", properties: {} },
+        { id: "e2", source: "topic1", target: "c1", relationType: "CONTAINS_CONCEPT", properties: {} },
+        { id: "e3", source: "topic1", target: "c2", relationType: "CONTAINS_CONCEPT", properties: {} },
+      ],
     };
 
     const layout = buildIntentAwareLayout({ graphData: graph as never, savedPositions: {} });
     const byId = Object.fromEntries(layout.map((entry) => [entry.node.id, entry.position]));
-    expect(byId["src1"]?.x).toBe(80);
-    expect(byId["c1"]?.x).toBe(620);
-    expect(byId["p1"]?.x).toBe(900);
-    expect(byId["c2"]?.y).toBeGreaterThan(byId["c1"]?.y ?? 0);
+    expect(byId["src1"]?.y).toBeLessThan(byId["topic1"]?.y ?? 0);
+    expect(byId["topic1"]?.y).toBeLessThan(byId["c1"]?.y ?? 0);
+    expect(byId["c1"]?.y).toBe(byId["c2"]?.y);
+    expect(byId["src1"]?.y).toBeLessThan(byId["p1"]?.y ?? 0);
   });
 
   it("reads source wiki topics from the workspace read model", () => {
@@ -306,6 +471,9 @@ describe("whiteboard utils", () => {
     expect(outline.modules[0]?.objectives[0]?.artifactIds).toEqual(["art_1"]);
     expect(outline.modules[0]?.objectives[0]?.sessionIds).toEqual(["sess_1"]);
     expect(outline.modules[0]?.objectives[0]?.conceptIds).toEqual(["concept_1"]);
+    expect(outline.modules[0]?.objectives[0]?.artifactRefs).toEqual([{ id: "art_1", title: "Formula sheet" }]);
+    expect(outline.modules[0]?.objectives[0]?.sessionRefs).toEqual([{ id: "sess_1", title: "Fourier lesson" }]);
+    expect(outline.modules[0]?.objectives[0]?.conceptRefs).toEqual([{ id: "concept_1", title: "Heat flux" }]);
   });
 
   it("prefers concept names over raw ids for learner titles", () => {

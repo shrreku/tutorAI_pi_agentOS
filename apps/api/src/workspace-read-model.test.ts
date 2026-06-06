@@ -103,7 +103,33 @@ describe("workspace read model visibility", () => {
         },
         false,
       ),
-    ).toBe("dev_only");
+    ).toBe("hidden");
+
+    expect(
+      workspaceVisibilityForNode(
+        "study_map",
+        {
+          id: "sess_plan_1",
+          nodeType: "session_plan",
+          labels: [],
+          properties: { title: "Explain Fourier's law", status: "active" },
+        },
+        false,
+      ),
+    ).toBe("hidden");
+
+    expect(
+      workspaceVisibilityForNode(
+        "study_map",
+        {
+          id: "plan_1",
+          nodeType: "study_plan",
+          labels: [],
+          properties: { title: "Live Plan", status: "active" },
+        },
+        false,
+      ),
+    ).toBe("hidden");
   });
 
   it("filters canvas nodes and edges for learner mode", () => {
@@ -145,7 +171,13 @@ describe("workspace read model visibility", () => {
     const draft = catalog.find((entry) => entry.node.id === "art_draft");
     const concept = catalog.find((entry) => entry.node.id === "concept_1");
     expect(draft?.referenceSurfaceTarget).toBeNull();
-    expect(concept?.referenceSurfaceTarget).toEqual({ refType: "concept", refId: "concept_1" });
+    expect(concept?.referenceSurfaceTarget).toEqual({
+      refType: "concept",
+      refId: "concept_1",
+      handle: "Vectors",
+      title: "Vectors",
+      label: "Vectors",
+    });
   });
 });
 
@@ -186,8 +218,8 @@ describe("source wiki topic groups", () => {
     });
     expect(topics[0]?.referenceSurfaceTargets).toEqual(
       expect.arrayContaining([
-        { refType: "concept", refId: "concept_1" },
-        { refType: "wiki_page", refId: "page_1" },
+        expect.objectContaining({ refType: "concept", refId: "concept_1" }),
+        expect.objectContaining({ refType: "wiki_page", refId: "page_1" }),
       ]),
     );
   });

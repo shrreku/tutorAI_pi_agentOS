@@ -11,6 +11,38 @@ import {
   personalizationRecommendationSchema,
 } from "./learner-traits.js";
 
+describe("learner trait estimation plan", () => {
+  it("validates run and skip planner decisions", async () => {
+    const { learnerTraitEstimationPlanSchema } = await import("./learner-traits.js");
+    const runPlan = learnerTraitEstimationPlanSchema.parse({
+      planId: "ltplan_1",
+      notebookId: "nb_1",
+      userId: "user_1",
+      sessionId: "sess_1",
+      decision: "run",
+      trigger: {
+        shouldEstimate: true,
+        reasons: ["explicit_preference_change"],
+        evidenceRefs: [{ refType: "self_report", refId: "turn_1" }],
+        traitFamilies: ["pacePreference"],
+      },
+      plannedAt: "2026-05-29T08:00:00.000Z",
+    });
+    const skipPlan = learnerTraitEstimationPlanSchema.parse({
+      planId: "ltplan_2",
+      notebookId: "nb_1",
+      userId: "user_1",
+      decision: "skip",
+      skipReason: "no_trait_relevant_signals",
+      trigger: { shouldEstimate: false, reasons: [], evidenceRefs: [], traitFamilies: [] },
+      plannedAt: "2026-05-29T08:00:00.000Z",
+    });
+
+    expect(runPlan.decision).toBe("run");
+    expect(skipPlan.skipReason).toBe("no_trait_relevant_signals");
+  });
+});
+
 describe("learner trait model", () => {
   it("validates the first archetype matrix as typed fixtures", () => {
     const parsed = learnerTraitArchetypeSchema.array().parse(learnerTraitArchetypeFixtures);

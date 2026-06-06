@@ -16,17 +16,39 @@ import {
   type PersonalizationRecommendation,
   personalizationRecommendationSchema,
 } from "@studyagent/schemas";
-import { appendEvent, type DbClient } from "@studyagent/db";
-import {
-  readCurrentLearnerTraitEstimates,
-  readRecentLearnerTraitSignals,
-  upsertCurrentLearnerTraitEstimate,
-} from "./learner-trait-store.js";
+import type { DbClient } from "@studyagent/db";
+import { appendEventWithTutorCacheInvalidation as appendEvent } from "./agentic-cache-invalidation.js";
+import { collectLearnerTraitEvidencePacket } from "./learner-trait-evidence-collector.js";
+import { planLearnerTraitEstimation, persistLearnerTraitEstimationPlan } from "./learner-trait-estimation-planner.js";
+import { readCurrentLearnerTraitEstimates, upsertCurrentLearnerTraitEstimate } from "./learner-trait-store.js";
 
 const EXPLICIT_SOURCES = new Set(["explicit_self_report", "tutor_recorded_preference", "onboarding_profile"]);
 const EXPLICIT_CAP = 0.95;
 const INFERRED_CAP = 0.72;
 const CONTRADICTION_CAP = 0.62;
+const MAX_PACKET_SIGNALS = 30;
+
+function learnerTraitSignalPriority(source: LearnerTraitSignal["source"]): number {
+  if (source === "explicit_self_report") return 0;
+  if (source === "tutor_recorded_preference") return 1;
+  if (source === "onboarding_profile") return 2;
+  if (source === "mastery_evidence_pattern") return 3;
+  if (source === "tutor_observation") return 4;
+  if (source === "session_trace") return 5;
+  if (source === "behavior_extraction") return 6;
+  return 7;
+}
+
+export function prioritizeLearnerTraitSignalsForEvidencePacket(signals: LearnerTraitSignal[]): LearnerTraitSignal[] {
+  return [...signals]
+    .sort((left, right) => {
+      const priorityDiff = learnerTraitSignalPriority(left.source) - learnerTraitSignalPriority(right.source);
+      if (priorityDiff !== 0) return priorityDiff;
+      if (right.strength !== left.strength) return right.strength - left.strength;
+      return right.observedAt.localeCompare(left.observedAt);
+    })
+    .slice(0, MAX_PACKET_SIGNALS);
+}
 
 export type LearnerTraitEstimatorModelConfig = {
   model: string;
@@ -106,7 +128,9 @@ export function buildLearnerTraitEvidencePacket(input: {
   contradictionRefs?: LearnerTraitEvidenceRef[];
   now?: () => Date;
 }): LearnerTraitEvidencePacket {
-  const scopedSignals = input.signals.filter((signal) => signal.notebookId === input.notebookId && signal.userId === input.userId);
+  const scopedSignals = prioritizeLearnerTraitSignalsForEvidencePacket(
+    input.signals.filter((signal) => signal.notebookId === input.notebookId && signal.userId === input.userId),
+  );
   const scopedEstimates = (input.currentEstimates ?? []).filter((estimate) => {
     return (!estimate.notebookId || estimate.notebookId === input.notebookId) && (!estimate.userId || estimate.userId === input.userId);
   });
@@ -389,49 +413,51 @@ export async function runLearnerTraitEstimationCycle(input: {
   notebookId: string;
   userId: string;
   sessionId?: string;
-  estimator: LearnerTraitEstimatorClient;
+  estimator?: LearnerTraitEstimatorClient;
   explicitAgentDecision?: boolean;
+  endedWithoutTurns?: boolean;
 }): Promise<{
+  plan: Awaited<ReturnType<typeof planLearnerTraitEstimation>>;
   trigger: LearnerTraitTriggerSummary;
   packet?: LearnerTraitEvidencePacket;
   proposals: LearnerTraitProposal[];
   guardrailDecisions: LearnerTraitGuardrailDecision[];
   persistedEstimateIds: string[];
 }> {
-  const [signals, currentEstimates] = await Promise.all([
-    readRecentLearnerTraitSignals(input.dbClient, {
-      notebookId: input.notebookId,
-      userId: input.userId,
-      ...(input.sessionId ? { sessionId: input.sessionId } : {}),
-      limit: 50,
-    }),
-    readCurrentLearnerTraitEstimates(input.dbClient, {
-      notebookId: input.notebookId,
-      userId: input.userId,
-    }),
-  ]);
-  const trigger = detectLearnerTraitEstimationTrigger({
-    signals,
-    currentEstimates,
-    ...(input.explicitAgentDecision !== undefined ? { explicitAgentDecision: input.explicitAgentDecision } : {}),
-  });
-
-  if (!trigger.shouldEstimate) {
-    await appendEvent(input.dbClient, {
-      notebookId: input.notebookId,
-      ...(input.sessionId ? { sessionId: input.sessionId } : {}),
-      eventType: "learner_trait.estimation.skipped",
-      payload: { trigger },
-    });
-    return { trigger, proposals: [], guardrailDecisions: [], persistedEstimateIds: [] };
-  }
-
-  const packet = buildLearnerTraitEvidencePacket({
+  const plan = await planLearnerTraitEstimation(input.dbClient, {
     notebookId: input.notebookId,
     userId: input.userId,
-    trigger,
-    signals,
-    currentEstimates,
+    ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+    ...(input.explicitAgentDecision !== undefined ? { explicitAgentDecision: input.explicitAgentDecision } : {}),
+    ...(input.endedWithoutTurns ? { endedWithoutTurns: true } : {}),
+  });
+  await persistLearnerTraitEstimationPlan(input.dbClient, plan);
+
+  if (plan.decision === "skip") {
+    return {
+      plan,
+      trigger: plan.trigger,
+      proposals: [],
+      guardrailDecisions: [],
+      persistedEstimateIds: [],
+    };
+  }
+
+  if (!input.estimator) {
+    return {
+      plan,
+      trigger: plan.trigger,
+      proposals: [],
+      guardrailDecisions: [],
+      persistedEstimateIds: [],
+    };
+  }
+
+  const packet = await collectLearnerTraitEvidencePacket(input.dbClient, {
+    notebookId: input.notebookId,
+    userId: input.userId,
+    trigger: plan.trigger,
+    ...(input.sessionId ? { sessionId: input.sessionId } : {}),
   });
   let proposals: LearnerTraitProposal[] = [];
   try {
@@ -443,9 +469,10 @@ export async function runLearnerTraitEstimationCycle(input: {
       eventType: "learner_trait.estimator.failed",
       payload: { packetId: packet.packetId, message: error instanceof Error ? error.message : String(error) },
     });
-    return { trigger, packet, proposals: [], guardrailDecisions: [], persistedEstimateIds: [] };
+    return { plan, trigger: plan.trigger, packet, proposals: [], guardrailDecisions: [], persistedEstimateIds: [] };
   }
 
+  const currentEstimates = packet.currentEstimates;
   const guardrailDecisions = proposals.map((proposal) =>
     applyLearnerTraitProposalGuardrails({ proposal, packet, currentEstimates }),
   );
@@ -473,7 +500,7 @@ export async function runLearnerTraitEstimationCycle(input: {
     });
   }
 
-  return { trigger, packet, proposals, guardrailDecisions, persistedEstimateIds };
+  return { plan, trigger: plan.trigger, packet, proposals, guardrailDecisions, persistedEstimateIds };
 }
 
 function truncateSummary(value: string, maxLength = 600): string {

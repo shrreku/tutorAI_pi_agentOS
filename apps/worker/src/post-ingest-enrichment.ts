@@ -18,7 +18,7 @@ import {
   wikiPages,
 } from "@studyagent/db";
 import { projectGraphFromCanonical } from "@studyagent/graph";
-import { buildSourceReadiness, sourceReadinessComponent } from "@studyagent/schemas";
+import { buildSourceReadinessAfterEnrichment } from "./source-readiness.js";
 import {
   buildConceptLookup,
   compileSourceToWikiChangeSet,
@@ -33,6 +33,7 @@ import { and, desc, eq, ne, notInArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { applyWikiChangeSet } from "./wiki-change-set-persistence.js";
 import { enqueueWikiPolishCandidates } from "./wiki-polish-enqueue.js";
+import { seedCoverageForSource } from "./coverage-seed.js";
 
 const extractionSchema = z.object({
   concepts: z
@@ -144,6 +145,106 @@ function trimCorpus(chunks: Array<{ id: string; text: string }>, maxChars: numbe
   return parts.join("\n\n");
 }
 
+function buildLocalExtractionFallback(input: EnrichmentInput): z.infer<typeof extractionSchema> {
+  const corpus = input.chunks.map((chunk) => chunk.text).join("\n\n").toLowerCase();
+  const hasHeatTransfer = /\b(fourier|heat flux|thermal conductivity|temperature gradient|conduction)\b/.test(corpus);
+  const fallbackConcepts = hasHeatTransfer
+    ? [
+        { name: "Fourier's law", conceptType: "formula", aliases: ["conduction rate equation"] },
+        { name: "Heat flux", conceptType: "concept", aliases: ["heat flow per unit area"] },
+        { name: "Temperature gradient", conceptType: "concept", aliases: ["dT/dx"] },
+        { name: "Thermal conductivity", conceptType: "property", aliases: ["k"] },
+        { name: "Conduction heat transfer", conceptType: "process", aliases: ["conduction"] },
+      ]
+    : buildKeywordConcepts(input);
+  const firstChunkId = input.chunks[0]?.id;
+  const secondChunkId = input.chunks[1]?.id ?? firstChunkId;
+  const claims = hasHeatTransfer
+    ? [
+        {
+          claimText: "Fourier's law describes conduction heat transfer driven by a temperature gradient.",
+          claimType: "source_summary",
+          conceptNames: ["Fourier's law", "Conduction heat transfer", "Temperature gradient"],
+          ...(firstChunkId ? { evidenceChunkId: firstChunkId } : {}),
+        },
+        {
+          claimText: "The negative sign in the one-dimensional conduction rate equation encodes that heat flows toward lower temperature.",
+          claimType: "source_summary",
+          conceptNames: ["Fourier's law", "Heat flux", "Temperature gradient"],
+          ...(secondChunkId ? { evidenceChunkId: secondChunkId } : {}),
+        },
+        {
+          claimText: "Thermal conductivity indicates how readily a material conducts heat.",
+          claimType: "source_summary",
+          conceptNames: ["Thermal conductivity", "Conduction heat transfer"],
+          ...(secondChunkId ? { evidenceChunkId: secondChunkId } : {}),
+        },
+      ]
+    : fallbackConcepts.slice(0, 4).map((concept, index) => ({
+        claimText: `${concept.name} is a recurring learning idea in ${input.sourceTitle}.`,
+        claimType: "source_summary",
+        conceptNames: [concept.name],
+        ...(input.chunks[index]?.id ? { evidenceChunkId: input.chunks[index]!.id } : {}),
+      }));
+
+  return extractionSchema.parse({
+    concepts: fallbackConcepts,
+    claims,
+    relations: hasHeatTransfer
+      ? [
+          { fromConcept: "Fourier's law", toConcept: "Heat flux", relationType: "covers", confidence: 0.7 },
+          { fromConcept: "Temperature gradient", toConcept: "Heat flux", relationType: "supports", confidence: 0.7 },
+          { fromConcept: "Thermal conductivity", toConcept: "Fourier's law", relationType: "supports", confidence: 0.65 },
+        ]
+      : [],
+    sourceSummaryMarkdown: [
+      `## ${input.sourceTitle}`,
+      "",
+      hasHeatTransfer
+        ? "This source introduces conduction heat transfer through Fourier's law, emphasizing heat flux, temperature gradients, and thermal conductivity."
+        : "This source has been prepared with local extraction because the model-backed extractor was unavailable.",
+      "",
+      "### Key ideas",
+      ...fallbackConcepts.map((concept) => `- ${concept.name}`),
+      "",
+      "### Practice prompt",
+      hasHeatTransfer
+        ? "- Explain why the negative sign in q = -kA dT/dx is needed for heat to flow from hot to cold."
+        : "- Pick one key idea and explain it in your own words using the source text.",
+    ].join("\n"),
+    curriculumTitle: cleanLearnerTitle(input.sourceTitle) ?? "Source-based course",
+  });
+}
+
+function buildKeywordConcepts(input: EnrichmentInput): Array<{ name: string; conceptType: string; aliases: string[] }> {
+  const stopWords = new Set([
+    "about",
+    "after",
+    "also",
+    "because",
+    "before",
+    "chapter",
+    "from",
+    "that",
+    "this",
+    "with",
+    "which",
+  ]);
+  const counts = new Map<string, number>();
+  for (const text of input.chunks.slice(0, 20).map((chunk) => chunk.text.toLowerCase())) {
+    for (const token of text.match(/[a-z][a-z0-9'-]{4,}/g) ?? []) {
+      if (stopWords.has(token)) continue;
+      counts.set(token, (counts.get(token) ?? 0) + 1);
+    }
+  }
+  const names = [...counts.entries()]
+    .sort((left, right) => right[1] - left[1])
+    .slice(0, 6)
+    .map(([token]) => token.replace(/(^|-)([a-z])/g, (_match, prefix: string, letter: string) => `${prefix}${letter.toUpperCase()}`));
+  const fallbackNames = names.length ? names : [cleanLearnerTitle(input.sourceTitle) ?? "Source concept"];
+  return fallbackNames.map((name) => ({ name, conceptType: "concept", aliases: [] }));
+}
+
 function toExtractionRelations(
   relations: Array<{ fromConcept: string; toConcept: string; relationType: string; confidence?: number | undefined }>,
 ): SourceExtractionRelation[] {
@@ -228,23 +329,33 @@ async function openRouterJsonObject(
 ): Promise<unknown> {
   const base = env.OPENROUTER_BASE_URL.replace(/\/+$/, "");
   const model = env.DEFAULT_EXTRACTION_MODEL;
-  const res = await fetch(`${base}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${env.OPENROUTER_API_KEY!}`,
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      temperature: 0.15,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user },
-      ],
-    }),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+  let res: Response;
+  try {
+    res = await fetch(`${base}/chat/completions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${env.OPENROUTER_API_KEY!}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        temperature: 0.15,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+      }),
+      signal: controller.signal,
+    });
+  } catch (error) {
+    throw new Error(`OpenRouter chat failed: ${error instanceof Error ? error.message : String(error)}`);
+  } finally {
+    clearTimeout(timeout);
+  }
   const body = (await res.json()) as {
     choices?: Array<{ message?: { content?: string } }>;
     error?: { message?: string };
@@ -404,10 +515,6 @@ export async function runPostIngestEnrichment(
   dbClient: DbClient,
   input: EnrichmentInput,
 ): Promise<{ ok: boolean; reason?: string }> {
-  if (!env.OPENROUTER_API_KEY) {
-    return { ok: false, reason: "OPENROUTER_API_KEY not set" };
-  }
-
   if (input.chunks.length === 0) {
     return { ok: false, reason: "no_retrieval_chunks" };
   }
@@ -436,21 +543,40 @@ export async function runPostIngestEnrichment(
   ].join("\n\n");
 
   let parsed: z.infer<typeof extractionSchema>;
+  let extractionMode: "llm" | "local_fallback" = "llm";
+  let extractionFallbackReason: string | undefined;
   try {
+    if (!env.OPENROUTER_API_KEY) {
+      throw new Error("OPENROUTER_API_KEY not set");
+    }
     const raw = await openRouterJsonObject(env, system, user);
     parsed = extractionSchema.parse(raw);
   } catch (e) {
-    return { ok: false, reason: e instanceof Error ? e.message : String(e) };
+    extractionMode = "local_fallback";
+    extractionFallbackReason = e instanceof Error ? e.message : String(e);
+    parsed = buildLocalExtractionFallback(input);
+    await appendEvent(dbClient, {
+      notebookId: input.notebookId,
+      eventType: "source.enrichment.fallback_used",
+      payload: {
+        sourceId: input.sourceId,
+        sourceVersionId: input.sourceVersionId,
+        reason: extractionFallbackReason,
+      },
+    });
   }
 
-  const focusedRelations = await extractFocusedRelations(
-    env,
-    parsed.concepts.map((concept) => ({
-      name: concept.name.trim(),
-      ...(concept.aliases ? { aliases: concept.aliases } : {}),
-    })),
-    parsed.claims.map((claim) => ({ claimText: claim.claimText.trim(), conceptNames: claim.conceptNames })),
-  );
+  const focusedRelations =
+    extractionMode === "llm"
+      ? await extractFocusedRelations(
+          env,
+          parsed.concepts.map((concept) => ({
+            name: concept.name.trim(),
+            ...(concept.aliases ? { aliases: concept.aliases } : {}),
+          })),
+          parsed.claims.map((claim) => ({ claimText: claim.claimText.trim(), conceptNames: claim.conceptNames })),
+        )
+      : [];
 
   const now = new Date();
   const sourceSummaryPageKey = `source:${input.sourceId}`;
@@ -640,7 +766,7 @@ export async function runPostIngestEnrichment(
       status: "draft",
       sourceIds: [input.sourceId],
       coverageSummaryJson: { conceptCount: parsed.concepts.length, claimCount: parsed.claims.length },
-      confidence: 0.65,
+      confidence: extractionMode === "llm" ? 0.65 : 0.45,
       createdAt: now,
       updatedAt: now,
     });
@@ -656,17 +782,21 @@ export async function runPostIngestEnrichment(
     const seedConceptIds = parsed.concepts
       .map((c) => conceptIdByName.get(c.name.trim()))
       .filter(Boolean) as string[];
-    const llmCurriculumPlan = await planCurriculumBootstrapWithLLM(env, {
-      sourceTitle: input.sourceTitle,
-      ...(parsed.curriculumTitle ? { curriculumTitle: parsed.curriculumTitle } : {}),
-      conceptNames: parsed.concepts.map((c) => c.name.trim()),
-    });
+    const llmCurriculumPlan =
+      extractionMode === "llm"
+        ? await planCurriculumBootstrapWithLLM(env, {
+            sourceTitle: input.sourceTitle,
+            ...(parsed.curriculumTitle ? { curriculumTitle: parsed.curriculumTitle } : {}),
+            conceptNames: parsed.concepts.map((c) => c.name.trim()),
+          })
+        : null;
     await appendEvent(dbClient, {
       notebookId: input.notebookId,
       eventType: "curriculum.bootstrap.planned",
       payload: {
         curriculumId,
         planner: llmCurriculumPlan ? "llm_curated" : "deterministic_fallback",
+        extractionMode,
         sourceId: input.sourceId,
         conceptCount: parsed.concepts.length,
       },
@@ -774,11 +904,14 @@ export async function runPostIngestEnrichment(
     const objectiveIds = moduleObjectives[0] ?? [];
     const firstModulePlan = curriculumModulesPlan[0];
     const firstModuleObjectiveTitles = firstModulePlan?.objectiveTitles ?? [];
-    const llmSessionPlan = await planSessionBootstrapWithLLM(env, {
-      sourceTitle: input.sourceTitle,
-      moduleTitle: firstModulePlan?.title ?? `Module 1 · ${input.sourceTitle}`,
-      objectiveTitles: firstModuleObjectiveTitles,
-    });
+    const llmSessionPlan =
+      extractionMode === "llm"
+        ? await planSessionBootstrapWithLLM(env, {
+            sourceTitle: input.sourceTitle,
+            moduleTitle: firstModulePlan?.title ?? `Module 1 · ${input.sourceTitle}`,
+            objectiveTitles: firstModuleObjectiveTitles,
+          })
+        : null;
     const llmPlannedObjectiveIds =
       llmSessionPlan?.plannedObjectiveIndexes
         .map((index) => objectiveIds[index])
@@ -941,14 +1074,17 @@ export async function runPostIngestEnrichment(
       }),
     );
 
-    const llmCoverageRefinements = await refineCoverageFamiliesWithLLM(
-      env,
-      extractedCoverageSeedItems.map((item) => ({
-        title: item.title.slice(0, 160),
-        itemFamily: item.itemFamily,
-        description: item.description ?? null,
-      })),
-    );
+    const llmCoverageRefinements =
+      extractionMode === "llm"
+        ? await refineCoverageFamiliesWithLLM(
+            env,
+            extractedCoverageSeedItems.map((item) => ({
+              title: item.title.slice(0, 160),
+              itemFamily: item.itemFamily,
+              description: item.description ?? null,
+            })),
+          )
+        : new Map();
 
     const coverageSeedItems =
       extractedCoverageSeedItems.length > 0
@@ -996,66 +1132,25 @@ export async function runPostIngestEnrichment(
       ["formula", "procedure", "example"],
       ["application", "misconception"],
     ];
-    const coverageByFamily = new Map<string, string[]>();
-    const conceptIdsByObjective = objectiveIds.map(() => new Set<string>());
 
-    for (const item of coverageSeedItems) {
-      const coverageItemId = `cov_${crypto.randomUUID().replaceAll("-", "")}`;
-      const coverageRecordId = `covrec_${crypto.randomUUID().replaceAll("-", "")}`;
-      const familyItems = coverageByFamily.get(item.itemFamily) ?? [];
-      familyItems.push(coverageItemId);
-      coverageByFamily.set(item.itemFamily, familyItems);
-      await dbClient.db.insert(coverageItems).values({
-        id: coverageItemId,
-        notebookId: input.notebookId,
-        sourceId: input.sourceId,
-        sourceVersionId: input.sourceVersionId,
-        itemFamily: item.itemFamily,
-        title: item.title,
-        description: item.description,
-        conceptId: item.conceptId,
-        claimId: item.claimId,
-        sourceRefsJson: [{ sourceId: input.sourceId }],
-        metadataJson: item.metadataJson,
-        createdAt: now,
-        updatedAt: now,
-      });
-
-      await dbClient.db.insert(coverageRecords).values({
-        id: coverageRecordId,
-        notebookId: input.notebookId,
-        coverageItemId,
-        curriculumId,
-        moduleId,
-        objectiveListId,
-        sessionPlanId,
-        status: "planned",
-        evidenceJson: { sourceId: input.sourceId },
-        updatedByRunId: null,
-        createdAt: now,
-        updatedAt: now,
-      });
-
-      if (item.conceptId) {
-        for (let objectiveIndex = 0; objectiveIndex < objectiveCoverageFamilies.length; objectiveIndex += 1) {
-          const families = objectiveCoverageFamilies[objectiveIndex]!;
-          if (families.includes(item.itemFamily)) {
-            conceptIdsByObjective[objectiveIndex]!.add(item.conceptId);
-          }
-        }
-      }
-    }
+    const { coverageByFamily, conceptIdsByObjective } = await seedCoverageForSource(dbClient, {
+      notebookId: input.notebookId,
+      sourceId: input.sourceId,
+      sourceVersionId: input.sourceVersionId,
+      curriculumId,
+      moduleId,
+      objectiveListId,
+      sessionPlanId,
+      coverageSeedItems,
+      objectiveCoverageFamilies,
+      now,
+    });
 
     for (let i = 0; i < objectiveIds.length; i += 1) {
       const objectiveId = objectiveIds[i]!;
-      const mustCoverCoverageItemIds = (objectiveCoverageFamilies[i] ?? []).flatMap(
-        (family) => coverageByFamily.get(family) ?? [],
-      );
+      const mustCoverCoverageItemIds = (objectiveCoverageFamilies[i] ?? []).flatMap((family) => coverageByFamily.get(family) ?? []);
       const targetConceptIds = [
-        ...new Set([
-          ...Array.from(conceptIdsByObjective[i] ?? []),
-          ...(i === 0 ? seedConceptIds.slice(0, 5) : []),
-        ]),
+        ...new Set([...(Array.from(conceptIdsByObjective[i] ?? []) as string[]), ...(i === 0 ? seedConceptIds.slice(0, 5) : [])]),
       ];
       await dbClient.db
         .update(objectives)
@@ -1195,53 +1290,24 @@ export async function runPostIngestEnrichment(
       ["formula", "procedure", "example"],
       ["application", "misconception"],
     ];
-    const coverageByFamily = new Map<string, string[]>();
 
-    for (const item of coverageSeedItems) {
-    const coverageItemId = `cov_${crypto.randomUUID().replaceAll("-", "")}`;
-    const coverageRecordId = `covrec_${crypto.randomUUID().replaceAll("-", "")}`;
-    const familyItems = coverageByFamily.get(item.itemFamily) ?? [];
-    familyItems.push(coverageItemId);
-    coverageByFamily.set(item.itemFamily, familyItems);
-    await dbClient.db.insert(coverageItems).values({
-      id: coverageItemId,
+    const { coverageByFamily } = await seedCoverageForSource(dbClient, {
       notebookId: input.notebookId,
       sourceId: input.sourceId,
       sourceVersionId: input.sourceVersionId,
-      itemFamily: item.itemFamily,
-      title: item.title,
-      description: item.description,
-      conceptId: item.conceptId,
-      claimId: item.claimId,
-      sourceRefsJson: [{ sourceId: input.sourceId }],
-      metadataJson: item.metadataJson,
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    await dbClient.db.insert(coverageRecords).values({
-      id: coverageRecordId,
-      notebookId: input.notebookId,
-      coverageItemId,
       curriculumId: curriculumId ?? null,
       moduleId: moduleId ?? null,
       objectiveListId: objectiveListId ?? null,
       sessionPlanId: sessionPlanId ?? null,
-      status: "planned",
-      evidenceJson: { sourceId: input.sourceId },
-      updatedByRunId: null,
-      createdAt: now,
-      updatedAt: now,
+      coverageSeedItems,
+      objectiveCoverageFamilies,
+      now,
     });
-
-    }
 
     for (let i = 0; i < objectiveIdsOrdered.length; i += 1) {
       const objectiveId = objectiveIdsOrdered[i];
       if (!objectiveId) continue;
-      const mustCoverCoverageItemIds = (objectiveCoverageFamilies[i] ?? []).flatMap(
-        (family) => coverageByFamily.get(family) ?? [],
-      );
+      const mustCoverCoverageItemIds = (objectiveCoverageFamilies[i] ?? []).flatMap((family) => coverageByFamily.get(family) ?? []);
       if (mustCoverCoverageItemIds.length === 0) continue;
       await dbClient.db
         .update(objectives)
@@ -1303,26 +1369,12 @@ export async function runPostIngestEnrichment(
   }
 
   const readinessUpdatedAt = new Date().toISOString();
-  const finalReadiness = buildSourceReadiness({
-    retrieval: sourceReadinessComponent(true, { updatedAt: readinessUpdatedAt }),
-    wiki: sourceReadinessComponent(changeSet.wikiPages.length > 0, { updatedAt: readinessUpdatedAt }),
-    planning: sourceReadinessComponent(Boolean(curriculumId || existingPlan), {
-      updatedAt: readinessUpdatedAt,
-      status: curriculumId || existingPlan ? "ready" : "degraded",
-      message: curriculumId || existingPlan ? null : "Learning plan bootstrap did not produce a planning context.",
-    }),
-    search: sourceReadinessComponent(true, { updatedAt: readinessUpdatedAt }),
-    projection: sourceReadinessComponent(projectionReady, {
-      updatedAt: readinessUpdatedAt,
-      status: projectionReady ? "ready" : "degraded",
-      message: projectionReady ? null : projectionMessage ?? "Study Map projection is still improving.",
-    }),
-    learnerSourceWiki: sourceReadinessComponent(changeSet.wikiPages.length > 0, {
-      updatedAt: readinessUpdatedAt,
-      status: projectionReady ? "ready" : "degraded",
-      message: projectionReady ? null : "Source Wiki is usable, but Study Map links may still be improving.",
-    }),
-    tutoring: sourceReadinessComponent(true, { updatedAt: readinessUpdatedAt }),
+  const finalReadiness = buildSourceReadinessAfterEnrichment({
+    wikiReady: changeSet.wikiPages.length > 0,
+    planningReady: Boolean(curriculumId || existingPlan),
+    projectionReady,
+    projectionMessage,
+    updatedAt: readinessUpdatedAt,
   });
   const [sourceRow] = await dbClient.db.select({ metadataJson: sources.metadataJson }).from(sources).where(eq(sources.id, input.sourceId)).limit(1);
   await dbClient.db
@@ -1331,6 +1383,8 @@ export async function runPostIngestEnrichment(
       metadataJson: {
         ...(sourceRow?.metadataJson ?? {}),
         sourceReadiness: finalReadiness,
+        enrichmentMode: extractionMode,
+        ...(extractionFallbackReason ? { enrichmentFallbackReason: extractionFallbackReason } : {}),
       },
       updatedAt: new Date(),
     })

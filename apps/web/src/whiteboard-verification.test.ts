@@ -71,25 +71,28 @@ describe("workspace verification", () => {
     expect(promoted.nodes.map((node) => node.id)).toEqual(["c_on_path"]);
   });
 
-  it("clusters source wiki layout by topic and node family", () => {
+  it("clusters source wiki layout top-down by hierarchy level", () => {
     const layout = buildIntentAwareLayout({
       graphData: {
         name: "source_wiki_map",
         notebookId: "nb_1",
         nodes: [
           { id: "src_a", nodeType: "source", labels: [], properties: { headingPath: ["A"] } },
+          { id: "topic_a", nodeType: "topic", labels: [], properties: { headingPath: ["A"] } },
           { id: "concept_a", nodeType: "concept", labels: [], properties: { headingPath: ["A"] } },
-          { id: "page_b", nodeType: "wiki_page", labels: [], properties: { headingPath: ["B"] } },
+          { id: "page_b", nodeType: "wiki_page", labels: [], properties: { headingPath: ["B"], pageType: "topic" } },
         ],
-        edges: [],
+        edges: [
+          { id: "e1", source: "src_a", target: "topic_a", relationType: "HAS_TOPIC", properties: {} },
+          { id: "e2", source: "topic_a", target: "concept_a", relationType: "CONTAINS_CONCEPT", properties: {} },
+        ],
       } as any,
       savedPositions: {},
     });
     const byId = Object.fromEntries(layout.map((entry) => [entry.node.id, entry.position]));
-    expect(byId["src_a"]?.x).toBe(80);
-    expect(byId["concept_a"]?.x).toBe(620);
-    expect(byId["page_b"]?.x).toBe(900);
-    expect(byId["page_b"]?.y).toBeGreaterThan(byId["concept_a"]?.y ?? 0);
+    expect(byId["src_a"]?.y).toBeLessThan(byId["topic_a"]?.y ?? 0);
+    expect(byId["topic_a"]?.y).toBeLessThan(byId["concept_a"]?.y ?? 0);
+    expect(byId["src_a"]?.y).toBeLessThan(byId["page_b"]?.y ?? 0);
   });
 
   it("anchors sticky plan near upper middle of workspace", () => {

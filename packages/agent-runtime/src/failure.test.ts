@@ -8,6 +8,27 @@ describe("runtime failures", () => {
     expect(classifyRuntimeError(new ToolValidationError("wiki.search", {})).kind).toBe("invalid_tool_args");
   });
 
+  it("classifies stale session compaction crashes as retryable", () => {
+    const failure = classifyRuntimeError(
+      new Error("Cannot read properties of undefined (reading 'totalTokens')"),
+    );
+    expect(failure.code).toBe("session_rehydration_error");
+    expect(failure.retryable).toBe(true);
+  });
+
+  it("classifies model dispatch timeout with actionable code", () => {
+    const failure = classifyRuntimeError(new Error("model dispatch timed out"));
+    expect(failure.kind).toBe("model_timeout");
+    expect(failure.code).toBe("model_dispatch_timeout");
+    expect(failure.retryable).toBe(true);
+  });
+
+  it("classifies tool budget exhaustion", () => {
+    const failure = classifyRuntimeError(new Error("Runtime tool budget exceeded: attempted more than 12 tool calls"));
+    expect(failure.code).toBe("tool_budget_exceeded");
+    expect(failure.safeMessage).toContain("tool-call budget");
+  });
+
   it("builds a safe agent.run.failed envelope", () => {
     const envelope = buildAgentRunFailedEnvelope({
       notebookId: "nb_1",

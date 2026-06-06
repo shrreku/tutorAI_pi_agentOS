@@ -29,6 +29,20 @@ Source Level: the intended academic level of a source, such as high school, unde
 
 Source-scoped tutoring: a tutoring mode that prioritizes one or more selected sources while still using notebook curriculum, learner state, weak concepts, and prerequisites unless the learner asks to stay strictly within the selected sources.
 
+Source Scope Boundary: the learner-facing limit of what the uploaded and indexed sources currently cover for a requested study path.
+
+Source Scope Summary: a learner-facing summary of the sections, topics, or objectives currently covered by uploaded and indexed sources.
+
+Source Coverage Complete: a state where the currently available uploaded source scope has been introduced or checked enough to stop advancing within that source, without implying learner mastery.
+
+Planned Scope Boundary: the learner-facing limit of the currently active curriculum scope, such as a session plan or module, even when more uploaded source content remains available.
+
+Module Milestone: a learner-facing pause point reached when the current module's planned source-backed objectives are complete enough to recommend consolidation before advancing.
+
+Boundary Signal: tutor-facing evidence that a source, session plan, or module boundary has likely been reached; it guides tutoring behavior without acting as a hard constraint.
+
+Outside-Source Extension: learner-approved teaching that goes beyond the uploaded source scope while clearly separating general pedagogical knowledge from source-backed material.
+
 LLM Wiki: the durable knowledge layer between raw sources and live tutoring. It contains concepts, claims, pages, relations, citations, artifacts, confidence, contradictions, supersession, and session crystallization outputs. It is compiled incrementally instead of regenerated from scratch per query, and may become more polished over time through background enrichment and tutor-triggered repair.
 
 Source Wiki Page: durable source-grounded reference surface generated from the LLM Wiki for a topic, concept, or source summary.
@@ -52,6 +66,10 @@ Objective: focused learning goal that can be taught, checked, remediated, or com
 Objective Progress: the learner's status against a teachable goal, derived from session evidence and relevant concept mastery.
 
 Session Plan: durable plan for one tutoring episode, usually centered on one main objective and a few supporting objectives.
+
+Session Node: learner-facing Study Map representation of a real tutor session, distinct from the Session Plan that guides it.
+
+Tutor Activity: learner-facing summary of what the tutor is doing during a live response or completed turn; raw traces remain Dev Mode/debug language.
 
 Teaching Arc: internal pedagogical execution plan for an objective: orient, intuition, formalism, examples, misconception, checkpoint, summary, branch.
 
@@ -187,11 +205,15 @@ Synthetic Learner eval setup: ingestion prepares Eval Source Fixtures with sourc
 
 Curriculum-first tutoring: when the learner says "teach me" or "start studying," the tutor should not behave like generic chat. It loads active curriculum, module, objective list, session plan, student profile, weak concepts, recent mistakes, and selected Workspace context. If planning is missing, it creates the minimum planning objects. It then teaches the current objective, asks checkpoints, records evidence, adapts explanation and pacing, and modifies the syllabus path when durable signals such as checkpoint performance, repeated mistakes, explicit learner self-report, mastery changes, weak concept recurrence, source coverage gaps, or multi-turn confusion show the current path should change. Learner steering such as skipping, slowing down, focusing a chapter, requesting a quiz, claiming prior knowledge, or preparing for an exam can immediately affect tutoring behavior; durable curriculum or mastery changes still need explicit confirmation or supporting evidence. It prioritizes the current source or notebook while teaching transferable mastery through examples, prerequisites, and remediation when that helps the learner perform better.
 
+Boundary handling: Boundary Signals should shape the next tutor move without becoming hard gates. A session-plan boundary may roll forward inside the same module, a Module Milestone should pause for consolidation choices before advancing, and a Source Scope Boundary should surface only when it affects the learner's requested path or next action.
+
 Session lifecycle: a tutor session spans many turns and has planned syllabus scope, but its success criterion is mastery movement rather than coverage alone. Turns are not sessions. The tutor asks questions, quizzes, and checkpoints during the session to understand mastery and decide whether to continue, remediate, advance, or crystallize. The Mastery Evaluator should run only on evaluable learner responses such as answers to mastery checks, quiz-like prompts, explanations, worked-problem attempts, self-reported confusion, or self-reported prior knowledge. Explicit checks, quiz answers, and repeated mistake patterns should carry more mastery weight than free-form conversation; vague confidence should not strongly increase mastery without successful application. Digests are created at meaningful end, pause, or crystallization boundaries, not after every assistant message. Sessions can be active, paused, resumed, ended, and crystallized.
 
 Artifact lifecycle: canonical planning scaffolding may be automatic. Learner-visible study aids should be user-requested, user-approved, or governed by per-type consent policy. Artifacts should connect to current objectives, weak concepts, source evidence, repeated mistakes, or session outcomes. Notes may be personalized and user-editable without becoming a separate artifact type. Source Wiki pages are reference surfaces, not artifacts, and are governed by wiki compilation rather than artifact consent. Durable artifact writes go through typed tools, reducers, events, quality gates, and source/evidence refs where applicable.
 
 Workspace navigation: notebook open flow should derive one obvious next action: upload source, build curriculum, continue session, resume session, start next lesson, or review last session. The right panel can show Curriculum, Study Map, Source Wiki, or a full-panel reference/artifact viewer. Learner mode hides low-signal debug nodes and opens every visible node into a useful surface.
+
+Study Map session relationships: Session Nodes connect inside the Study Map graph to the modules, objectives, artifacts, concepts, or sources that the real tutor session used or produced.
 
 Future exam preparation mode: exam preparation is currently a learner goal inside the same tutoring system. A future Exam Preparation Mode may add deadlines, target syllabus scope, past-paper style practice, scoring rubrics, timed mock exams, and exam-specific revision overlays while preserving notebook/source grounding, mastery checks, Evidence, and artifact consent. See `docs/future/exam-preparation-mode.md`.
 

@@ -1,5 +1,5 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
-import { appendEvent, learnerTraitEstimates, learnerTraitSignals, type DbClient } from "@studyagent/db";
+import { learnerTraitEstimates, learnerTraitSignals, type DbClient } from "@studyagent/db";
 import {
   learnerTraitEstimateSchema,
   learnerTraitSignalSchema,
@@ -7,6 +7,7 @@ import {
   type LearnerTraitKey,
   type LearnerTraitSignal,
 } from "@studyagent/schemas";
+import { appendEventWithTutorCacheInvalidation as appendEvent } from "./agentic-cache-invalidation.js";
 
 export type RecordLearnerTraitSignalInput = LearnerTraitSignal & {
   runId?: string;
@@ -53,6 +54,19 @@ export async function recordLearnerTraitSignal(
   });
 
   return { signal: parsed, eventId: event.id };
+}
+
+export async function readLearnerTraitSignalsForTurn(
+  dbClient: DbClient,
+  input: { turnId: string },
+): Promise<LearnerTraitSignal[]> {
+  const rows = await dbClient.db
+    .select()
+    .from(learnerTraitSignals)
+    .where(eq(learnerTraitSignals.turnId, input.turnId))
+    .orderBy(desc(learnerTraitSignals.createdAt));
+
+  return rows.map((row) => learnerTraitSignalSchema.parse(row.signalJson));
 }
 
 export async function readRecentLearnerTraitSignals(

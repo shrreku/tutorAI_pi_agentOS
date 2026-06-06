@@ -3,6 +3,20 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import katex from "katex";
 import type { GraphCanvasNode, ReferenceBlock, ReferenceSurface } from "@studyagent/schemas";
 import { learnerFacingSurfaceStatus } from "@studyagent/schemas";
+import {
+  actionsForReferenceSurface,
+  buildTutorPromptForReferenceAction,
+  referenceSurfaceSupportsRegeneration,
+  type ReferenceSurfaceActionId,
+} from "./reference-surface-actions.js";
+import {
+  artifactQuizSelfAssessmentLabels,
+  isQuizArtifactSurface,
+  visibleReferenceBlocks,
+} from "./artifact-review.js";
+import { learnerSafeCopy } from "./learner-copy-guard.js";
+
+const QUIZ_SELF_ASSESSMENT_LABELS = artifactQuizSelfAssessmentLabels();
 
 type QuizQuestion = {
   id: string;
@@ -75,10 +89,15 @@ export const FullPanelViewer: React.FC<FullPanelViewerProps> = ({ notebookId, no
     referenceSurface?.surfaceType === "source"
       ? `/api/v1/notebooks/${encodeURIComponent(notebookId)}/sources/${encodeURIComponent(referenceSurface.nodeRef.refId)}/extracted`
       : null;
-  const isQuizArtifact =
-    referenceSurface?.surfaceType === "artifact" &&
-    node.nodeType === "artifact" &&
-    (node.properties.artifactType === "quiz" || node.properties.artifact_type === "quiz");
+  const isQuizArtifact = referenceSurface ? isQuizArtifactSurface(referenceSurface) : false;
+  const canRegenerate = referenceSurfaceSupportsRegeneration(referenceSurface);
+  const headerActions = referenceSurface ? actionsForReferenceSurface({
+    surface: referenceSurface,
+    canLaunchTutor: Boolean(onLaunchTutor),
+    canShowEvidence: Boolean(onShowProvenance),
+    canRegenerate,
+  }) : [];
+  const hasHeaderRegenerate = headerActions.some((action) => action.id === "regenerate");
   const { data: savedQuizAttempts } = useQuery({
     queryKey: ["quiz-attempts", notebookId, sourceNodeId],
     enabled: Boolean(isQuizArtifact),
@@ -126,7 +145,37 @@ export const FullPanelViewer: React.FC<FullPanelViewerProps> = ({ notebookId, no
     if (!regeneratePrompt) return;
     regenerate.mutate(undefined);
   };
+  const executeReferenceAction = (actionId: ReferenceSurfaceActionId) => {
+    if (actionId === "ask_tutor") {
+      onLaunchTutor?.(node);
+      return;
+    }
+    if (actionId === "review" || actionId === "quiz") {
+      if (referenceSurface && onDraftTutorPrompt) {
+        onDraftTutorPrompt(buildTutorPromptForReferenceAction(referenceSurface, actionId), node);
+      } else {
+        onLaunchTutor?.(node);
+      }
+      return;
+    }
+    if (actionId === "open_provenance" || actionId === "open_evidence") {
+      onShowProvenance?.(node);
+      return;
+    }
+    if (actionId === "open_source") {
+      if (sourceFileUrl) window.open(sourceFileUrl, "_blank", "noreferrer");
+      return;
+    }
+    if (actionId === "regenerate") {
+      if (showRegenOptions && regenInstruction.trim()) {
+        regenerate.mutate(undefined);
+        return;
+      }
+      setShowRegenOptions(true);
+    }
+  };
   const extendQuiz = (surfaceTitle: string) => {
+    if (!referenceSurface?.primaryActions.includes("regenerate")) return;
     setShowRegenOptions(true);
     const instruction = `Extend "${surfaceTitle}" with 3 additional source-grounded questions. Keep the existing useful questions, add harder application and misconception checks, include choices, correct answers, explanations, and conceptIds where possible.`;
     setRegenInstruction(instruction);
@@ -268,7 +317,7 @@ export const FullPanelViewer: React.FC<FullPanelViewerProps> = ({ notebookId, no
           <div style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
             <div style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 0 }}>
               <span style={{ borderRadius: 999, background: surface.surfaceType === "artifact" ? "#fff7ed" : "#eff6ff", color: surface.surfaceType === "artifact" ? "#9a3412" : "#1d4ed8", padding: "2px 8px", fontSize: 11, fontWeight: 800, textTransform: "capitalize", flex: "0 0 auto" }}>
-                {surface.surfaceType.replace(/_/g, " ")}
+                {learnerSafeCopy(surface.surfaceType.replace(/_/g, " "))}
               </span>
               {surface.generation && <GenerationBadge generation={surface.generation} />}
               <div style={{ fontSize: 22, fontWeight: 850, letterSpacing: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{surface.title}</div>
@@ -282,11 +331,12 @@ export const FullPanelViewer: React.FC<FullPanelViewerProps> = ({ notebookId, no
               return label ? <span style={{ color: "#6b7280", fontSize: 12 }}>{label}</span> : null;
             })()}
           </div>
-          {regeneratePrompt && (
+          {canRegenerate && regeneratePrompt && (showRegenOptions || !hasHeaderRegenerate) && (
             <RegenerateControls
               isPending={regenerate.isPending}
               instruction={regenInstruction}
-              showOptions={showRegenOptions}
+              showOptions={showRegenOptions || !hasHeaderRegenerate}
+              showPrimaryButton={!hasHeaderRegenerate}
               onInstructionChange={setRegenInstruction}
               onToggleOptions={() => setShowRegenOptions((value) => !value)}
               onRegenerate={requestRegeneration}
@@ -294,9 +344,9 @@ export const FullPanelViewer: React.FC<FullPanelViewerProps> = ({ notebookId, no
             />
           )}
         </div>
-        {surface.summary && !isQuizArtifactSurface(surface, node) && <ReferenceSection title="Summary">{surface.summary}</ReferenceSection>}
-        {visibleReferenceBlocks(surface, node).length > 0 ? (
-          visibleReferenceBlocks(surface, node).map((block) => (
+        {surface.summary && !isQuizArtifactSurface(surface) && <ReferenceSection title="Summary">{surface.summary}</ReferenceSection>}
+        {visibleReferenceBlocks(surface).length > 0 ? (
+          visibleReferenceBlocks(surface).map((block) => (
             <ReferenceSection key={block.id} title={block.title ?? block.kind.replace(/_/g, " ")}>
               {renderBlock(block)}
             </ReferenceSection>
@@ -348,41 +398,37 @@ export const FullPanelViewer: React.FC<FullPanelViewerProps> = ({ notebookId, no
           </span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6, flex: "0 0 auto" }}>
-          {sourceFileUrl && sourceExtractedUrl && (
-            <>
-              <a href={sourceFileUrl} target="_blank" rel="noreferrer" style={{ padding: "3px 8px", color: "#1d4ed8", border: "1px solid #bfdbfe", background: "#eff6ff", borderRadius: 5, fontSize: 11, fontWeight: 800, lineHeight: 1.4, textDecoration: "none" }}>
-                Open original
-              </a>
+          {sourceExtractedUrl && (
               <a href={sourceExtractedUrl} target="_blank" rel="noreferrer" style={{ padding: "3px 8px", color: "#374151", border: "1px solid #d1d5db", background: "#f3f4f6", borderRadius: 5, fontSize: 11, fontWeight: 800, lineHeight: 1.4, textDecoration: "none" }}>
                 Extracted text
               </a>
-            </>
           )}
-          {onLaunchTutor && (
+          {actionsForReferenceSurface({
+            surface: referenceSurface,
+            canLaunchTutor: Boolean(onLaunchTutor),
+            canShowEvidence: Boolean(onShowProvenance),
+            canRegenerate,
+          }).map((action) => (
             <button
-              onClick={() => onLaunchTutor(node)}
-              style={{ padding: "3px 8px", background: "#2563eb", color: "#fff", border: "1px solid #2563eb", borderRadius: 5, cursor: "pointer", fontSize: 11, fontWeight: 800, lineHeight: 1.4 }}
+              key={action.id}
+              disabled={action.id === "regenerate" && regenerate.isPending}
+              onClick={() => executeReferenceAction(action.id)}
+              style={{
+                padding: "3px 8px",
+                background: action.tone === "primary" ? "#2563eb" : action.id === "regenerate" ? "#eff6ff" : "#f3f4f6",
+                color: action.tone === "primary" ? "#fff" : action.id === "regenerate" ? "#1d4ed8" : "#374151",
+                border: `1px solid ${action.tone === "primary" ? "#2563eb" : action.id === "regenerate" ? "#bfdbfe" : "#d1d5db"}`,
+                borderRadius: 5,
+                cursor: action.id === "regenerate" && regenerate.isPending ? "wait" : "pointer",
+                fontSize: 11,
+                fontWeight: 800,
+                lineHeight: 1.4,
+                opacity: action.id === "regenerate" && regenerate.isPending ? 0.7 : 1,
+              }}
             >
-              Teach me
+              {action.label}
             </button>
-          )}
-          {onShowProvenance && (
-            <button
-              onClick={() => onShowProvenance(node)}
-              style={{ padding: "3px 8px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: 5, cursor: "pointer", fontSize: 11, fontWeight: 750, lineHeight: 1.4 }}
-            >
-              Evidence
-            </button>
-          )}
-          {regeneratePrompt && referenceSurface?.surfaceType !== "source" && (
-            <button
-              disabled={regenerate.isPending}
-              onClick={() => setShowRegenOptions((value) => !value)}
-              style={{ padding: "3px 8px", background: "#eff6ff", color: "#1d4ed8", border: "1px solid #bfdbfe", borderRadius: 5, cursor: regenerate.isPending ? "wait" : "pointer", fontSize: 11, fontWeight: 800, lineHeight: 1.4, opacity: regenerate.isPending ? 0.7 : 1 }}
-            >
-              Regenerate
-            </button>
-          )}
+          ))}
         </div>
       </div>
 
@@ -452,29 +498,11 @@ function ReferenceSection({ title, children }: { title: string; children: React.
   );
 }
 
-export default FullPanelViewer;
-
-function isQuizArtifactSurface(surface: ReferenceSurface, node: GraphCanvasNode): boolean {
-  return (
-    surface.surfaceType === "artifact" &&
-    node.nodeType === "artifact" &&
-    (node.properties.artifactType === "quiz" || node.properties.artifact_type === "quiz")
-  );
-}
-
-function visibleReferenceBlocks(surface: ReferenceSurface, node: GraphCanvasNode): ReferenceBlock[] {
-  if (!isQuizArtifactSurface(surface, node)) return surface.blocks;
-  return surface.blocks.filter((block) => {
-    if (block.id === "overview") return false;
-    if (block.kind === "markdown" && block.title?.toLowerCase() === "practice goal") return false;
-    return true;
-  });
-}
-
 function RegenerateControls({
   isPending,
   instruction,
   showOptions,
+  showPrimaryButton,
   errorMessage,
   onInstructionChange,
   onToggleOptions,
@@ -483,6 +511,7 @@ function RegenerateControls({
   isPending: boolean;
   instruction: string;
   showOptions: boolean;
+  showPrimaryButton: boolean;
   errorMessage: string | null;
   onInstructionChange: (value: string) => void;
   onToggleOptions: () => void;
@@ -491,14 +520,16 @@ function RegenerateControls({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <button
-          type="button"
-          disabled={isPending}
-          onClick={onRegenerate}
-          style={{ padding: "5px 10px", border: "1px solid #2563eb", background: "#eff6ff", color: "#1d4ed8", borderRadius: 6, fontWeight: 850, cursor: isPending ? "wait" : "pointer", fontSize: 12, opacity: isPending ? 0.7 : 1 }}
-        >
-          {isPending ? "Regenerating..." : "Regenerate with LLM"}
-        </button>
+        {showPrimaryButton && (
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={onRegenerate}
+            style={{ padding: "5px 10px", border: "1px solid #2563eb", background: "#eff6ff", color: "#1d4ed8", borderRadius: 6, fontWeight: 850, cursor: isPending ? "wait" : "pointer", fontSize: 12, opacity: isPending ? 0.7 : 1 }}
+          >
+            {isPending ? "Regenerating..." : "Regenerate"}
+          </button>
+        )}
         <button
           type="button"
           onClick={onToggleOptions}
@@ -585,7 +616,7 @@ function QuizPractice({
             </button>
           )}
           <button type="button" disabled={isExtending} onClick={onExtend} style={smallButtonStyle("#eff6ff", "#1d4ed8", "#bfdbfe", isExtending)}>
-            {isExtending ? "Extending..." : "Extend with LLM"}
+            {isExtending ? "Extending..." : "Extend quiz"}
           </button>
         </div>
       </div>
@@ -678,7 +709,7 @@ function QuizPractice({
         {attempt && (
           <div style={{ marginTop: 14, border: `1px solid ${attempt.isCorrect ? "#bbf7d0" : "#fed7aa"}`, background: attempt.isCorrect ? "#f0fdf4" : "#fff7ed", borderRadius: 8, padding: 12, color: "#1f2937", lineHeight: 1.5 }}>
             <div style={{ fontWeight: 850, color: attempt.isCorrect ? "#166534" : "#9a3412", marginBottom: 4 }}>
-              {attempt.isCorrect ? "Correct" : "Needs review"}
+              {attempt.isCorrect ? "Correct" : QUIZ_SELF_ASSESSMENT_LABELS.needsReview}
             </div>
             <div><strong>Answer:</strong> {inlineMarkdown(correctAnswer || "No answer key recorded.")}</div>
             {active.explanation && <div style={{ marginTop: 6 }}><strong>Why:</strong> {inlineMarkdown(active.explanation)}</div>}
@@ -796,7 +827,7 @@ function buildRegenerationPrompt(surface: ReferenceSurface): string | null {
   const ref = `${surface.nodeRef.refType}:${surface.nodeRef.refId}`;
   if (surface.surfaceType === "artifact") {
     return [
-      `Regenerate the selected artifact "${title}" using the LLM again.`,
+      `Regenerate the selected artifact "${title}" using the AI tutor again.`,
       `Keep it source-grounded and update or replace the artifact connected to ${ref}.`,
       "Use the correct artifact format for its type: flashcards as cards, quizzes as questions, formula sheets with LaTeX, comparisons as tables, worked examples as steps.",
       "Make the content useful enough for a student to study from directly, not a placeholder.",
@@ -804,7 +835,7 @@ function buildRegenerationPrompt(surface: ReferenceSurface): string | null {
   }
   if (surface.surfaceType === "concept" || surface.surfaceType === "wiki_page") {
     return [
-      `Regenerate the selected ${surface.surfaceType === "concept" ? "concept wiki page" : "wiki page"} "${title}" using the LLM again.`,
+      `Regenerate the selected ${surface.surfaceType === "concept" ? "concept wiki page" : "wiki page"} "${title}" using the AI tutor again.`,
       `Use ${ref} as the target page.`,
       "Format it as a strong study page: definition, intuition, formal details with LaTeX where useful, worked example, common confusions, quick self-check, and citations from source evidence.",
       "Prefer precise source-backed claims and explicitly mark anything that still needs evidence.",
@@ -812,7 +843,7 @@ function buildRegenerationPrompt(surface: ReferenceSurface): string | null {
   }
   if (surface.surfaceType === "module" || surface.surfaceType === "curriculum" || surface.surfaceType === "objective" || surface.surfaceType === "objective_list" || surface.surfaceType === "session") {
     return [
-      `Regenerate the selected ${surface.surfaceType} page "${title}" using the LLM again.`,
+      `Regenerate the selected ${surface.surfaceType} page "${title}" using the AI tutor again.`,
       `Use ${ref} as the target planning surface.`,
       "Format it for faster learning using the specific page type: curriculum path, module lesson, objective mastery page, objective sequence, or session plan. Use markdown tables and LaTeX formulas when useful.",
       "Keep it grounded in uploaded sources and the learner's current mastery state.",
@@ -1173,3 +1204,5 @@ function StructuredValue({ value }: { value: unknown }) {
   }
   return <div>{String(value)}</div>;
 }
+
+export default FullPanelViewer;

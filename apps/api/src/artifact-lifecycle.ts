@@ -65,11 +65,10 @@ const LEARNER_VISIBLE_TYPES = new Set([
   "diagram",
   "revision_plan",
   "concept_card",
-  "session_digest",
   "wiki_page",
 ]);
 
-const INTERNAL_TYPES = new Set(["session_plan", "teaching_arc", "study_plan"]);
+const INTERNAL_TYPES = new Set(["session_plan", "teaching_arc", "study_plan", "session_digest"]);
 
 const ALLOWED_TRANSITIONS: Record<ArtifactLifecycleStatus, ArtifactLifecycleStatus[]> = {
   draft: ["draft", "proposed", "ready", "failed", "archived"],

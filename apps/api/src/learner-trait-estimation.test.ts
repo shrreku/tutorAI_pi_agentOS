@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LearnerTraitEstimate, LearnerTraitSignal } from "@studyagent/schemas";
-import { buildLearnerTraitEvidencePacket, detectLearnerTraitEstimationTrigger } from "./learner-trait-estimation.js";
+import { buildLearnerTraitEvidencePacket, detectLearnerTraitEstimationTrigger, prioritizeLearnerTraitSignalsForEvidencePacket } from "./learner-trait-estimation.js";
 
 function signal(patch: Partial<LearnerTraitSignal> = {}): LearnerTraitSignal {
   return {
@@ -84,6 +84,27 @@ describe("learner trait estimation trigger detector", () => {
 });
 
 describe("learner trait evidence packet builder", () => {
+  it("prioritizes explicit self-report signals ahead of inferred behavior extraction", () => {
+    const ordered = prioritizeLearnerTraitSignalsForEvidencePacket([
+      signal({ id: "lts_inferred", source: "behavior_extraction", trait: "pacePreference", suggestedValue: "fast" }),
+      signal({ id: "lts_explicit", source: "explicit_self_report", trait: "pacePreference", suggestedValue: "slow" }),
+    ]);
+
+    expect(ordered.map((entry) => entry.id)).toEqual(["lts_explicit", "lts_inferred"]);
+  });
+
+  it("bounds the number of signals included in a packet", () => {
+    const ordered = prioritizeLearnerTraitSignalsForEvidencePacket(
+      Array.from({ length: 40 }, (_, index) => signal({
+        id: `lts_${index}`,
+        source: index % 2 === 0 ? "explicit_self_report" : "behavior_extraction",
+        trait: "helpSeekingStyle",
+      })),
+    );
+
+    expect(ordered).toHaveLength(30);
+  });
+
   it("builds a bounded notebook-scoped packet", () => {
     const trigger = detectLearnerTraitEstimationTrigger({
       signals: [signal({ source: "explicit_self_report", trait: "assessmentPreference", suggestedValue: "quiz" })],

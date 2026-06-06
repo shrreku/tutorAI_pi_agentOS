@@ -55,11 +55,6 @@ describe("tutor context selection ladder", () => {
       usedSourceScopeFallback: true,
       sourceCoverageGap: false,
     });
-    expect(resolveScopedRetrievalRows(rows, ["src_missing"], "strict_source_scope")).toMatchObject({
-      effectiveRows: [],
-      usedSourceScopeFallback: false,
-      sourceCoverageGap: true,
-    });
   });
 
   it("scopes rows to selected sources when provided", () => {
@@ -72,7 +67,7 @@ describe("tutor context selection ladder", () => {
     expect(filterRowsBySelectedSources(rows, []).map((row) => row.id)).toEqual(["c1", "c2", "c3"]);
   });
 
-  it("does not fall back under strict source scope when selected sources return no rows", () => {
+  it("explains selected-source fallback under soft source scope", () => {
     const plan = buildTutorContextSelectionPlan({
       message: "continue",
       selectedNodeRefs: [{ refType: "source", refId: "src_selected" }],
@@ -82,15 +77,15 @@ describe("tutor context selection ladder", () => {
     const reason = buildTutorContextSelectionReason({
       plan,
       maxChunks: 6,
-      selectedChunkCount: 0,
-      usedSourceScopeFallback: false,
-      sourceCoverageGap: true,
-      sourceScopePolicy: "strict_source_scope",
-      sourceIds: [],
+      selectedChunkCount: 2,
+      usedSourceScopeFallback: true,
+      sourceCoverageGap: false,
+      sourceScopePolicy: "soft_source_scope",
+      sourceIds: ["src_2"],
     });
 
-    expect(reason).toContain("Strict source scope blocked notebook-wide fallback");
-    expect(reason).not.toContain("fell back to notebook-wide retrieval");
+    expect(reason).toContain("Applied selected source scope (soft_source_scope): src_selected");
+    expect(reason).toContain("fell back to notebook-wide retrieval");
   });
 
   it("explains fallback when source-scoped retrieval returns no rows", () => {

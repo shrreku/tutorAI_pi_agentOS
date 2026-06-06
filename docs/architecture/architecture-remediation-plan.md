@@ -2,7 +2,7 @@
 
 Status: planning document for implementation tickets.
 
-Current status note, 2026-05-28: this document is historical planning context. The current item-by-item audit found that the remediation program is not complete: 1 finding is fixed, 8 are partial, and 15 remain open. Use `docs/architecture/architecture-remediation-current-plan-2026-05-28.md` as the current source of truth for remaining work, ticket dependencies, and verification gates.
+Current status note, 2026-05-31: this document is historical planning context. The remediation program is complete in code: 24 findings fixed, 0 partial, 0 open. Use `docs/architecture/architecture-remediation-current-plan-2026-05-28.md` as the current source of truth for verification gates, environment prerequisites, and final checks.
 
 This plan converts the 2026-05-26 architecture audit into a concrete remediation program. It is additive to the original architecture-deepening program. The original Modules were useful; this plan targets the places where the current Interface is still too shallow, where new policy leaked into Adapters, or where verification claims are stronger than current tests prove.
 

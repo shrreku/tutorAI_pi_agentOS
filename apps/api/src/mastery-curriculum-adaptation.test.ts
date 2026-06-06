@@ -4,7 +4,7 @@ import {
   shouldApplyDurablePlanChange,
   wrapRecommendationReasonJson,
 } from "@studyagent/schemas";
-import { buildAdaptiveSessionPlanPatch } from "./phase7.js";
+import { buildAdaptiveSessionPlanPatch } from "./curriculum-adaptation.js";
 
 describe("adaptive curriculum from mastery evidence", () => {
   it("prioritizes remediation objectives after repeated mistakes", () => {

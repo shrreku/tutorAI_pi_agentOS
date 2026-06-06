@@ -86,7 +86,7 @@ export async function lexicalSearchNotebook(
     LIMIT ${limit}
   `);
 
-  const list = rows as unknown as Array<{
+  let list = rows as unknown as Array<{
     id: string;
     text: string;
     chunk_type: string;
@@ -95,6 +95,26 @@ export async function lexicalSearchNotebook(
     source_updated_at: string | null;
     score_lex: number | null;
   }>;
+
+  if (list.length === 0) {
+    const fallbackTsQuery = buildLexicalFallbackTsQuery(query);
+    if (fallbackTsQuery) {
+      const fallbackRows = await dbClient.db.execute(sql`
+        SELECT c.id, c.text, c.chunk_type, s.id AS source_id, sv.id AS source_version_id,
+          s.updated_at AS source_updated_at,
+          ts_rank(to_tsvector('english', c.text), to_tsquery('english', ${fallbackTsQuery})) AS score_lex
+        FROM chunks c
+        INNER JOIN source_versions sv ON c.source_version_id = sv.id
+        INNER JOIN sources s ON sv.source_id = s.id
+        WHERE s.notebook_id = ${notebookId}
+          AND c.chunk_type = 'retrieval'
+          AND to_tsvector('english', c.text) @@ to_tsquery('english', ${fallbackTsQuery})
+        ORDER BY score_lex DESC NULLS LAST
+        LIMIT ${limit}
+      `);
+      list = fallbackRows as unknown as typeof list;
+    }
+  }
 
   return list.map((r) =>
     chunkHit({
@@ -108,6 +128,44 @@ export async function lexicalSearchNotebook(
     }),
   );
 }
+
+export function buildLexicalFallbackTsQuery(query: string): string | null {
+  const tokens = Array.from(
+    new Set(
+      query
+        .toLowerCase()
+        .match(/[a-z][a-z0-9_'-]{2,}/g)
+        ?.map((token) => token.replace(/^'+|'+$/g, ""))
+        .filter((token) => token.length >= 3 && !LEXICAL_FALLBACK_STOP_WORDS.has(token)) ?? [],
+    ),
+  ).slice(0, 12);
+  if (tokens.length === 0) return null;
+  return tokens.map((token) => `${token.replace(/'/g, "''")}:*`).join(" | ");
+}
+
+const LEXICAL_FALLBACK_STOP_WORDS = new Set([
+  "about",
+  "after",
+  "also",
+  "and",
+  "because",
+  "before",
+  "chapter",
+  "confused",
+  "explain",
+  "for",
+  "help",
+  "teach",
+  "the",
+  "uploaded",
+  "what",
+  "when",
+  "where",
+  "which",
+  "while",
+  "with",
+  "why",
+]);
 
 export async function vectorSearchNotebook(
   dbClient: DbClient,

@@ -1,9 +1,10 @@
 import { and, eq, desc } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import type { NodeRef } from "@studyagent/schemas";
-import { appendEvent, artifacts, claims, concepts, graphRelations, notebooks, quizAttempts, wikiPages } from "@studyagent/db";
+import { artifacts, claims, concepts, graphRelations, notebooks, quizAttempts, wikiPages } from "@studyagent/db";
 import { lintNotebookWiki, type WikiLintIssue } from "@studyagent/wiki-core";
 import type { AppContext } from "../context.js";
+import { appendEventWithTutorCacheInvalidation as appendEvent } from "../agentic-cache-invalidation.js";
 import {
   applyArtifactLifecycleAction,
   deriveArtifactLifecycleEventType,
@@ -13,7 +14,7 @@ import {
 import { mergeNoteArtifactPayload } from "@studyagent/schemas";
 import { buildLearningArtifactView } from "../artifact-view.js";
 import { resolveActor } from "../auth.js";
-import { recordFlashcardReview, recordQuizAttempt } from "../phase7.js";
+import { recordFlashcardReview, recordQuizAttempt } from "../assessment-artifacts.js";
 import { loadNotebookStudyState } from "../study-state.js";
 
 export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {

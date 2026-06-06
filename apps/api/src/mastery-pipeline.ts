@@ -68,6 +68,7 @@ export async function runRuntimeMasteryEvaluation(
     sourceRefs: MasteryEvidenceInput["sourceRefs"];
     contextRefs?: MasteryEvidenceInput["contextRefs"];
   },
+  options: { judge?: MasteryEvaluatorJudge } = {},
 ): Promise<{ evidence: MasteryEvidence; applied: boolean } | null> {
   const result = await evaluatePersistAndApply(dbClient, {
     notebookId: input.notebookId,
@@ -85,6 +86,6 @@ export async function runRuntimeMasteryEvaluation(
     ...(input.pending.referenceAnswer ? { referenceAnswer: input.pending.referenceAnswer } : {}),
     evidenceType: "mastery_check",
     triggerSource: "runtime_auto",
-  });
+  }, options);
   return { evidence: result.evidence, applied: true };
 }

@@ -1,7 +1,6 @@
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import {
-  appendEvent,
   notebooks,
   whiteboardNodes,
   artifacts,
@@ -34,6 +33,7 @@ import {
 } from "@studyagent/graph";
 import { z } from "zod";
 import type { AppContext } from "../context.js";
+import { appendEventWithTutorCacheInvalidation as appendEvent } from "../agentic-cache-invalidation.js";
 import { resolveActor } from "../auth.js";
 import type { GraphCanvasNode, GraphCanvasEdge } from "@studyagent/schemas";
 import { buildNodeEvidence, buildReferenceSurface as buildReferenceSurfaceModule, readablePlanningSummary } from "../reference-surface.js";
@@ -1078,6 +1078,26 @@ async function buildCurriculumOutlineReadModel(ctx: AppContext, notebookId: stri
     .from(artifacts)
     .where(eq(artifacts.notebookId, notebookId))
     .limit(200);
+  const allConceptIds = [
+    ...new Set(
+      objectiveRows.flatMap((objective) => [
+        ...(objective.prerequisiteConceptIds ?? []),
+        ...(objective.targetConceptIds ?? []),
+      ]),
+    ),
+  ];
+  const conceptRows = allConceptIds.length
+    ? await ctx.db.db
+        .select({
+          id: concepts.id,
+          title: concepts.canonicalName,
+        })
+        .from(concepts)
+        .where(and(eq(concepts.notebookId, notebookId), inArray(concepts.id, allConceptIds)))
+    : [];
+  const conceptTitleById = new Map(conceptRows.map((concept) => [concept.id, concept.title]));
+  const artifactTitleById = new Map(artifactRows.map((artifact) => [artifact.id, artifact.title]));
+  const sessionTitleById = new Map(sessionPlanRows.map((sessionPlan) => [sessionPlan.id, sessionPlan.title]));
 
   const completedObjectiveIds = new Set(plan?.completedObjectiveIds ?? []);
   const upcomingObjectiveIds = new Set(plan?.upcomingObjectiveIds ?? []);
@@ -1131,6 +1151,18 @@ async function buildCurriculumOutlineReadModel(ctx: AppContext, notebookId: stri
         artifactIds: artifactIdsByObjectiveId.get(objective.id) ?? [],
         sessionIds: sessionIdsByObjectiveId.get(objective.id) ?? [],
         conceptIds: [...(objective.prerequisiteConceptIds ?? []), ...(objective.targetConceptIds ?? [])],
+        artifactRefs: (artifactIdsByObjectiveId.get(objective.id) ?? []).map((id) => ({
+          id,
+          title: artifactTitleById.get(id) ?? "Learning artifact",
+        })),
+        sessionRefs: (sessionIdsByObjectiveId.get(objective.id) ?? []).map((id) => ({
+          id,
+          title: sessionTitleById.get(id) ?? "Lesson plan",
+        })),
+        conceptRefs: [...(objective.prerequisiteConceptIds ?? []), ...(objective.targetConceptIds ?? [])].map((id) => ({
+          id,
+          title: conceptTitleById.get(id) ?? "Concept needs review",
+        })),
         needsReview: isWeakPlanningLabel(objective.title),
       },
     ]),

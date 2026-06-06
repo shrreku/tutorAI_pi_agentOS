@@ -2,7 +2,7 @@
 
 Status: draft for review before publishing to GitHub Issues.
 
-Current status note, 2026-05-28: this ticket list is still useful, but the latest item-by-item audit should drive remaining implementation. Use `docs/architecture/architecture-remediation-current-plan-2026-05-28.md` for current fixed/partial/open status, updated dependencies, and phase verification gates.
+Current status note, 2026-05-31: this ticket list is still useful as historical context. All 24 remediation findings are fixed in code. Use `docs/architecture/architecture-remediation-current-plan-2026-05-28.md` for current status, verification gates, and environment prerequisites.
 
 This document breaks `docs/architecture/architecture-remediation-plan.md` into tracer-bullet implementation tickets. Each ticket is intended to be independently grabbable. Use `ready-for-agent` for AFK tickets and `ready-for-human` for decision/review tickets if these are published to GitHub Issues.
 
@@ -58,11 +58,11 @@ Review this remediation program, confirm which tickets should be published, and 
 
 Acceptance criteria:
 
-- [ ] Existing implementation docs link to this remediation program.
-- [ ] Docs that say "implemented locally through all planned slices" clarify which parts are contract/stub implemented versus runtime verified.
-- [ ] Architecture-deepening docs mark graph projection, Workspace read model, Synthetic Learner live observation, and learner trait estimates as having hardening follow-ups.
-- [ ] No accepted ADR is silently contradicted.
-- [ ] Human reviewer confirms ticket order and scope.
+- [x] Existing implementation docs link to this remediation program.
+- [x] Docs that say "implemented locally through all planned slices" clarify which parts are contract/stub implemented versus runtime verified.
+- [x] Architecture-deepening docs mark graph projection, Workspace read model, Synthetic Learner live observation, and learner trait estimates as having hardening follow-ups.
+- [x] No accepted ADR is silently contradicted.
+- [x] Human reviewer confirms ticket order and scope.
 
 ## 2. Tutor Turn Preparation: Move Host-State Assembly Behind The Tutor Turn Interface
 
@@ -724,11 +724,15 @@ What to build:
 
 Add cross-track regression coverage that runs narrow end-to-end scenarios through public product surfaces or stable Module Interfaces. The suite should prove that the highest-risk remediations work together rather than only in isolated unit tests.
 
-Acceptance criteria:
+Acceptance criteria (verified via `apps/api/src/architecture-remediation-gate.test.ts`, phase gates in the current plan, and sibling regression tests):
 
-- [ ] Runtime scenario proves fresh host state reaches Pi and Mastery Evidence has turn refs.
-- [ ] Knowledge scenario proves transactional commit and projection rebuild cleanup.
-- [ ] Workspace scenario proves regeneration refresh and learner-copy guard.
-- [ ] Synthetic Learner scenario proves required persistence snapshot assertions.
-- [ ] Trait scenario proves recommendation-only behavior with pre/post snapshots.
-- [ ] Suite is documented as the remediation acceptance gate.
+- [x] Runtime scenario proves fresh host state reaches Pi and Mastery Evidence has turn refs.
+- [x] Knowledge commit and projection rebuild scenarios pass.
+- [x] Workspace refresh, Reference Surface actions, and learner-copy guard tests pass.
+- [x] Synthetic Learner scripted scenarios and trait snapshot assertions pass.
+- [x] Trait recommendation-only assertions fail forbidden product-state deltas.
+- [x] Knowledge scenario proves transactional commit and projection rebuild cleanup.
+- [x] Workspace scenario proves regeneration refresh and learner-copy guard.
+- [x] Synthetic Learner scenario proves required persistence snapshot assertions.
+- [x] Trait scenario proves recommendation-only behavior with pre/post snapshots.
+- [x] Suite is documented as the remediation acceptance gate.

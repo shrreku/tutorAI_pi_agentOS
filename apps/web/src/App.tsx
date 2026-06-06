@@ -3,6 +3,11 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Whiteboard from "./Whiteboard.js";
 import TutorPanel from "./TutorPanel.js";
 import EvalRunsDashboard from "./EvalRunsDashboard.js";
+import type { SourceLearnerView } from "@studyagent/schemas";
+import { applyWorkspaceRefreshInvalidations, resolveWorkspaceRefreshPolicy } from "./workspace-refresh-policy.js";
+import { useNotebookWorkspaceSync } from "./notebook-workspace-sync.js";
+import { WorkspaceShellProvider } from "./workspace-shell-context.js";
+import { notebookSourcesQueryKey, fetchNotebookSources } from "./notebook-queries.js";
 
 type NotebookRow = {
   id: string;
@@ -11,54 +16,14 @@ type NotebookRow = {
   updatedAt: string;
 };
 
-type Source = { id: string; title: string; status: string; metadataJson?: Record<string, unknown> };
+type Source = SourceLearnerView & { metadataJson?: Record<string, unknown> };
 
-const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
-  uploaded: { bg: "#e0f2fe", text: "#0369a1" },
-  parsing: { bg: "#fef3c7", text: "#92400e" },
-  chunking: { bg: "#fef3c7", text: "#92400e" },
-  embedding: { bg: "#fef3c7", text: "#92400e" },
-  indexing: { bg: "#fef3c7", text: "#92400e" },
-  enriching: { bg: "#fef3c7", text: "#92400e" },
-  tutoring_ready: { bg: "#d1fae5", text: "#065f46" },
-  failed: { bg: "#fee2e2", text: "#991b1b" },
-};
+function sourceIsProcessing(source: Source): boolean {
+  return !source.tutoringReady && source.readiness.tutoring.status === "pending";
+}
 
-export const WORKSPACE_REFRESH_EVENT_TYPES = [
-  "curriculum.activated",
-  "source.readiness.updated",
-  "graph.neo4j_projection.failed",
-  "module.updated",
-  "objective_list.updated",
-  "objective_list.reordered",
-  "objective_list.objective_split",
-  "objective_list.objectives_merged",
-  "session_plan.generated",
-  "session_plan.updated",
-  "coverage.record.updated",
-  "session.started",
-  "session.focus.updated",
-  "session.completed",
-  "session.crystallization.started",
-  "session.crystallization.completed",
-  "session.digest.draft.updated",
-  "learning.mastery_evidence.recorded",
-  "learning.mastery.updated",
-  "learning.weak_concept.added",
-  "learning.review.scheduled",
-  "study_plan.updated",
-  "objective.completed",
-  "artifact.ready",
-  "artifact.created",
-  "artifact.updated",
-  "artifact.proposed",
-  "artifact.approved",
-  "artifact.rejected",
-  "artifact.insert_into_tutor_context",
-] as const;
-
-export function shouldInvalidateArtifactsForEvent(eventType: (typeof WORKSPACE_REFRESH_EVENT_TYPES)[number]): boolean {
-  return eventType.startsWith("artifact.");
+function sourceIsFailed(source: Source): boolean {
+  return source.readiness.tutoring.status === "failed";
 }
 
 const api = (path: string, init?: RequestInit) => fetch(`/api/v1${path}`, init);
@@ -82,288 +47,6 @@ async function apiWithRetry(path: string, init?: RequestInit, attempts = 3): Pro
   throw lastError instanceof Error ? lastError : new Error("Network request failed");
 }
 
-function SourcesBar({
-  notebookId,
-  onGraphProjectionUpdated,
-}: {
-  notebookId: string;
-  onGraphProjectionUpdated: () => void;
-}) {
-  const [lastEvent, setLastEvent] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [expanded, setExpanded] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const lastSeenSequenceRef = useRef(0);
-  const queryClient = useQueryClient();
-  const { data: sources = [] } = useQuery({
-    queryKey: ["notebook-sources", notebookId],
-    queryFn: async (): Promise<Source[]> => {
-      const res = await api(`/notebooks/${encodeURIComponent(notebookId)}/sources`);
-      if (!res.ok) {
-        throw new Error(`Failed to load sources (${res.status})`);
-      }
-      const data = (await res.json()) as { sources: Source[] };
-      return data.sources;
-    },
-  });
-
-  // SSE subscription for live events — drives graph refresh and source status updates
-  useEffect(() => {
-    let es: EventSource | null = null;
-    lastSeenSequenceRef.current = 0;
-
-    const handleNotebookEvent = (
-      label: string,
-      ev: Event,
-      options: { refreshSources?: boolean; refreshGraph?: boolean } = {},
-    ) => {
-      const rawData = (ev as MessageEvent).data;
-      let eventId: string | undefined;
-      let sequenceNo: number | undefined;
-
-      try {
-        const parsed = JSON.parse(rawData) as { id?: unknown; sequenceNo?: unknown };
-        eventId = typeof parsed.id === "string" ? parsed.id : undefined;
-        sequenceNo = typeof parsed.sequenceNo === "number" ? parsed.sequenceNo : undefined;
-      } catch {
-        eventId = undefined;
-        sequenceNo = undefined;
-      }
-
-      if (sequenceNo !== undefined) {
-        if (sequenceNo <= lastSeenSequenceRef.current) {
-          return;
-        }
-        lastSeenSequenceRef.current = sequenceNo;
-      }
-
-      setLastEvent(
-        `${label}${sequenceNo !== undefined ? ` · #${sequenceNo}` : ""}${eventId ? ` · ${eventId.slice(0, 8)}` : ""}`,
-      );
-
-      if (options.refreshSources) {
-        void queryClient.invalidateQueries({ queryKey: ["notebook-sources", notebookId] });
-      }
-      if (options.refreshGraph) {
-        onGraphProjectionUpdated();
-      }
-    };
-
-    try {
-      es = new EventSource(`/api/v1/notebooks/${encodeURIComponent(notebookId)}/events/stream?after=0`);
-      es.addEventListener("source.tutoring_ready", (ev) => {
-        handleNotebookEvent("tutoring ready", ev, { refreshSources: true });
-      });
-      es.addEventListener("ingestion.job.completed", (ev) => {
-        handleNotebookEvent("ingestion done", ev, { refreshSources: true });
-      });
-      es.addEventListener("ingestion.job.failed", (ev) => {
-        handleNotebookEvent("ingestion failed", ev, { refreshSources: true });
-      });
-      es.addEventListener("graph.neo4j_projection.updated", (ev) => {
-        handleNotebookEvent("graph updated", ev, { refreshGraph: true });
-      });
-      es.addEventListener("source.uploaded", (ev) => {
-        handleNotebookEvent("source uploaded", ev, { refreshSources: true });
-      });
-      const planningRefresh = (label: string, ev: Event) => {
-        handleNotebookEvent(label, ev, { refreshGraph: true });
-        void queryClient.invalidateQueries({ queryKey: ["whiteboard-study-state", notebookId] });
-      };
-      for (const eventType of WORKSPACE_REFRESH_EVENT_TYPES) {
-        es.addEventListener(eventType, (ev) => {
-          const label = eventType.replaceAll(".", " ").replaceAll("_", " ");
-          planningRefresh(label, ev);
-          if (shouldInvalidateArtifactsForEvent(eventType)) {
-            void queryClient.invalidateQueries({ queryKey: ["notebook-artifacts", notebookId] });
-          }
-        });
-      }
-      es.onerror = () => setLastEvent("(stream error — reconnecting)");
-    } catch {
-      setLastEvent("EventSource unavailable");
-    }
-    return () => es?.close();
-  }, [notebookId, onGraphProjectionUpdated, queryClient]);
-
-  const upload = async (file: File) => {
-    setUploading(true);
-    const fd = new FormData();
-    fd.append("file", file);
-    const res = await api(`/notebooks/${encodeURIComponent(notebookId)}/sources`, {
-      method: "POST",
-      body: fd,
-    });
-    setUploading(false);
-    if (res.ok) {
-      await queryClient.invalidateQueries({ queryKey: ["notebook-sources", notebookId] });
-    } else {
-      const txt = await res.text();
-      setLastEvent(`upload failed: ${txt}`);
-    }
-  };
-
-  const tutoringReady = sources.filter((s) => s.status === "tutoring_ready").length;
-  const processing = sources.filter((s) => !["tutoring_ready", "failed", "uploaded"].includes(s.status)).length;
-  const embeddingWarnings = sources.filter((s) => typeof s.metadataJson?.embeddingError === "string").length;
-
-  return (
-    <div
-      style={{
-        borderBottom: "1px solid #e5e7eb",
-        background: "#fafafa",
-        fontSize: 12,
-      }}
-    >
-      {/* Compact bar */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          padding: "6px 12px",
-          flexWrap: "wrap",
-        }}
-      >
-        <button
-          onClick={() => setExpanded(!expanded)}
-          style={{
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            fontSize: 12,
-            fontWeight: 600,
-            color: "#374151",
-            padding: 0,
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
-          }}
-        >
-          {expanded ? "▾" : "▸"} Sources ({sources.length})
-        </button>
-
-        {tutoringReady > 0 && (
-          <span style={{ background: "#d1fae5", color: "#065f46", padding: "1px 7px", borderRadius: 9999, fontWeight: 600 }}>
-            {tutoringReady} ready
-          </span>
-        )}
-        {processing > 0 && (
-          <span style={{ background: "#fef3c7", color: "#92400e", padding: "1px 7px", borderRadius: 9999, fontWeight: 600 }}>
-            {processing} processing…
-          </span>
-        )}
-        {embeddingWarnings > 0 && (
-          <span style={{ background: "#ffedd5", color: "#9a3412", padding: "1px 7px", borderRadius: 9999, fontWeight: 600 }}>
-            {embeddingWarnings} embedding warning{embeddingWarnings > 1 ? "s" : ""}
-          </span>
-        )}
-
-        <div style={{ flex: 1 }} />
-
-        {lastEvent && (
-          <span style={{ color: "#6b7280", fontSize: 11, maxWidth: 300, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {lastEvent}
-          </span>
-        )}
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          style={{ display: "none" }}
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) void upload(f);
-            e.target.value = "";
-          }}
-        />
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploading}
-          style={{
-            padding: "3px 10px",
-            background: uploading ? "#d1d5db" : "#2563eb",
-            color: "white",
-            border: "none",
-            borderRadius: 4,
-            cursor: uploading ? "not-allowed" : "pointer",
-            fontWeight: 600,
-            fontSize: 11,
-          }}
-        >
-          {uploading ? "Uploading…" : "+ Upload"}
-        </button>
-      </div>
-
-      {/* Expanded source list */}
-      {expanded && sources.length > 0 && (
-        <div
-          style={{
-            padding: "4px 12px 8px",
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 6,
-          }}
-        >
-          {sources.map((s) => {
-            const c = STATUS_COLORS[s.status] ?? { bg: "#f3f4f6", text: "#374151" };
-            const embeddingError = typeof s.metadataJson?.embeddingError === "string" ? s.metadataJson.embeddingError : null;
-            return (
-              <div
-                key={s.id}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "3px 8px",
-                  background: "white",
-                  border: "1px solid #e5e7eb",
-                  borderRadius: 6,
-                  fontSize: 11,
-                }}
-              >
-                <span style={{ color: "#1f2937", fontWeight: 500 }}>{s.title}</span>
-                <span
-                  style={{
-                    background: c.bg,
-                    color: c.text,
-                    padding: "1px 6px",
-                    borderRadius: 9999,
-                    fontSize: 10,
-                    fontWeight: 600,
-                  }}
-                >
-                  {s.status.replace(/_/g, " ")}
-                </span>
-                {embeddingError && (
-                  <span
-                    title={embeddingError}
-                    style={{
-                      background: "#ffedd5",
-                      color: "#9a3412",
-                      padding: "1px 6px",
-                      borderRadius: 9999,
-                      fontSize: 10,
-                      fontWeight: 600,
-                    }}
-                  >
-                    embedding warning
-                  </span>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {expanded && sources.length === 0 && (
-        <div style={{ padding: "4px 12px 8px", color: "#9ca3af" }}>
-          No sources yet — upload a PDF, text file, or URL to get started.
-        </div>
-      )}
-    </div>
-  );
-}
 
 export function App() {
   const [routePath, setRoutePath] = useState(() => window.location.pathname);
@@ -405,26 +88,26 @@ export function App() {
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
   const { data: activeSources = [] } = useQuery({
-    queryKey: ["notebook-sources", activeNotebookId],
+    queryKey: notebookSourcesQueryKey(activeNotebookId),
     enabled: Boolean(activeNotebookId),
-    queryFn: async (): Promise<Source[]> => {
-      const res = await api(`/notebooks/${encodeURIComponent(activeNotebookId!)}/sources`);
-      if (!res.ok) {
-        throw new Error(`Failed to load sources (${res.status})`);
-      }
-      const data = (await res.json()) as { sources: Source[] };
-      return data.sources ?? [];
-    },
+    queryFn: () => fetchNotebookSources(activeNotebookId) as Promise<Source[]>,
   });
   const sourceSummary = useMemo(() => {
-    const ready = activeSources.filter((source) => source.status === "tutoring_ready").length;
-    const processing = activeSources.filter((source) => !["tutoring_ready", "failed", "uploaded"].includes(source.status)).length;
-    const failed = activeSources.filter((source) => source.status === "failed").length;
-    return { total: activeSources.length, ready, processing, failed };
+    const ready = activeSources.filter((source) => source.tutoringReady).length;
+    const improving = activeSources.filter((source) => source.tutoringReady && (!source.sourceWikiReady || !source.projectionReady)).length;
+    const processing = activeSources.filter(sourceIsProcessing).length;
+    const failed = activeSources.filter(sourceIsFailed).length;
+    return { total: activeSources.length, ready, improving, processing, failed };
   }, [activeSources]);
   const handleGraphProjectionUpdated = useCallback(() => {
     setGraphRefreshToken((t) => t + 1);
   }, []);
+
+  useNotebookWorkspaceSync({
+    notebookId: activeNotebookId,
+    queryClient,
+    onGraphProjectionUpdated: handleGraphProjectionUpdated,
+  });
 
   useEffect(() => {
     if (!selectedId) return;
@@ -502,8 +185,12 @@ export function App() {
       setError(await res.text());
       return;
     }
-    await queryClient.invalidateQueries({ queryKey: ["notebook-sources", activeNotebookId] });
-    handleGraphProjectionUpdated();
+    applyWorkspaceRefreshInvalidations({
+      notebookId: activeNotebookId,
+      policy: resolveWorkspaceRefreshPolicy("source.uploaded"),
+      queryClient,
+      onGraphProjectionUpdated: handleGraphProjectionUpdated,
+    });
   };
 
   const startDrag = (e: React.MouseEvent) => {
@@ -618,6 +305,7 @@ export function App() {
                 ? `${sourceSummary.ready}/${sourceSummary.total} sources ready`
                 : "No sources yet"}
               {sourceSummary.processing > 0 ? ` · ${sourceSummary.processing} processing` : ""}
+              {sourceSummary.improving > 0 ? ` · ${sourceSummary.improving} improving` : ""}
               {sourceSummary.failed > 0 ? ` · ${sourceSummary.failed} failed` : ""}
               {" · "}
               {selectedNodeRefs.length ? `${selectedNodeRefs.length} graph item selected` : "Whole notebook context"}
@@ -673,25 +361,28 @@ export function App() {
           {error && <pre className="study-error">{error}</pre>}
 
           {activeNotebookId ? (
-            <div className="study-shell-frame">
-              <div
-                ref={containerRef}
-                className="study-split"
-                style={{ userSelect: isDragging.current ? "none" : "auto" }}
-              >
-                <div className="study-split-pane" style={{ width: `${splitPercent}%`, flexShrink: 0 }}>
-                  <TutorPanel key={activeNotebookId} notebookId={activeNotebookId} selectedNodeRefs={selectedNodeRefs} />
-                </div>
-                <div className="study-divider" onMouseDown={startDrag} aria-hidden="true" />
-                <div className="study-split-pane" style={{ flex: 1 }}>
-                  <Whiteboard
-                    notebookId={activeNotebookId}
-                    onSelectedNodeRefsChange={setSelectedNodeRefs}
-                    externalRefreshToken={graphRefreshToken}
-                  />
+            <WorkspaceShellProvider
+              key={activeNotebookId}
+              notebookId={activeNotebookId}
+              selectedNodeRefs={selectedNodeRefs}
+              onSelectedNodeRefsChange={setSelectedNodeRefs}
+            >
+              <div className="study-shell-frame">
+                <div
+                  ref={containerRef}
+                  className="study-split"
+                  style={{ userSelect: isDragging.current ? "none" : "auto" }}
+                >
+                  <div className="study-split-pane" style={{ width: `${splitPercent}%`, flexShrink: 0 }}>
+                    <TutorPanel key={activeNotebookId} notebookId={activeNotebookId} selectedNodeRefs={selectedNodeRefs} />
+                  </div>
+                  <div className="study-divider" onMouseDown={startDrag} aria-hidden="true" />
+                  <div className="study-split-pane" style={{ flex: 1 }}>
+                    <Whiteboard notebookId={activeNotebookId} externalRefreshToken={graphRefreshToken} />
+                  </div>
                 </div>
               </div>
-            </div>
+            </WorkspaceShellProvider>
           ) : (
             <div className="study-empty">
               <div>

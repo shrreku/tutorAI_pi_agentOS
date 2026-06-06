@@ -8,7 +8,8 @@ import {
   buildAdaptivePlanSignalsFromMasteryEvidence,
   shouldApplyDurablePlanChange,
 } from "@studyagent/schemas";
-import { buildAdaptiveSessionPlanPatch, decideObjectiveCompletion } from "./phase7.js";
+import { buildAdaptiveSessionPlanPatch } from "./curriculum-adaptation.js";
+import { decideObjectiveCompletion } from "./objective-progression.js";
 import { buildReferenceSurface } from "./reference-surface.js";
 import { ReferenceSurfaceFakeDb, type FakeTableRows } from "./reference-surface.test-db.js";
 import type { AppContext } from "./context.js";
@@ -56,14 +57,14 @@ describe("mastery tutoring end-to-end regression scenarios", () => {
     expect(progress === undefined || !/0\.\d{2}/.test(progress)).toBe(true);
   });
 
-  it("strict source scope refuses notebook-wide fallback when selected source has no chunks", () => {
+  it("soft source scope falls back notebook-wide when selected source has no chunks", () => {
     const rows = [
       { sourceId: "src_other", chunkId: "chunk_1", text: "Other material" },
     ];
-    const strict = resolveScopedRetrievalRows(rows, ["src_selected"], "strict_source_scope");
-    expect(strict.usedSourceScopeFallback).toBe(false);
-    expect(strict.effectiveRows).toHaveLength(0);
-    expect(strict.sourceCoverageGap).toBe(true);
+    const scoped = resolveScopedRetrievalRows(rows, ["src_selected"], "soft_source_scope");
+    expect(scoped.usedSourceScopeFallback).toBe(true);
+    expect(scoped.effectiveRows).toEqual(rows);
+    expect(scoped.sourceCoverageGap).toBe(false);
 
     const plan = buildTutorContextSelectionPlan({
       message: "Explain this from my source",
@@ -73,14 +74,14 @@ describe("mastery tutoring end-to-end regression scenarios", () => {
     const reason = buildTutorContextSelectionReason({
       plan,
       maxChunks: 6,
-      selectedChunkCount: 0,
-      usedSourceScopeFallback: strict.usedSourceScopeFallback,
+      selectedChunkCount: 1,
+      usedSourceScopeFallback: scoped.usedSourceScopeFallback,
       sourceIds: plan.selectedSourceIds,
-      sourceCoverageGap: strict.sourceCoverageGap,
-      sourceScopePolicy: "strict_source_scope",
+      sourceCoverageGap: scoped.sourceCoverageGap,
+      sourceScopePolicy: "soft_source_scope",
     });
-    expect(reason).toContain("strict_source_scope");
-    expect(reason).toContain("source coverage gap");
+    expect(reason).toContain("soft_source_scope");
+    expect(reason).toContain("fell back to notebook-wide retrieval");
   });
 
   it("partial learner answer recommends guided practice and small mastery delta", async () => {
