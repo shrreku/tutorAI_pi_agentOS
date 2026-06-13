@@ -46,11 +46,31 @@ export function isQuizArtifactSurface(surface: ReferenceSurface): boolean {
   return referenceSurfaceHasQuizPractice(surface);
 }
 
+function interactiveBlockKinds(surface: ReferenceSurface): Set<string> {
+  return new Set((surface.interactiveBlocks ?? []).map((block) => block.kind));
+}
+
+function duplicateNativeBlock(surface: ReferenceSurface, block: ReferenceBlock): boolean {
+  if (surface.surfaceType !== "artifact") return false;
+  const interactive = interactiveBlockKinds(surface);
+  const artifactType = inferArtifactTypeFromSurface(surface);
+  if (artifactType === "quiz" && block.kind === "question_list" && interactive.has("quiz")) return true;
+  if (artifactType === "flashcards" && block.kind === "flashcard_list" && interactive.has("flashcard_deck")) {
+    return true;
+  }
+  if (artifactType === "worked_example" && block.kind === "step_list" && interactive.has("worked_example")) {
+    return true;
+  }
+  return false;
+}
+
 export function visibleReferenceBlocks(surface: ReferenceSurface): ReferenceBlock[] {
-  if (!isQuizArtifactSurface(surface)) return surface.blocks;
   return surface.blocks.filter((block) => {
-    if (block.id === "overview") return false;
-    if (block.kind === "markdown" && block.title?.toLowerCase() === "practice goal") return false;
+    if (duplicateNativeBlock(surface, block)) return false;
+    if (isQuizArtifactSurface(surface) && block.id === "overview") return false;
+    if (isQuizArtifactSurface(surface) && block.kind === "markdown" && block.title?.toLowerCase() === "practice goal") {
+      return false;
+    }
     return true;
   });
 }

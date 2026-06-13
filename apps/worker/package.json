@@ -20,6 +20,7 @@
     "@studyagent/search": "workspace:*",
     "@studyagent/graph": "workspace:*",
     "@studyagent/wiki-core": "workspace:*",
+    "@studyagent/wiki-generation": "workspace:*",
     "@studyagent/eval-runner": "workspace:*",
     "@studyagent/schemas": "workspace:*",
     "bullmq": "^5.41.2",

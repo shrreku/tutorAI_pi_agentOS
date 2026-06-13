@@ -10,7 +10,14 @@ import type {
   WorkspaceVisibility,
 } from "@studyagent/schemas";
 import { presentSourceWikiCanvas, presentStudyMapCanvas } from "@studyagent/graph";
-import { buildSourceWikiLearnerView, graphRelationSemantics, learnerSafeValue } from "@studyagent/schemas";
+import {
+  buildSourceWikiLearnerView,
+  graphRelationSemantics,
+  learnerSafeValue,
+  pageReadinessLabel,
+  type PageReadiness,
+} from "@studyagent/schemas";
+import { resolvePageReadinessFromWikiPage, topicPageBelongsToSource } from "@studyagent/wiki-core";
 import {
   artifacts,
   chunks,
@@ -69,6 +76,14 @@ const REFERENCE_SURFACE_NODE_TYPES = new Set([
   "session_plan",
   "study_plan",
   "studyplan",
+]);
+
+const PAGE_READINESS_NODE_TYPES = new Set([
+  "wiki_page",
+  "concept",
+  "topic",
+  "curriculum",
+  "curriculum_module",
 ]);
 
 export type StudyPlanContext = {
@@ -655,6 +670,78 @@ export function nodeEmphasis(
   return "none";
 }
 
+type WikiPageRow = {
+  id: string;
+  pageType: string;
+  pageKey: string;
+  title: string;
+  status: string;
+  qualityScore: number | null;
+  sourceClaimIds: string[];
+  structuredJson: Record<string, unknown>;
+};
+
+export async function augmentCanvasWithPageReadiness(
+  ctx: AppContext,
+  notebookId: string,
+  nodes: GraphCanvasNode[],
+): Promise<GraphCanvasNode[]> {
+  const pageRows = await ctx.db.db.select().from(wikiPages).where(eq(wikiPages.notebookId, notebookId));
+  const pages = (Array.isArray(pageRows) ? pageRows : []) as WikiPageRow[];
+  const pageById = new Map(pages.map((page) => [page.id, page]));
+  const pageByKey = new Map(pages.map((page) => [page.pageKey, page]));
+  const pageByConceptId = new Map<string, WikiPageRow>();
+
+  for (const page of pages) {
+    if (page.pageType !== "concept") continue;
+    const conceptId =
+      typeof page.structuredJson?.conceptId === "string"
+        ? page.structuredJson.conceptId
+        : page.pageKey.startsWith("concept:")
+          ? page.pageKey.slice("concept:".length)
+          : null;
+    if (conceptId) pageByConceptId.set(conceptId, page);
+  }
+
+  return nodes.map((node) => {
+    if (!PAGE_READINESS_NODE_TYPES.has(node.nodeType)) return node;
+
+    let page: WikiPageRow | undefined;
+    if (node.nodeType === "wiki_page") {
+      page = pageById.get(node.id);
+    } else if (node.nodeType === "concept") {
+      page = pageByConceptId.get(node.id) ?? pageByKey.get(`concept:${node.id}`);
+    } else if (node.nodeType === "curriculum_module") {
+      page = pageByKey.get(`module:${node.id}`);
+    } else if (node.nodeType === "curriculum") {
+      page = pageByKey.get(`curriculum:${node.id}`);
+    } else if (node.nodeType === "topic") {
+      const title = typeof node.properties.title === "string" ? node.properties.title.trim() : "";
+      page = pages.find((candidate) => candidate.pageType === "topic" && candidate.title === title);
+    }
+
+    const readiness: PageReadiness = page
+      ? resolvePageReadinessFromWikiPage({
+          status: page.status,
+          qualityScore: page.qualityScore,
+          sourceClaimIds: page.sourceClaimIds,
+          structuredJson: page.structuredJson,
+        })
+      : node.nodeType === "curriculum" || node.nodeType === "curriculum_module"
+        ? "still_improving"
+        : "needs_more_source_support";
+
+    return {
+      ...node,
+      properties: {
+        ...node.properties,
+        pageReadiness: readiness,
+        pageReadinessLabel: pageReadinessLabel(readiness),
+      },
+    };
+  });
+}
+
 export function buildNodeCatalog(
   viewMode: WorkspaceViewMode,
   canvas: { nodes: GraphCanvasNode[] },
@@ -811,9 +898,11 @@ export async function buildStudyMapReadModel(
   options: { devMode: boolean; projectionWarning?: string | null; projectionHealth?: ProjectionHealth },
 ): Promise<WorkspaceGraphReadModel & { nodes: GraphCanvasNode[]; edges: GraphCanvasEdge[] }> {
   const augmented = await augmentStudyMapCanvas(ctx, notebookId, userId, canvas);
-  const context = await loadStudyPlanContext(ctx, notebookId, userId, augmented);
-  const presented = presentStudyMapCanvas(augmented);
-  const nodeCatalog = buildNodeCatalog("study_map", augmented, context, options.devMode);
+  const readinessNodes = await augmentCanvasWithPageReadiness(ctx, notebookId, augmented.nodes);
+  const readinessCanvas = { ...augmented, nodes: readinessNodes };
+  const context = await loadStudyPlanContext(ctx, notebookId, userId, readinessCanvas);
+  const presented = presentStudyMapCanvas(readinessCanvas);
+  const nodeCatalog = buildNodeCatalog("study_map", readinessCanvas, context, options.devMode);
   const filtered = filterCanvasByVisibility(presented, nodeCatalog, options.devMode);
 
   if (context.currentObjectiveId) {
@@ -851,7 +940,8 @@ export async function buildSourceWikiReadModel(
   options: { devMode: boolean; projectionWarning?: string | null; projectionHealth?: ProjectionHealth },
 ): Promise<WorkspaceGraphReadModel & { nodes: GraphCanvasNode[]; edges: GraphCanvasEdge[] }> {
   const context = await loadStudyPlanContext(ctx, notebookId, userId, canvas);
-  const presented = presentSourceWikiCanvas(canvas);
+  const readinessNodes = await augmentCanvasWithPageReadiness(ctx, notebookId, canvas.nodes);
+  const presented = presentSourceWikiCanvas({ ...canvas, nodes: readinessNodes });
   const nodeCatalog = buildNodeCatalog("source_wiki_map", presented, context, options.devMode);
   const filtered = filterCanvasByVisibility(presented, nodeCatalog, options.devMode);
   const topics = buildSourceWikiTopicGroups(canvas, sourceId, nodeCatalog);
@@ -894,7 +984,7 @@ export async function buildSourceWikiPageViews(
   const sourceClaimIds = new Set(sourceClaims.map((claim) => claim.id));
   const sourcePages = (Array.isArray(pages) ? pages : []).filter((page) => {
     if (page.pageType === "source_summary" && page.pageKey === `source:${sourceId}`) return true;
-    if (page.pageType === "topic" && page.pageKey === `topic:${sourceId}`) return true;
+    if (page.pageType === "topic" && topicPageBelongsToSource(page, sourceId)) return true;
     if (page.structuredJson?.bootstrapSourceId === sourceId) return true;
     return page.sourceClaimIds.some((claimId) => sourceClaimIds.has(claimId));
   });

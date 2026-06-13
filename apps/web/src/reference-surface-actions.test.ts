@@ -11,6 +11,7 @@ const surface: ReferenceSurface = {
   summary: null,
   status: "ready",
   blocks: [],
+  interactiveBlocks: [],
   scopeRefs: [],
   sourceRefs: [],
   provenanceRefs: [],

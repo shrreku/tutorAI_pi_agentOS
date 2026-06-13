@@ -52,7 +52,7 @@ vi.mock("@studyagent/agent-runtime", async () => {
     })),
     replaceStudyAgentTutorRuntime: replaceRuntimeMock,
     runStudyAgentTutorSession: runSessionMock,
-    buildStudyAgentHostStateSignature: vi.fn(() => "studyagent-host-state-v1:test-signature"),
+    buildStudyAgentHostStateSignature: vi.fn(() => "studyagent-host-state-v2:test-signature"),
     createAgUiEventMapper: actual.createAgUiEventMapper,
     serializeAgUiEventToSse: vi.fn((event: { type: string }) => `event: ${event.type}\n\n`),
     mapPiSessionEventToAppendInput: vi.fn(() => null),
@@ -276,7 +276,7 @@ describe("executeTutorTurn", () => {
     });
   });
 
-  it("adds a material host-state signature before replacing cached runtime", async () => {
+  it("adds a binding host-state signature before replacing cached runtime", async () => {
     const fakeDb = new FakeDb();
     const ctx = {
       db: { db: fakeDb },
@@ -339,14 +339,14 @@ describe("executeTutorTurn", () => {
     expect(replaceRuntimeMock).toHaveBeenCalledWith(
       expect.objectContaining({
         nextRun: expect.objectContaining({
-          hostStateSignature: expect.stringMatching(/^studyagent-host-state-v1:/),
+          hostStateSignature: expect.stringMatching(/^studyagent-host-state-v2:/),
         }),
       }),
     );
     expect(runSessionMock).toHaveBeenCalledWith(
       expect.objectContaining({
         run: expect.objectContaining({
-          hostStateSignature: expect.stringMatching(/^studyagent-host-state-v1:/),
+          hostStateSignature: expect.stringMatching(/^studyagent-host-state-v2:/),
         }),
       }),
     );

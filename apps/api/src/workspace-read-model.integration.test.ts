@@ -188,12 +188,11 @@ describe("buildStudyMapReadModel scenarios", () => {
       { devMode: false },
     );
 
-    expect(result.nodes.map((node) => node.id)).toEqual(expect.arrayContaining(["mod_1", "session_1", "concept_flux", "art_quiz"]));
+    expect(result.nodes.map((node) => node.id)).toEqual(expect.arrayContaining(["mod_1", "concept_flux", "art_quiz"]));
+    expect(result.nodes.map((node) => node.id)).not.toContain("session_1");
     expect(result.edges).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ id: "module-mod_1-session-session_1", source: "mod_1", target: "session_1", relationType: "PLANS" }),
-        expect.objectContaining({ id: "artifact-art_quiz-concept_flux", source: "art_quiz", target: "concept_flux", relationType: "TESTS_MASTERY" }),
-        expect.objectContaining({ id: "artifact-scope-art_quiz-mod_1", source: "mod_1", target: "art_quiz", relationType: "COVERS" }),
+        expect.objectContaining({ source: "mod_1", target: "art_quiz", relationType: "COVERS" }),
       ]),
     );
   });
@@ -266,9 +265,9 @@ describe("buildStudyMapReadModel scenarios", () => {
     });
     expect(result.edges).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ id: "session-sess_1-curriculum_module-mod_1", source: "sess_1", target: "mod_1", relationType: "COVERS" }),
-        expect.objectContaining({ id: "session-sess_1-source-src_1", source: "sess_1", target: "src_1", relationType: "CITES" }),
-        expect.objectContaining({ id: "session-sess_1-artifact-artifact_quiz", source: "sess_1", target: "artifact_quiz", relationType: "COMPLETED_BY" }),
+        expect.objectContaining({ source: "mod_1", target: "sess_1", relationType: "COVERS" }),
+        expect.objectContaining({ source: "sess_1", target: "concept_flux", relationType: "COVERS" }),
+        expect.objectContaining({ source: "sess_1", target: "artifact_quiz", relationType: "COMPLETED_BY" }),
       ]),
     );
   });

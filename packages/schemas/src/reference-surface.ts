@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { idSchema, nodeRefSchema, provenanceRefSchema } from "./ids.js";
 import { evidenceRefSchema } from "./evidence.js";
+import { interactiveLearningBlockSchema } from "./interactive-learning.js";
+import { pageReadinessLabel, pageReadinessSchema } from "./page-generation.js";
 
 export const referenceBlockSchema = z.object({
   id: z.string().min(1),
@@ -44,6 +46,7 @@ export const referenceSurfaceSchema = z.object({
   summary: z.string().nullable().default(null),
   status: z.string().nullable().default(null),
   blocks: z.array(referenceBlockSchema).default([]),
+  interactiveBlocks: z.array(interactiveLearningBlockSchema).default([]),
   scopeRefs: z.array(nodeRefSchema).default([]),
   sourceRefs: z.array(nodeRefSchema).default([]),
   provenanceRefs: z.array(provenanceRefSchema).default([]),
@@ -85,6 +88,13 @@ export function mapLearnerPrimaryActions(actions: ReferenceSurfacePrimaryAction[
 
 const INTERNAL_ARTIFACT_STATUSES = new Set(["draft", "rejected", "failed", "archived"]);
 
+const PAGE_READINESS_SURFACES = new Set<ReferenceSurface["surfaceType"]>([
+  "wiki_page",
+  "concept",
+  "curriculum",
+  "module",
+]);
+
 export function learnerFacingSurfaceStatus(input: {
   surfaceType: ReferenceSurface["surfaceType"];
   status: string | null;
@@ -97,7 +107,16 @@ export function learnerFacingSurfaceStatus(input: {
     if (input.quality?.needsReview) return "Needs review";
     return null;
   }
-  if (input.surfaceType === "wiki_page" && input.status === "draft") return "In progress";
+  if (input.status) {
+    const readiness = pageReadinessSchema.safeParse(input.status);
+    if (readiness.success && PAGE_READINESS_SURFACES.has(input.surfaceType)) {
+      return pageReadinessLabel(readiness.data);
+    }
+  }
+  if (input.surfaceType === "wiki_page" && input.status === "draft") return "Still improving";
   if (input.status && INTERNAL_ARTIFACT_STATUSES.has(input.status)) return null;
+  if (input.status && PAGE_READINESS_SURFACES.has(input.surfaceType)) {
+    return input.status.replace(/_/g, " ");
+  }
   return input.status;
 }

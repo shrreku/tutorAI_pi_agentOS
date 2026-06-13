@@ -1,7 +1,7 @@
 import React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import katex from "katex";
-import type { GraphCanvasNode, ReferenceBlock, ReferenceSurface } from "@studyagent/schemas";
+import type { GraphCanvasNode, InteractiveLearningBlock, ReferenceBlock, ReferenceSurface } from "@studyagent/schemas";
 import { learnerFacingSurfaceStatus } from "@studyagent/schemas";
 import {
   actionsForReferenceSurface,
@@ -14,32 +14,18 @@ import {
   isQuizArtifactSurface,
   visibleReferenceBlocks,
 } from "./artifact-review.js";
-import { learnerSafeCopy } from "./learner-copy-guard.js";
+import { learnerSafeCopy } from "@studyagent/schemas";
+import { normalizeQuizQuestions, type QuizQuestion } from "./quiz-utils.js";
+import { quizAttemptsFromSurface, submitQuizAnswerAction } from "./interactive-learning/action-client.js";
+import { InteractiveBlockRenderer } from "./interactive-learning/interactive-block-renderer.js";
+import { createTestInteractiveBlock, parseInteractiveLearningBlock, toRenderableInteractiveBlock } from "./interactive-learning/mcp-app-types.js";
+import { useWorkspaceShell } from "./workspace-shell-context.js";
 
 const QUIZ_SELF_ASSESSMENT_LABELS = artifactQuizSelfAssessmentLabels();
-
-type QuizQuestion = {
-  id: string;
-  prompt: string;
-  choices: string[];
-  answer: string | null;
-  referenceAnswer: string | null;
-  explanation: string | null;
-  difficulty: string | null;
-  conceptIds: string[];
-};
 
 type QuizAttempt = {
   answer: string;
   isCorrect: boolean;
-};
-
-type SavedQuizAttempt = QuizAttempt & {
-  id: string;
-  questionId: string;
-  score: number | null;
-  conceptIds: string[];
-  createdAt: string;
 };
 
 interface FullPanelViewerProps {
@@ -49,9 +35,19 @@ interface FullPanelViewerProps {
   onLaunchTutor?: (node: GraphCanvasNode) => void;
   onShowProvenance?: (node: GraphCanvasNode) => void;
   onDraftTutorPrompt?: (prompt: string, node: GraphCanvasNode) => void;
+  devMode?: boolean;
 }
 
-export const FullPanelViewer: React.FC<FullPanelViewerProps> = ({ notebookId, node, onClose, onLaunchTutor, onShowProvenance, onDraftTutorPrompt }) => {
+export const FullPanelViewer: React.FC<FullPanelViewerProps> = ({
+  notebookId,
+  node,
+  onClose,
+  onLaunchTutor,
+  onShowProvenance,
+  onDraftTutorPrompt,
+  devMode = false,
+}) => {
+  const { tutorRuntime } = useWorkspaceShell();
   if (!node) return null;
   const [regenInstruction, setRegenInstruction] = React.useState("");
   const [showRegenOptions, setShowRegenOptions] = React.useState(false);
@@ -89,7 +85,6 @@ export const FullPanelViewer: React.FC<FullPanelViewerProps> = ({ notebookId, no
     referenceSurface?.surfaceType === "source"
       ? `/api/v1/notebooks/${encodeURIComponent(notebookId)}/sources/${encodeURIComponent(referenceSurface.nodeRef.refId)}/extracted`
       : null;
-  const isQuizArtifact = referenceSurface ? isQuizArtifactSurface(referenceSurface) : false;
   const canRegenerate = referenceSurfaceSupportsRegeneration(referenceSurface);
   const headerActions = referenceSurface ? actionsForReferenceSurface({
     surface: referenceSurface,
@@ -98,26 +93,10 @@ export const FullPanelViewer: React.FC<FullPanelViewerProps> = ({ notebookId, no
     canRegenerate,
   }) : [];
   const hasHeaderRegenerate = headerActions.some((action) => action.id === "regenerate");
-  const { data: savedQuizAttempts } = useQuery({
-    queryKey: ["quiz-attempts", notebookId, sourceNodeId],
-    enabled: Boolean(isQuizArtifact),
-    queryFn: async (): Promise<SavedQuizAttempt[]> => {
-      const response = await fetch(`/api/v1/notebooks/${encodeURIComponent(notebookId)}/artifacts/${encodeURIComponent(sourceNodeId)}/quiz-attempts`);
-      if (!response.ok) {
-        throw new Error(`Failed to load quiz attempts (${response.status})`);
-      }
-      const payload = (await response.json()) as { attempts?: SavedQuizAttempt[] };
-      return Array.isArray(payload.attempts) ? payload.attempts : [];
-    },
-  });
-  const savedQuizAttemptsByQuestion = React.useMemo(() => {
-    const byQuestion: Record<string, QuizAttempt> = {};
-    for (const attempt of savedQuizAttempts ?? []) {
-      if (byQuestion[attempt.questionId]) continue;
-      byQuestion[attempt.questionId] = { answer: attempt.answer, isCorrect: attempt.isCorrect };
-    }
-    return byQuestion;
-  }, [savedQuizAttempts]);
+  const savedQuizAttemptsByQuestion = React.useMemo(
+    () => quizAttemptsFromSurface(referenceSurface),
+    [referenceSurface],
+  );
   const regenerate = useMutation({
     mutationFn: async (instructionOverride?: string) => {
       const response = await fetch(`/api/v1/notebooks/${encodeURIComponent(notebookId)}/nodes/${encodeURIComponent(sourceNodeId)}/regenerate-reference`, {
@@ -182,6 +161,7 @@ export const FullPanelViewer: React.FC<FullPanelViewerProps> = ({ notebookId, no
     regenerate.mutate(instruction);
   };
   const submitQuizAttempt = async (surfaceId: string, question: QuizQuestion, answer: string) => {
+    if (!referenceSurface) return;
     const expected = correctAnswerText(question);
     const isCorrect = normalizeAnswer(answer) === normalizeAnswer(expected);
     setQuizAnswersBySurface((current) => ({
@@ -192,23 +172,21 @@ export const FullPanelViewer: React.FC<FullPanelViewerProps> = ({ notebookId, no
       },
     }));
     try {
-      const response = await fetch(`/api/v1/notebooks/${encodeURIComponent(notebookId)}/artifacts/${encodeURIComponent(sourceNodeId)}/quiz-attempts`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          questionId: question.id,
-          answer,
-          isCorrect,
-          score: isCorrect ? 1 : 0,
-          conceptIds: question.conceptIds,
-          explanation: question.explanation ?? question.referenceAnswer ?? undefined,
-        }),
+      await submitQuizAnswerAction({
+        notebookId,
+        surface: referenceSurface,
+        question,
+        answer,
+        isCorrect,
+        score: isCorrect ? 1 : 0,
+        ...(tutorRuntime.sessionId ? { sessionId: tutorRuntime.sessionId } : {}),
+        ...(tutorRuntime.turnId ? { turnId: tutorRuntime.turnId } : {}),
+        ...(tutorRuntime.runId ? { runId: tutorRuntime.runId } : {}),
       });
-      if (!response.ok) {
-        throw new Error(`Failed to save quiz attempt (${response.status})`);
-      }
-      await queryClient.invalidateQueries({ queryKey: ["quiz-attempts", notebookId, sourceNodeId] });
-      await queryClient.invalidateQueries({ queryKey: ["notebook-graph", notebookId] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["reference-surface", notebookId, sourceNodeId] }),
+        queryClient.invalidateQueries({ queryKey: ["notebook-graph", notebookId] }),
+      ]);
     } catch (error) {
       console.error(error);
     }
@@ -251,12 +229,46 @@ export const FullPanelViewer: React.FC<FullPanelViewerProps> = ({ notebookId, no
       </div>
     );
   };
-  const renderBlock = (block: ReferenceBlock) => {
+  const invalidateInteractiveSurface = React.useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: ["reference-surface", notebookId, sourceNodeId] });
+  }, [notebookId, queryClient, sourceNodeId]);
+  const renderInteractiveBlock = (block: InteractiveLearningBlock, surface: ReferenceSurface) => (
+    <InteractiveBlockRenderer
+      notebookId={notebookId}
+      surface={surface}
+      block={toRenderableInteractiveBlock(block)}
+      {...(tutorRuntime.sessionId ? { sessionId: tutorRuntime.sessionId } : {})}
+      {...(tutorRuntime.turnId ? { turnId: tutorRuntime.turnId } : {})}
+      {...(tutorRuntime.runId ? { runId: tutorRuntime.runId } : {})}
+      devMode={devMode}
+      onActionComplete={() => invalidateInteractiveSurface()}
+      {...(onLaunchTutor ? { onLaunchTutor: () => onLaunchTutor(node) } : {})}
+    />
+  );
+  const renderBlock = (block: ReferenceBlock, surface: ReferenceSurface) => {
+    const interactiveBlock = parseInteractiveLearningBlock(block, surface);
+    if (interactiveBlock) {
+      return (
+        <InteractiveBlockRenderer
+          notebookId={notebookId}
+          surface={surface}
+          block={interactiveBlock}
+          {...(tutorRuntime.sessionId ? { sessionId: tutorRuntime.sessionId } : {})}
+          {...(tutorRuntime.turnId ? { turnId: tutorRuntime.turnId } : {})}
+          {...(tutorRuntime.runId ? { runId: tutorRuntime.runId } : {})}
+          devMode={devMode}
+          {...(onLaunchTutor ? { onLaunchTutor: () => onLaunchTutor(node) } : {})}
+        />
+      );
+    }
     if (block.kind === "markdown" && typeof block.content === "string") {
       return renderMarkdownBlock(block.content);
     }
     if (block.kind === "summary" || block.kind === "definition") {
-      return <div style={{ whiteSpace: "pre-wrap" }}>{String(block.content ?? "")}</div>;
+      if (typeof block.content === "string" || typeof block.content === "number" || typeof block.content === "boolean") {
+        return <div style={{ whiteSpace: "pre-wrap" }}>{String(block.content)}</div>;
+      }
+      return <StructuredValue value={block.content} />;
     }
     if (block.kind === "formula_table" || block.kind === "comparison_table") {
       return <StructuredTable value={block.content} />;
@@ -308,7 +320,22 @@ export const FullPanelViewer: React.FC<FullPanelViewerProps> = ({ notebookId, no
   };
   const renderReferenceSurface = (surface: ReferenceSurface) => {
     if (surface.surfaceType === "source") {
-      return <SourceDocumentViewer notebookId={notebookId} sourceId={surface.nodeRef.refId} title={surface.title} />;
+      return (
+        <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
+          {(surface.interactiveBlocks ?? []).length > 0 ? (
+            <div style={{ padding: 16, borderBottom: "1px solid #e5e7eb", background: "#fff" }}>
+              {(surface.interactiveBlocks ?? []).map((block) => (
+                <ReferenceSection key={block.id} title={block.title}>
+                  {renderInteractiveBlock(block, surface)}
+                </ReferenceSection>
+              ))}
+            </div>
+          ) : null}
+          <div style={{ flex: 1, minHeight: 0 }}>
+            <SourceDocumentViewer notebookId={notebookId} sourceId={surface.nodeRef.refId} title={surface.title} />
+          </div>
+        </div>
+      );
     }
     return (
     <div style={{ maxWidth: 920, margin: "0 auto", color: "#111827", lineHeight: 1.55, fontSize: 14 }}>
@@ -319,7 +346,7 @@ export const FullPanelViewer: React.FC<FullPanelViewerProps> = ({ notebookId, no
               <span style={{ borderRadius: 999, background: surface.surfaceType === "artifact" ? "#fff7ed" : "#eff6ff", color: surface.surfaceType === "artifact" ? "#9a3412" : "#1d4ed8", padding: "2px 8px", fontSize: 11, fontWeight: 800, textTransform: "capitalize", flex: "0 0 auto" }}>
                 {learnerSafeCopy(surface.surfaceType.replace(/_/g, " "))}
               </span>
-              {surface.generation && <GenerationBadge generation={surface.generation} />}
+              {devMode && surface.generation && <GenerationBadge generation={surface.generation} />}
               <div style={{ fontSize: 22, fontWeight: 850, letterSpacing: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{surface.title}</div>
             </div>
             {(() => {
@@ -327,8 +354,23 @@ export const FullPanelViewer: React.FC<FullPanelViewerProps> = ({ notebookId, no
                 surfaceType: surface.surfaceType,
                 status: surface.status,
                 quality: surface.quality,
-              })?.replace(/_/g, " ");
-              return label ? <span style={{ color: "#6b7280", fontSize: 12 }}>{label}</span> : null;
+              });
+              return label ? (
+                <span
+                  style={{
+                    borderRadius: 999,
+                    background: "#eef2ff",
+                    color: "#4338ca",
+                    border: "1px solid #c7d2fe",
+                    padding: "2px 8px",
+                    fontSize: 11,
+                    fontWeight: 750,
+                    flex: "0 0 auto",
+                  }}
+                >
+                  {label}
+                </span>
+              ) : null;
             })()}
           </div>
           {canRegenerate && regeneratePrompt && (showRegenOptions || !hasHeaderRegenerate) && (
@@ -345,17 +387,36 @@ export const FullPanelViewer: React.FC<FullPanelViewerProps> = ({ notebookId, no
           )}
         </div>
         {surface.summary && !isQuizArtifactSurface(surface) && <ReferenceSection title="Summary">{surface.summary}</ReferenceSection>}
+        {(surface.interactiveBlocks ?? []).map((block) => (
+          <ReferenceSection key={block.id} title={block.title}>
+            {renderInteractiveBlock(block, surface)}
+          </ReferenceSection>
+        ))}
+        {devMode && (
+          <ReferenceSection title="Interactive learning diagnostics">
+            {renderInteractiveBlock(
+              createTestInteractiveBlock({
+                id: `interactive_dev_trace_${surface.id}`,
+                kind: "dev_trace_dashboard",
+                title: "Bridge diagnostics",
+                learningPurpose: "Inspect MCP app bridge lifecycle and action outcomes.",
+                content: { surfaceId: surface.id, nodeRef: surface.nodeRef },
+              }),
+              surface,
+            )}
+          </ReferenceSection>
+        )}
         {visibleReferenceBlocks(surface).length > 0 ? (
           visibleReferenceBlocks(surface).map((block) => (
             <ReferenceSection key={block.id} title={block.title ?? block.kind.replace(/_/g, " ")}>
-              {renderBlock(block)}
+              {renderBlock(block, surface)}
             </ReferenceSection>
           ))
-        ) : (
+        ) : (surface.interactiveBlocks ?? []).length === 0 ? (
           <ReferenceSection title="Reference">
             <div style={{ color: "#6b7280" }}>No durable reference content has been generated for this node yet.</div>
           </ReferenceSection>
-        )}
+        ) : null}
       </main>
     </div>
     );
@@ -733,59 +794,6 @@ function smallButtonStyle(background: string, color: string, border: string, dis
     cursor: disabled ? "not-allowed" : "pointer",
     opacity: disabled ? 0.55 : 1,
   };
-}
-
-function normalizeQuizQuestions(value: unknown): QuizQuestion[] {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map((item, index): QuizQuestion | null => {
-      if (typeof item !== "object" || item === null) return null;
-      const record = item as Record<string, unknown>;
-      const choices = Array.isArray(record.choices)
-        ? record.choices.map((choice) => String(choice)).filter(Boolean)
-        : Array.isArray(record.options)
-          ? record.options.map((choice) => String(choice)).filter(Boolean)
-          : [];
-      const rawPrompt = stringValue(record.prompt ?? record.question ?? record.title ?? record.problem);
-      const prompt = rawPrompt ? stripEmbeddedChoices(rawPrompt, choices) : null;
-      if (!prompt) return null;
-      const conceptIds = Array.isArray(record.conceptIds)
-        ? record.conceptIds.filter((id): id is string => typeof id === "string")
-        : typeof record.conceptId === "string"
-          ? [record.conceptId]
-          : [];
-      return {
-        id: stringValue(record.id ?? record.questionId) ?? `q_${index + 1}`,
-        prompt,
-        choices,
-        answer: stringValue(record.answer),
-        referenceAnswer: stringValue(record.referenceAnswer),
-        explanation: stringValue(record.explanation),
-        difficulty: stringValue(record.difficulty),
-        conceptIds,
-      };
-    })
-    .filter((question): question is QuizQuestion => Boolean(question));
-}
-
-function stringValue(value: unknown): string | null {
-  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
-}
-
-function stripEmbeddedChoices(prompt: string, choices: string[]): string {
-  if (choices.length === 0) return prompt;
-  const byLetter = prompt.match(/\s+a[).]\s+/i);
-  if (byLetter?.index && byLetter.index > 0) {
-    return prompt.slice(0, byLetter.index).trim();
-  }
-  const firstChoice = choices[0]?.trim();
-  if (firstChoice) {
-    const firstChoiceIndex = prompt.toLowerCase().indexOf(firstChoice.toLowerCase());
-    if (firstChoiceIndex > 0) {
-      return prompt.slice(0, firstChoiceIndex).replace(/\s*[a-d][).]?\s*$/i, "").trim();
-    }
-  }
-  return prompt;
 }
 
 function normalizeAnswer(value: string): string {

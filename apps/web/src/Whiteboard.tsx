@@ -12,7 +12,6 @@ import {
   topicsFromReadModel,
   collapseObjectiveHistory,
   limitLearnerGraphDensity,
-  prepareGraphForCanvas,
   promoteCurrentPathConcepts,
   type CurriculumOutline,
   type CurriculumObjectiveOutline,
@@ -20,7 +19,7 @@ import {
 } from "./whiteboard-utils.js";
 import { mapGraphNodeToNodeRef, mapGraphNodeTypeToRefType } from "./whiteboard-node-ref.js";
 import { useWorkspaceShell } from "./workspace-shell-context.js";
-import { learnerFacingNodeTypeLabel, learnerFacingPipelineStatus } from "./learner-copy-guard.js";
+import { learnerFacingNodeTypeLabel, learnerFacingPipelineStatus } from "@studyagent/schemas";
 import {
   curriculumOutlineQueryKey,
   fetchCurriculumOutline,
@@ -102,7 +101,13 @@ type StudyStateSummary = {
 };
 
 export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, externalRefreshToken }) => {
-  const { shell: shellState, dispatchShell, setSelectedNodeRefs } = useWorkspaceShell();
+  const {
+    shell: shellState,
+    dispatchShell,
+    setSelectedNodeRefs,
+    setDraftTutorPrompt,
+    registerInteractiveSurfaceLaunchHandler,
+  } = useWorkspaceShell();
   const {
     selectedNodeId,
     viewMode,
@@ -222,6 +227,14 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, externalRefr
     [graphData, setSelectedNodeRefs, dispatchShell],
   );
 
+  useEffect(() => {
+    return registerInteractiveSurfaceLaunchHandler(({ nodeId }) => {
+      if (nodeId.length > 0) {
+        handleNodeSelect(nodeId);
+      }
+    });
+  }, [handleNodeSelect, registerInteractiveSurfaceLaunchHandler]);
+
   // GF-1 (NEW): Return from viewer to workspace
   const handleExitViewer = useCallback(() => {
     dispatchShell({ type: "closeViewer" });
@@ -230,18 +243,13 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, externalRefr
   const handleDraftTutorPrompt = useCallback(
     (prompt: string, node: GraphCanvasNode) => {
       setSelectedNodeRefs([mapGraphNodeToNodeRef(node)]);
-      window.dispatchEvent(new CustomEvent("studyagent:tutor-draft-prompt", { detail: { prompt, mode: "wiki_maintenance" } }));
+      setDraftTutorPrompt({ prompt, mode: "wiki_maintenance" });
     },
-    [setSelectedNodeRefs],
+    [setDraftTutorPrompt, setSelectedNodeRefs],
   );
 
   const selectedNode = graphData?.nodes.find((n) => n.id === selectedNodeId) ?? null;
   const curriculumOutline = curriculumReadModel ?? (graphData ? buildCurriculumOutline(graphData) : null);
-
-  const applyGraphViewPresentation = (data: GraphQueryResponse): GraphQueryResponse => {
-    if (viewMode !== "study_map" && viewMode !== "source_wiki_map") return data;
-    return prepareGraphForCanvas(data);
-  };
 
   // GF-0607: filtered graph data (type + status)
   // GF-3A: Promote current-path concepts in study_map mode
@@ -288,14 +296,12 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, externalRefr
             currentPathIds,
           );
           const presented = isDeveloperMode ? promoted : limitLearnerGraphDensity(collapseObjectiveHistory(promoted), 80);
-          return applyGraphViewPresentation(presented);
+          return presented;
         }
         const filtered = { ...byDefaultVisibility, nodes: filteredNodes, edges: filteredEdges };
-        const presented =
-          viewMode === "study_map" && !isDeveloperMode
+        return viewMode === "study_map" && !isDeveloperMode
             ? limitLearnerGraphDensity(collapseObjectiveHistory(filtered), 80)
             : filtered;
-        return applyGraphViewPresentation(presented);
       })()
     : null;
 
@@ -639,6 +645,7 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, externalRefr
             notebookId={notebookId}
             node={selectedNode}
             onClose={handleExitViewer}
+            devMode={isDeveloperMode}
             onLaunchTutor={(node) => {
               setSelectedNodeRefs([mapGraphNodeToNodeRef(node)]);
             }}

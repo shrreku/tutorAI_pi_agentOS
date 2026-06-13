@@ -1,5 +1,6 @@
 export * from "./confidence.js";
 export * from "./page-blocks.js";
+export { extractHumanBlocks, mergeAgentMarkdownWithHumanBlocks } from "./page-blocks.js";
 export * from "./wiki-lint.js";
 export * from "./claim-resolver.js";
 export * from "./claim-graph-resolution.js";
@@ -9,3 +10,10 @@ export * from "./source-compilation.js";
 export * from "./teaching-arc.js";
 export * from "./coverage-extraction.js";
 export * from "./wiki-polish-queue.js";
+export * from "./page-quality.js";
+export { normalizeConceptKey } from "./concept-lookup.js";
+export * from "./page-readiness.js";
+export * from "./page-generation-contracts.js";
+export * from "./page-format.js";
+export * from "./topic-concept-resolution.js";
+export * from "./interactive-block-compiler.js";

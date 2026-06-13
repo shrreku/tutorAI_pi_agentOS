@@ -154,20 +154,21 @@ describe("reference surface module", () => {
     const surface = await buildReferenceSurface(
       ctxFor(
         {
-        wikiPages: [
-          {
-            id: "wiki_1",
-            notebookId: NB,
-            title: "Conduction page",
-            pageType: "concept",
-            status: "published",
-            markdown: "# Conduction\nHeat moves through contact.",
-            sourceClaimIds: [],
-            sourceChunkIds: [],
-            qualityScore: 0.8,
-          },
-        ],
-      },
+          ...conceptFixture,
+          wikiPages: [
+            {
+              id: "wiki_1",
+              notebookId: NB,
+              title: "Conduction page",
+              pageType: "concept",
+              status: "published",
+              markdown: "# Conduction\nHeat moves through contact.",
+              sourceClaimIds: ["claim_1"],
+              sourceChunkIds: ["chunk_1"],
+              qualityScore: 0.8,
+            },
+          ],
+        },
         "wiki_1",
       ),
       NB,
@@ -175,6 +176,7 @@ describe("reference surface module", () => {
     );
     expect(surface.surfaceType).toBe("wiki_page");
     expect(surface.blocks[0]?.kind).toBe("markdown");
+    expect(surface.interactiveBlocks?.some((block) => block.kind === "evidence_explorer")).toBe(true);
   });
 
   it("builds a curriculum surface", async () => {
@@ -400,6 +402,7 @@ describe("reference surface module", () => {
     expect(surface.surfaceType).toBe("source");
     expect(surface.quality.sourceBacked).toBe(true);
     expect(surface.primaryActions).toContain("open_source");
+    expect(surface.interactiveBlocks?.some((block) => block.kind === "source_reader")).toBe(true);
   });
 
   it("returns a typed fallback surface for unknown nodes", async () => {

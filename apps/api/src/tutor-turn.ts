@@ -206,7 +206,6 @@ export async function executeTutorTurn(input: TutorTurnExecutionInput): Promise<
       runId: runtimeRun.runId,
       turnId,
       activeMode: input.activeMode,
-      modelTimeoutMs: input.ctx.env.TUTOR_MODEL_TIMEOUT_MS,
       maxToolCalls: runtimeRun.budgets.maxToolCalls,
       ...correlationFields,
     },
@@ -265,7 +264,6 @@ export async function executeTutorTurn(input: TutorTurnExecutionInput): Promise<
           runId: runtimeRun.runId,
           turnId,
           managedPrompt: runtimeRun.managedPrompt ?? null,
-          modelTimeoutMs: input.ctx.env.TUTOR_MODEL_TIMEOUT_MS,
           maxToolCalls: runtimeRun.budgets.maxToolCalls,
         },
       },
@@ -283,7 +281,6 @@ export async function executeTutorTurn(input: TutorTurnExecutionInput): Promise<
           config: {
             ...(input.ctx.env.OPENROUTER_API_KEY ? { providerApiKey: input.ctx.env.OPENROUTER_API_KEY } : {}),
             baseUrl: input.ctx.env.OPENROUTER_BASE_URL,
-            modelTimeoutMs: input.ctx.env.TUTOR_MODEL_TIMEOUT_MS,
           },
           onToolLifecycleEvent: async (event) => {
             if (event.phase === "started") {
@@ -488,7 +485,6 @@ export async function executeTutorTurn(input: TutorTurnExecutionInput): Promise<
           toolCount: toolSummary.length,
           completedToolCount: toolSummary.filter((tool) => tool.status === "completed").length,
           failedToolCount: toolSummary.filter((tool) => tool.status === "failed").length,
-          modelTimeoutMs: input.ctx.env.TUTOR_MODEL_TIMEOUT_MS,
           maxToolCalls: runtimeRun.budgets.maxToolCalls,
           failureDetails: streamedRunFailure.details ?? null,
           ...correlationFields,

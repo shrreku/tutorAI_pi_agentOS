@@ -23,9 +23,11 @@ import type { AppContext } from "./context.js";
 import { createTutorReadToolProvider, type TutorContextSelection } from "./tutor-tool-provider.js";
 import { createTutorWriteToolProvider } from "./tutor-write-provider.js";
 import type { NotebookStudyState } from "./study-state.js";
+import { loadInteractiveLearningTutorContext } from "./interactive-learning-tutor-context.js";
 import { loadNotebookStudyState } from "./study-state.js";
 import { loadPersonalizationRecommendationsForTutorContext } from "./learner-trait/index.js";
 import { getOrCreateTutorSession, resolveTutorSession } from "./tutor-session-store.js";
+import { buildIntentRoutingInstruction, detectLearnerIntent } from "./tutor-intent.js";
 
 export { resolveTutorSession } from "./tutor-session-store.js";
 
@@ -95,11 +97,37 @@ export async function bootstrapTutorTurn(
       "Use these as tutor-facing adaptation guidance only. Do not reveal raw inferred trait labels, confidence scores, or evidence IDs to the learner.",
     ];
   }
+  const currentObjectiveTitle = studyState.studyPlan?.currentObjective?.title;
+  const intentInstruction = buildIntentRoutingInstruction(
+    detectLearnerIntent(input.message),
+    Boolean(currentObjectiveTitle),
+    currentObjectiveTitle,
+  );
+  if (intentInstruction) {
+    promptContext.additionalInstructions = [
+      ...(promptContext.additionalInstructions ?? []),
+      "[Learner Intent Routing]",
+      intentInstruction,
+    ];
+  }
   if (created) {
     promptContext.additionalInstructions = [
       ...(promptContext.additionalInstructions ?? []),
       "[New session]",
       "This session was just created. Prior chat context is not in memory yet. Re-read the notebook state and any needed sources with tools before relying on assumptions from earlier sessions.",
+    ];
+  }
+  const interactiveLearningLines = await loadInteractiveLearningTutorContext(ctx, {
+    notebookId: input.notebookId,
+    sessionId,
+    limit: 6,
+  });
+  if (interactiveLearningLines.length > 0) {
+    promptContext.additionalInstructions = [
+      ...(promptContext.additionalInstructions ?? []),
+      "[Submitted Interactive Learning Actions]",
+      ...interactiveLearningLines,
+      "Use only submitted learner actions above for tutor steering. Do not infer mastery from passive UI interactions.",
     ];
   }
   const run = createRuntimeRun({

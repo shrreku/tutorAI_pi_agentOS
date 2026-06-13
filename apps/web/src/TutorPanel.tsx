@@ -9,12 +9,15 @@ import type { UIMessage } from "@tanstack/ai-client";
 import type { ChatTraceResponse, ChatTraceTurn, ReferenceSurface } from "@studyagent/schemas";
 import { learnerFacingNodeTypeLabel } from "@studyagent/schemas";
 import { AgentTrace, type LiveTraceRun, updateLiveTraceRun } from "./AgentTrace.js";
+import { useWorkspaceShell } from "./workspace-shell-context.js";
 import {
   buildTutorPanelArtifactReview,
   buildTutorPromptForArtifactAction,
   artifactQuizSelfAssessmentLabels,
 } from "./artifact-review.js";
 import { fetchNotebookArtifacts, fetchNotebookStudyState } from "./notebook-queries.js";
+import { submitQuizAnswerAction } from "./interactive-learning/action-client.js";
+import { normalizeQuizQuestions, type QuizQuestion } from "./quiz-utils.js";
 
 const QUIZ_SELF_ASSESSMENT_LABELS = artifactQuizSelfAssessmentLabels();
 
@@ -116,14 +119,6 @@ type LearningArtifactView = {
   sections: Array<{ id: string; title: string; kind: string; content: unknown; emptyMessage?: string }>;
 };
 
-type QuizQuestion = {
-  id: string;
-  conceptId?: string;
-  prompt: string;
-  referenceAnswer?: string;
-  explanation?: string;
-};
-
 type Flashcard = {
   id: string;
   conceptId?: string;
@@ -152,6 +147,7 @@ interface TutorPanelProps {
 }
 
 export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorPanelProps) {
+  const { draftTutorPrompt, setDraftTutorPrompt, setTutorRuntime, tutorRuntime } = useWorkspaceShell();
   const [input, setInput] = useState("");
   const [mode, setMode] = useState<"learn" | "practice" | "revise" | "explore" | "wiki_maintenance">("learn");
   const [runStatus, setRunStatus] = useState<"idle" | "running" | "completed" | "failed">("idle");
@@ -187,6 +183,15 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
     sessionStatusRef.current = sessionStatus;
   }, [sessionStatus]);
 
+  React.useEffect(() => {
+    const latestTurn = traceData?.turns?.[traceData.turns.length - 1];
+    setTutorRuntime({
+      ...(sessionId ? { sessionId } : {}),
+      ...(liveTraceRun?.id ? { runId: liveTraceRun.id } : {}),
+      ...(latestTurn?.id ? { turnId: latestTurn.id } : {}),
+    });
+  }, [sessionId, liveTraceRun?.id, traceData?.turns, setTutorRuntime]);
+
   // Use a ref so the factory always reads the latest refs without recreating the connection
   const selectedNodeRefsRef = useRef(selectedNodeRefs);
   React.useEffect(() => {
@@ -194,17 +199,11 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
   }, [selectedNodeRefs, selectedArtifact?.id]);
 
   React.useEffect(() => {
-    const handleDraftPrompt = (event: Event) => {
-      const detail = (event as CustomEvent<{ prompt?: unknown; mode?: unknown }>).detail;
-      if (!detail || typeof detail.prompt !== "string") return;
-      setInput(detail.prompt);
-      if (detail.mode === "wiki_maintenance") {
-        setMode("wiki_maintenance");
-      }
-    };
-    window.addEventListener("studyagent:tutor-draft-prompt", handleDraftPrompt);
-    return () => window.removeEventListener("studyagent:tutor-draft-prompt", handleDraftPrompt);
-  }, []);
+    if (!draftTutorPrompt) return;
+    setInput(draftTutorPrompt.prompt);
+    if (draftTutorPrompt.mode) setMode(draftTutorPrompt.mode);
+    setDraftTutorPrompt(null);
+  }, [draftTutorPrompt, setDraftTutorPrompt]);
 
   const selectedSessionRefId = useMemo(() => selectedNodeRefs.find((ref) => ref.refType === "session")?.refId ?? null, [selectedNodeRefs]);
 
@@ -475,8 +474,10 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
           typeof chunk.error?.message === "string"
             ? chunk.error.message
             : "The tutor run failed before it could finish.";
+        const errorDetail: unknown = chunk.error;
+        const retryable = isRecord(errorDetail) && errorDetail.retryable === true;
         setRetryableError(
-          chunk.error?.retryable || errorMessage.toLowerCase().includes("retry")
+          retryable || errorMessage.toLowerCase().includes("retry")
             ? errorMessage
             : null,
         );
@@ -558,7 +559,7 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
     selectedArtifact && typeof selectedArtifact.payload.blockOwnerType === "string"
       ? selectedArtifact.payload.blockOwnerType
       : "agent";
-  const quizQuestions = toQuizQuestions(selectedArtifact?.payload.questions);
+  const quizQuestions = normalizeQuizQuestions(selectedArtifact?.payload.questions);
   const flashcards = toFlashcards(selectedArtifact?.payload.cards);
   const { data: selectedArtifactSurface } = useQuery({
     queryKey: ["reference-surface", notebookId, selectedArtifact?.id],
@@ -637,22 +638,24 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
     setArtifactError(null);
     setQuizFeedback(null);
     try {
-      const res = await fetch(
-        `/api/v1/notebooks/${encodeURIComponent(notebookId)}/artifacts/${encodeURIComponent(selectedArtifact.id)}/quiz-attempts`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            questionId: question.id,
-            answer: isCorrect ? "understood" : "needs_review",
-            isCorrect,
-            conceptIds: question.conceptId ? [question.conceptId] : [],
-          }),
-        },
+      const surfaceResponse = await fetch(
+        `/api/v1/notebooks/${encodeURIComponent(notebookId)}/nodes/${encodeURIComponent(selectedArtifact.id)}/reference-surface`,
       );
-      if (!res.ok) {
-        throw new Error(await res.text());
+      if (!surfaceResponse.ok) {
+        throw new Error(`Failed to load reference surface (${surfaceResponse.status})`);
       }
+      const surface = (await surfaceResponse.json()) as ReferenceSurface;
+      await submitQuizAnswerAction({
+        notebookId,
+        surface,
+        question,
+        answer: isCorrect ? "understood" : "needs_review",
+        isCorrect,
+        score: isCorrect ? 1 : 0,
+        ...(tutorRuntime.sessionId ? { sessionId: tutorRuntime.sessionId } : {}),
+        ...(tutorRuntime.turnId ? { turnId: tutorRuntime.turnId } : {}),
+        ...(tutorRuntime.runId ? { runId: tutorRuntime.runId } : {}),
+      });
       await loadSidebarData();
       setQuizFeedback(
         isCorrect
@@ -1022,7 +1025,7 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
                   runStatus={runStatus}
                   showDiagnostics={showTutorDiagnostics}
                   retryErrorMessage={retryableError}
-                  onRetry={retryableError ? () => void handleRetryFailedTurn() : undefined}
+                  {...(retryableError ? { onRetry: () => void handleRetryFailedTurn() } : {})}
                 />
               )}
               {showAssistantWorkView ? (
@@ -1033,7 +1036,7 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
                   assistantMessage={messageText(msg)}
                   showDiagnostics={showTutorDiagnostics}
                   retryErrorMessage={retryableError}
-                  onRetry={retryableError ? () => void handleRetryFailedTurn() : undefined}
+                  {...(retryableError ? { onRetry: () => void handleRetryFailedTurn() } : {})}
                 />
               ) : null}
               {msg.role !== "user" && !isActiveAssistantTurn && traceTurn ? (
@@ -1972,22 +1975,8 @@ function ReadableValue({ value }: { value: unknown }) {
   return <div style={{ fontSize: 12, color: "#6b7280" }}>No data.</div>;
 }
 
-function toQuizQuestions(value: unknown): QuizQuestion[] {
-  if (!Array.isArray(value)) return [];
-  return value.flatMap((item) => {
-    if (!item || typeof item !== "object") return [];
-    const record = item as Record<string, unknown>;
-    if (typeof record.id !== "string" || typeof record.prompt !== "string") return [];
-    return [
-      {
-        id: record.id,
-        prompt: record.prompt,
-        ...(typeof record.conceptId === "string" ? { conceptId: record.conceptId } : {}),
-        ...(typeof record.referenceAnswer === "string" ? { referenceAnswer: record.referenceAnswer } : {}),
-        ...(typeof record.explanation === "string" ? { explanation: record.explanation } : {}),
-      },
-    ];
-  });
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function toFlashcards(value: unknown): Flashcard[] {

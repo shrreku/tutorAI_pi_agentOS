@@ -21,6 +21,7 @@ import { appendEventWithTutorCacheInvalidation as appendEvent } from "./agentic-
 import { collectLearnerTraitEvidencePacket } from "./learner-trait-evidence-collector.js";
 import { planLearnerTraitEstimation, persistLearnerTraitEstimationPlan } from "./learner-trait-estimation-planner.js";
 import { readCurrentLearnerTraitEstimates, upsertCurrentLearnerTraitEstimate } from "./learner-trait-store.js";
+import { fetchOpenRouterJsonCompletion } from "@studyagent/llm-client";
 
 const EXPLICIT_SOURCES = new Set(["explicit_self_report", "tutor_recorded_preference", "onboarding_profile"]);
 const EXPLICIT_CAP = 0.95;
@@ -160,19 +161,15 @@ export function buildLearnerTraitEvidencePacket(input: {
 export function createOpenRouterLearnerTraitEstimatorClient(config: LearnerTraitEstimatorModelConfig): LearnerTraitEstimatorClient {
   return {
     async propose(packet) {
-      const base = config.baseUrl.replace(/\/+$/, "");
-      const response = await fetch(`${base}/chat/completions`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${config.apiKey}`,
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({
+      const raw = await fetchOpenRouterJsonCompletion(
+        {
+          apiKey: config.apiKey,
+          baseUrl: config.baseUrl,
           model: config.model,
           temperature: config.temperature ?? 0.1,
-          response_format: { type: "json_object" },
-          messages: [
+          label: "Learner trait estimator",
+        },
+        [
             {
               role: "system",
               content: [
@@ -188,16 +185,8 @@ export function createOpenRouterLearnerTraitEstimatorClient(config: LearnerTrait
                 packet,
               }),
             },
-          ],
-        }),
-      });
-      const body = (await response.json()) as { choices?: Array<{ message?: { content?: string } }>; error?: { message?: string } };
-      if (!response.ok) {
-        throw new Error(`Learner trait estimator failed (${response.status}): ${body.error?.message ?? "unknown_error"}`);
-      }
-      const text = body.choices?.[0]?.message?.content;
-      if (!text) throw new Error("Learner trait estimator returned empty content.");
-      const raw = JSON.parse(text) as unknown;
+        ],
+      );
       const proposals = typeof raw === "object" && raw !== null && Array.isArray((raw as { proposals?: unknown }).proposals)
         ? (raw as { proposals: unknown[] }).proposals
         : raw;

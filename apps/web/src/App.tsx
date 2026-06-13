@@ -5,7 +5,7 @@ import TutorPanel from "./TutorPanel.js";
 import EvalRunsDashboard from "./EvalRunsDashboard.js";
 import type { SourceLearnerView } from "@studyagent/schemas";
 import { applyWorkspaceRefreshInvalidations, resolveWorkspaceRefreshPolicy } from "./workspace-refresh-policy.js";
-import { useNotebookWorkspaceSync } from "./notebook-workspace-sync.js";
+import { NotebookWorkspaceSyncBridge } from "./notebook-workspace-sync-bridge.js";
 import { WorkspaceShellProvider } from "./workspace-shell-context.js";
 import { notebookSourcesQueryKey, fetchNotebookSources } from "./notebook-queries.js";
 
@@ -102,12 +102,6 @@ export function App() {
   const handleGraphProjectionUpdated = useCallback(() => {
     setGraphRefreshToken((t) => t + 1);
   }, []);
-
-  useNotebookWorkspaceSync({
-    notebookId: activeNotebookId,
-    queryClient,
-    onGraphProjectionUpdated: handleGraphProjectionUpdated,
-  });
 
   useEffect(() => {
     if (!selectedId) return;
@@ -367,6 +361,11 @@ export function App() {
               selectedNodeRefs={selectedNodeRefs}
               onSelectedNodeRefsChange={setSelectedNodeRefs}
             >
+              <NotebookWorkspaceSyncBridge
+                notebookId={activeNotebookId}
+                queryClient={queryClient}
+                onGraphProjectionUpdated={handleGraphProjectionUpdated}
+              />
               <div className="study-shell-frame">
                 <div
                   ref={containerRef}

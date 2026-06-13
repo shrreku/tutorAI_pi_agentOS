@@ -51,7 +51,7 @@ exports[`pi session runtime > snapshots Pi adapter metadata derived from tool co
 
 exports[`pi session runtime > snapshots Pi adapter metadata derived from tool contracts 2`] = `
 {
-  "description": "Creates a draft quiz artifact from notebook concepts and sources.",
+  "description": "Creates a quiz artifact from notebook concepts and sources. For a learner-facing quiz, pass concrete questions with prompts, choices when useful, correct answers/reference answers, explanations, and conceptIds. Do not call this with only a title/prompt after drafting questions in chat; persist those exact questions in the questions array.",
   "label": "artifact.create_quiz",
   "name": "artifact.create_quiz",
   "parameters": {
@@ -72,12 +72,15 @@ exports[`pi session runtime > snapshots Pi adapter metadata derived from tool co
         "type": "number",
       },
       "questions": {
+        "description": "Concrete quiz questions to persist. Include these when the tutor has drafted or promised a quiz; do not rely on fallback generation for a finished learner-facing quiz.",
         "items": {
           "properties": {
             "answer": {
+              "description": "Correct answer. For multiple choice, use the exact correct choice text.",
               "type": "string",
             },
             "choices": {
+              "description": "Multiple-choice options when appropriate.",
               "items": {
                 "type": "string",
               },
@@ -90,15 +93,23 @@ exports[`pi session runtime > snapshots Pi adapter metadata derived from tool co
               "type": "array",
             },
             "difficulty": {
+              "description": "Difficulty label such as recall, application, calculation, misconception, or transfer.",
               "type": "string",
             },
             "explanation": {
+              "description": "Brief feedback explaining why the answer is correct.",
+              "type": "string",
+            },
+            "id": {
+              "description": "Stable question id such as q1. If omitted, StudyAgent assigns one.",
               "type": "string",
             },
             "prompt": {
+              "description": "Learner-visible question text. Use a concrete recall, application, calculation, transfer, or misconception-check question.",
               "type": "string",
             },
             "referenceAnswer": {
+              "description": "Reference answer or rubric for open-ended scoring.",
               "type": "string",
             },
           },
@@ -115,10 +126,19 @@ exports[`pi session runtime > snapshots Pi adapter metadata derived from tool co
       "sourceNodeRefs": {
         "items": {
           "properties": {
+            "handle": {
+              "type": "string",
+            },
+            "label": {
+              "type": "string",
+            },
             "refId": {
               "type": "string",
             },
             "refType": {
+              "type": "string",
+            },
+            "title": {
               "type": "string",
             },
           },

@@ -5,7 +5,7 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates curl \
   && rm -rf /var/lib/apt/lists/*
 
-RUN corepack enable && corepack prepare pnpm@10.0.0 --activate
+RUN npm install -g pnpm@10.0.0
 
 WORKDIR /workspace
 
@@ -27,7 +27,7 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates curl \
   && rm -rf /var/lib/apt/lists/*
 
-RUN corepack enable && corepack prepare pnpm@10.0.0 --activate
+RUN npm install -g pnpm@10.0.0
 
 WORKDIR /workspace
 

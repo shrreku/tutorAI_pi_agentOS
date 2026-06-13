@@ -18,7 +18,7 @@ import {
   wikiPages,
 } from "@studyagent/db";
 import { projectGraphFromCanonical } from "@studyagent/graph";
-import { buildSourceReadinessAfterEnrichment } from "./source-readiness.js";
+import { buildSourceReadinessAfterEnrichment } from "@studyagent/schemas";
 import {
   buildConceptLookup,
   compileSourceToWikiChangeSet,
@@ -31,8 +31,9 @@ import {
 } from "@studyagent/wiki-core";
 import { and, desc, eq, ne, notInArray, sql } from "drizzle-orm";
 import { z } from "zod";
+import { upsertBaselineHeuristicPages } from "./baseline-heuristic-pages.js";
 import { applyWikiChangeSet } from "./wiki-change-set-persistence.js";
-import { enqueueWikiPolishCandidates } from "./wiki-polish-enqueue.js";
+import { enqueueInitialBuildJob } from "@studyagent/wiki-generation";
 import { seedCoverageForSource } from "./coverage-seed.js";
 
 const extractionSchema = z.object({
@@ -92,11 +93,11 @@ const curriculumBootstrapPlanSchema = z.object({
       z.object({
         title: z.string().min(1).max(140),
         summary: z.string().min(1).max(320),
-        objectiveTitles: z.array(z.string().min(1).max(140)).min(1).max(4),
+        objectiveTitles: z.array(z.string().min(1).max(140)).max(4).default([]),
       }),
     )
     .min(1)
-    .max(3),
+    .max(12),
 });
 
 const sessionBootstrapPlanSchema = z.object({
@@ -330,7 +331,7 @@ async function openRouterJsonObject(
   const base = env.OPENROUTER_BASE_URL.replace(/\/+$/, "");
   const model = env.DEFAULT_EXTRACTION_MODEL;
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5000);
+  const timeout = setTimeout(() => controller.abort(), env.LLM_REQUEST_TIMEOUT_MS);
   let res: Response;
   try {
     res = await fetch(`${base}/chat/completions`, {
@@ -444,10 +445,12 @@ async function planCurriculumBootstrapWithLLM(
     const raw = await openRouterJsonObject(
       env,
       [
-        "You design compact learning modules for a single source notebook.",
+        "You design a full learning path for a single source notebook.",
         "Return ONLY a JSON object with keys: curriculumTitle?, modules.",
-        "Each module must include title, summary, objectiveTitles.",
-        "Keep output practical and ordered foundational -> applied.",
+        "Each module must include title and summary.",
+        "Include objectiveTitles only for the first module (2-4 objectives).",
+        "Later modules are outline shells and should omit objectiveTitles or use an empty array.",
+        "Plan as many modules as the source warrants (typically 2-8), ordered foundational -> applied.",
       ].join("\n"),
       [
         `Source title: ${input.sourceTitle}`,
@@ -689,13 +692,6 @@ export async function runPostIngestEnrichment(
     extractionModel: env.DEFAULT_EXTRACTION_MODEL,
   });
 
-  await enqueueWikiPolishCandidates(dbClient, {
-    notebookId: input.notebookId,
-    sourceId: input.sourceId,
-    targetConceptIds: changeSet.concepts.map((concept) => concept.id),
-    maxCandidates: 5,
-  });
-
   const { lookup: conceptLookup, byId: conceptsById } = buildConceptLookup(
     existingConcepts.map((c) => ({ id: c.id, canonicalName: c.canonicalName, aliases: c.aliases })),
   );
@@ -746,6 +742,11 @@ export async function runPostIngestEnrichment(
     .from(studyPlans)
     .where(and(eq(studyPlans.notebookId, input.notebookId), eq(studyPlans.userId, nb.ownerId)))
     .limit(1);
+  const [existingActiveCurriculum] = await dbClient.db
+    .select({ id: curricula.id })
+    .from(curricula)
+    .where(and(eq(curricula.notebookId, input.notebookId), eq(curricula.status, "active")))
+    .limit(1);
 
   let curriculumId: string | undefined;
   let moduleId: string | undefined;
@@ -754,8 +755,10 @@ export async function runPostIngestEnrichment(
   let objectiveIdsOrdered: string[] = [];
   let planId: string | undefined;
   let currentObjectiveId: string | undefined;
+  let createdCurriculumThisRun = false;
 
-  if (!existingPlan) {
+  if (!existingPlan && !existingActiveCurriculum) {
+    createdCurriculumThisRun = true;
     curriculumId = `cur_${crypto.randomUUID().replaceAll("-", "")}`;
     await dbClient.db.insert(curricula).values({
       id: curriculumId,
@@ -763,7 +766,7 @@ export async function runPostIngestEnrichment(
       title: cleanLearnerTitle(parsed.curriculumTitle) ?? cleanLearnerTitle(input.sourceTitle) ?? "Source-based course",
       curriculumType: "from_sources",
       scopeJson: { sourceIds: [input.sourceId] },
-      status: "draft",
+      status: "active",
       sourceIds: [input.sourceId],
       coverageSummaryJson: { conceptCount: parsed.concepts.length, claimCount: parsed.claims.length },
       confidence: extractionMode === "llm" ? 0.65 : 0.45,
@@ -807,7 +810,7 @@ export async function runPostIngestEnrichment(
         .set({ title: cleanLearnerTitle(llmCurriculumPlan.curriculumTitle) ?? cleanLearnerTitle(input.sourceTitle) ?? "Source-based course", updatedAt: now })
         .where(eq(curricula.id, curriculumId));
     }
-    const fallbackModuleCount = Math.min(3, Math.max(2, Math.ceil(seedConceptIds.length / 5)));
+    const fallbackModuleCount = Math.min(8, Math.max(2, Math.ceil(seedConceptIds.length / 4)));
     const curriculumModulesPlan =
       llmCurriculumPlan?.modules?.length
         ? llmCurriculumPlan.modules
@@ -859,42 +862,49 @@ export async function runPostIngestEnrichment(
       });
 
       const objIds: string[] = [];
-      for (let i = 0; i < modulePlan.objectiveTitles.length; i += 1) {
-        const oid = `obj_${crypto.randomUUID().replaceAll("-", "")}`;
-        const objectiveTitle = objectiveTitleForIndex(
-          modulePlan.objectiveTitles,
-          i,
-          input.sourceTitle,
-          modConcepts.map((conceptId) => conceptNameForId(conceptNamesById, conceptId)),
-        );
-        objIds.push(oid);
-        await dbClient.db.insert(objectives).values({
-          id: oid,
-          notebookId: input.notebookId,
-          curriculumId,
-          title: objectiveTitle,
-          status: "not_started",
-          orderIndex: i,
-          prerequisiteConceptIds: [],
-          targetConceptIds: modConcepts.slice(0, 3),
-          successCriteriaJson: { minClaimsReviewed: Math.min(3, parsed.claims.length) },
-          sourceRefsJson: [{ sourceId: input.sourceId }],
-          suggestedMode: "explore",
-          readinessScore: 0.6,
-          createdAt: now,
-          updatedAt: now,
-        });
-        await appendEvent(dbClient, {
-          notebookId: input.notebookId,
-          eventType: "objective.generated",
-          payload: {
-            objectiveId: oid,
-            moduleId: modId,
+      if (m === 0) {
+        const objectiveTitles =
+          modulePlan.objectiveTitles.length > 0
+            ? modulePlan.objectiveTitles
+            : buildConceptGroundedFallbackModules(input.sourceTitle, parsed.concepts.map((c) => c.name.trim()), 1)[0]
+                ?.objectiveTitles ?? [];
+        for (let i = 0; i < objectiveTitles.length; i += 1) {
+          const oid = `obj_${crypto.randomUUID().replaceAll("-", "")}`;
+          const objectiveTitle = objectiveTitleForIndex(
+            objectiveTitles,
+            i,
+            input.sourceTitle,
+            modConcepts.map((conceptId) => conceptNameForId(conceptNamesById, conceptId)),
+          );
+          objIds.push(oid);
+          await dbClient.db.insert(objectives).values({
+            id: oid,
+            notebookId: input.notebookId,
             curriculumId,
-            orderIndex: i,
             title: objectiveTitle,
-          },
-        });
+            status: "not_started",
+            orderIndex: i,
+            prerequisiteConceptIds: [],
+            targetConceptIds: modConcepts.slice(0, 3),
+            successCriteriaJson: { minClaimsReviewed: Math.min(3, parsed.claims.length) },
+            sourceRefsJson: [{ sourceId: input.sourceId }],
+            suggestedMode: "explore",
+            readinessScore: 0.6,
+            createdAt: now,
+            updatedAt: now,
+          });
+          await appendEvent(dbClient, {
+            notebookId: input.notebookId,
+            eventType: "objective.generated",
+            payload: {
+              objectiveId: oid,
+              moduleId: modId,
+              curriculumId,
+              orderIndex: i,
+              title: objectiveTitle,
+            },
+          });
+        }
       }
       moduleObjectives.push(objIds);
     }
@@ -1193,13 +1203,71 @@ export async function runPostIngestEnrichment(
       .update(curricula)
       .set({ activeModuleId: moduleId, updatedAt: now })
       .where(eq(curricula.id, curriculumId));
+
+    const [curriculumRow] = await dbClient.db
+      .select({ title: curricula.title })
+      .from(curricula)
+      .where(eq(curricula.id, curriculumId))
+      .limit(1);
+
+    await upsertBaselineHeuristicPages(dbClient, {
+      notebookId: input.notebookId,
+      sourceId: input.sourceId,
+      sourceTitle: input.sourceTitle,
+      curriculumId,
+      curriculumTitle: curriculumRow?.title ?? cleanLearnerTitle(input.sourceTitle) ?? "Source-based course",
+      activeModuleId: moduleId,
+      modules: curriculumModulesPlan.map((modulePlan, index) => {
+        const modId = moduleIds[index]!;
+        const start = Math.floor((index / curriculumModulesPlan.length) * seedConceptIds.length);
+        const end = Math.floor(((index + 1) / curriculumModulesPlan.length) * seedConceptIds.length);
+        const modConcepts = seedConceptIds.slice(start, end);
+        return {
+          id: modId,
+          title: cleanLearnerTitle(modulePlan.title) ?? `Module ${index + 1}`,
+          summary: modulePlan.summary,
+          orderIndex: index,
+          status: index === 0 ? "active" : "not_started",
+          conceptNames: modConcepts.map((conceptId) => conceptNameForId(conceptNamesById, conceptId)),
+          objectiveTitles:
+            index === 0
+              ? (moduleObjectives[0] ?? []).map((objectiveId, objectiveIndex) =>
+                  objectiveTitleForIndex(
+                    modulePlan.objectiveTitles.length > 0
+                      ? modulePlan.objectiveTitles
+                      : buildConceptGroundedFallbackModules(input.sourceTitle, parsed.concepts.map((c) => c.name.trim()), 1)[0]
+                          ?.objectiveTitles ?? [],
+                    objectiveIndex,
+                    input.sourceTitle,
+                    modConcepts.map((conceptId) => conceptNameForId(conceptNamesById, conceptId)),
+                  ),
+                )
+              : [],
+          deepBuilt: index === 0,
+        };
+      }),
+      now,
+    });
+    await appendEvent(dbClient, {
+      notebookId: input.notebookId,
+      eventType: "generation.curriculum_outline.generated",
+      payload: {
+        curriculumId,
+        sourceId: input.sourceId,
+        moduleCount: moduleIds.length,
+        moduleIds,
+        deepBuiltModuleId: moduleId,
+      },
+    });
   } else {
-    planId = existingPlan.id;
-    currentObjectiveId = existingPlan.currentObjectiveId ?? undefined;
-    objectiveIdsOrdered = [
-      ...(existingPlan.currentObjectiveId ? [existingPlan.currentObjectiveId] : []),
-      ...(existingPlan.upcomingObjectiveIds ?? []),
-    ];
+    if (existingPlan) {
+      planId = existingPlan.id;
+      currentObjectiveId = existingPlan.currentObjectiveId ?? undefined;
+      objectiveIdsOrdered = [
+        ...(existingPlan.currentObjectiveId ? [existingPlan.currentObjectiveId] : []),
+        ...(existingPlan.upcomingObjectiveIds ?? []),
+      ];
+    }
 
     const [activeCurriculum] = await dbClient.db
       .select({ id: curricula.id, activeModuleId: curricula.activeModuleId })
@@ -1207,7 +1275,7 @@ export async function runPostIngestEnrichment(
       .where(and(eq(curricula.notebookId, input.notebookId), eq(curricula.status, "active")))
       .orderBy(desc(curricula.updatedAt))
       .limit(1);
-    curriculumId = activeCurriculum?.id;
+    curriculumId = activeCurriculum?.id ?? existingActiveCurriculum?.id;
     moduleId = activeCurriculum?.activeModuleId ?? undefined;
 
     if (moduleId) {
@@ -1437,6 +1505,31 @@ export async function runPostIngestEnrichment(
       codes: [...new Set(lintIssues.map((i) => i.code))],
     },
   });
+
+  if (createdCurriculumThisRun && curriculumId && moduleId) {
+    try {
+      await enqueueInitialBuildJob(dbClient, {
+        notebookId: input.notebookId,
+        curriculumId,
+        moduleId,
+        sourceId: input.sourceId,
+      });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      await appendEvent(dbClient, {
+        notebookId: input.notebookId,
+        eventType: "generation.initial_build.failed",
+        payload: {
+          curriculumId,
+          moduleId,
+          sourceId: input.sourceId,
+          ok: false,
+          reason,
+        },
+      });
+      return { ok: false, reason: `initial_build_enqueue_failed: ${reason}` };
+    }
+  }
 
   return { ok: true };
 }

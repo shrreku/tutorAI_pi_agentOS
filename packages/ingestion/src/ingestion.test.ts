@@ -1,6 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { documentTreeToChunks } from "./chunk-document.js";
+import { llamaParsePdfToMarkdown } from "./parsers/llamaparse-client.js";
 import { parseMarkdownLikeText } from "./parsers/markdown-text-parser.js";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("ingestion", () => {
   it("parses markdown headings and paragraphs with spans", () => {
@@ -72,7 +77,58 @@ describe("ingestion", () => {
     ]);
     expect(retrievals.every((chunk) => chunk.parentChunkId === structure?.id)).toBe(true);
     expect(retrievals.every((chunk) => chunk.headingPath.join(" / ") === "Foundations")).toBe(true);
-    expect(retrievals.every((chunk) => typeof chunk.sourceSpanJson?.charStart === "number")).toBe(true);
-    expect(retrievals.every((chunk) => typeof chunk.sourceSpanJson?.charEnd === "number")).toBe(true);
+    expect(retrievals.every((chunk) => typeof chunk.sourceSpanJson?.charStart === "number")).toBe(
+      true,
+    );
+    expect(retrievals.every((chunk) => typeof chunk.sourceSpanJson?.charEnd === "number")).toBe(
+      true,
+    );
+  });
+
+  it("retries transient LlamaCloud upload failures before creating the parse job", async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response("{}", { status: 499, headers: { "content-type": "application/json" } }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ id: "file_1" }), {
+          status: 201,
+          headers: { "content-type": "application/json" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ job: { id: "job_1", status: "PENDING" } }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ job: { status: "COMPLETED" }, markdown_full: "# Parsed" }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const parsed = await llamaParsePdfToMarkdown(
+      new TextEncoder().encode("%PDF-1.7"),
+      "Chapter 2.pdf",
+      {
+        apiKey: "test-key",
+        baseUrl: "https://llamacloud.test",
+        tier: "cost_effective",
+        pollMs: 0,
+        maxWaitMs: 1000,
+        requestAttempts: 2,
+        requestRetryBaseMs: 0,
+      },
+    );
+
+    expect(parsed).toMatchObject({ jobId: "job_1", markdown: "# Parsed" });
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toBe("https://llamacloud.test/api/v1/beta/files");
+    expect(String(fetchMock.mock.calls[1]?.[0])).toBe("https://llamacloud.test/api/v1/beta/files");
+    expect(String(fetchMock.mock.calls[2]?.[0])).toBe("https://llamacloud.test/api/v2/parse");
   });
 });

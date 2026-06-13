@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import type { EvidenceReadModel, EvidenceRef } from "@studyagent/schemas";
-import { learnerFacingNodeTypeLabel, learnerFacingPipelineStatus, learnerSafeCopy } from "./learner-copy-guard.js";
+import { learnerFacingNodeTypeLabel, learnerFacingPipelineStatus, learnerSafeCopy } from "@studyagent/schemas";
 
 type ProvenanceData = EvidenceReadModel;
 

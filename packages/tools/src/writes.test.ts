@@ -56,6 +56,10 @@ describe("write tools", () => {
     expect(registry.get("objective_list.merge_objectives")).toBeDefined();
     expect(registry.get("student_profile.update_preferences")).toBeDefined();
     expect(registry.get("learning.evaluate_response")).toBeDefined();
+    expect(registry.get("wiki.ensure_concept_page")).toBeDefined();
+    expect(registry.get("wiki.ensure_topic_page")).toBeDefined();
+    expect(registry.get("wiki.touch_concept")).toBeDefined();
+    expect(registry.get("wiki.touch_topic")).toBeDefined();
   });
 
   it("keeps read and write registrations covered by the tool contract catalog", () => {
@@ -136,13 +140,22 @@ describe("write tools", () => {
       baseContext,
     );
 
-    expect((result as { signal: { trait: string; suggestedValue: string; turnId?: string; runId?: string }; reducerResult: { mutationType: string } }).signal).toMatchObject({
+    expect(
+      (
+        result as {
+          signal: { trait: string; suggestedValue: string; turnId?: string; runId?: string };
+          reducerResult: { mutationType: string };
+        }
+      ).signal,
+    ).toMatchObject({
       trait: "pacePreference",
       suggestedValue: "slow",
       turnId: "turn_1",
       runId: "run_1",
     });
-    expect((result as { reducerResult: { mutationType: string } }).reducerResult.mutationType).toBe("learner_trait.signal.recorded");
+    expect((result as { reducerResult: { mutationType: string } }).reducerResult.mutationType).toBe(
+      "learner_trait.signal.recorded",
+    );
   });
 
   it("normalizes loose learner trait write input and falls back to session evidence", async () => {
@@ -159,12 +172,21 @@ describe("write tools", () => {
       baseContext,
     );
 
-    expect((result as { signal: { trait: string; suggestedValue: string; evidenceRefs: Array<{ refType: string; refId: string }> } }).signal)
-      .toMatchObject({
-        trait: "pacePreference",
-        suggestedValue: "slow",
-        evidenceRefs: [{ refType: "session_trace", refId: baseContext.sessionId }],
-      });
+    expect(
+      (
+        result as {
+          signal: {
+            trait: string;
+            suggestedValue: string;
+            evidenceRefs: Array<{ refType: string; refId: string }>;
+          };
+        }
+      ).signal,
+    ).toMatchObject({
+      trait: "pacePreference",
+      suggestedValue: "slow",
+      evidenceRefs: [{ refType: "session_trace", refId: baseContext.sessionId }],
+    });
   });
 
   it("normalizes agent-style learner trait keys and suggested values", async () => {
@@ -182,39 +204,54 @@ describe("write tools", () => {
       baseContext,
     );
 
-    expect((result as { signal: { trait: string; suggestedValue: string; evidenceRefs: Array<{ refType: string; refId: string }> } }).signal)
-      .toMatchObject({
-        trait: "pacePreference",
-        suggestedValue: "slow",
-        evidenceRefs: [{ refType: "session_trace", refId: baseContext.sessionId }],
-      });
+    expect(
+      (
+        result as {
+          signal: {
+            trait: string;
+            suggestedValue: string;
+            evidenceRefs: Array<{ refType: string; refId: string }>;
+          };
+        }
+      ).signal,
+    ).toMatchObject({
+      trait: "pacePreference",
+      suggestedValue: "slow",
+      evidenceRefs: [{ refType: "session_trace", refId: baseContext.sessionId }],
+    });
   });
 
   it("builds reducer results for accepted writes", () => {
     const reducer = buildReducerResult("artifact.created", { title: "Notes" });
     expect(reducer.accepted).toBe(true);
-    expect(proposeClaimReducerResult({
-      candidateClaimId: "claim_1",
-      notebookId: "nb_1",
-      claimText: "x",
-      claimType: "definition",
-      sourceRefs: [{ refType: "source", refId: "src_1" }],
-      conceptIds: [],
-    }).mutationType).toBe("wiki.claim.proposed");
-    expect(createArtifactReducerResult({
-      artifactId: "artifact_1",
-      notebookId: "nb_1",
-      artifactType: "note",
-      title: "Note",
-      sourceNodeRefs: [],
-    }).accepted).toBe(true);
-    expect(createArtifactReducerResult({
-      artifactId: "artifact_2",
-      notebookId: "nb_1",
-      artifactType: "worked_example",
-      title: "Worked example",
-      sourceNodeRefs: [],
-    }).accepted).toBe(true);
+    expect(
+      proposeClaimReducerResult({
+        candidateClaimId: "claim_1",
+        notebookId: "nb_1",
+        claimText: "x",
+        claimType: "definition",
+        sourceRefs: [{ refType: "source", refId: "src_1" }],
+        conceptIds: [],
+      }).mutationType,
+    ).toBe("wiki.claim.proposed");
+    expect(
+      createArtifactReducerResult({
+        artifactId: "artifact_1",
+        notebookId: "nb_1",
+        artifactType: "note",
+        title: "Note",
+        sourceNodeRefs: [],
+      }).accepted,
+    ).toBe(true);
+    expect(
+      createArtifactReducerResult({
+        artifactId: "artifact_2",
+        notebookId: "nb_1",
+        artifactType: "worked_example",
+        title: "Worked example",
+        sourceNodeRefs: [],
+      }).accepted,
+    ).toBe(true);
 
     const lifecycleBacked = createArtifactReducerResult({
       artifactId: "artifact_3",
@@ -321,11 +358,44 @@ describe("write tools", () => {
     expect(parsed.resumeArtifactId).toBe("artifact_1");
   });
 
+  it("preserves concrete quiz questions in the write schema", () => {
+    const parsed = createQuizInputSchema.parse({
+      title: "Heat quiz",
+      prompt: "Quiz on conduction",
+      questions: [
+        {
+          id: "q1",
+          prompt: "What is the driving force for heat conduction?",
+          choices: ["Temperature difference", "Density", "Color", "Mass"],
+          answer: "Temperature difference",
+          explanation: "Conduction is driven by a temperature difference.",
+          conceptIds: ["concept_conduction"],
+        },
+      ],
+    });
+
+    expect(parsed.questions?.[0]).toEqual({
+      id: "q1",
+      prompt: "What is the driving force for heat conduction?",
+      choices: ["Temperature difference", "Density", "Color", "Mass"],
+      answer: "Temperature difference",
+      explanation: "Conduction is driven by a temperature difference.",
+      conceptIds: ["concept_conduction"],
+    });
+  });
+
   it("exposes mastery evaluator flexible fields as strings in runtime JSON schema", () => {
     const registry = new ToolRegistry();
     registerWriteToolsV1(registry, createNoopRuntimeWriteToolProvider());
     const schema = registry.get("learning.evaluate_response")?.inputSchema.toJSONSchema() as {
-      properties?: Record<string, { type?: string; enum?: string[]; items?: { properties?: Record<string, { enum?: string[] }> } }>;
+      properties?: Record<
+        string,
+        {
+          type?: string;
+          enum?: string[];
+          items?: { properties?: Record<string, { enum?: string[] }> };
+        }
+      >;
     };
 
     expect(schema.properties?.evidenceType).toMatchObject({ type: "string" });
@@ -348,7 +418,9 @@ describe("write tools", () => {
       },
       baseContext,
     );
-    expect((objectiveResult as { reducerResult: { mutationType: string } }).reducerResult.mutationType).toBe("objective.updated");
+    expect(
+      (objectiveResult as { reducerResult: { mutationType: string } }).reducerResult.mutationType,
+    ).toBe("objective.updated");
 
     const reorderResult = await executeTool(
       registry,
@@ -359,7 +431,9 @@ describe("write tools", () => {
       },
       baseContext,
     );
-    expect((reorderResult as { reducerResult: { mutationType: string } }).reducerResult.mutationType).toBe("objective_list.reordered");
+    expect(
+      (reorderResult as { reducerResult: { mutationType: string } }).reducerResult.mutationType,
+    ).toBe("objective_list.reordered");
 
     const splitResult = await executeTool(
       registry,
@@ -406,7 +480,9 @@ describe("write tools", () => {
       baseContext,
     );
     expect((workedExample as { status: string }).status).toBe("ready");
-    expect((workedExample as { reducerResult: { mutationType: string } }).reducerResult.mutationType).toBe("artifact.created");
+    expect(
+      (workedExample as { reducerResult: { mutationType: string } }).reducerResult.mutationType,
+    ).toBe("artifact.created");
 
     const formulaSheet = await executeTool(
       registry,
@@ -436,9 +512,7 @@ describe("write tools", () => {
         prompt: "Compare concepts",
         leftTitle: "Derivative",
         rightTitle: "Integral",
-        comparisonRows: [
-          { dimension: "Meaning", left: "rate of change", right: "accumulation" },
-        ],
+        comparisonRows: [{ dimension: "Meaning", left: "rate of change", right: "accumulation" }],
         conceptIds: ["concept_derivative", "concept_integral"],
         sourceNodeRefs: [],
       },
@@ -480,9 +554,9 @@ describe("write tools", () => {
       baseContext,
     );
     expect((insertion as { success: boolean }).success).toBe(true);
-    expect((insertion as { reducerResult: { mutationType: string } }).reducerResult.mutationType).toBe(
-      "artifact.insert_into_tutor_context",
-    );
+    expect(
+      (insertion as { reducerResult: { mutationType: string } }).reducerResult.mutationType,
+    ).toBe("artifact.insert_into_tutor_context");
 
     const marked = await executeTool(
       registry,
@@ -494,7 +568,9 @@ describe("write tools", () => {
       },
       baseContext,
     );
-    expect((marked as { coverageRecord: { status: string } }).coverageRecord.status).toBe("checked");
+    expect((marked as { coverageRecord: { status: string } }).coverageRecord.status).toBe(
+      "checked",
+    );
 
     const gaps = await executeTool(
       registry,

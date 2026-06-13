@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { artifactSurfaceActionIds, buildArtifactReviewView } from "./artifact-review.js";
+import type { ReferenceSurface } from "@studyagent/schemas";
+import { artifactSurfaceActionIds, buildArtifactReviewView, visibleReferenceBlocks } from "./artifact-review.js";
 
 describe("buildArtifactReviewView", () => {
   it("derives quiz practice actions and learner-safe status", () => {
@@ -39,5 +40,20 @@ describe("buildArtifactReviewView", () => {
       "regenerate",
       "open_evidence",
     ]);
+  });
+});
+
+describe("visibleReferenceBlocks", () => {
+  it("hides native quiz practice blocks when an interactive quiz block is present", () => {
+    const surface = {
+      surfaceType: "artifact",
+      blocks: [
+        { id: "artifact_summary", kind: "summary", title: "Overview", content: "Practice" },
+        { id: "questions", kind: "question_list", title: "Questions", content: [{ id: "q1", prompt: "?" }] },
+      ],
+      interactiveBlocks: [{ id: "interactive_quiz_1", kind: "quiz", title: "Quiz" }],
+    } as unknown as ReferenceSurface;
+
+    expect(visibleReferenceBlocks(surface).map((block) => block.kind)).toEqual(["summary"]);
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildSourceReadinessAfterEnrichment, buildSourceReadinessDuringIngestion } from "./source-readiness.js";
+import { buildSourceReadinessAfterEnrichment, buildSourceReadinessDuringIngestion } from "@studyagent/schemas";
 
 describe("buildSourceReadinessDuringIngestion", () => {
   it("keeps learnerSourceWiki pending until projection is available", () => {

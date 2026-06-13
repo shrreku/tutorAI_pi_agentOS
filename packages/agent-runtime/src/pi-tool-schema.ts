@@ -51,8 +51,23 @@ export function getPiToolMetadata(toolName: string): PiToolMetadata {
   };
 }
 
+/**
+ * Unwraps z.preprocess schemas so Pi sees the actual inner schema instead of
+ * an empty {} (which is what z.preprocess produces when .toJSONSchema() is called).
+ */
+function unwrapZodPreprocess(schema: { toJSONSchema?: () => unknown }): { toJSONSchema?: () => unknown } {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const def = (schema as any)._def;
+  if (def && def.typeName === "ZodEffects" && def.effect?.type === "preprocess") {
+    const inner = def.schema as { toJSONSchema?: () => unknown };
+    return inner ?? schema;
+  }
+  return schema;
+}
+
 function zodSchemaToPiToolParameters(schema: { toJSONSchema?: () => unknown }): PiToolParameters {
-  const jsonSchema = schema.toJSONSchema?.();
+  const unwrapped = unwrapZodPreprocess(schema);
+  const jsonSchema = unwrapped.toJSONSchema?.();
   const piSchema = jsonSchemaToPiSchema(jsonSchema);
   if (!isJsonSchemaObject(piSchema) || piSchema.type !== "object") {
     return Type.Object({}, { additionalProperties: true });
@@ -78,9 +93,12 @@ function jsonSchemaToPiSchema(schema: unknown): JsonSchemaLike {
     case "object":
       return jsonObjectSchemaToPiSchema(schema);
     case "array": {
+      const itemsSchema = jsonSchemaToPiSchema(schema.items);
+      // If items resolve to empty (e.g. from z.preprocess), allow any object
+      const items = Object.keys(itemsSchema).length > 0 ? itemsSchema : { type: "object", additionalProperties: true };
       const result: JsonSchemaLike = {
         type: "array",
-        items: jsonSchemaToPiSchema(schema.items),
+        items,
       };
       copyDescription(schema, result);
       return result;
@@ -102,6 +120,10 @@ function jsonSchemaToPiSchema(schema: unknown): JsonSchemaLike {
       return result;
     }
     default:
+      // If we have properties but no type, treat as object
+      if (schema.properties) {
+        return jsonObjectSchemaToPiSchema(schema);
+      }
       return {};
   }
 }

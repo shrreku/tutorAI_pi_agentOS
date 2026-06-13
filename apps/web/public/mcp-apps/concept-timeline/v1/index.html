@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>StudyAgent Concept Timeline</title>
+    <link rel="stylesheet" href="/mcp-apps/shared/v1/shell.css" />
+  </head>
+  <body>
+    <div id="sa-root" class="sa-shell">Loading timeline…</div>
+    <script src="/mcp-apps/shared/v1/shell.js"></script>
+    <script>
+      (function () {
+        var app = StudyAgentShell.createBridge({
+          state: { ui: { activeId: null } },
+          render: function (ctx) {
+            var h = ctx.helpers;
+            var events = Array.isArray(ctx.content.events) ? ctx.content.events : [];
+            var conceptTitle = ctx.content.conceptTitle || (ctx.state.block && ctx.state.block.title) || "Concept";
+            var opened = Array.isArray(ctx.state.canonicalState.openedEventIds)
+              ? ctx.state.canonicalState.openedEventIds
+              : [];
+
+            var html = '<div class="sa-shell">';
+            html += h.headerHtml(
+              "Concept timeline",
+              "Trace how " + conceptTitle + " develops across source-backed milestones.",
+              "Timeline",
+            );
+            html += h.pendingOverlay(ctx.state);
+            html += h.statusHtml(ctx.state);
+            html += '<div class="sa-card"><div class="sa-timeline" id="timeline"></div></div></div>';
+            ctx.root.innerHTML = html;
+
+            var timelineEl = document.getElementById("timeline");
+            if (!events.length) {
+              timelineEl.innerHTML = '<div class="sa-empty">No timeline milestones are available yet.</div>';
+              return;
+            }
+
+            events.forEach(function (event, index) {
+              var id = event.id || "event_" + index;
+              var el = document.createElement("div");
+              el.className = "sa-timeline-item";
+              if (ctx.state.ui.activeId === id || opened.indexOf(id) >= 0) el.classList.add("is-active");
+              var pages =
+                event.pageStart != null
+                  ? "p. " +
+                    event.pageStart +
+                    (event.pageEnd && event.pageEnd !== event.pageStart ? "–" + event.pageEnd : "")
+                  : "";
+              el.innerHTML =
+                '<div class="sa-list-item-title">' +
+                h.escapeHtml(event.title || "Milestone " + (index + 1)) +
+                "</div>" +
+                '<div class="sa-list-item-meta">' +
+                h.escapeHtml([event.sourceTitle, pages].filter(Boolean).join(" · ")) +
+                "</div>" +
+                '<div class="sa-list-item-body">' +
+                h.escapeHtml(event.summary || "") +
+                "</div>";
+              el.onclick = function () {
+                ctx.state.ui.activeId = id;
+                app.submitAction("evidence.source_span_opened", {
+                  spanId: id,
+                  evidenceRefId: id,
+                  index: index,
+                });
+              };
+              timelineEl.appendChild(el);
+            });
+          },
+        });
+      })();
+    </script>
+  </body>
+</html>

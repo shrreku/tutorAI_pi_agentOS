@@ -858,6 +858,60 @@ export function recordAgenticCacheMetric(input: {
   }
 }
 
+export function recordGenerationLifecycleMetric(input: {
+  eventType: string;
+  outcome: "success" | "timeout" | "failure" | "skipped";
+  generationMode?: string;
+  trigger?: string;
+  registry?: MetricRegistry;
+}): void {
+  const registry = input.registry ?? defaultMetricRegistry;
+  registry.incrementCounter(
+    "studyagent_generation_lifecycle_total",
+    1,
+    {
+      event_type: normalizeEventTypeLabel(input.eventType),
+      outcome: input.outcome,
+      generation_mode: normalizeEventTypeLabel(input.generationMode ?? "unknown"),
+      trigger: normalizeEventTypeLabel(input.trigger ?? "unknown"),
+    },
+    "Rolling wiki generation lifecycle events by type, mode, trigger, and outcome.",
+  );
+}
+
+export function recordInteractiveLearningActionMetric(input: {
+  actionName: string;
+  blockKind?: string;
+  rendererKind?: string;
+  outcome: "success" | "bad_request" | "not_found" | "forbidden" | "error";
+  emitsMasteryEvidence?: boolean;
+  durationMs?: number;
+  registry?: MetricRegistry;
+}): void {
+  const registry = input.registry ?? defaultMetricRegistry;
+  const labels = {
+    action_name: normalizeEventTypeLabel(input.actionName || "unknown"),
+    block_kind: normalizeEventTypeLabel(input.blockKind ?? "unknown"),
+    renderer_kind: normalizeEventTypeLabel(input.rendererKind ?? "unknown"),
+    outcome: input.outcome,
+    emits_mastery_evidence: input.emitsMasteryEvidence === true ? "true" : "false",
+  };
+  registry.incrementCounter(
+    "studyagent_interactive_learning_actions_total",
+    1,
+    labels,
+    "Interactive Learning Action outcomes by action, block, renderer, and mastery side effect.",
+  );
+  if (input.durationMs != null) {
+    registry.observeHistogram(
+      "studyagent_interactive_learning_action_duration_seconds",
+      input.durationMs / 1000,
+      labels,
+      "Interactive Learning Action dispatch duration in seconds.",
+    );
+  }
+}
+
 export function recordDurableEventMetric(input: {
   eventType: string;
   outcome: "success" | "error";

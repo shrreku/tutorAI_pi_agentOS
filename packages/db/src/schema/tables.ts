@@ -112,6 +112,37 @@ export const ingestionJobs = pgTable(
   ],
 );
 
+export const generationJobs = pgTable(
+  "generation_jobs",
+  {
+    id: text("id").primaryKey(),
+    jobName: text("job_name").notNull(),
+    notebookId: text("notebook_id")
+      .notNull()
+      .references(() => notebooks.id, { onDelete: "cascade" }),
+    idempotencyKey: text("idempotency_key").notNull(),
+    targetType: text("target_type"),
+    generationMode: text("generation_mode"),
+    trigger: text("trigger"),
+    status: text("status").notNull().default("queued"),
+    priority: integer("priority").notNull().default(0),
+    attemptsStarted: integer("attempts_started").notNull().default(0),
+    maxAttempts: integer("max_attempts").notNull().default(3),
+    runAt: timestamp("run_at", { withTimezone: true }).notNull().defaultNow(),
+    lockedAt: timestamp("locked_at", { withTimezone: true }),
+    lockedBy: text("locked_by"),
+    lastError: text("last_error"),
+    payloadJson: jsonb("payload_json").$type<Record<string, unknown>>().notNull().default({}),
+    resultJson: jsonb("result_json").$type<Record<string, unknown>>(),
+    ...timestamps,
+  },
+  (t) => [
+    index("generation_jobs_ready_idx").on(t.status, t.runAt, t.priority),
+    index("generation_jobs_notebook_idx").on(t.notebookId, t.createdAt),
+    uniqueIndex("generation_jobs_notebook_idempotency_active_unique").on(t.notebookId, t.idempotencyKey),
+  ],
+);
+
 export const agenticCacheEntries = pgTable(
   "agentic_cache_entries",
   {

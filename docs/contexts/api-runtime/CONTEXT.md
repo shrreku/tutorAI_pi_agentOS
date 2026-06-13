@@ -18,10 +18,10 @@ It bridges product-facing notebook APIs with lower-level source ingestion, searc
 - `packages/schemas/src/learning-levels.ts`: shared Source Level, Learner Readiness, and source-scope policy contracts.
 - `packages/schemas/src/note-personalization.ts`: optional note personalization metadata and merge helpers.
 - `packages/schemas/src/adaptive-plan-signals.ts`: adaptive plan signal vocabulary for durable session-plan changes.
-- `packages/wiki-core/src/wiki-polish-queue.ts`: deterministic Source Wiki polish prioritization.
-- `apps/api/src/wiki-polish.ts`: tutor-triggered wiki page repair enqueue.
+- `packages/wiki-core/src/wiki-polish-queue.ts`: deterministic Source Wiki polish prioritization helper; durable background polish uses `generation_jobs` (`wiki_touch_background`).
 - `apps/api/src/tutor-session-crystallization.ts`, `apps/api/src/curriculum-adaptation.ts`, `apps/api/src/learning-outcome.ts`, `apps/api/src/assessment-artifacts.ts`, `apps/api/src/objective-progression.ts`: session crystallization, Live Plan adaptation, mastery outcomes, and assessment artifacts.
 - `apps/api/src/reference-surface.ts`: learner-facing Reference Surface and Evidence read-model construction for graph node open targets (`buildReferenceSurface`, `buildNodeEvidence`).
+- `apps/api/src/interactive-learning-actions.ts`, `apps/api/src/interactive-learning-action-handlers/*`, `apps/api/src/routes/interactive-learning.ts`, `apps/api/src/interactive-learning-blocks.ts`: Interactive Learning Action dispatcher (envelope validation plus per-action handler registry), route adapter, block lookup/sanitization, and canonical state updates for Reference Surface interactive blocks.
 - `apps/api/src/artifact-lifecycle.ts`: Artifact Lifecycle Module for consent policy, valid status transitions, quality gates, learner visibility, route approve/reject actions, and tool-write lifecycle outcomes (`resolveArtifactLifecycleOutcome`, `applyArtifactLifecycleAction`, `decideArtifactQuality`).
 - `apps/api/src/artifact-view.ts`: artifact payload normalization adapter consumed by the Reference Surface module; quality comes from the Artifact Lifecycle Module.
 - `apps/api/src/workspace-read-model.ts`: Workspace Read Model for Study Map and Source Wiki (`buildStudyMapReadModel`, `buildSourceWikiReadModel`, learner visibility, emphasis, topic groups, reference-surface open targets, projection warnings/health).
@@ -44,6 +44,8 @@ API responses mounted through the server carry request correlation headers `X-St
 Langfuse prompt sync is explicit: `pnpm --filter @studyagent/api langfuse:sync-prompts` creates a new dashboard prompt version for the configured StudyAgent tutor prompt when Langfuse credentials are present. API startup and ordinary tutor turns do not create prompt versions.
 
 Core notebook routes cover notebooks, settings, study state, artifacts, wiki lint, sources, search, graph, student profile, tutor chat/session lifecycle, event streams, and developer timeline.
+
+Interactive Learning actions: `POST /api/v1/notebooks/:notebookId/interactive-learning/actions`. The route validates `InteractiveLearningActionEnvelope`, notebook ownership, current Reference Surface/block identity, allowed actions, and payload schemas before routing durable outcomes through artifact, mastery, learning, planning, or event paths.
 
 Tutor chat: `POST /api/v1/notebooks/:notebookId/tutor/chat`.
 
@@ -150,6 +152,8 @@ Agentic Cache Entry: persisted, version-scoped cached context used by the agenti
 Agentic Cache Invalidation: event-driven removal of non-canonical tutor read caches after durable notebook-material changes. TTL expiry remains a storage and staleness backstop, not the primary correctness mechanism.
 
 Boundary Signal: advisory tutor-facing runtime metadata that a source, session plan, or module boundary may have been reached; it carries a compact type, strength, summary, and evidence refs but does not hard-block source-backed tutoring.
+
+Interactive Learning Action: validated learner interaction emitted by an Interactive Learning Block or MCP App Renderer. The API/runtime should treat it as a canonical action envelope with notebook, surface, block, reference, source/Evidence, and optional tutor session or turn identity. It should validate ownership, route durable outcomes through existing tool and reducer-governed writes, emit notebook events, and return updated surface state.
 
 Observability Signal: structured information emitted for operational understanding. Metrics are bounded aggregate counters/gauges/histograms, traces are request/run/tool spans, logs are structured records, and durable events are product-domain audit facts. User, notebook, source, run, and trace identifiers should be used in traces/logs/events, not metric labels.
 

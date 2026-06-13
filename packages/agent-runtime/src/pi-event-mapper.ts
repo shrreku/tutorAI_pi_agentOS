@@ -1,4 +1,3 @@
-import type { EventEnvelope } from "@studyagent/schemas";
 import { extractValidatedReducerResult } from "@studyagent/tools";
 import type { StudyAgentRuntimeRun } from "./index.js";
 import type { PiAgentSessionEvent } from "./pi-tutor-runner.js";
@@ -149,23 +148,4 @@ export function mapPiSessionEventToAppendInput(
     default:
       return null;
   }
-}
-
-/** @deprecated Prefer `mapPiSessionEventToAppendInput` + `appendEvent` so sequence numbers are correct. */
-export function convertPiSessionEventToEnvelope(
-  event: PiAgentSessionEvent,
-  run: StudyAgentRuntimeRun,
-): EventEnvelope | null {
-  const mapped = mapPiSessionEventToAppendInput(event, run);
-  if (!mapped) return null;
-  return {
-    id: `evt_${crypto.randomUUID().replaceAll("-", "")}`,
-    notebookId: mapped.notebookId,
-    sessionId: mapped.sessionId,
-    runId: mapped.runId,
-    sequenceNo: 0,
-    createdAt: new Date().toISOString(),
-    eventType: mapped.eventType as EventEnvelope["eventType"],
-    payload: mapped.payload,
-  };
 }

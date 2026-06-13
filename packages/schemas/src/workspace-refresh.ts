@@ -18,6 +18,26 @@ const SOURCE_EVENTS = new Set<string>([
   "ingestion.job.failed",
 ]);
 
+const GENERATION_EVENTS = new Set<string>([
+  "generation.initial_build.started",
+  "generation.initial_build.completed",
+  "generation.initial_build.failed",
+  "generation.curriculum_outline.generated",
+  "generation.touch.background_enqueued",
+  "generation.module_deep_build.started",
+  "generation.module_deep_build.completed",
+  "generation.page.heuristic.created",
+  "generation.page.polish.started",
+  "generation.page.polish.completed",
+  "generation.page.polish.failed",
+  "generation.page.readiness_changed",
+  "generation.touch.started",
+  "generation.touch.foreground_timeout",
+  "generation.touch.completed",
+  "generation.touch.failed",
+  "module.rolling_build.completed",
+]);
+
 const GRAPH_EVENTS = new Set<string>([
   "graph.projection.updated",
   "graph.neo4j_projection.updated",
@@ -25,13 +45,17 @@ const GRAPH_EVENTS = new Set<string>([
   "source.tutoring_ready",
   "source.readiness.updated",
   "wiki.page.updated",
+  "wiki.page.readiness_changed",
   "reference.regenerated",
+  ...GENERATION_EVENTS,
 ]);
 
 const CURRICULUM_EVENTS = new Set<string>([
   "curriculum.activated",
   "curriculum.updated",
   "module.updated",
+  "module.generated",
+  "module.rolling_build.completed",
   "objective.updated",
   "objective_list.updated",
   "objective_list.reordered",
@@ -39,6 +63,8 @@ const CURRICULUM_EVENTS = new Set<string>([
   "objective_list.objectives_merged",
   "study_plan.updated",
   "objective.completed",
+  "generation.initial_build.completed",
+  "generation.module_deep_build.completed",
 ]);
 
 const STUDY_STATE_EVENTS = new Set<string>([
@@ -74,6 +100,9 @@ export function workspaceRefreshPolicyForEvent(eventType: string, serverHint?: W
   if (STUDY_STATE_EVENTS.has(eventType)) {
     targets.add("graph");
     targets.add("studyState");
+    if (eventType === "session.focus.updated") {
+      targets.add("referenceSurfaces");
+    }
   }
   if (eventType.startsWith("artifact.")) {
     targets.add("artifacts");
@@ -87,7 +116,13 @@ export function workspaceRefreshPolicyForEvent(eventType: string, serverHint?: W
     targets.add("graph");
     targets.add("studyState");
   }
-  if (eventType === "reference.regenerated" || eventType === "wiki.page.updated") {
+  if (
+    eventType === "reference.regenerated" ||
+    eventType === "wiki.page.updated" ||
+    eventType === "wiki.page.ensured" ||
+    eventType === "wiki.page.readiness_changed" ||
+    GENERATION_EVENTS.has(eventType)
+  ) {
     targets.add("referenceSurfaces");
     targets.add("graph");
     targets.add("curriculum");
@@ -110,7 +145,9 @@ export function workspaceRefreshPolicyForEvent(eventType: string, serverHint?: W
 
 function defaultRefreshTargetsForKnownEvent(eventType: string): WorkspaceRefreshTarget[] {
   if (eventType.startsWith("source.")) return ["sources", "sourceFiles"];
-  if (eventType.startsWith("wiki.") || eventType.startsWith("ingestion.")) return ["graph", "referenceSurfaces"];
+  if (eventType.startsWith("wiki.") || eventType.startsWith("ingestion.") || eventType.startsWith("generation.")) {
+    return ["graph", "referenceSurfaces", "curriculum"];
+  }
   if (eventType.startsWith("agent.") || eventType.startsWith("tutor.")) return ["studyState"];
   if (eventType.startsWith("session.") || eventType.startsWith("learning.")) return ["studyState", "graph"];
   if (eventType.startsWith("graph.") || eventType.startsWith("whiteboard.")) return ["graph"];
@@ -156,7 +193,11 @@ export function resolveWorkspaceRefreshPolicy(
 export function workspaceRefreshHintForEvent(eventType: EventType | string, payload: Record<string, unknown> = {}): WorkspaceRefreshHint {
   const artifactId = stringValue(payload.artifactId);
   const sourceId = stringValue(payload.sourceId);
-  const nodeId = stringValue(payload.nodeId) ?? stringValue(payload.id) ?? stringValue(payload.pageId);
+  const nodeId =
+    stringValue(payload.surfaceNodeId) ??
+    stringValue(payload.nodeId) ??
+    stringValue(payload.id) ??
+    stringValue(payload.pageId);
   const policy = workspaceRefreshPolicyForEvent(eventType, {
     targets: [],
     nodeIds: nodeId ? [nodeId] : [],

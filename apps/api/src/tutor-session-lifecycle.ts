@@ -20,7 +20,7 @@ import { resolveTutorSession } from "./tutor-session-store.js";
 export type TutorSessionLifecyclePhase = "full" | "estimation" | "crystallization";
 
 export type TutorSessionCompletionResult =
-  | { status: "completed"; artifactId: string; reason: "crystallized" }
+  | { status: "completed"; artifactId: string | null; reason: "crystallized" }
   | { status: "completed"; artifactId: null; reason: "ended_without_turns" }
   | { status: "estimation_boundary"; artifactId: null; reason: "estimation_complete" };
 

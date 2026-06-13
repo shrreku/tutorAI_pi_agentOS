@@ -4,6 +4,8 @@ import {
   useContext,
   useMemo,
   useReducer,
+  useRef,
+  useState,
   type Dispatch,
   type ReactNode,
 } from "react";
@@ -14,13 +16,34 @@ import {
   type WorkspaceShellState,
 } from "./workspace-shell-reducer.js";
 
+export type DraftTutorPrompt = {
+  prompt: string;
+  mode?: "learn" | "practice" | "revise" | "explore" | "wiki_maintenance";
+};
+
+export type TutorRuntimeContext = {
+  sessionId?: string;
+  turnId?: string;
+  runId?: string;
+};
+
+export type InteractiveSurfaceLaunchDetail = {
+  nodeId: string;
+  blockKind?: string | null;
+  blockId?: string | null;
+};
+
 type WorkspaceShellContextValue = {
   shell: WorkspaceShellState;
   selectedNodeRefs: Array<{ refType: string; refId: string }>;
   setSelectedNodeRefs: (refs: Array<{ refType: string; refId: string }>) => void;
-  draftTutorPrompt: string | null;
-  setDraftTutorPrompt: (prompt: string | null) => void;
+  draftTutorPrompt: DraftTutorPrompt | null;
+  setDraftTutorPrompt: (prompt: DraftTutorPrompt | string | null) => void;
+  tutorRuntime: TutorRuntimeContext;
+  setTutorRuntime: (runtime: TutorRuntimeContext) => void;
   dispatchShell: Dispatch<WorkspaceShellAction>;
+  launchInteractiveSurface: (detail: InteractiveSurfaceLaunchDetail) => void;
+  registerInteractiveSurfaceLaunchHandler: (handler: (detail: InteractiveSurfaceLaunchDetail) => void) => () => void;
 };
 
 const WorkspaceShellContext = createContext<WorkspaceShellContextValue | null>(null);
@@ -38,15 +61,14 @@ export function WorkspaceShellProvider({
 }) {
   const [shell, dispatchShell] = useReducer(workspaceShellReducer, initialWorkspaceShellState);
   const [draftTutorPrompt, setDraftTutorPromptState] = useReducer(
-    (_: string | null, action: string | null) => action,
+    (_: DraftTutorPrompt | null, action: DraftTutorPrompt | null) => action,
     null,
   );
+  const [tutorRuntime, setTutorRuntime] = useState<TutorRuntimeContext>({});
+  const interactiveSurfaceLaunchHandlerRef = useRef<((detail: InteractiveSurfaceLaunchDetail) => void) | null>(null);
 
-  const setDraftTutorPrompt = useCallback((prompt: string | null) => {
-    setDraftTutorPromptState(prompt);
-    if (prompt) {
-      window.dispatchEvent(new CustomEvent("studyagent:tutor-draft-prompt", { detail: { prompt } }));
-    }
+  const setDraftTutorPrompt = useCallback((prompt: DraftTutorPrompt | string | null) => {
+    setDraftTutorPromptState(typeof prompt === "string" ? { prompt } : prompt);
   }, []);
 
   const setSelectedNodeRefs = useCallback(
@@ -56,6 +78,22 @@ export function WorkspaceShellProvider({
     [onSelectedNodeRefsChange],
   );
 
+  const launchInteractiveSurface = useCallback((detail: InteractiveSurfaceLaunchDetail) => {
+    interactiveSurfaceLaunchHandlerRef.current?.(detail);
+  }, []);
+
+  const registerInteractiveSurfaceLaunchHandler = useCallback(
+    (handler: (detail: InteractiveSurfaceLaunchDetail) => void) => {
+      interactiveSurfaceLaunchHandlerRef.current = handler;
+      return () => {
+        if (interactiveSurfaceLaunchHandlerRef.current === handler) {
+          interactiveSurfaceLaunchHandlerRef.current = null;
+        }
+      };
+    },
+    [],
+  );
+
   const value = useMemo(
     () => ({
       shell,
@@ -63,9 +101,22 @@ export function WorkspaceShellProvider({
       setSelectedNodeRefs,
       draftTutorPrompt,
       setDraftTutorPrompt,
+      tutorRuntime,
+      setTutorRuntime,
       dispatchShell,
+      launchInteractiveSurface,
+      registerInteractiveSurfaceLaunchHandler,
     }),
-    [shell, selectedNodeRefs, setSelectedNodeRefs, draftTutorPrompt, setDraftTutorPrompt],
+    [
+      shell,
+      selectedNodeRefs,
+      setSelectedNodeRefs,
+      draftTutorPrompt,
+      setDraftTutorPrompt,
+      tutorRuntime,
+      launchInteractiveSurface,
+      registerInteractiveSurfaceLaunchHandler,
+    ],
   );
 
   return <WorkspaceShellContext.Provider value={value}>{children}</WorkspaceShellContext.Provider>;

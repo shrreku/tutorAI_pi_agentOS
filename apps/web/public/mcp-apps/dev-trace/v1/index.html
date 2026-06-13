@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>StudyAgent Dev Trace</title>
+    <link rel="stylesheet" href="/mcp-apps/shared/v1/shell.css" />
+    <style>
+      .sa-trace {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 11px;
+        line-height: 1.45;
+        white-space: pre-wrap;
+        word-break: break-word;
+        background: #0f172a;
+        color: #e2e8f0;
+        border-radius: 10px;
+        padding: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="sa-root" class="sa-shell">Loading diagnostics…</div>
+    <script src="/mcp-apps/shared/v1/shell.js"></script>
+    <script>
+      (function () {
+        StudyAgentShell.createBridge({
+          render: function (ctx) {
+            var h = ctx.helpers;
+            var content = ctx.content || {};
+            var payload = {
+              surfaceId: content.surfaceId || null,
+              nodeRef: content.nodeRef || null,
+              block: ctx.state.block || null,
+              canonicalState: ctx.state.canonicalState || {},
+            };
+            ctx.root.innerHTML =
+              '<div class="sa-shell">' +
+              h.headerHtml("Bridge diagnostics", "Developer view of block payload and canonical state.", "Dev") +
+              '<div class="sa-trace">' +
+              h.escapeHtml(JSON.stringify(payload, null, 2)) +
+              "</div></div>";
+          },
+        });
+      })();
+    </script>
+  </body>
+</html>

@@ -65,13 +65,16 @@ services:
       retries: 10
 
   api:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.dev
     image: studyagent-node-dev:latest
     working_dir: /workspace
     command:
       [
         "sh",
         "-c",
-        "pnpm install --prefer-offline && pnpm --filter @studyagent/schemas run build && pnpm --filter @studyagent/eval-runner run build && pnpm --filter @studyagent/graph run build && pnpm --filter @studyagent/observability run build && pnpm --filter @studyagent/db migrate && pnpm --filter @studyagent/db seed && pnpm --filter @studyagent/api dev",
+        "pnpm install --prefer-offline --network-concurrency 1 --fetch-timeout 600000 --fetch-retries 5 && pnpm --filter @studyagent/schemas run build && pnpm --filter @studyagent/eval-runner run build && pnpm --filter @studyagent/graph run build && pnpm --filter @studyagent/observability run build && pnpm --filter @studyagent/db migrate && pnpm --filter @studyagent/db seed && pnpm --filter @studyagent/api dev",
       ]
     ports:
       - "4000:4000"
@@ -92,7 +95,7 @@ services:
       # Use DOCKER_* vars so host-native .env OPENROUTER_BASE_URL does not override container routing.
       OPENROUTER_BASE_URL: ${DOCKER_OPENROUTER_BASE_URL:-http://host.docker.internal:8787/api/v1}
       DEFAULT_TUTOR_MODEL: ${DEFAULT_TUTOR_MODEL:-openrouter/auto}
-      TUTOR_MODEL_TIMEOUT_MS: ${TUTOR_MODEL_TIMEOUT_MS:-120000}
+      LLM_REQUEST_TIMEOUT_MS: ${LLM_REQUEST_TIMEOUT_MS:-120000}
       TUTOR_MAX_TOOL_CALLS: ${TUTOR_MAX_TOOL_CALLS:-16}
       DEFAULT_EXTRACTION_MODEL: ${DEFAULT_EXTRACTION_MODEL:-openrouter/auto}
       EMBEDDING_API_BASE_URL: ${DOCKER_EMBEDDING_API_BASE_URL:-http://host.docker.internal:8787/api/v1}
@@ -111,6 +114,7 @@ services:
       LANGFUSE_TRACING_ENVIRONMENT: ${LANGFUSE_TRACING_ENVIRONMENT:-development}
     volumes:
       - .:/workspace
+      - studyagent-pnpm-store:/root/.local/share/pnpm/store/v3
       - studyagent-node-modules:/workspace/node_modules
     depends_on:
       postgres:
@@ -130,16 +134,19 @@ services:
       interval: 5s
       timeout: 5s
       retries: 12
-      start_period: 45s
+      start_period: 180s
 
   worker:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.dev
     image: studyagent-node-dev:latest
     working_dir: /workspace
     command:
       [
         "sh",
         "-c",
-        "pnpm install --prefer-offline && pnpm --filter @studyagent/schemas run build && pnpm --filter @studyagent/eval-runner run build && pnpm --filter @studyagent/observability run build && pnpm --filter @studyagent/worker dev",
+        "pnpm install --prefer-offline --network-concurrency 1 --fetch-timeout 600000 --fetch-retries 5 && pnpm --filter @studyagent/schemas run build && pnpm --filter @studyagent/eval-runner run build && pnpm --filter @studyagent/observability run build && pnpm --filter @studyagent/worker dev",
       ]
     environment:
       DATABASE_URL: postgres://studyagent:studyagent@postgres:5432/studyagent
@@ -156,7 +163,7 @@ services:
       # Use DOCKER_* vars so host-native .env OPENROUTER_BASE_URL does not override container routing.
       OPENROUTER_BASE_URL: ${DOCKER_OPENROUTER_BASE_URL:-http://host.docker.internal:8787/api/v1}
       DEFAULT_TUTOR_MODEL: ${DEFAULT_TUTOR_MODEL:-openrouter/auto}
-      TUTOR_MODEL_TIMEOUT_MS: ${TUTOR_MODEL_TIMEOUT_MS:-120000}
+      LLM_REQUEST_TIMEOUT_MS: ${LLM_REQUEST_TIMEOUT_MS:-120000}
       TUTOR_MAX_TOOL_CALLS: ${TUTOR_MAX_TOOL_CALLS:-16}
       DEFAULT_EXTRACTION_MODEL: ${DEFAULT_EXTRACTION_MODEL:-openrouter/auto}
       EMBEDDING_API_BASE_URL: ${DOCKER_EMBEDDING_API_BASE_URL:-http://host.docker.internal:8787/api/v1}
@@ -175,6 +182,7 @@ services:
       LANGFUSE_TRACING_ENVIRONMENT: ${LANGFUSE_TRACING_ENVIRONMENT:-development}
     volumes:
       - .:/workspace
+      - studyagent-pnpm-store:/root/.local/share/pnpm/store/v3
       - studyagent-node-modules:/workspace/node_modules
     depends_on:
       postgres:
@@ -189,18 +197,22 @@ services:
         condition: service_healthy
 
   web:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.dev
     image: studyagent-node-dev:latest
     working_dir: /workspace
     command:
       [
         "sh",
         "-c",
-        "pnpm install --prefer-offline && pnpm --filter @studyagent/schemas run build && pnpm --filter @studyagent/eval-runner run build && pnpm --filter @studyagent/observability run build && VITE_API_PROXY_TARGET=http://api:4000 pnpm --filter @studyagent/web dev -- --host 0.0.0.0 --port 5173",
+        "pnpm install --prefer-offline --network-concurrency 1 --fetch-timeout 600000 --fetch-retries 5 && pnpm --filter @studyagent/schemas run build && pnpm --filter @studyagent/eval-runner run build && pnpm --filter @studyagent/observability run build && VITE_API_PROXY_TARGET=http://api:4000 pnpm --filter @studyagent/web dev -- --host 0.0.0.0 --port 5173",
       ]
     ports:
       - "8080:5173"
     volumes:
       - .:/workspace
+      - studyagent-pnpm-store:/root/.local/share/pnpm/store/v3
       - studyagent-node-modules:/workspace/node_modules
     depends_on:
       api:
@@ -211,4 +223,5 @@ volumes:
   neo4j-data:
   minio-data:
   redis-data:
+  studyagent-pnpm-store:
   studyagent-node-modules:

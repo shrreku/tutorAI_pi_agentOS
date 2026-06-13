@@ -4,6 +4,7 @@ import {
   recordAgenticCacheMetric,
   recordDurableEventMetric,
   recordHttpRequestMetric,
+  recordInteractiveLearningActionMetric,
   recordSearchRetrievalFallbackMetric,
 } from "./index.js";
 
@@ -35,6 +36,7 @@ describe("MetricRegistry", () => {
     recordAgenticCacheMetric({ namespace: "tutor_turn.host_context_snapshot", operation: "get", outcome: "hit", durationMs: 3, registry });
     recordAgenticCacheMetric({ namespace: "tutor_turn.retrieval_rows", operation: "invalidate", outcome: "success", deleted: 4, registry });
     recordDurableEventMetric({ eventType: "source.tutoring_ready", outcome: "success", durationMs: 8, registry });
+    recordInteractiveLearningActionMetric({ actionName: "quiz.answer_submitted", blockKind: "quiz", rendererKind: "mcp_app", outcome: "success", emitsMasteryEvidence: true, durationMs: 12, registry });
     recordSearchRetrievalFallbackMetric({ reason: "timeout", registry });
 
     const rendered = registry.renderPrometheus();
@@ -43,6 +45,7 @@ describe("MetricRegistry", () => {
     expect(rendered).toContain('studyagent_agentic_cache_operations_total{namespace="tutor_turn.host_context_snapshot",operation="get",outcome="hit"} 1');
     expect(rendered).toContain('studyagent_agentic_cache_deleted_entries_total{namespace="tutor_turn.retrieval_rows",operation="invalidate"} 4');
     expect(rendered).toContain('studyagent_notebook_events_appended_total{event_family="source",event_type="source.tutoring_ready",outcome="success"} 1');
+    expect(rendered).toContain('studyagent_interactive_learning_actions_total{action_name="quiz.answer_submitted",block_kind="quiz",emits_mastery_evidence="true",outcome="success",renderer_kind="mcp_app"} 1');
     expect(rendered).toContain('search_retrieval_fallback_total{reason="timeout"} 1');
   });
 });

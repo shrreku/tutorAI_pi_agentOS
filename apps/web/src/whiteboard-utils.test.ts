@@ -5,11 +5,12 @@ import {
   buildIntentAwareLayout,
   collapseObjectiveHistory,
   filterHierarchicalGraphEdges,
-  prepareGraphForCanvas,
   getGraphNodeLevel,
   getIntentAwareNodePosition,
   getLearnerNodeTitle,
   getStickyStudyPlanPosition,
+  learnerMasteryMetaFromNode,
+  learnerPageReadinessFromNode,
   promoteCurrentPathConcepts,
   isWeakPlanningTitle,
   topicsFromReadModel,
@@ -188,29 +189,6 @@ describe("whiteboard utils", () => {
     expect(getIntentAwareNodePosition("tutor_session", 2, { x: 10, y: 20 }, "study_map")).toEqual({ x: 10, y: 20 });
   });
 
-  it("projects study-map edges through hidden planning nodes", () => {
-    const graph = {
-      name: "study_map",
-      notebookId: "nb_1",
-      nodes: [
-        { id: "mod", nodeType: "curriculum_module", labels: [], properties: { status: "active" } },
-        { id: "obj", nodeType: "objective", labels: [], properties: {} },
-        { id: "sess", nodeType: "tutor_session", labels: [], properties: {} },
-        { id: "concept", nodeType: "concept", labels: [], properties: {} },
-      ],
-      edges: [
-        { id: "e1", source: "mod", target: "obj", relationType: "contains", properties: {} },
-        { id: "e2", source: "sess", target: "obj", relationType: "covers", properties: {} },
-        { id: "e3", source: "obj", target: "concept", relationType: "covers", properties: {} },
-      ],
-    };
-
-    const prepared = prepareGraphForCanvas(graph as never);
-    expect(prepared.nodes.map((node) => node.nodeType)).not.toContain("objective");
-    expect(prepared.edges.some((edge) => edge.source === "mod" && edge.target === "sess")).toBe(true);
-    expect(prepared.edges.some((edge) => edge.source === "sess" && edge.target === "concept")).toBe(true);
-  });
-
   it("filters study-map edges to adjacent levels and artifact scope", () => {
     const graph = {
       name: "study_map",
@@ -253,7 +231,7 @@ describe("whiteboard utils", () => {
       ],
     };
 
-    const layout = buildIntentAwareLayout({ graphData: prepareGraphForCanvas(graph as never), savedPositions: {}, alreadyPrepared: true });
+    const layout = buildIntentAwareLayout({ graphData: graph as never, savedPositions: {} });
     const sessionXs = layout
       .filter((entry) => entry.node.nodeType === "tutor_session")
       .map((entry) => entry.position.x)
@@ -283,7 +261,7 @@ describe("whiteboard utils", () => {
       ],
     };
 
-    const layout = buildIntentAwareLayout({ graphData: prepareGraphForCanvas(graph as never), savedPositions: {}, alreadyPrepared: true });
+    const layout = buildIntentAwareLayout({ graphData: graph as never, savedPositions: {} });
     const byId = Object.fromEntries(layout.map((entry) => [entry.node.id, entry.position]));
     const nodeCenter = (id: string) => byId[id]!.x + 84;
 
@@ -310,36 +288,13 @@ describe("whiteboard utils", () => {
       ],
     };
 
-    const layout = buildIntentAwareLayout({ graphData: prepareGraphForCanvas(graph as never), savedPositions: {}, alreadyPrepared: true });
+    const layout = buildIntentAwareLayout({ graphData: graph as never, savedPositions: {} });
     const byId = Object.fromEntries(layout.map((entry) => [entry.node.id, entry.position]));
     const nodeCenter = (id: string) => byId[id]!.x + 84;
     const conceptCenter = (nodeCenter("c1") + nodeCenter("c2")) / 2;
 
     expect(Math.abs(nodeCenter("topic") - conceptCenter)).toBeLessThan(4);
     expect(Math.abs(nodeCenter("src") - nodeCenter("topic"))).toBeLessThan(4);
-  });
-
-  it("dedupes source-wiki topic nodes when a topic page exists", () => {
-    const graph = {
-      name: "source_wiki_map",
-      notebookId: "nb_1",
-      nodes: [
-        { id: "src", nodeType: "source", labels: [], properties: {} },
-        { id: "topic", nodeType: "topic", labels: [], properties: { title: "Chapter 2.pdf" } },
-        { id: "topic_page", nodeType: "wiki_page", labels: [], properties: { title: "Topic · Chapter 2.pdf", pageType: "topic" } },
-        { id: "concept", nodeType: "concept", labels: [], properties: { name: "Fourier's law" } },
-      ],
-      edges: [
-        { id: "e1", source: "src", target: "topic", relationType: "HAS_TOPIC", properties: {} },
-        { id: "e2", source: "topic", target: "topic_page", relationType: "CONTAINS_PAGE", properties: {} },
-        { id: "e3", source: "topic", target: "concept", relationType: "CONTAINS_CONCEPT", properties: {} },
-      ],
-    };
-
-    const prepared = prepareGraphForCanvas(graph as never);
-    expect(prepared.nodes.map((node) => node.id)).toEqual(["src", "topic_page", "concept"]);
-    expect(prepared.edges.some((edge) => edge.source === "topic")).toBe(false);
-    expect(prepared.edges.some((edge) => edge.target === "concept")).toBe(true);
   });
 
   it("builds topic layers from heading paths and source pages", () => {
@@ -485,5 +440,20 @@ describe("whiteboard utils", () => {
         properties: { name: "Introduction to Conduction" },
       }),
     ).toBe("Introduction to Conduction");
+  });
+
+  it("keeps page readiness labels separate from mastery meta", () => {
+    const node = {
+      id: "cnc_1",
+      nodeType: "concept",
+      labels: [],
+      properties: {
+        pageReadiness: "still_improving",
+        pageReadinessLabel: "Still improving",
+        status: "weak",
+      },
+    };
+    expect(learnerPageReadinessFromNode(node as never)).toBe("Still improving");
+    expect(learnerMasteryMetaFromNode(node as never)).toBe("Needs practice");
   });
 });

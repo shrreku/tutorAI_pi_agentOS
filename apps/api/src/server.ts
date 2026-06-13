@@ -9,6 +9,7 @@ import {
 } from "@studyagent/observability";
 import { createContext, closeContext, type AppContext } from "./context.js";
 import { registerNotebookRoutes } from "./routes/notebooks.js";
+import { registerInteractiveLearningRoutes } from "./routes/interactive-learning.js";
 import { registerEvalSourceFixtureRoutes } from "./routes/eval-source-fixtures.js";
 import { registerEvalRunRoutes } from "./routes/eval-runs.js";
 import { registerEvalEvidenceSnapshotRoutes } from "./routes/eval-evidence-snapshot.js";
@@ -69,6 +70,7 @@ export async function buildServer(): Promise<{
       await registerEvalRunRoutes(r, ctx);
       await registerEvalEvidenceSnapshotRoutes(r, ctx);
       await registerNotebookRoutes(r, ctx);
+      await registerInteractiveLearningRoutes(r, ctx);
       await registerSourceRoutes(r, ctx);
       await registerStudentProfileRoutes(r, ctx);
       await registerLearnerTraitRoutes(r, ctx);

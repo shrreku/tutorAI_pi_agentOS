@@ -7,7 +7,7 @@ import { startActiveObservation } from "@studyagent/observability";
 import { createHash } from "node:crypto";
 import { eq, sql } from "drizzle-orm";
 import { runPostIngestEnrichment } from "./post-ingest-enrichment.js";
-import { buildSourceReadinessDuringIngestion } from "./source-readiness.js";
+import { buildSourceReadinessDuringIngestion } from "@studyagent/schemas";
 
 export type IngestionPipelineJob = {
   id: string;
@@ -237,8 +237,6 @@ export async function processIngestionPipelineJob(input: {
         if (!pdfNeedsReview) {
           if (!retrievalChunks.length) {
             enrichmentReason = "no_retrieval_chunks";
-          } else if (!env.OPENROUTER_API_KEY) {
-            enrichmentReason = "OPENROUTER_API_KEY not set";
           } else {
             await dbClient.db.update(sources).set({ status: "enriching", updatedAt: new Date() }).where(eq(sources.id, sourceId));
 

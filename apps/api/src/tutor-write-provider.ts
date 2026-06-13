@@ -7,6 +7,8 @@ import { createCoverageWriteHandlers } from "./tutor-write-coverage.js";
 import { createCurriculumWriteHandlers } from "./tutor-write-curriculum.js";
 import { createLearnerTraitWriteHandlers } from "./tutor-write-learner-traits.js";
 import { createMasteryWriteHandlers } from "./tutor-write-mastery.js";
+import { createInteractiveSurfaceWriteHandlers } from "./tutor-write-interactive-surfaces.js";
+import { createWikiWriteHandlers } from "./tutor-write-wiki.js";
 
 export { findCoverageRecordForScope, selectPreferredCoverageGapRow } from "./tutor-write-coverage.js";
 export { sanitizeArtifactSourceNodeRefs } from "./tutor-write-artifacts.js";
@@ -19,6 +21,8 @@ export function createTutorWriteToolProvider(appCtx: AppContext): RuntimeWriteTo
     ...createCurriculumWriteHandlers(appCtx),
     ...createLearnerTraitWriteHandlers(appCtx),
     ...createMasteryWriteHandlers(appCtx),
+    ...createInteractiveSurfaceWriteHandlers(appCtx),
+    ...createWikiWriteHandlers(appCtx),
 
     async updateStudentProfilePreferences(input, ctx) {
       const result = await upsertStudentProfile(appCtx.db, {

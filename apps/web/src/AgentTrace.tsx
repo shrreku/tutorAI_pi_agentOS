@@ -563,10 +563,11 @@ export function mergeRuntimeWorkViews(
     merged.push(step);
   }
 
+  const durationMs = liveModel.durationMs ?? persistedModel.durationMs;
   return {
     steps: dedupeRuntimeWorkSteps(sortRuntimeWorkSteps(merged)),
     runStatus: liveModel.runStatus === "running" ? liveModel.runStatus : persistedModel.runStatus,
-    durationMs: liveModel.durationMs ?? persistedModel.durationMs,
+    ...(durationMs !== undefined ? { durationMs } : {}),
   };
 }
 
@@ -700,7 +701,7 @@ function buildPersistedRunWorkSteps(run: TraceRunView): RuntimeWorkStep[] {
       status: tool.status,
       input: tool.input,
       output: tool.output,
-      latencyMs: tool.latencyMs,
+      ...(tool.latencyMs !== undefined ? { latencyMs: tool.latencyMs } : {}),
     });
     steps.push({
       kind: "tool",
@@ -741,19 +742,22 @@ function CursorStyleWorkView({
 }) {
   const activeRun = runStatus === "running" || model.runStatus === "running";
   const runSucceeded = runStatus === "completed" || (!activeRun && model.runStatus === "completed");
-  const displayStatus = activeRun ? "running" : runSucceeded ? "completed" : runStatus === "failed" ? "failed" : model.runStatus;
+  const runFailed = runStatus === "failed" || (!activeRun && model.runStatus === "failed");
+  const displayStatus = activeRun ? "running" : runSucceeded ? "completed" : runFailed ? "failed" : model.runStatus;
   const displaySteps = groupRuntimeSteps(model.steps);
   const focus = resolveStreamingWorkFocus(displaySteps, {
     activeRun,
     assistantMessage,
     workSteps: model.steps,
   });
+  // Keep details open when actively running or when run failed (so failed tools remain visible)
+  const isOpen = activeRun || runFailed;
 
   return (
     <details
       className="tutor-runtime-work-shell"
       data-status={displayStatus}
-      open={activeRun}
+      open={isOpen}
     >
       <summary className="tutor-runtime-work-shell-summary">{formatWorkShellSummary(model, activeRun)}</summary>
       <div className="tutor-runtime-work" data-status={displayStatus}>
@@ -765,9 +769,10 @@ function CursorStyleWorkView({
               </p>
             );
           }
+          if (step.kind !== "work-segment") return null;
           return (
             <div key={step.id} className="tutor-runtime-work-beat" data-status={resolveWorkBeatStatus(step.items, runSucceeded)}>
-              {step.items.map((item) => (
+              {step.items.map((item: RuntimeWorkSegmentItem) => (
                 item.kind === "thought"
                   ? (
                     <details
@@ -911,6 +916,9 @@ function dedupeTraceEventsById(events: ChatTraceStateChange[]): ChatTraceStateCh
 function formatWorkShellSummary(model: RuntimeWorkViewModel, activeRun: boolean): string {
   if (activeRun) return "Working";
   const duration = formatDuration(model.durationMs);
+  if (model.runStatus === "failed") {
+    return duration ? `Failed · ${duration}` : "Failed";
+  }
   return duration ? `Worked · ${duration}` : "Worked";
 }
 
@@ -1064,7 +1072,7 @@ function buildToolWorkStep(tool: {
     status: tool.status,
     summary: described.summary,
     lineTitle: described.lineTitle,
-    latencyMs: tool.latencyMs,
+    ...(tool.latencyMs !== undefined ? { latencyMs: tool.latencyMs } : {}),
     ...(described.detail ? { detail: described.detail } : {}),
   };
 }
@@ -1228,10 +1236,11 @@ function describeToolWork(tool: {
   if (raw.includes("graph.get_study_map") || raw.includes("study_map")) {
     const nodes = Array.isArray(output.nodes) ? output.nodes.length : undefined;
     const lineTitle = `Study map${nodes != null ? ` · ${nodes} nodes` : ""}${latencySuffix}`;
+    const detail = formatGraphPreview(output);
     return {
       summary: `Opened study map${nodes != null ? ` · ${nodes} nodes` : ""}${latencySuffix}`,
       lineTitle,
-      detail: formatGraphPreview(output),
+      ...(detail ? { detail } : {}),
     };
   }
 
@@ -1239,10 +1248,11 @@ function describeToolWork(tool: {
     const nodes = Array.isArray(output.nodes) ? output.nodes.length : undefined;
     const edges = Array.isArray(output.edges) ? output.edges.length : undefined;
     const lineTitle = `Graph${nodes != null ? ` · ${nodes} nodes` : ""}${edges != null ? ` · ${edges} edges` : ""}${latencySuffix}`;
+    const detail = formatGraphPreview(output);
     return {
       summary: `Checked graph${nodes != null ? ` · ${nodes} nodes` : ""}${edges != null ? ` · ${edges} edges` : ""}${latencySuffix}`,
       lineTitle,
-      detail: formatGraphPreview(output),
+      ...(detail ? { detail } : {}),
     };
   }
 
@@ -1282,39 +1292,69 @@ function describeToolWork(tool: {
 
   if (raw.includes("create_quiz")) {
     const title = typeof output.title === "string" ? output.title : typeof input.title === "string" ? input.title : "quiz";
+    const artifactId = typeof output.artifactId === "string" ? output.artifactId : undefined;
+    const verb = inProgress ? "Generating" : "Generated";
     const lineTitle = `Quiz · ${title}${latencySuffix}`;
-    return { summary: `Created quiz · ${title}${latencySuffix}`, lineTitle };
+    const detail = artifactId ? `artifact: ${artifactId}` : undefined;
+    return { summary: `${verb} quiz · ${title}${latencySuffix}`, lineTitle, ...(detail ? { detail } : {}) };
   }
 
   if (raw.includes("create_flashcard")) {
     const cards = Array.isArray(output.cards) ? output.cards.length : undefined;
     const title = typeof output.title === "string" ? output.title : typeof input.title === "string" ? input.title : "flashcards";
+    const artifactId = typeof output.artifactId === "string" ? output.artifactId : undefined;
+    const verb = inProgress ? "Generating" : "Generated";
     const lineTitle = `${title}${cards != null ? ` · ${cards} cards` : ""}${latencySuffix}`;
-    return { summary: `Created flashcards${cards != null ? ` · ${cards} cards` : ""}${latencySuffix}`, lineTitle };
+    const detail = artifactId ? `artifact: ${artifactId}` : undefined;
+    return { summary: `${verb} flashcards${cards != null ? ` · ${cards} cards` : ""}${latencySuffix}`, lineTitle, ...(detail ? { detail } : {}) };
   }
 
   if (raw.includes("create_note")) {
     const title = typeof output.title === "string" ? output.title : typeof input.title === "string" ? input.title : "note";
     const markdown = typeof output.markdown === "string" ? output.markdown.trim() : "";
+    const artifactId = typeof output.artifactId === "string" ? output.artifactId : undefined;
+    const verb = inProgress ? "Generating" : "Generated";
     const lineTitle = `Note · ${title}${latencySuffix}`;
     return {
-      summary: `Created note · ${title}${latencySuffix}`,
+      summary: `${verb} note · ${title}${latencySuffix}`,
       lineTitle,
-      ...(markdown ? { detail: compactText(markdown, 900) } : {}),
+      ...(markdown ? { detail: compactText(markdown, 900) } : artifactId ? { detail: `artifact: ${artifactId}` } : {}),
     };
+  }
+
+  if (raw.includes("create_worked_example") || raw.includes("create_formula_sheet") || raw.includes("create_comparison_page") || raw.includes("create_concept_card")) {
+    const title = typeof output.title === "string" ? output.title : typeof input.title === "string" ? input.title : "artifact";
+    const artifactId = typeof output.artifactId === "string" ? output.artifactId : undefined;
+    const verb = inProgress ? "Generating" : "Generated";
+    const artifactType = raw.includes("worked_example") ? "worked example" : raw.includes("formula_sheet") ? "formula sheet" : raw.includes("comparison_page") ? "comparison" : "concept card";
+    const lineTitle = `${verb} ${artifactType} · ${title}${latencySuffix}`;
+    return { summary: `${verb} ${artifactType} · ${title}${latencySuffix}`, lineTitle, ...(artifactId ? { detail: `artifact: ${artifactId}` } : {}) };
+  }
+
+  if (raw.includes("artifact.insert_into_tutor_context")) {
+    const artifactId = typeof input.artifactId === "string" ? input.artifactId : "artifact";
+    const verb = inProgress ? "Inserting" : "Inserted";
+    const lineTitle = `${verb} artifact into context · ${artifactId}${latencySuffix}`;
+    return { summary: `${verb} artifact · ${artifactId}${latencySuffix}`, lineTitle };
   }
 
   if (raw.includes("artifact")) {
     const title = typeof output.title === "string" ? output.title : typeof input.title === "string" ? input.title : "artifact";
-    const verb = raw.includes("create") ? (inProgress ? "Creating" : "Created") : (inProgress ? "Updating" : "Updated");
+    const artifactId = typeof output.artifactId === "string" ? output.artifactId : undefined;
+    const isCreate = raw.includes("create");
+    const verb = isCreate ? (inProgress ? "Generating" : "Generated") : (inProgress ? "Updating" : "Updated");
     const lineTitle = `${verb} artifact · ${title}${latencySuffix}`;
-    return { summary: `${verb} artifact · ${title}${latencySuffix}`, lineTitle };
+    return { summary: `${verb} artifact · ${title}${latencySuffix}`, lineTitle, ...(artifactId ? { detail: `artifact: ${artifactId}` } : {}) };
   }
 
   if (raw.includes("evaluate_response") || raw.includes("learning.evaluate")) {
     const objectiveId = typeof input.objectiveId === "string" ? input.objectiveId : undefined;
+    const correctnessLabel = typeof output.correctnessLabel === "string" ? output.correctnessLabel : undefined;
+    const intervention = typeof output.tutoringIntervention === "string" ? output.tutoringIntervention : undefined;
     const lineTitle = `Mastery evaluation${objectiveId ? ` · ${objectiveId}` : ""}${latencySuffix}`;
-    const detail = formatRecordPreview(output);
+    const detail = correctnessLabel
+      ? [correctnessLabel, intervention].filter(Boolean).join(" → ") + (formatRecordPreview(output) ? `\n${formatRecordPreview(output)}` : "")
+      : formatRecordPreview(output);
     return {
       summary: `Evaluated learner response${latencySuffix}`,
       lineTitle,
@@ -1322,9 +1362,44 @@ function describeToolWork(tool: {
     };
   }
 
+  if (raw.includes("coverage.mark_introduced") || raw.includes("coverage.mark_checked")) {
+    const coverageItemId = typeof input.coverageItemId === "string" ? input.coverageItemId : typeof input.itemId === "string" ? input.itemId : undefined;
+    const verb = raw.includes("mark_introduced") ? (inProgress ? "Marking" : "Marked") + " introduced" : (inProgress ? "Marking" : "Marked") + " checked";
+    const lineTitle = `${verb}${coverageItemId ? ` · ${coverageItemId}` : ""}${latencySuffix}`;
+    return { summary: `${verb}${latencySuffix}`, lineTitle };
+  }
+
+  if (raw.includes("coverage.get_gaps")) {
+    const gaps = Array.isArray(output.gaps) ? output.gaps.length : undefined;
+    const lineTitle = `Coverage gaps${gaps != null ? ` · ${gaps} gaps` : ""}${latencySuffix}`;
+    return {
+      summary: `${inProgress ? "Checking" : "Checked"} coverage gaps${gaps != null ? ` · ${gaps}` : ""}${latencySuffix}`,
+      lineTitle,
+    };
+  }
+
+  if (raw.includes("curriculum.activate")) {
+    const curriculumId = typeof input.curriculumId === "string" ? input.curriculumId : undefined;
+    const lineTitle = `Activate curriculum${curriculumId ? ` · ${curriculumId}` : ""}${latencySuffix}`;
+    return { summary: `${inProgress ? "Activating" : "Activated"} curriculum${latencySuffix}`, lineTitle };
+  }
+
+  if (raw.includes("learner_trait.record_signal")) {
+    const trait = typeof input.trait === "string" ? input.trait : undefined;
+    const value = typeof input.value === "string" || typeof input.value === "number" ? String(input.value) : undefined;
+    const lineTitle = `Learner trait${trait ? ` · ${trait}` : ""}${value ? ` = ${value}` : ""}${latencySuffix}`;
+    return { summary: `${inProgress ? "Recording" : "Recorded"} learner trait${trait ? ` · ${trait}` : ""}${latencySuffix}`, lineTitle };
+  }
+
+  if (raw.includes("student_profile.update_preferences")) {
+    const lineTitle = `Update learner preferences${latencySuffix}`;
+    return { summary: `${inProgress ? "Updating" : "Updated"} learner preferences${latencySuffix}`, lineTitle };
+  }
+
   const label = displayToolName(tool.toolName);
-  const detail = formatRecordPreview(output) ?? formatRecordPreview(input);
-  const lineTitle = `${label}${latencySuffix}`;
+  const errorInfo = tool.status === "failed" && typeof output.error === "string" ? output.error : undefined;
+  const detail = errorInfo ?? formatRecordPreview(output) ?? formatRecordPreview(input);
+  const lineTitle = errorInfo ? `${label} · ${compactText(errorInfo, 120)}${latencySuffix}` : `${label}${latencySuffix}`;
   return detail
     ? { summary: `${label}${latencySuffix}`, lineTitle, detail }
     : { summary: `${label}${latencySuffix}`, lineTitle };
@@ -1430,7 +1505,7 @@ function mergeTraceRunViews(persisted: TraceRunView, live: TraceRunView): TraceR
     rawEvents: dedupeTraceEventsById([...persisted.rawEvents, ...live.rawEvents]),
     completedAt: persisted.completedAt ?? live.completedAt,
     durationMs: persisted.durationMs ?? live.durationMs,
-    isLive: live.isLive,
+    ...(live.isLive !== undefined ? { isLive: live.isLive } : {}),
   };
 }
 
@@ -1461,13 +1536,13 @@ function mapPersistedRun(run: ChatTraceRun, showDiagnostics = false): TraceRunVi
     id: run.id,
     status: run.status,
     runType: run.runType,
-    model: showDiagnostics ? run.model : undefined,
-    promptVersion: showDiagnostics ? run.promptVersion : undefined,
-    traceId: showDiagnostics ? run.traceId : undefined,
+    ...(showDiagnostics && run.model !== undefined ? { model: run.model } : {}),
+    ...(showDiagnostics && run.promptVersion !== undefined ? { promptVersion: run.promptVersion } : {}),
+    ...(showDiagnostics && run.traceId !== undefined ? { traceId: run.traceId } : {}),
     startedAt: run.startedAt,
-    completedAt: run.completedAt,
-    durationMs: run.durationMs,
-    usage: showDiagnostics ? run.usage : undefined,
+    ...(run.completedAt !== undefined ? { completedAt: run.completedAt } : {}),
+    ...(run.durationMs !== undefined ? { durationMs: run.durationMs } : {}),
+    ...(showDiagnostics && run.usage !== undefined ? { usage: run.usage } : {}),
     thinking: thinkingEvents,
     tools: run.tools.map((tool) => mapPersistedTool(tool, showDiagnostics)),
     stateChanges: showDiagnostics ? run.stateChanges : narrationEvents,
@@ -1479,14 +1554,14 @@ function mapPersistedTool(tool: ChatTraceToolCall, showDiagnostics = false): Tra
   return {
     id: tool.id,
     toolName: tool.toolName,
-    sideEffectClass: showDiagnostics ? tool.sideEffectClass : undefined,
+    ...(showDiagnostics && tool.sideEffectClass !== undefined ? { sideEffectClass: tool.sideEffectClass } : {}),
     status: tool.status,
-    latencyMs: tool.latencyMs,
-    input: tool.input,
-    output: tool.output,
-    reducerResult: showDiagnostics ? tool.reducerResult : undefined,
+    ...(tool.latencyMs !== undefined ? { latencyMs: tool.latencyMs } : {}),
+    ...(tool.input !== undefined ? { input: tool.input } : {}),
+    ...(tool.output !== undefined ? { output: tool.output } : {}),
+    ...(showDiagnostics && tool.reducerResult !== undefined ? { reducerResult: tool.reducerResult } : {}),
     nodeRefs: showDiagnostics ? tool.nodeRefs : [],
-    createdAt: tool.createdAt,
+    ...(tool.createdAt !== undefined ? { createdAt: tool.createdAt } : {}),
   };
 }
 
@@ -1498,9 +1573,9 @@ function mapLiveRun(run: LiveTraceRun, showDiagnostics = false): TraceRunView {
     id: run.id,
     status: run.status,
     runType: run.runType,
-    model: showDiagnostics ? run.model : undefined,
+    ...(showDiagnostics && run.model !== undefined ? { model: run.model } : {}),
     startedAt: run.startedAt,
-    completedAt: run.completedAt,
+    ...(run.completedAt !== undefined ? { completedAt: run.completedAt } : {}),
     durationMs: run.completedAt ? Math.max(0, run.completedAt - run.startedAt) : Date.now() - run.startedAt,
     thinking,
     tools: run.tools.map((tool) => ({

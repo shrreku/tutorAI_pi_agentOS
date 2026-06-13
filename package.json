@@ -10,6 +10,7 @@
     "check": "tsc -b tsconfig.build.json --pretty false && pnpm --filter @studyagent/web check",
     "check:web": "pnpm --filter @studyagent/web check",
     "test": "vitest run",
+    "test:postgres": "RUN_POSTGRES_INTEGRATION=1 pnpm --filter @studyagent/wiki-generation test:postgres && RUN_POSTGRES_INTEGRATION=1 pnpm --filter @studyagent/db exec vitest run src/generation-jobs.test.ts",
     "format": "prettier --check .",
     "db:generate": "pnpm --filter @studyagent/db generate",
     "db:migrate": "pnpm --filter @studyagent/db migrate",

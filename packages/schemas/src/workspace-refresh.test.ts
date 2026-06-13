@@ -20,6 +20,15 @@ describe("workspace refresh contract", () => {
     }).targets).toEqual(expect.arrayContaining(["graph", "studyState", "quizAttempts", "artifacts"]));
   });
 
+  it("invalidates graph and reference surfaces when page readiness changes", () => {
+    expect(resolveWorkspaceRefreshPolicy("wiki.page.readiness_changed").targets).toEqual(
+      expect.arrayContaining(["graph", "referenceSurfaces", "curriculum"]),
+    );
+    expect(resolveWorkspaceRefreshPolicy("generation.page.readiness_changed").targets).toEqual(
+      expect.arrayContaining(["graph", "referenceSurfaces", "curriculum"]),
+    );
+  });
+
   it("invalidates source files when source lifecycle events fire", () => {
     expect(resolveWorkspaceRefreshPolicy("source.uploaded").targets).toEqual(["sources", "sourceFiles"]);
     expect(resolveWorkspaceRefreshPolicy("source.tutoring_ready").targets).toEqual(expect.arrayContaining(["sources", "graph", "sourceFiles"]));

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assertLearnerSafeCopy, learnerFacingPipelineStatus, learnerSafeCopy } from "./learner-copy-guard.js";
+import { assertLearnerSafeCopy, learnerFacingPipelineStatus, learnerSafeCopy } from "@studyagent/schemas";
 
 describe("learner copy guard", () => {
   it("maps raw pipeline vocabulary into product copy", () => {

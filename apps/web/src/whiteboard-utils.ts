@@ -1,4 +1,5 @@
-import type { GraphQueryResponse, SourceWikiTopicGroup } from "@studyagent/schemas";
+import type { GraphCanvasNode, GraphQueryResponse, SourceWikiTopicGroup } from "@studyagent/schemas";
+import { learnerFacingPipelineStatus, pageReadinessLabel, pageReadinessSchema } from "@studyagent/schemas";
 
 export type WorkspaceViewMode = "curriculum" | "study_map" | "source_wiki_map";
 
@@ -12,6 +13,7 @@ export interface SourceWikiMapData extends GraphQueryResponse {
 export interface IntentAwareLayoutInput {
   graphData: GraphQueryResponse;
   savedPositions: Record<string, { x: number; y: number }>;
+  /** Kept for older callers; graph presentation is now owned by the API read model. */
   alreadyPrepared?: boolean;
 }
 
@@ -45,6 +47,24 @@ export interface CurriculumOutline {
   } | null;
   modules: CurriculumModuleOutline[];
   orphanObjectives: CurriculumObjectiveOutline[];
+}
+
+export function learnerPageReadinessFromNode(node: GraphCanvasNode): string | null {
+  const label = node.properties.pageReadinessLabel;
+  if (typeof label === "string" && label.trim().length > 0) return label.trim();
+  const raw = node.properties.pageReadiness;
+  if (typeof raw !== "string") return null;
+  const parsed = pageReadinessSchema.safeParse(raw);
+  return parsed.success ? pageReadinessLabel(parsed.data) : raw.replace(/_/g, " ");
+}
+
+export function learnerMasteryMetaFromNode(node: GraphCanvasNode): string | null {
+  if (node.nodeType !== "concept" && node.nodeType !== "weak_concept") return null;
+  const status = typeof node.properties.status === "string" ? node.properties.status : null;
+  if (!status || status === "active") return null;
+  if (status === "weak") return "Needs practice";
+  if (status === "mastered") return "Proficient";
+  return learnerFacingPipelineStatus(status);
 }
 
 /** Study Map and Source Wiki graph queries return server-built `readModel` visibility. */
@@ -327,18 +347,6 @@ const STUDY_MAP_LEVEL_4_SUBROW: Record<string, number> = {
 
 const STUDY_MAP_LEVEL_4_SUBROW_HEIGHT = LAYOUT_NODE_HEIGHT + 40;
 
-/** Planning nodes belong in Curriculum view; they still bridge graph paths in Study Map. */
-export const STUDY_MAP_EXCLUDED_NODE_TYPES = new Set([
-  "objective",
-  "study_plan",
-  "studyplan",
-  "objective_list",
-  "session_plan",
-  "weak_concept",
-]);
-
-const STUDY_MAP_BRIDGE_NODE_TYPES = STUDY_MAP_EXCLUDED_NODE_TYPES;
-
 const STUDY_MAP_LEVEL_BY_TYPE: Record<string, number> = {
   source: 0,
   curriculum: 1,
@@ -427,208 +435,6 @@ function isStudyMapLevelGapAllowed(
   return false;
 }
 
-function buildUndirectedAdjacency(
-  edges: GraphQueryResponse["edges"],
-  nodeIds: Set<string>,
-): Map<string, Set<string>> {
-  const adjacency = new Map<string, Set<string>>();
-  const touch = (nodeId: string) => {
-    if (!adjacency.has(nodeId)) adjacency.set(nodeId, new Set());
-    return adjacency.get(nodeId)!;
-  };
-
-  for (const nodeId of nodeIds) touch(nodeId);
-  for (const edge of edges) {
-    if (!nodeIds.has(edge.source) || !nodeIds.has(edge.target)) continue;
-    touch(edge.source).add(edge.target);
-    touch(edge.target).add(edge.source);
-  }
-  return adjacency;
-}
-
-function pushProjectedEdge(
-  edges: GraphQueryResponse["edges"],
-  seen: Set<string>,
-  source: string,
-  target: string,
-  relationType: string,
-): void {
-  const key = `${source}->${target}`;
-  if (seen.has(key)) return;
-  seen.add(key);
-  edges.push({
-    id: `projected-${source}-${target}-${relationType}`,
-    source,
-    target,
-    relationType,
-    properties: { projectedBy: "graph.study_map_hierarchy" },
-  });
-}
-
-function projectStudyMapEdges(graphData: GraphQueryResponse): GraphQueryResponse["edges"] {
-  const nodeById = new Map(graphData.nodes.map((node) => [node.id, node] as const));
-  const allNodeIds = new Set(graphData.nodes.map((node) => node.id));
-  const visibleNodes = graphData.nodes.filter((node) => !STUDY_MAP_EXCLUDED_NODE_TYPES.has(node.nodeType));
-  const visibleIds = new Set(visibleNodes.map((node) => node.id));
-  const adjacency = buildUndirectedAdjacency(graphData.edges, allNodeIds);
-  const projected: GraphQueryResponse["edges"] = [];
-  const seen = new Set<string>();
-
-  for (const edge of graphData.edges) {
-    if (!visibleIds.has(edge.source) || !visibleIds.has(edge.target)) continue;
-    const sourceNode = nodeById.get(edge.source);
-    const targetNode = nodeById.get(edge.target);
-    if (!sourceNode || !targetNode) continue;
-    const { parent, child } = normalizeEdgeLevels(graphData.name, sourceNode, targetNode);
-    pushProjectedEdge(projected, seen, parent.id, child.id, edge.relationType);
-  }
-
-  for (const startNode of visibleNodes) {
-    const startLevel = getGraphNodeLevel(graphData.name, startNode);
-    const queue = [startNode.id];
-    const visited = new Set([startNode.id]);
-
-    while (queue.length > 0) {
-      const currentId = queue.shift()!;
-      for (const neighborId of adjacency.get(currentId) ?? []) {
-        if (visited.has(neighborId)) continue;
-        const neighbor = nodeById.get(neighborId);
-        if (!neighbor) continue;
-        visited.add(neighborId);
-
-        if (!visibleIds.has(neighborId)) {
-          if (STUDY_MAP_BRIDGE_NODE_TYPES.has(neighbor.nodeType)) {
-            queue.push(neighborId);
-          }
-          continue;
-        }
-
-        if (neighborId === startNode.id) continue;
-        const neighborLevel = getGraphNodeLevel(graphData.name, neighbor);
-        if (neighborLevel === startLevel) continue;
-        const { parent, child, parentLevel, childLevel } = normalizeEdgeLevels(graphData.name, startNode, neighbor);
-        if (!isAllowedStudyMapEdge(parent, child)) continue;
-        if (!isStudyMapLevelGapAllowed(parent, child, parentLevel, childLevel)) continue;
-        pushProjectedEdge(projected, seen, parent.id, child.id, "CONNECTS");
-      }
-    }
-  }
-
-  const childrenByParent = new Map<string, Set<string>>();
-  for (const edge of projected) {
-    const bucket = childrenByParent.get(edge.source) ?? new Set();
-    bucket.add(edge.target);
-    childrenByParent.set(edge.source, bucket);
-  }
-
-  const modules = visibleNodes.filter((node) => node.nodeType === "curriculum_module");
-  const sessions = visibleNodes.filter((node) => node.nodeType === "tutor_session");
-  const preferredModule = modules.find((node) => node.properties.status === "active") ?? modules[0] ?? null;
-
-  const hasParentEdge = (nodeId: string): boolean =>
-    [...childrenByParent.values()].some((children) => children.has(nodeId));
-
-  for (const session of sessions) {
-    if (hasParentEdge(session.id) || !preferredModule) continue;
-    pushProjectedEdge(projected, seen, preferredModule.id, session.id, "HOSTS");
-    const moduleChildren = childrenByParent.get(preferredModule.id) ?? new Set<string>();
-    moduleChildren.add(session.id);
-    childrenByParent.set(preferredModule.id, moduleChildren);
-  }
-
-  const artifacts = visibleNodes.filter((node) => node.nodeType === "artifact");
-  for (const artifact of artifacts) {
-    const hasParent = hasParentEdge(artifact.id);
-    if (hasParent) continue;
-    const parentSession = sessions[sessions.length - 1] ?? null;
-    const parentModule = preferredModule;
-    if (parentSession) {
-      pushProjectedEdge(projected, seen, parentSession.id, artifact.id, "COMPLETED_BY");
-    } else if (parentModule) {
-      pushProjectedEdge(projected, seen, parentModule.id, artifact.id, "COVERS");
-    }
-  }
-
-  return projected;
-}
-
-function isTopicWikiPage(node: GraphQueryResponse["nodes"][number]): boolean {
-  return node.nodeType === "wiki_page" && node.properties.pageType === "topic";
-}
-
-function dedupeSourceWikiGraph(graphData: GraphQueryResponse): GraphQueryResponse {
-  const nodeById = new Map(graphData.nodes.map((node) => [node.id, node] as const));
-  const hiddenIds = new Set<string>();
-  const remapIds = new Map<string, string>();
-
-  for (const node of graphData.nodes) {
-    if (node.nodeType !== "topic") continue;
-    const linkedTopicPage = graphData.edges
-      .filter((edge) => edge.source === node.id && edge.relationType.toUpperCase() === "CONTAINS_PAGE")
-      .map((edge) => nodeById.get(edge.target))
-      .find((candidate): candidate is GraphQueryResponse["nodes"][number] => Boolean(candidate && isTopicWikiPage(candidate)));
-
-    if (linkedTopicPage) {
-      hiddenIds.add(node.id);
-      remapIds.set(node.id, linkedTopicPage.id);
-    }
-  }
-
-  for (const node of graphData.nodes) {
-    if (node.nodeType !== "wiki_page" || isTopicWikiPage(node)) continue;
-    const linkedConcept = graphData.edges
-      .flatMap((edge) => {
-        if (edge.source === node.id) return [nodeById.get(edge.target)];
-        if (edge.target === node.id) return [nodeById.get(edge.source)];
-        return [];
-      })
-      .find((candidate) => candidate?.nodeType === "concept");
-    if (linkedConcept) hiddenIds.add(node.id);
-  }
-
-  const remapNodeId = (nodeId: string): string => {
-    let current = nodeId;
-    const visited = new Set<string>();
-    while (remapIds.has(current) && !visited.has(current)) {
-      visited.add(current);
-      current = remapIds.get(current)!;
-    }
-    return current;
-  };
-
-  const nodes = graphData.nodes.filter((node) => !hiddenIds.has(node.id));
-  const visibleIds = new Set(nodes.map((node) => node.id));
-  const edges = graphData.edges
-    .map((edge) => ({
-      ...edge,
-      source: remapNodeId(edge.source),
-      target: remapNodeId(edge.target),
-    }))
-    .filter((edge) => visibleIds.has(edge.source) && visibleIds.has(edge.target));
-
-  return { ...graphData, nodes, edges };
-}
-
-function isHiddenStudyMapArtifact(node: GraphQueryResponse["nodes"][number]): boolean {
-  if (node.nodeType !== "artifact") return false;
-  const artifactType =
-    typeof node.properties.artifactType === "string"
-      ? node.properties.artifactType
-      : typeof node.properties.artifact_type === "string"
-        ? node.properties.artifact_type
-        : "";
-  return artifactType === "session_digest";
-}
-
-function filterStudyMapNodes(graphData: GraphQueryResponse): GraphQueryResponse {
-  const nodes = graphData.nodes.filter(
-    (node) => !STUDY_MAP_EXCLUDED_NODE_TYPES.has(node.nodeType) && !isHiddenStudyMapArtifact(node),
-  );
-  const visibleIds = new Set(nodes.map((node) => node.id));
-  const edges = graphData.edges.filter((edge) => visibleIds.has(edge.source) && visibleIds.has(edge.target));
-  return { ...graphData, nodes, edges };
-}
-
 function isPreferredSourceWikiEdge(relationType: string): boolean {
   const normalized = relationType.trim().toUpperCase();
   return normalized === "HAS_TOPIC" || normalized === "CONTAINS_CONCEPT" || normalized === "CONTAINS_PAGE";
@@ -671,23 +477,6 @@ export function filterHierarchicalGraphEdges(graphData: GraphQueryResponse): Gra
     seenPairs.add(pairKey);
     return true;
   });
-}
-
-export function prepareGraphForCanvas(graphData: GraphQueryResponse): GraphQueryResponse {
-  const collapsed = collapseObjectiveHistory(graphData);
-
-  if (graphData.name === "source_wiki_map") {
-    const deduped = dedupeSourceWikiGraph(collapsed);
-    return { ...deduped, edges: filterHierarchicalGraphEdges(deduped) };
-  }
-
-  if (graphData.name === "study_map") {
-    const projected = { ...collapsed, edges: projectStudyMapEdges(collapsed) };
-    const visible = filterStudyMapNodes(projected);
-    return { ...visible, edges: filterHierarchicalGraphEdges(visible) };
-  }
-
-  return { ...collapsed, edges: filterHierarchicalGraphEdges(collapsed) };
 }
 
 export function getIntentAwareNodePosition(
@@ -1090,16 +879,14 @@ function layoutHierarchy(
 export function buildIntentAwareLayout({
   graphData,
   savedPositions,
-  alreadyPrepared = false,
 }: IntentAwareLayoutInput): Array<{
   node: GraphQueryResponse["nodes"][number];
   position: { x: number; y: number };
 }> {
-  const prepared = alreadyPrepared ? graphData : prepareGraphForCanvas(graphData);
-  const positions = layoutHierarchy(prepared, savedPositions);
+  const positions = layoutHierarchy(graphData, savedPositions);
 
-  return prepared.nodes.map((node) => ({
+  return graphData.nodes.map((node) => ({
     node,
-    position: positions.get(node.id) ?? getIntentAwareNodePosition(node.nodeType, 0, savedPositions[node.id], prepared.name),
+    position: positions.get(node.id) ?? getIntentAwareNodePosition(node.nodeType, 0, savedPositions[node.id], graphData.name),
   }));
 }

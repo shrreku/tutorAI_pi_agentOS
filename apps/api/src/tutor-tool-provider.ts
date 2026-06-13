@@ -141,6 +141,15 @@ function objectiveHandle(objective: {
   };
 }
 
+export { createWikiWriteHandlers } from "./tutor-write-wiki.js";
+
+export const WIKI_TOUCH_WRITE_TOOL_NAMES = [
+  "wiki.ensure_concept_page",
+  "wiki.ensure_topic_page",
+  "wiki.touch_concept",
+  "wiki.touch_topic",
+] as const;
+
 export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadToolProvider {
   return {
     async notebookGetContext(input, toolCtx) {

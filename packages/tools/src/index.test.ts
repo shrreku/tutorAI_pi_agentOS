@@ -80,7 +80,7 @@ describe("tools runtime registry", () => {
       },
     });
 
-    expect(result).toEqual({ results: [], warnings: [] });
+    expect(result).toEqual({ results: [], warnings: [], boundarySignals: [] });
     expect(events).toEqual(["agent.tool.started", "agent.tool.completed"]);
   });
 

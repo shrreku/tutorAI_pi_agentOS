@@ -293,6 +293,21 @@ describe("shared schemas", () => {
     expect(parsed.developerRefs[0]?.visibility).toBe("developer");
   });
 
+  it("maps page readiness enums to learner-facing labels", () => {
+    expect(
+      learnerFacingSurfaceStatus({
+        surfaceType: "concept",
+        status: "still_improving",
+      }),
+    ).toBe("Still improving");
+    expect(
+      learnerFacingSurfaceStatus({
+        surfaceType: "wiki_page",
+        status: "needs_more_source_support",
+      }),
+    ).toBe("Needs more source support");
+  });
+
   it("maps artifact lifecycle status to learner-facing labels", () => {
     expect(
       learnerFacingSurfaceStatus({

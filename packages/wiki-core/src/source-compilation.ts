@@ -10,6 +10,15 @@ import {
 } from "./concept-lookup.js";
 import { resolveClaimGraph, type RawExtractedClaim } from "./claim-graph-resolution.js";
 import { extractHumanBlocks, mergeAgentMarkdownWithHumanBlocks, type HumanBlock } from "./page-blocks.js";
+import {
+  buildHeuristicConceptPageMarkdown,
+  buildHeuristicTopicPageMarkdown,
+} from "./page-format.js";
+import {
+  conceptPageKey,
+  resolveCanonicalTopicPageKey,
+  type ExistingTopicPageRef,
+} from "./topic-concept-resolution.js";
 import type {
   PriorWikiPage,
   WikiChangeSet,
@@ -221,76 +230,10 @@ export function buildConceptPageMarkdown(
   conceptName: string,
   relatedClaims: Array<{ id: string; text: string; confidence: number }>,
 ): string {
-  const supportStatus = learnerSupportStatus(relatedClaims);
-  const definitionClaims = relatedClaims.filter((claim) => /definition|define|means|refers to/i.test(claim.text));
-  const formulaClaims = relatedClaims.filter((claim) => /formula|equation|proportional|equals|=|\\frac|\\Delta|\\partial/i.test(claim.text));
-  const exampleClaims = relatedClaims.filter((claim) => /example|application|used|appl|case study/i.test(claim.text));
-  const misconceptionClaims = relatedClaims.filter((claim) => /not|only|except|unlike|misconception|confus/i.test(claim.text));
-  const relationshipClaims = relatedClaims
-    .filter((claim) => !definitionClaims.includes(claim) && !formulaClaims.includes(claim))
-    .slice(0, 4);
-
-  return [
-    `# ${conceptName}`,
-    supportStatus ? `\n> ${supportStatus}\n` : "",
-    "",
-    "## Why it matters",
-    bulletList(
-      relationshipClaims.slice(0, 2).map((claim) => claim.text),
-      `This concept is part of the source's learning path. Use it to connect definitions, examples, and practice problems involving ${conceptName}.`,
-    ),
-    "",
-    "## Definition",
-    bulletList(
-      definitionClaims.slice(0, 3).map((claim) => claim.text),
-      "Still improving — ask the tutor to define this concept from your source.",
-    ),
-    "",
-    "## Intuition",
-    bulletList(
-      relationshipClaims.slice(0, 2).map((claim) => claim.text),
-      "Needs more source support — ask the tutor to build intuition from your selected source.",
-    ),
-    "",
-    "## Formal details",
-    bulletList(
-      formulaClaims.slice(0, 4).map((claim) => claim.text),
-      "Still improving — no formulas or notation have been extracted yet.",
-    ),
-    "",
-    "## Examples",
-    bulletList(
-      exampleClaims.slice(0, 3).map((claim) => claim.text),
-      "Needs more source support — ask the tutor for a worked example.",
-    ),
-    "",
-    "## Common confusions",
-    bulletList(
-      misconceptionClaims.slice(0, 3).map((claim) => claim.text),
-      "No common confusions have been extracted yet.",
-    ),
-    "",
-    "## Source-backed notes",
-    bulletList(
-      relationshipClaims.map((claim) => claim.text),
-      "Needs more source support — open Evidence to inspect excerpts from your source.",
-    ),
-    "",
-    "## Practice prompts",
-    `- Explain ${conceptName} in your own words using one source-backed detail.`,
-    `- Give one example and one non-example of ${conceptName}.`,
-    `- Name one common mistake someone might make with ${conceptName}.`,
-    `- Ask the tutor for a worked example involving ${conceptName}.`,
-    "",
-    "## Fast review checklist",
-    `- I can define ${conceptName} without copying the source.`,
-    `- I can point to where ${conceptName} appears in the uploaded material.`,
-    `- I can use ${conceptName} in a new problem or explanation.`,
-    "",
-    "## How to use this page",
-    "Study these notes, then use tutor chat for teaching, checks, and connections to your current objective.",
-    "",
-  ].join("\n");
+  return buildHeuristicConceptPageMarkdown({
+    conceptName,
+    claims: relatedClaims.map((claim) => ({ text: claim.text, confidence: claim.confidence })),
+  }).markdown;
 }
 
 export function normalizeSourceSummaryMarkdown(markdown: string, sourceTitle: string): string {
@@ -313,31 +256,19 @@ function topicTitleFromSummaryMarkdown(markdown: string, sourceTitle: string): s
   return heading;
 }
 
-function buildTopicPageMarkdown(topicTitle: string, sourceSummaryMarkdown: string): string {
+function buildTopicPageMarkdown(topicTitle: string, sourceSummaryMarkdown: string, claims: ClaimBullet[] = []): string {
   const trimmedSummary = sourceSummaryMarkdown.trim();
   const body = trimmedSummary.replace(/^#\s+.*(?:\r?\n)+/, "").trim();
-  return [
-    `# ${topicTitle}`,
-    "",
-    "## Overview",
-    body.length > 0 ? body : "Still improving — this topic page will grow as ingestion completes.",
-    "",
-    "## Study path",
-    "- Start with the core definitions and notation.",
-    "- Work through one source-backed example before trying practice.",
-    "- Use the concept pages under this topic to repair gaps.",
-    "",
-    "## What to practice",
-    "- Explain the topic from memory in three to five sentences.",
-    "- Solve or outline one representative problem from the source.",
-    "- Ask the tutor to quiz you on the weakest concept in this topic.",
-    "",
-    "## Common checkpoints",
-    "- Can you identify the assumptions used in the source?",
-    "- Can you connect this topic to the current curriculum objective?",
-    "- Can you state what evidence from the source supports the main claims?",
-  ].join("\n");
+  const overviewBullets = body.length > 0 ? body.split(/\n+/).map((line) => line.replace(/^[-*]\s*/, "").trim()).filter(Boolean).slice(0, 6) : [];
+  return buildHeuristicTopicPageMarkdown({
+    topicTitle,
+    overviewBullets,
+    claims,
+    concepts: [],
+  }).markdown;
 }
+
+type ClaimBullet = { text: string; confidence: number };
 
 function pageBlocksFromMarkdown(agentMarkdown: string, humanBlocks: HumanBlock[]): WikiPageBlock[] {
   const blocks: WikiPageBlock[] = [{ origin: "generated", markdown: agentMarkdown.trim() }];
@@ -554,9 +485,21 @@ export function compileSourceToWikiChangeSet(input: CompileSourceWikiInput): Wik
   const sourceSummaryAgentMd = normalizeSourceSummaryMarkdown(input.extraction.sourceSummaryMarkdown, input.sourceTitle);
   const sourceSummaryMerged = mergeAgentMarkdownWithHumanBlocks(sourceSummaryAgentMd, humanBlocksByPageKey.get(sourceSummaryPageKey) ?? []);
   const topicTitle = topicTitleFromSummaryMarkdown(sourceSummaryAgentMd, input.sourceTitle);
-  const topicPageKey = `topic:${input.sourceId}`;
-  const topicAgentMd = buildTopicPageMarkdown(topicTitle, sourceSummaryAgentMd);
-  const topicPageMerged = mergeAgentMarkdownWithHumanBlocks(topicAgentMd, humanBlocksByPageKey.get(topicPageKey) ?? []);
+  const existingTopicPages: ExistingTopicPageRef[] = input.priorWikiPages
+    .filter((page) => page.pageType === "topic")
+    .map((page) => ({
+      pageKey: page.pageKey,
+      title:
+        page.markdown.match(/^#\s+(.+)$/m)?.[1]?.trim() ??
+        page.pageKey.replace(/^topic:/, "").replace(/_/g, " "),
+    }));
+  const topicResolution = resolveCanonicalTopicPageKey({
+    topicTitle,
+    sourceId: input.sourceId,
+    sourceHeadingPath: [topicTitle],
+    existingTopicPages,
+  });
+  const topicPageKey = topicResolution.pageKey;
 
   const conceptRanking = input.extraction.concepts
     .map((concept, index) => ({
@@ -587,14 +530,52 @@ export function compileSourceToWikiChangeSet(input: CompileSourceWikiInput): Wik
     });
   }
 
-  const deleteWikiPageKeys = input.priorWikiPages
-    .filter((p) => p.pageType === "concept" || p.pageType === "topic")
-    .filter((p) => {
-      if (p.pageType === "topic") return p.pageKey === topicPageKey;
-      const conceptId = p.pageKey.startsWith("concept:") ? p.pageKey.slice("concept:".length) : null;
-      return !maxConceptPages || !conceptId || selectedConceptIds.has(conceptId);
-    })
-    .map((p) => p.pageKey);
+  const topicClaimBullets: ClaimBullet[] = insertedClaimMeta
+    .filter((claim) => claim.confidence >= 0.45)
+    .slice(0, 8)
+    .map((claim) => ({ text: claim.text, confidence: claim.confidence }));
+  const legacyTopicHumanBlocks =
+    humanBlocksByPageKey.get(topicPageKey) ??
+    humanBlocksByPageKey.get(`topic:${input.sourceId}`) ??
+    [];
+  const topicHeuristic = buildHeuristicTopicPageMarkdown({
+    topicTitle,
+    overviewBullets: topicClaimBullets.map((claim) => claim.text).slice(0, 4),
+    claims: topicClaimBullets,
+    concepts: selectedConcepts
+      .slice(0, 8)
+      .map(({ concept }) => {
+        const conceptId = conceptIdByName.get(concept.name.trim());
+        return conceptId ? { id: conceptId, name: concept.name.trim() } : null;
+      })
+      .filter((entry): entry is { id: string; name: string } => Boolean(entry)),
+    ...(legacyTopicHumanBlocks.length > 0
+      ? { existingMarkdown: mergeAgentMarkdownWithHumanBlocks("", legacyTopicHumanBlocks) }
+      : {}),
+  });
+  const topicAgentMd = topicHeuristic.markdown;
+  const topicPageMerged = topicAgentMd;
+  const topicConceptIds = selectedConcepts
+    .map(({ concept }) => conceptIdByName.get(concept.name.trim()) ?? null)
+    .filter((conceptId): conceptId is string => Boolean(conceptId));
+
+  const deleteWikiPageKeys = [
+    ...new Set(
+      input.priorWikiPages
+        .filter((p) => p.pageType === "concept" || p.pageType === "topic")
+        .filter((p) => {
+          if (p.pageType === "topic") {
+            if (p.pageKey === topicPageKey) return true;
+            if (topicResolution.legacyPageKeysToRetire.includes(p.pageKey)) return true;
+            return p.pageKey === `topic:${input.sourceId}` && p.pageKey !== topicPageKey;
+          }
+          const conceptId = p.pageKey.startsWith("concept:") ? p.pageKey.slice("concept:".length) : null;
+          if (!conceptId) return true;
+          return !maxConceptPages || selectedConceptIds.has(conceptId);
+        })
+        .map((p) => p.pageKey),
+    ),
+  ];
 
   const wikiPages: WikiChangeSet["wikiPages"] = [
     {
@@ -606,7 +587,18 @@ export function compileSourceToWikiChangeSet(input: CompileSourceWikiInput): Wik
       blocks: pageBlocksFromMarkdown(topicAgentMd, humanBlocksByPageKey.get(topicPageKey) ?? []),
       sourceClaimIds: insertedClaimMeta.map((m) => m.id),
       sourceChunkIds: sourceSummaryChunkIds.length ? sourceSummaryChunkIds : input.chunkIds,
-      structuredJson: { sourceId: input.sourceId, sourceVersionId: input.sourceVersionId, bootstrapSourceId: input.sourceId, topicTitle },
+      structuredJson: {
+        sourceId: input.sourceId,
+        sourceVersionId: input.sourceVersionId,
+        bootstrapSourceId: input.sourceId,
+        topicTitle,
+        topicKey: topicPageKey,
+        sourceHeadingPath: [topicTitle],
+        conceptIds: topicConceptIds,
+        pageReadiness: topicHeuristic.readiness,
+        generationMode: topicHeuristic.generationMode,
+        ...topicHeuristic.structuredJson,
+      },
       confidenceSummaryJson: {
         ...buildPageConfidenceSummary({
           claimConfidences: insertedClaimMeta.map((m) => m.confidence),
@@ -637,6 +629,17 @@ export function compileSourceToWikiChangeSet(input: CompileSourceWikiInput): Wik
 
   const events: WikiChangeSet["events"] = [
     {
+      eventType: "generation.page.heuristic.created",
+      payload: {
+        pageId: wikiPages[0]!.id,
+        pageType: "topic",
+        pageKey: topicPageKey,
+        sourceId: input.sourceId,
+        topicTitle,
+        readiness: topicHeuristic.readiness,
+      },
+    },
+    {
       eventType: "wiki.page.compiled",
       payload: {
         pageId: wikiPages[0]!.id,
@@ -660,21 +663,34 @@ export function compileSourceToWikiChangeSet(input: CompileSourceWikiInput): Wik
   for (const { concept, relatedClaims } of selectedConcepts) {
     const cid = conceptIdByName.get(concept.name.trim());
     if (!cid) continue;
-    const conceptPageKey = `concept:${cid}`;
-    const humanBlocks = humanBlocksByPageKey.get(conceptPageKey) ?? [];
-    const agentMd = buildConceptPageMarkdown(concept.name.trim(), relatedClaims);
-    const merged = mergeAgentMarkdownWithHumanBlocks(agentMd, humanBlocks);
+    const pageKey = conceptPageKey(cid);
+    const humanBlocks = humanBlocksByPageKey.get(pageKey) ?? [];
+    const claimBullets = relatedClaims.map((claim) => ({ text: claim.text, confidence: claim.confidence }));
+    const conceptHeuristic = buildHeuristicConceptPageMarkdown({
+      conceptName: concept.name.trim(),
+      claims: claimBullets,
+      ...(humanBlocks.length > 0
+        ? { existingMarkdown: mergeAgentMarkdownWithHumanBlocks("", humanBlocks) }
+        : {}),
+    });
+    const agentMd = conceptHeuristic.markdown;
     const conceptPageId = nextId("wp_");
     wikiPages.push({
       id: conceptPageId,
       pageType: "concept",
-      pageKey: conceptPageKey,
+      pageKey,
       title: `Concept · ${concept.name.trim()}`,
-      markdown: merged,
+      markdown: agentMd,
       blocks: pageBlocksFromMarkdown(agentMd, humanBlocks),
       sourceClaimIds: relatedClaims.map((m) => m.id),
       sourceChunkIds: uniqueChunkIds(relatedClaims.flatMap((m) => m.chunkIds)),
-      structuredJson: { conceptId: cid, bootstrapSourceId: input.sourceId },
+      structuredJson: {
+        conceptId: cid,
+        bootstrapSourceId: input.sourceId,
+        pageReadiness: conceptHeuristic.readiness,
+        generationMode: conceptHeuristic.generationMode,
+        ...conceptHeuristic.structuredJson,
+      },
       confidenceSummaryJson: {
         ...buildPageConfidenceSummary({
           claimConfidences: relatedClaims.map((m) => m.confidence),
@@ -684,8 +700,18 @@ export function compileSourceToWikiChangeSet(input: CompileSourceWikiInput): Wik
       qualityScore: 0.65,
     });
     events.push({
+      eventType: "generation.page.heuristic.created",
+      payload: {
+        pageId: conceptPageId,
+        pageType: "concept",
+        pageKey,
+        conceptId: cid,
+        readiness: conceptHeuristic.readiness,
+      },
+    });
+    events.push({
       eventType: "wiki.page.compiled",
-      payload: { pageId: conceptPageId, pageType: "concept", pageKey: conceptPageKey, conceptId: cid },
+      payload: { pageId: conceptPageId, pageType: "concept", pageKey, conceptId: cid },
     });
   }
 

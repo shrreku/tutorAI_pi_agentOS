@@ -35,8 +35,8 @@ export const envSchema = z.object({
     z.string().url().optional(),
   ),
   DEFAULT_TUTOR_MODEL: z.string().default("openrouter/auto"),
-  /** Wall-clock budget for a single Pi tutor dispatch (model + tool loop). */
-  TUTOR_MODEL_TIMEOUT_MS: z.coerce.number().int().positive().default(120_000),
+  /** Wall-clock budget for wiki polish, extraction, and other non-tutor LLM JSON calls. */
+  LLM_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(120_000),
   /** Max tool calls allowed per tutor run before budget exhaustion. */
   TUTOR_MAX_TOOL_CALLS: z.coerce.number().int().positive().default(16),
   /** Max number of prior turns to rehydrate into a recreated Pi runtime session. */

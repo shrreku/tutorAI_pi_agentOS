@@ -74,7 +74,7 @@ export function classifyRuntimeError(error: unknown): RuntimeErrorClassification
       kind: "model_timeout",
       code: "model_dispatch_timeout",
       safeMessage:
-        "The tutor model run exceeded its time budget while calling tools or generating a response. Retry the turn or increase TUTOR_MODEL_TIMEOUT_MS.",
+        "The tutor model run exceeded its time budget while calling tools or generating a response. Retry the turn.",
       retryable: true,
       originalMessage: message,
     };

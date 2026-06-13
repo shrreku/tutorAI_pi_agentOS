@@ -15,8 +15,8 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import type { GraphCanvasNode, GraphQueryResponse } from "@studyagent/schemas";
-import { learnerFacingNodeTypeLabel, learnerFacingPipelineStatus } from "./learner-copy-guard.js";
-import { buildIntentAwareLayout, getLearnerNodeTitle } from "./whiteboard-utils.js";
+import { learnerFacingNodeTypeLabel, learnerFacingPipelineStatus } from "@studyagent/schemas";
+import { buildIntentAwareLayout, getLearnerNodeTitle, learnerMasteryMetaFromNode, learnerPageReadinessFromNode } from "./whiteboard-utils.js";
 
 interface GraphCanvasProps {
   graphData: GraphQueryResponse | null;
@@ -61,6 +61,7 @@ interface CustomNodeData {
   title: string;
   nodeType: string;
   status: string | null;
+  pageReadiness: string | null;
   summary: string | null;
   meta: string | null;
   isSelected: boolean;
@@ -102,7 +103,26 @@ const StudyAgentNode: React.FC<{ data: CustomNodeData }> = ({ data }) => {
           >
             {LEARNER_NODE_TYPE_LABELS[data.nodeType] ?? learnerFacingNodeTypeLabel(data.nodeType)}
           </span>
-          {data.status && (
+          {data.pageReadiness ? (
+            <span
+              title="Page readiness"
+              style={{
+                maxWidth: 88,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                borderRadius: 999,
+                background: "#eef2ff",
+                color: "#4338ca",
+                border: "1px solid #c7d2fe",
+                padding: "1px 6px",
+                fontSize: 9,
+                fontWeight: 800,
+              }}
+            >
+              {data.pageReadiness}
+            </span>
+          ) : data.status ? (
             <span
               style={{
                 maxWidth: 52,
@@ -119,7 +139,7 @@ const StudyAgentNode: React.FC<{ data: CustomNodeData }> = ({ data }) => {
             >
               {learnerFacingPipelineStatus(data.status)}
             </span>
-          )}
+          ) : null}
         </div>
         <div
           style={{
@@ -229,8 +249,9 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         title: getLearnerNodeTitle(node),
         nodeType: node.nodeType,
         status: typeof node.properties.status === "string" ? node.properties.status : null,
+        pageReadiness: learnerPageReadinessFromNode(node),
         summary: getCompactSummary(node),
-        meta: getCompactMeta(node),
+        meta: learnerMasteryMetaFromNode(node) ?? getCompactMeta(node),
         isSelected: node.id === selectedNodeId,
         isConnected: connectedNodeIds.has(node.id),
         onSelect: () => onNodeSelect(node.id),

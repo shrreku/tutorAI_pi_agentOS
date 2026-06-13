@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildStudyAgentHostStateSignature } from "@studyagent/agent-runtime";
 
 describe("tutor host state signature integration", () => {
-  it("materializes a new signature when personalization recommendations change", () => {
+  it("keeps the same signature when personalization recommendations change", () => {
     const base = {
       notebookId: "nb_1",
       userId: "user_1",
@@ -22,6 +22,6 @@ describe("tutor host state signature integration", () => {
       personalizationRecommendations: ["Use more examples", "Quiz more often"],
     });
 
-    expect(before).not.toBe(after);
+    expect(before).toBe(after);
   });
 });

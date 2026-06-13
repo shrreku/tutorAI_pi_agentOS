@@ -4,7 +4,8 @@
   "references": [
     { "path": "../../packages/observability" },
     { "path": "../../packages/schemas" },
-    { "path": "../../packages/eval-runner" }
+    { "path": "../../packages/eval-runner" },
+    { "path": "../../packages/wiki-generation" }
   ],
   "include": ["src/**/*.ts"]
 }

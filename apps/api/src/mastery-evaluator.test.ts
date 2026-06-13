@@ -49,6 +49,41 @@ describe("evaluateLearnerResponse", () => {
     expect(evidence.correctnessLabel).toBe("partial");
   });
 
+  it("uses LLM judgment for non-exact mastery-check paraphrases when provided", async () => {
+    let judgeCalls = 0;
+    const judge: MasteryEvaluatorJudge = async () => {
+      judgeCalls += 1;
+      return {
+        correctnessLabel: "correct",
+        overallScore: 0.9,
+        confidence: 0.82,
+        uncertainty: 0.18,
+        misconceptions: [],
+        tutoringIntervention: "advance",
+        notes: "The learner correctly identified conduction caused by a temperature difference.",
+      };
+    };
+
+    const evidence = await evaluateLearnerResponse(
+      {
+        ...baseInput,
+        tutorQuestion: "Why does heat transfer through the metal rod?",
+        learnerAnswer:
+          "It happens because of conduction, due to temperature difference in the medium.",
+        referenceAnswer:
+          "Heat transfers through the metal rod by conduction because a temperature gradient drives energy from hotter regions to cooler regions.",
+        evidenceType: "mastery_check",
+        triggerSource: "runtime_auto",
+      },
+      { judge },
+    );
+
+    expect(judgeCalls).toBe(1);
+    expect(evidence.correctnessLabel).toBe("correct");
+    expect(evidence.evaluatorProvenance.mode).toBe("llm");
+    expect(evidence.evaluatorProvenance.notes).toContain("conduction");
+  });
+
   it("falls back deterministically when LLM judgment fails", async () => {
     const judge: MasteryEvaluatorJudge = async () => {
       throw new Error("llm unavailable");
@@ -110,6 +145,22 @@ describe("evaluateLearnerResponse", () => {
       triggerSource: "tutor_tool",
     });
     expect(evidence.correctnessLabel).toBe("correct");
+  });
+
+  it("accepts key-term paraphrases of source-backed quiz answers", async () => {
+    const evidence = await evaluateLearnerResponse({
+      ...baseInput,
+      tutorQuestion: "In one sentence, what does Fourier's law relate heat flux to?",
+      learnerAnswer:
+        "Fourier law says heat flux is proportional to the negative temperature gradient, with thermal conductivity as the constant.",
+      referenceAnswer:
+        "Fourier's law relates conductive heat flux to the negative temperature gradient scaled by thermal conductivity.",
+      evidenceType: "quiz_artifact",
+      triggerSource: "quiz_attempt",
+    });
+    expect(evidence.correctnessLabel).toBe("correct");
+    expect(evidence.overallScore).toBeGreaterThanOrEqual(0.85);
+    expect(evidence.evaluatorProvenance.mode).toBe("deterministic");
   });
 
   it("marks source-specific evaluation with source refs", async () => {

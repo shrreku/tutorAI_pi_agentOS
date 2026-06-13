@@ -104,7 +104,7 @@ User stories covered:
 
 What to build:
 
-Add a material host-state signature to Tutor Turn runtime preparation and Pi Adapter cache decisions. Refresh or replace cached Pi sessions when material prompt context changes, or inject fresh host state through a per-turn context channel that is proven to affect the SDK run.
+Add a binding-only host-state signature to Tutor Turn runtime preparation and Pi Adapter cache decisions. Per ADR-0018, refresh or replace cached Pi sessions when binding inputs change, while ordinary notebook material is fetched on demand through tools.
 
 Acceptance criteria:
 

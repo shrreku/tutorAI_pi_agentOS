@@ -8,7 +8,10 @@ import {
   masteryCorrectnessLabelSchema,
   masteryEvidenceInputSchema,
   nodeRefSchema,
+  pageQualityIssueSchema,
+  pageReadinessSchema,
   reducerResultSchema,
+  referenceSurfaceSchema,
   tutoringInterventionSchema,
   type MasteryEvidenceTriggerSource,
   type MasteryEvidenceType,
@@ -18,17 +21,48 @@ import type { ToolContract, ToolRegistry } from "./tool-contracts.js";
 
 const positiveIntSchema = z.number().int().positive();
 
-const generatedQuizQuestionSchema = z.object({
-  prompt: z.string().min(1),
-  answer: z.string().min(1).optional(),
-  referenceAnswer: z.string().min(1).optional(),
-  explanation: z.string().min(1).optional(),
-  choices: z.array(z.string().min(1)).optional(),
-  difficulty: z.string().min(1).optional(),
-  conceptIds: z.array(idSchema).default([]),
-}).refine((question) => Boolean(question.answer ?? question.referenceAnswer), {
-  message: "Quiz questions require answer or referenceAnswer.",
-});
+const generatedQuizQuestionSchema = z
+  .object({
+    id: idSchema
+      .optional()
+      .describe("Stable question id such as q1. If omitted, StudyAgent assigns one."),
+    prompt: z
+      .string()
+      .min(1)
+      .describe(
+        "Learner-visible question text. Use a concrete recall, application, calculation, transfer, or misconception-check question.",
+      ),
+    answer: z
+      .string()
+      .min(1)
+      .optional()
+      .describe("Correct answer. For multiple choice, use the exact correct choice text."),
+    referenceAnswer: z
+      .string()
+      .min(1)
+      .optional()
+      .describe("Reference answer or rubric for open-ended scoring."),
+    explanation: z
+      .string()
+      .min(1)
+      .optional()
+      .describe("Brief feedback explaining why the answer is correct."),
+    choices: z
+      .array(z.string().min(1))
+      .optional()
+      .describe("Multiple-choice options when appropriate."),
+    difficulty: z
+      .string()
+      .min(1)
+      .optional()
+      .describe(
+        "Difficulty label such as recall, application, calculation, misconception, or transfer.",
+      ),
+    conceptIds: z.array(idSchema).default([]),
+  })
+  .refine((question) => Boolean(question.answer ?? question.referenceAnswer), {
+    message: "Quiz questions require answer or referenceAnswer.",
+  });
 
 const generatedFlashcardSchema = z.object({
   front: z.string().min(1),
@@ -43,7 +77,10 @@ const candidateWriteWarningSchema = z.object({
 });
 
 function normalizeEnumToken(value: string): string {
-  return value.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
 }
 
 export function normalizeConceptRole(value: unknown): "primary" | "secondary" | "prerequisite" {
@@ -52,20 +89,27 @@ export function normalizeConceptRole(value: unknown): "primary" | "secondary" | 
   if (normalized === "core" || normalized === "main" || normalized === "target") return "primary";
   if (normalized === "supporting" || normalized === "related") return "secondary";
   if (normalized === "prereq") return "prerequisite";
-  if (normalized === "primary" || normalized === "secondary" || normalized === "prerequisite") return normalized;
+  if (normalized === "primary" || normalized === "secondary" || normalized === "prerequisite")
+    return normalized;
   return "secondary";
 }
 
 export function normalizeMasteryEvidenceType(value: unknown): MasteryEvidenceType {
   if (typeof value !== "string") return "open_explanation";
   const normalized = normalizeEnumToken(value);
-  if (normalized === "mastery" || normalized === "check" || normalized === "mastery_check_response") return "mastery_check";
+  if (normalized === "mastery" || normalized === "check" || normalized === "mastery_check_response")
+    return "mastery_check";
   if (normalized === "quiz" || normalized === "quiz_response") return "quiz_artifact";
-  if (normalized === "repeated_error" || normalized === "mistake" || normalized === "recurring_mistake") {
+  if (
+    normalized === "repeated_error" ||
+    normalized === "mistake" ||
+    normalized === "recurring_mistake"
+  ) {
     return "repeated_mistake";
   }
   if (normalized === "explanation" || normalized === "open_response") return "open_explanation";
-  if (normalized === "self_reported" || normalized === "self_reported_confusion") return "self_report";
+  if (normalized === "self_reported" || normalized === "self_reported_confusion")
+    return "self_report";
   if (normalized === "observation") return "tutor_observation";
   if (
     normalized === "mastery_check" ||
@@ -83,7 +127,8 @@ export function normalizeMasteryEvidenceType(value: unknown): MasteryEvidenceTyp
 export function normalizeMasteryTriggerSource(value: unknown): MasteryEvidenceTriggerSource {
   if (typeof value !== "string") return "tutor_tool";
   const normalized = normalizeEnumToken(value);
-  if (normalized === "runtime" || normalized === "automatic" || normalized === "auto") return "runtime_auto";
+  if (normalized === "runtime" || normalized === "automatic" || normalized === "auto")
+    return "runtime_auto";
   if (normalized === "tool" || normalized === "tutor") return "tutor_tool";
   if (normalized === "quiz") return "quiz_attempt";
   if (normalized === "flashcard") return "flashcard_review";
@@ -104,26 +149,32 @@ export function normalizeMasterySnapshotScore(value: unknown): number | null {
   }
   if (typeof value !== "string") return null;
   const normalized = normalizeEnumToken(value);
-  if (normalized === "foundational" || normalized === "beginner" || normalized === "not_started") return 0.2;
-  if (normalized === "developing" || normalized === "partial" || normalized === "in_progress") return 0.45;
+  if (normalized === "foundational" || normalized === "beginner" || normalized === "not_started")
+    return 0.2;
+  if (normalized === "developing" || normalized === "partial" || normalized === "in_progress")
+    return 0.45;
   if (normalized === "proficient" || normalized === "ready" || normalized === "good") return 0.7;
-  if (normalized === "advanced" || normalized === "mastered" || normalized === "strong") return 0.88;
+  if (normalized === "advanced" || normalized === "mastered" || normalized === "strong")
+    return 0.88;
   if (normalized === "unknown" || normalized === "none") return 0.35;
   const numeric = Number(value);
   return Number.isFinite(numeric) ? Math.min(1, Math.max(0, numeric)) : null;
 }
 
-const flexibleConceptRoleSchema = z.preprocess((value) => {
-  if (typeof value === "string") {
-    return { conceptId: value, role: "primary" };
-  }
-  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
-  const record = value as Record<string, unknown>;
-  return {
-    ...record,
-    role: normalizeConceptRole(record.role),
-  };
-}, z.object({ conceptId: idSchema, role: z.string().min(1).default("primary") }));
+const flexibleConceptRoleSchema = z.preprocess(
+  (value) => {
+    if (typeof value === "string") {
+      return { conceptId: value, role: "primary" };
+    }
+    if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+    const record = value as Record<string, unknown>;
+    return {
+      ...record,
+      role: normalizeConceptRole(record.role),
+    };
+  },
+  z.object({ conceptId: idSchema, role: z.string().min(1).default("primary") }),
+);
 
 const flexibleMasteryEvidenceTypeSchema = z.preprocess((value) => {
   if (value === undefined) return value;
@@ -135,14 +186,19 @@ const flexibleMasteryTriggerSourceSchema = z.preprocess((value) => {
   return normalizeMasteryTriggerSource(value);
 }, z.string().min(1));
 
-const flexibleMasterySnapshotSchema = z.preprocess((value) => {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-  return Object.fromEntries(
-    Object.entries(value as Record<string, unknown>)
-      .map(([conceptId, rawScore]) => [conceptId, normalizeMasterySnapshotScore(rawScore)] as const)
-      .filter((entry): entry is readonly [string, number] => entry[1] !== null),
-  );
-}, z.record(z.string(), z.number().min(0).max(1)).default({}));
+const flexibleMasterySnapshotSchema = z.preprocess(
+  (value) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .map(
+          ([conceptId, rawScore]) => [conceptId, normalizeMasterySnapshotScore(rawScore)] as const,
+        )
+        .filter((entry): entry is readonly [string, number] => entry[1] !== null),
+    );
+  },
+  z.record(z.string(), z.number().min(0).max(1)).default({}),
+);
 
 const masteryNodeRefTypeAliases: Record<string, EntityRefType> = {
   pdf: "source",
@@ -240,21 +296,38 @@ function normalizeLearnerTraitRecordSignalInput(value: unknown): unknown {
     return {
       ...record,
       trait: "pacePreference",
-      value: normalizeLearnerTraitValue("pacePreference", record.pacePreference ?? (record.preferenceFastPace ? "fast" : "slow")),
+      value: normalizeLearnerTraitValue(
+        "pacePreference",
+        record.pacePreference ?? (record.preferenceFastPace ? "fast" : "slow"),
+      ),
     };
   }
-  if (record.examplePreference || record.exampleStylePreference || record.visualExamplePreference || record.preferenceVisualExamples) {
+  if (
+    record.examplePreference ||
+    record.exampleStylePreference ||
+    record.visualExamplePreference ||
+    record.preferenceVisualExamples
+  ) {
     return {
       ...record,
       trait: "examplePreference",
-      value: normalizeLearnerTraitValue("examplePreference", record.examplePreference ?? record.exampleStylePreference ?? record.visualExamplePreference ?? "visual"),
+      value: normalizeLearnerTraitValue(
+        "examplePreference",
+        record.examplePreference ??
+          record.exampleStylePreference ??
+          record.visualExamplePreference ??
+          "visual",
+      ),
     };
   }
   if (record.assessmentPreference || record.practicePreference) {
     return {
       ...record,
       trait: "assessmentPreference",
-      value: normalizeLearnerTraitValue("assessmentPreference", record.assessmentPreference ?? record.practicePreference),
+      value: normalizeLearnerTraitValue(
+        "assessmentPreference",
+        record.assessmentPreference ?? record.practicePreference,
+      ),
     };
   }
   return value;
@@ -313,20 +386,29 @@ function normalizeLearnerTraitValue(trait: string, value: unknown): unknown {
     worked_examples: "worked_problem",
     worked_problems: "worked_problem",
   };
-  if (trait === "pacePreference" || trait === "examplePreference" || trait === "assessmentPreference") {
+  if (
+    trait === "pacePreference" ||
+    trait === "examplePreference" ||
+    trait === "assessmentPreference"
+  ) {
     return aliases[normalized] ?? normalized;
   }
   return normalized;
 }
 
-export const learnerTraitRecordSignalInputSchema = z.preprocess(normalizeLearnerTraitRecordSignalInput, learnerTraitValueByKeySchema.and(z.object({
-  userId: z.string().min(1).optional(),
-  source: learnerTraitSignalSourceSchema.default("tutor_recorded_preference"),
-  strength: z.number().min(0).max(1).default(0.8),
-  confidence: z.number().min(0).max(1).default(0.85),
-  evidenceRefs: z.array(learnerTraitEvidenceRefSchema).default([]),
-  notes: z.string().min(1).optional(),
-})));
+export const learnerTraitRecordSignalInputSchema = z.preprocess(
+  normalizeLearnerTraitRecordSignalInput,
+  learnerTraitValueByKeySchema.and(
+    z.object({
+      userId: z.string().min(1).optional(),
+      source: learnerTraitSignalSourceSchema.default("tutor_recorded_preference"),
+      strength: z.number().min(0).max(1).default(0.8),
+      confidence: z.number().min(0).max(1).default(0.85),
+      evidenceRefs: z.array(learnerTraitEvidenceRefSchema).default([]),
+      notes: z.string().min(1).optional(),
+    }),
+  ),
+);
 
 export const learnerTraitRecordSignalOutputSchema = z.object({
   signal: learnerTraitSignalSchema,
@@ -372,7 +454,12 @@ export const createQuizInputSchema = z.object({
   conceptIds: z.array(idSchema).default([]),
   sourceNodeRefs: z.array(nodeRefSchema).default([]),
   questionCount: positiveIntSchema.max(20).default(5),
-  questions: z.array(generatedQuizQuestionSchema).optional(),
+  questions: z
+    .array(generatedQuizQuestionSchema)
+    .optional()
+    .describe(
+      "Concrete quiz questions to persist. Include these when the tutor has drafted or promised a quiz; do not rely on fallback generation for a finished learner-facing quiz.",
+    ),
   resumeArtifactId: idSchema.optional(),
   deferGeneration: z.boolean().optional().default(false),
 });
@@ -414,16 +501,18 @@ export const createWorkedExampleInputSchema = z.object({
 export const createFormulaSheetInputSchema = z.object({
   title: z.string().min(1),
   prompt: z.string().min(1),
-  formulas: z.array(
-    z.object({
-      symbol: z.string().min(1),
-      expression: z.string().min(1),
-      meaning: z.string().min(1),
-      assumptions: z.string().min(1).optional(),
-      units: z.string().min(1).optional(),
-      exampleUsage: z.string().min(1).optional(),
-    }),
-  ).min(1),
+  formulas: z
+    .array(
+      z.object({
+        symbol: z.string().min(1),
+        expression: z.string().min(1),
+        meaning: z.string().min(1),
+        assumptions: z.string().min(1).optional(),
+        units: z.string().min(1).optional(),
+        exampleUsage: z.string().min(1).optional(),
+      }),
+    )
+    .min(1),
   conceptIds: z.array(idSchema).default([]),
   sourceNodeRefs: z.array(nodeRefSchema).default([]),
 });
@@ -433,14 +522,16 @@ export const createComparisonPageInputSchema = z.object({
   prompt: z.string().min(1),
   leftTitle: z.string().min(1),
   rightTitle: z.string().min(1),
-  comparisonRows: z.array(
-    z.object({
-      dimension: z.string().min(1),
-      left: z.string().min(1),
-      right: z.string().min(1),
-      takeaway: z.string().min(1).optional(),
-    }),
-  ).min(1),
+  comparisonRows: z
+    .array(
+      z.object({
+        dimension: z.string().min(1),
+        left: z.string().min(1),
+        right: z.string().min(1),
+        takeaway: z.string().min(1).optional(),
+      }),
+    )
+    .min(1),
   conceptIds: z.array(idSchema).default([]),
   sourceNodeRefs: z.array(nodeRefSchema).default([]),
 });
@@ -463,7 +554,13 @@ export const createConceptCardOutputSchema = createQuizOutputSchema;
 
 export const artifactInsertIntoTutorContextInputSchema = z.object({
   artifactId: idSchema,
-  insertionPoint: z.enum(["after_definition", "after_formula", "after_procedure", "after_misconception", "on_demand"]),
+  insertionPoint: z.enum([
+    "after_definition",
+    "after_formula",
+    "after_procedure",
+    "after_misconception",
+    "on_demand",
+  ]),
   tutorMessage: z.string().min(1),
   coverageItemRefsJson: z.array(z.unknown()).default([]),
 });
@@ -471,17 +568,48 @@ export const artifactInsertIntoTutorContextInputSchema = z.object({
 export const artifactInsertIntoTutorContextOutputSchema = z.object({
   success: z.boolean(),
   insertedArtifactId: idSchema.optional(),
-  tutorAnnotation: z.object({
-    artifactId: idSchema,
-    insertionPoint: z.string().min(1),
-    context: z.string().min(1),
-    timestamp: z.string().datetime(),
-  }).optional(),
+  tutorAnnotation: z
+    .object({
+      artifactId: idSchema,
+      insertionPoint: z.string().min(1),
+      context: z.string().min(1),
+      timestamp: z.string().datetime(),
+    })
+    .optional(),
   warnings: z.array(candidateWriteWarningSchema).default([]),
   reducerResult: reducerResultSchema,
 });
 
-const coverageStatusSchema = z.enum(["planned", "introduced", "checked", "mastered", "needs_review"]);
+export const launchInteractiveSurfaceInputSchema = z.object({
+  nodeId: idSchema,
+  nodeRefType: z.enum([
+    "artifact",
+    "concept",
+    "source",
+    "wiki_page",
+    "study_plan",
+    "objective",
+    "objective_list",
+  ]),
+  blockKind: z.string().min(1).optional(),
+});
+
+export const launchInteractiveSurfaceOutputSchema = z.object({
+  launched: z.boolean(),
+  nodeId: idSchema,
+  nodeRefType: z.string().min(1),
+  blockKind: z.string().nullable(),
+  warnings: z.array(candidateWriteWarningSchema).default([]),
+  reducerResult: reducerResultSchema,
+});
+
+const coverageStatusSchema = z.enum([
+  "planned",
+  "introduced",
+  "checked",
+  "mastered",
+  "needs_review",
+]);
 
 export const coverageMarkInputSchema = z.object({
   coverageItemId: idSchema,
@@ -585,7 +713,15 @@ export const curriculumActivateInputSchema = z.object({
 });
 
 export const curriculumActivateOutputSchema = z.object({
-  curriculum: z.object({ id: idSchema, notebookId: idSchema, title: z.string(), status: z.string(), activeModuleId: idSchema.nullable() }).nullable(),
+  curriculum: z
+    .object({
+      id: idSchema,
+      notebookId: idSchema,
+      title: z.string(),
+      status: z.string(),
+      activeModuleId: idSchema.nullable(),
+    })
+    .nullable(),
   warnings: z.array(candidateWriteWarningSchema).default([]),
   reducerResult: reducerResultSchema,
 });
@@ -601,10 +737,21 @@ export const moduleUpdateInputSchema = z.object({
   estimatedSessionCount: z.number().int().positive().optional(),
   coverageRequirementsJson: z.record(z.string(), z.unknown()).optional(),
   masteryGateJson: z.record(z.string(), z.unknown()).optional(),
+  requestDeepBuild: z.boolean().optional(),
 });
 
 export const moduleUpdateOutputSchema = z.object({
-  module: z.object({ id: idSchema, notebookId: idSchema, curriculumId: idSchema, title: z.string(), summary: z.string().nullable(), status: z.string(), orderIndex: z.number().int() }).nullable(),
+  module: z
+    .object({
+      id: idSchema,
+      notebookId: idSchema,
+      curriculumId: idSchema,
+      title: z.string(),
+      summary: z.string().nullable(),
+      status: z.string(),
+      orderIndex: z.number().int(),
+    })
+    .nullable(),
   warnings: z.array(candidateWriteWarningSchema).default([]),
   reducerResult: reducerResultSchema,
 });
@@ -619,7 +766,18 @@ export const objectiveListUpdateInputSchema = z.object({
 });
 
 export const objectiveListUpdateOutputSchema = z.object({
-  objectiveList: z.object({ id: idSchema, notebookId: idSchema, curriculumId: idSchema, moduleId: idSchema, title: z.string(), status: z.string(), currentObjectiveId: idSchema.nullable(), objectiveIdsOrdered: z.array(idSchema) }).nullable(),
+  objectiveList: z
+    .object({
+      id: idSchema,
+      notebookId: idSchema,
+      curriculumId: idSchema,
+      moduleId: idSchema,
+      title: z.string(),
+      status: z.string(),
+      currentObjectiveId: idSchema.nullable(),
+      objectiveIdsOrdered: z.array(idSchema),
+    })
+    .nullable(),
   warnings: z.array(candidateWriteWarningSchema).default([]),
   reducerResult: reducerResultSchema,
 });
@@ -674,16 +832,18 @@ export const objectiveListSplitObjectiveInputSchema = z.object({
 });
 
 export const objectiveListSplitObjectiveOutputSchema = z.object({
-  objectiveList: z.object({
-    id: idSchema,
-    notebookId: idSchema,
-    curriculumId: idSchema,
-    moduleId: idSchema,
-    title: z.string(),
-    status: z.string(),
-    currentObjectiveId: idSchema.nullable(),
-    objectiveIdsOrdered: z.array(idSchema),
-  }).nullable(),
+  objectiveList: z
+    .object({
+      id: idSchema,
+      notebookId: idSchema,
+      curriculumId: idSchema,
+      moduleId: idSchema,
+      title: z.string(),
+      status: z.string(),
+      currentObjectiveId: idSchema.nullable(),
+      objectiveIdsOrdered: z.array(idSchema),
+    })
+    .nullable(),
   createdObjectiveIds: z.array(idSchema).default([]),
   warnings: z.array(candidateWriteWarningSchema).default([]),
   reducerResult: reducerResultSchema,
@@ -698,16 +858,18 @@ export const objectiveListMergeObjectivesInputSchema = z.object({
 });
 
 export const objectiveListMergeObjectivesOutputSchema = z.object({
-  objectiveList: z.object({
-    id: idSchema,
-    notebookId: idSchema,
-    curriculumId: idSchema,
-    moduleId: idSchema,
-    title: z.string(),
-    status: z.string(),
-    currentObjectiveId: idSchema.nullable(),
-    objectiveIdsOrdered: z.array(idSchema),
-  }).nullable(),
+  objectiveList: z
+    .object({
+      id: idSchema,
+      notebookId: idSchema,
+      curriculumId: idSchema,
+      moduleId: idSchema,
+      title: z.string(),
+      status: z.string(),
+      currentObjectiveId: idSchema.nullable(),
+      objectiveIdsOrdered: z.array(idSchema),
+    })
+    .nullable(),
   mergedObjectiveId: idSchema.optional(),
   warnings: z.array(candidateWriteWarningSchema).default([]),
   reducerResult: reducerResultSchema,
@@ -729,8 +891,14 @@ export type CreateComparisonPageInput = z.infer<typeof createComparisonPageInput
 export type CreateComparisonPageOutput = z.infer<typeof createComparisonPageOutputSchema>;
 export type CreateConceptCardInput = z.infer<typeof createConceptCardInputSchema>;
 export type CreateConceptCardOutput = z.infer<typeof createConceptCardOutputSchema>;
-export type ArtifactInsertIntoTutorContextInput = z.infer<typeof artifactInsertIntoTutorContextInputSchema>;
-export type ArtifactInsertIntoTutorContextOutput = z.infer<typeof artifactInsertIntoTutorContextOutputSchema>;
+export type ArtifactInsertIntoTutorContextInput = z.infer<
+  typeof artifactInsertIntoTutorContextInputSchema
+>;
+export type ArtifactInsertIntoTutorContextOutput = z.infer<
+  typeof artifactInsertIntoTutorContextOutputSchema
+>;
+export type LaunchInteractiveSurfaceInput = z.infer<typeof launchInteractiveSurfaceInputSchema>;
+export type LaunchInteractiveSurfaceOutput = z.infer<typeof launchInteractiveSurfaceOutputSchema>;
 export type CoverageMarkInput = z.infer<typeof coverageMarkInputSchema>;
 export type CoverageMarkOutput = z.infer<typeof coverageMarkOutputSchema>;
 export type CoverageGetGapsInput = z.infer<typeof coverageGetGapsInputSchema>;
@@ -747,17 +915,36 @@ export type ObjectiveUpdateInput = z.infer<typeof objectiveUpdateInputSchema>;
 export type ObjectiveUpdateOutput = z.infer<typeof objectiveUpdateOutputSchema>;
 export type ObjectiveListReorderInput = z.infer<typeof objectiveListReorderInputSchema>;
 export type ObjectiveListReorderOutput = z.infer<typeof objectiveListReorderOutputSchema>;
-export type ObjectiveListSplitObjectiveInput = z.infer<typeof objectiveListSplitObjectiveInputSchema>;
-export type ObjectiveListSplitObjectiveOutput = z.infer<typeof objectiveListSplitObjectiveOutputSchema>;
-export type ObjectiveListMergeObjectivesInput = z.infer<typeof objectiveListMergeObjectivesInputSchema>;
-export type ObjectiveListMergeObjectivesOutput = z.infer<typeof objectiveListMergeObjectivesOutputSchema>;
-export type StudentProfileUpdatePreferencesInput = z.infer<typeof studentProfileUpdatePreferencesInputSchema>;
-export type StudentProfileUpdatePreferencesOutput = z.infer<typeof studentProfileUpdatePreferencesOutputSchema>;
+export type ObjectiveListSplitObjectiveInput = z.infer<
+  typeof objectiveListSplitObjectiveInputSchema
+>;
+export type ObjectiveListSplitObjectiveOutput = z.infer<
+  typeof objectiveListSplitObjectiveOutputSchema
+>;
+export type ObjectiveListMergeObjectivesInput = z.infer<
+  typeof objectiveListMergeObjectivesInputSchema
+>;
+export type ObjectiveListMergeObjectivesOutput = z.infer<
+  typeof objectiveListMergeObjectivesOutputSchema
+>;
+export type StudentProfileUpdatePreferencesInput = z.infer<
+  typeof studentProfileUpdatePreferencesInputSchema
+>;
+export type StudentProfileUpdatePreferencesOutput = z.infer<
+  typeof studentProfileUpdatePreferencesOutputSchema
+>;
 export type LearnerTraitRecordSignalInput = z.infer<typeof learnerTraitRecordSignalInputSchema>;
 export type LearnerTraitRecordSignalOutput = z.infer<typeof learnerTraitRecordSignalOutputSchema>;
 
 export const evaluateLearnerResponseInputSchema = masteryEvidenceInputSchema
-  .omit({ conceptRoles: true, evidenceType: true, triggerSource: true, masterySnapshot: true, sourceRefs: true, contextRefs: true })
+  .omit({
+    conceptRoles: true,
+    evidenceType: true,
+    triggerSource: true,
+    masterySnapshot: true,
+    sourceRefs: true,
+    contextRefs: true,
+  })
   .extend({
     conceptRoles: z.array(flexibleConceptRoleSchema).min(1),
     masterySnapshot: flexibleMasterySnapshotSchema,
@@ -783,26 +970,113 @@ export const evaluateLearnerResponseOutputSchema = z.object({
 export type EvaluateLearnerResponseInput = z.infer<typeof evaluateLearnerResponseInputSchema>;
 export type EvaluateLearnerResponseOutput = z.infer<typeof evaluateLearnerResponseOutputSchema>;
 
+const wikiTouchStatusSchema = z.enum(["heuristic", "polishing", "polished", "failed"]);
+
+const wikiTouchResultSchema = z.object({
+  pageRef: nodeRefSchema,
+  readiness: pageReadinessSchema,
+  readinessLabel: z.string().min(1),
+  status: wikiTouchStatusSchema,
+  foregroundCompleted: z.boolean(),
+  backgroundContinues: z.boolean(),
+  message: z.string().min(1),
+  referenceSurface: referenceSurfaceSchema.omit({ provenanceRefs: true }).optional(),
+  qualityIssues: z.array(pageQualityIssueSchema).optional(),
+});
+
+export const ensureConceptPageInputSchema = z.object({
+  conceptId: idSchema,
+  conceptName: z.string().min(1).optional(),
+});
+
+export const ensureTopicPageInputSchema = z.object({
+  topicKey: z.string().min(1).optional(),
+  title: z.string().min(1),
+});
+
+export const touchConceptPageInputSchema = z.object({
+  conceptId: idSchema,
+  conceptName: z.string().min(1).optional(),
+  foregroundBudgetMs: positiveIntSchema.default(8000),
+});
+
+export const touchTopicPageInputSchema = z
+  .object({
+    topicKey: z.string().min(1).optional(),
+    title: z.string().min(1).optional(),
+    foregroundBudgetMs: positiveIntSchema.default(8000),
+  })
+  .refine((value) => Boolean(value.topicKey ?? value.title), {
+    message: "Topic touch requires topicKey or title.",
+  });
+
+const wikiTouchOutputSchema = wikiTouchResultSchema.extend({
+  warnings: z.array(candidateWriteWarningSchema).default([]),
+  reducerResult: reducerResultSchema,
+});
+
+export type EnsureConceptPageInput = z.infer<typeof ensureConceptPageInputSchema>;
+export type EnsureConceptPageOutput = z.infer<typeof wikiTouchOutputSchema>;
+export type EnsureTopicPageInput = z.infer<typeof ensureTopicPageInputSchema>;
+export type EnsureTopicPageOutput = z.infer<typeof wikiTouchOutputSchema>;
+export type TouchConceptPageInput = z.infer<typeof touchConceptPageInputSchema>;
+export type TouchConceptPageOutput = z.infer<typeof wikiTouchOutputSchema>;
+export type TouchTopicPageInput = z.infer<typeof touchTopicPageInputSchema>;
+export type TouchTopicPageOutput = z.infer<typeof wikiTouchOutputSchema>;
+
 export type RuntimeWriteToolProvider = {
   proposeClaim(input: ProposeClaimInput, ctx: ToolContext): Promise<ProposeClaimOutput>;
   createNote(input: CreateNoteInput, ctx: ToolContext): Promise<CreateNoteOutput>;
   createQuiz(input: CreateQuizInput, ctx: ToolContext): Promise<CreateQuizOutput>;
   createFlashcards(input: CreateFlashcardsInput, ctx: ToolContext): Promise<CreateFlashcardsOutput>;
-  createWorkedExample(input: CreateWorkedExampleInput, ctx: ToolContext): Promise<CreateWorkedExampleOutput>;
-  createFormulaSheet(input: CreateFormulaSheetInput, ctx: ToolContext): Promise<CreateFormulaSheetOutput>;
-  createComparisonPage(input: CreateComparisonPageInput, ctx: ToolContext): Promise<CreateComparisonPageOutput>;
-  createConceptCard(input: CreateConceptCardInput, ctx: ToolContext): Promise<CreateConceptCardOutput>;
-  artifactInsertIntoTutorContext(input: ArtifactInsertIntoTutorContextInput, ctx: ToolContext): Promise<ArtifactInsertIntoTutorContextOutput>;
+  createWorkedExample(
+    input: CreateWorkedExampleInput,
+    ctx: ToolContext,
+  ): Promise<CreateWorkedExampleOutput>;
+  createFormulaSheet(
+    input: CreateFormulaSheetInput,
+    ctx: ToolContext,
+  ): Promise<CreateFormulaSheetOutput>;
+  createComparisonPage(
+    input: CreateComparisonPageInput,
+    ctx: ToolContext,
+  ): Promise<CreateComparisonPageOutput>;
+  createConceptCard(
+    input: CreateConceptCardInput,
+    ctx: ToolContext,
+  ): Promise<CreateConceptCardOutput>;
+  artifactInsertIntoTutorContext(
+    input: ArtifactInsertIntoTutorContextInput,
+    ctx: ToolContext,
+  ): Promise<ArtifactInsertIntoTutorContextOutput>;
   markCoverage(input: CoverageMarkInput, ctx: ToolContext): Promise<CoverageMarkOutput>;
   getCoverageGaps(input: CoverageGetGapsInput, ctx: ToolContext): Promise<CoverageGetGapsOutput>;
-  updateSessionPlan(input: SessionPlanUpdateInput, ctx: ToolContext): Promise<SessionPlanUpdateOutput>;
-  activateCurriculum(input: CurriculumActivateInput, ctx: ToolContext): Promise<CurriculumActivateOutput>;
+  updateSessionPlan(
+    input: SessionPlanUpdateInput,
+    ctx: ToolContext,
+  ): Promise<SessionPlanUpdateOutput>;
+  activateCurriculum(
+    input: CurriculumActivateInput,
+    ctx: ToolContext,
+  ): Promise<CurriculumActivateOutput>;
   updateModule(input: ModuleUpdateInput, ctx: ToolContext): Promise<ModuleUpdateOutput>;
-  updateObjectiveList(input: ObjectiveListUpdateInput, ctx: ToolContext): Promise<ObjectiveListUpdateOutput>;
+  updateObjectiveList(
+    input: ObjectiveListUpdateInput,
+    ctx: ToolContext,
+  ): Promise<ObjectiveListUpdateOutput>;
   updateObjective(input: ObjectiveUpdateInput, ctx: ToolContext): Promise<ObjectiveUpdateOutput>;
-  reorderObjectiveList(input: ObjectiveListReorderInput, ctx: ToolContext): Promise<ObjectiveListReorderOutput>;
-  splitObjective(input: ObjectiveListSplitObjectiveInput, ctx: ToolContext): Promise<ObjectiveListSplitObjectiveOutput>;
-  mergeObjectives(input: ObjectiveListMergeObjectivesInput, ctx: ToolContext): Promise<ObjectiveListMergeObjectivesOutput>;
+  reorderObjectiveList(
+    input: ObjectiveListReorderInput,
+    ctx: ToolContext,
+  ): Promise<ObjectiveListReorderOutput>;
+  splitObjective(
+    input: ObjectiveListSplitObjectiveInput,
+    ctx: ToolContext,
+  ): Promise<ObjectiveListSplitObjectiveOutput>;
+  mergeObjectives(
+    input: ObjectiveListMergeObjectivesInput,
+    ctx: ToolContext,
+  ): Promise<ObjectiveListMergeObjectivesOutput>;
   updateStudentProfilePreferences(
     input: StudentProfileUpdatePreferencesInput,
     ctx: ToolContext,
@@ -815,6 +1089,17 @@ export type RuntimeWriteToolProvider = {
     input: EvaluateLearnerResponseInput,
     ctx: ToolContext,
   ): Promise<EvaluateLearnerResponseOutput>;
+  launchInteractiveSurface(
+    input: LaunchInteractiveSurfaceInput,
+    ctx: ToolContext,
+  ): Promise<LaunchInteractiveSurfaceOutput>;
+  ensureConceptPage(
+    input: EnsureConceptPageInput,
+    ctx: ToolContext,
+  ): Promise<EnsureConceptPageOutput>;
+  ensureTopicPage(input: EnsureTopicPageInput, ctx: ToolContext): Promise<EnsureTopicPageOutput>;
+  touchConceptPage(input: TouchConceptPageInput, ctx: ToolContext): Promise<TouchConceptPageOutput>;
+  touchTopicPage(input: TouchTopicPageInput, ctx: ToolContext): Promise<TouchTopicPageOutput>;
 };
 
 export const WRITE_TOOL_CONTRACTS = [
@@ -844,7 +1129,8 @@ export const WRITE_TOOL_CONTRACTS = [
   },
   {
     name: "artifact.create_quiz",
-    description: "Creates a draft quiz artifact from notebook concepts and sources.",
+    description:
+      "Creates a quiz artifact from notebook concepts and sources. For a learner-facing quiz, pass concrete questions with prompts, choices when useful, correct answers/reference answers, explanations, and conceptIds. Do not call this with only a title/prompt after drafting questions in chat; persist those exact questions in the questions array.",
     inputSchema: createQuizInputSchema,
     outputSchema: createQuizOutputSchema,
     sideEffectClass: "candidate_write",
@@ -916,7 +1202,8 @@ export const WRITE_TOOL_CONTRACTS = [
   },
   {
     name: "artifact.insert_into_tutor_context",
-    description: "Inserts an existing artifact into the current tutor context with annotation and insertion point.",
+    description:
+      "Inserts an existing artifact into the current tutor context with annotation and insertion point.",
     inputSchema: artifactInsertIntoTutorContextInputSchema,
     outputSchema: artifactInsertIntoTutorContextOutputSchema,
     sideEffectClass: "candidate_write",
@@ -924,6 +1211,19 @@ export const WRITE_TOOL_CONTRACTS = [
     providerMethod: "artifactInsertIntoTutorContext",
     runtimeExposure: "tutor_runtime_v1",
     reducerExpectation: { required: true, mutationTypes: ["artifact.insert_into_tutor_context"] },
+    timeoutMs: 5000,
+  },
+  {
+    name: "interactive_surface.launch",
+    description:
+      "Opens a Workspace Interactive Learning Surface for the learner during an active lesson. Use for quiz practice, simulations, worked examples, or evidence exploration without making the rich UI a tutor chat message.",
+    inputSchema: launchInteractiveSurfaceInputSchema,
+    outputSchema: launchInteractiveSurfaceOutputSchema,
+    sideEffectClass: "state_update",
+    operationKind: "write",
+    providerMethod: "launchInteractiveSurface",
+    runtimeExposure: "tutor_runtime_v1",
+    reducerExpectation: { required: true, mutationTypes: ["session.focus.updated"] },
     timeoutMs: 5000,
   },
   {
@@ -1012,7 +1312,8 @@ export const WRITE_TOOL_CONTRACTS = [
   },
   {
     name: "objective_list.update",
-    description: "Updates a module-scoped objective list, including current objective and ordering.",
+    description:
+      "Updates a module-scoped objective list, including current objective and ordering.",
     inputSchema: objectiveListUpdateInputSchema,
     outputSchema: objectiveListUpdateOutputSchema,
     sideEffectClass: "candidate_write",
@@ -1073,7 +1374,8 @@ export const WRITE_TOOL_CONTRACTS = [
   },
   {
     name: "learner_trait.record_signal",
-    description: "Records an explicit learner preference or self-report signal for governed trait estimation.",
+    description:
+      "Records an explicit learner preference or self-report signal for governed trait estimation.",
     inputSchema: learnerTraitRecordSignalInputSchema,
     outputSchema: learnerTraitRecordSignalOutputSchema,
     sideEffectClass: "candidate_write",
@@ -1098,7 +1400,7 @@ export const WRITE_TOOL_CONTRACTS = [
   {
     name: "learning.evaluate_response",
     description:
-      "Evaluates a learner response, persists Mastery Evidence, and applies reducer-governed mastery updates.",
+      'Evaluates a learner response and persists Mastery Evidence. Required fields: tutorQuestion (string), learnerAnswer (string), conceptRoles (array of {conceptId: string, role: "primary"|"secondary"|"prerequisite"}). Optional: objectiveId, referenceAnswer, evidenceType (mastery_check|open_explanation|quiz_artifact|self_report|tutor_observation), masterySnapshot ({conceptId: score} map).',
     inputSchema: evaluateLearnerResponseInputSchema,
     outputSchema: evaluateLearnerResponseOutputSchema,
     sideEffectClass: "state_update",
@@ -1108,9 +1410,64 @@ export const WRITE_TOOL_CONTRACTS = [
     reducerExpectation: { required: true, mutationTypes: ["learning.mastery.updated"] },
     timeoutMs: 20_000,
   },
+  {
+    name: "wiki.ensure_concept_page",
+    description:
+      "Ensures a canonical concept wiki page exists for the notebook. Creates a heuristic page when missing. Does not create topic page shells.",
+    inputSchema: ensureConceptPageInputSchema,
+    outputSchema: wikiTouchOutputSchema,
+    sideEffectClass: "state_update",
+    operationKind: "write",
+    providerMethod: "ensureConceptPage",
+    runtimeExposure: "tutor_runtime_v1",
+    reducerExpectation: { required: true, mutationTypes: ["wiki.page.ensured"] },
+    timeoutMs: 5000,
+  },
+  {
+    name: "wiki.ensure_topic_page",
+    description:
+      "Ensures a notebook-global topic wiki page exists. Creates a heuristic page when missing.",
+    inputSchema: ensureTopicPageInputSchema,
+    outputSchema: wikiTouchOutputSchema,
+    sideEffectClass: "state_update",
+    operationKind: "write",
+    providerMethod: "ensureTopicPage",
+    runtimeExposure: "tutor_runtime_v1",
+    reducerExpectation: { required: true, mutationTypes: ["wiki.page.ensured"] },
+    timeoutMs: 5000,
+  },
+  {
+    name: "wiki.touch_concept",
+    description:
+      "Touches a central concept page: ensures it exists, then starts bounded LLM polish. Returns immediately after the foreground budget (default 8s) while background polish may continue.",
+    inputSchema: touchConceptPageInputSchema,
+    outputSchema: wikiTouchOutputSchema,
+    sideEffectClass: "state_update",
+    operationKind: "write",
+    providerMethod: "touchConceptPage",
+    runtimeExposure: "tutor_runtime_v1",
+    reducerExpectation: { required: true, mutationTypes: ["generation.touch.completed"] },
+    timeoutMs: 12_000,
+  },
+  {
+    name: "wiki.touch_topic",
+    description:
+      "Touches a notebook-global topic page: ensures it exists, then starts bounded LLM polish with foreground timeout and optional background continuation.",
+    inputSchema: touchTopicPageInputSchema,
+    outputSchema: wikiTouchOutputSchema,
+    sideEffectClass: "state_update",
+    operationKind: "write",
+    providerMethod: "touchTopicPage",
+    runtimeExposure: "tutor_runtime_v1",
+    reducerExpectation: { required: true, mutationTypes: ["generation.touch.completed"] },
+    timeoutMs: 12_000,
+  },
 ] as const satisfies readonly ToolContract<keyof RuntimeWriteToolProvider & string>[];
 
-export function registerWriteToolsV1(registry: ToolRegistry, provider: RuntimeWriteToolProvider): void {
+export function registerWriteToolsV1(
+  registry: ToolRegistry,
+  provider: RuntimeWriteToolProvider,
+): void {
   for (const contract of WRITE_TOOL_CONTRACTS) {
     const execute = provider[contract.providerMethod] as (
       input: unknown,
@@ -1120,10 +1477,16 @@ export function registerWriteToolsV1(registry: ToolRegistry, provider: RuntimeWr
       ...contract,
       execute: (input, ctx) => {
         if (contract.name === "coverage.mark_introduced") {
-          return provider.markCoverage({ ...(input as unknown as CoverageMarkInput), status: "introduced" }, ctx);
+          return provider.markCoverage(
+            { ...(input as unknown as CoverageMarkInput), status: "introduced" },
+            ctx,
+          );
         }
         if (contract.name === "coverage.mark_checked") {
-          return provider.markCoverage({ ...(input as unknown as CoverageMarkInput), status: "checked" }, ctx);
+          return provider.markCoverage(
+            { ...(input as unknown as CoverageMarkInput), status: "checked" },
+            ctx,
+          );
         }
         return execute(input, ctx);
       },
@@ -1166,7 +1529,13 @@ export function createNoopRuntimeWriteToolProvider(): RuntimeWriteToolProvider {
         artifactId: createRuntimeWriteId("artifact"),
         status: "draft",
         warnings: input.deferGeneration
-          ? [{ code: "quiz_generation_deferred", message: "Saved a resumable quiz draft; resume from this artifact to finish generation." }]
+          ? [
+              {
+                code: "quiz_generation_deferred",
+                message:
+                  "Saved a resumable quiz draft; resume from this artifact to finish generation.",
+              },
+            ]
           : [],
         reducerResult: buildReducerResult("artifact.created", {
           notebookId: ctx.notebookId,
@@ -1270,7 +1639,12 @@ export function createNoopRuntimeWriteToolProvider(): RuntimeWriteToolProvider {
       const signalId = createRuntimeWriteId("lts");
       const evidenceRefs = input.evidenceRefs.length
         ? input.evidenceRefs
-        : [{ refType: "session_trace" as const, refId: ctx.sessionId ?? ctx.runId ?? ctx.notebookId }];
+        : [
+            {
+              refType: "session_trace" as const,
+              refId: ctx.sessionId ?? ctx.runId ?? ctx.notebookId,
+            },
+          ];
       return {
         signal: learnerTraitSignalSchema.parse({
           id: signalId,
@@ -1318,6 +1692,11 @@ export function createNoopRuntimeWriteToolProvider(): RuntimeWriteToolProvider {
           coverageItemRefsJson: input.coverageItemRefsJson ?? [],
         }),
       };
+    },
+    async launchInteractiveSurface() {
+      throw new Error(
+        "launchInteractiveSurface requires RuntimeWriteToolProvider from apps/api (createInteractiveSurfaceWriteHandlers).",
+      );
     },
     async markCoverage(input, ctx) {
       return {
@@ -1477,20 +1856,17 @@ export function createNoopRuntimeWriteToolProvider(): RuntimeWriteToolProvider {
           updatedAt: new Date().toISOString(),
         },
         warnings: [],
-        reducerResult: buildReducerResult(
-          "student_profile.updated",
-          {
-            notebookId: ctx.notebookId,
-            userId: input.userId ?? ctx.userId,
-            goalSummary: input.goalSummary ?? null,
-            backgroundSummary: input.backgroundSummary ?? null,
-            pacePreference: input.pacePreference ?? null,
-            depthPreference: input.depthPreference ?? null,
-            examplePreferencesJson: input.examplePreferencesJson ?? {},
-            assessmentPreferenceJson: input.assessmentPreferenceJson ?? {},
-            constraintsJson: input.constraintsJson ?? {},
-          },
-        ),
+        reducerResult: buildReducerResult("student_profile.updated", {
+          notebookId: ctx.notebookId,
+          userId: input.userId ?? ctx.userId,
+          goalSummary: input.goalSummary ?? null,
+          backgroundSummary: input.backgroundSummary ?? null,
+          pacePreference: input.pacePreference ?? null,
+          depthPreference: input.depthPreference ?? null,
+          examplePreferencesJson: input.examplePreferencesJson ?? {},
+          assessmentPreferenceJson: input.assessmentPreferenceJson ?? {},
+          constraintsJson: input.constraintsJson ?? {},
+        }),
       };
     },
     async evaluateLearnerResponse(input, ctx) {
@@ -1505,14 +1881,89 @@ export function createNoopRuntimeWriteToolProvider(): RuntimeWriteToolProvider {
         uncertainty: 0.45,
         conceptIds: input.conceptRoles.map((role) => role.conceptId),
         warnings: [],
-        reducerResult: buildReducerResult(
-          "learning.mastery.updated",
-          {
-            notebookId: ctx.notebookId,
-            masteryEvidenceId,
-            conceptIds: input.conceptRoles.map((role) => role.conceptId),
-          },
-        ),
+        reducerResult: buildReducerResult("learning.mastery.updated", {
+          notebookId: ctx.notebookId,
+          masteryEvidenceId,
+          conceptIds: input.conceptRoles.map((role) => role.conceptId),
+        }),
+      };
+    },
+    async ensureConceptPage(input, ctx) {
+      const pageRef = { refType: "wiki_page" as const, refId: createRuntimeWriteId("wp") };
+      return {
+        pageRef,
+        readiness: "still_improving" as const,
+        readinessLabel: "Still improving",
+        status: "heuristic" as const,
+        foregroundCompleted: true,
+        backgroundContinues: false,
+        message: "Concept page is available.",
+        warnings: [],
+        reducerResult: buildReducerResult("wiki.page.ensured", {
+          notebookId: ctx.notebookId,
+          conceptId: input.conceptId,
+          pageRef,
+        }),
+      };
+    },
+    async ensureTopicPage(input, ctx) {
+      const pageRef = { refType: "wiki_page" as const, refId: createRuntimeWriteId("wp") };
+      return {
+        pageRef,
+        readiness: "still_improving" as const,
+        readinessLabel: "Still improving",
+        status: "heuristic" as const,
+        foregroundCompleted: true,
+        backgroundContinues: false,
+        message: "Topic page is available.",
+        warnings: [],
+        reducerResult: buildReducerResult("wiki.page.ensured", {
+          notebookId: ctx.notebookId,
+          title: input.title,
+          topicKey: input.topicKey ?? null,
+          pageRef,
+        }),
+      };
+    },
+    async touchConceptPage(input, ctx) {
+      const pageRef = { refType: "wiki_page" as const, refId: createRuntimeWriteId("wp") };
+      return {
+        pageRef,
+        readiness: "still_improving" as const,
+        readinessLabel: "Still improving",
+        status: "polishing" as const,
+        foregroundCompleted: false,
+        backgroundContinues: true,
+        message: "Page improvement continues in the background.",
+        warnings: [],
+        reducerResult: buildReducerResult("generation.touch.completed", {
+          notebookId: ctx.notebookId,
+          conceptId: input.conceptId,
+          pageRef,
+          foregroundCompleted: false,
+          backgroundContinues: true,
+        }),
+      };
+    },
+    async touchTopicPage(input, ctx) {
+      const pageRef = { refType: "wiki_page" as const, refId: createRuntimeWriteId("wp") };
+      return {
+        pageRef,
+        readiness: "still_improving" as const,
+        readinessLabel: "Still improving",
+        status: "polishing" as const,
+        foregroundCompleted: false,
+        backgroundContinues: true,
+        message: "Page improvement continues in the background.",
+        warnings: [],
+        reducerResult: buildReducerResult("generation.touch.completed", {
+          notebookId: ctx.notebookId,
+          title: input.title ?? null,
+          topicKey: input.topicKey ?? null,
+          pageRef,
+          foregroundCompleted: false,
+          backgroundContinues: true,
+        }),
       };
     },
   };
@@ -1547,7 +1998,14 @@ export function proposeClaimReducerResult(input: {
 export function createArtifactReducerResult(input: {
   artifactId: string;
   notebookId: string;
-  artifactType: "note" | "quiz" | "flashcards" | "worked_example" | "formula_sheet" | "comparison_page" | "concept_card";
+  artifactType:
+    | "note"
+    | "quiz"
+    | "flashcards"
+    | "worked_example"
+    | "formula_sheet"
+    | "comparison_page"
+    | "concept_card";
   title: string;
   sourceNodeRefs: NodeRef[];
   status?: string;

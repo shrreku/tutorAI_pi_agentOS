@@ -78,4 +78,3 @@ export {
   type ProjectGraphEnv,
   type ProjectGraphResult,
 } from "./graph-projection/index.js";
-export * from "@studyagent/schemas";

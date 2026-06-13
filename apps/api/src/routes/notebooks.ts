@@ -14,7 +14,7 @@ import {
 import { mergeNoteArtifactPayload } from "@studyagent/schemas";
 import { buildLearningArtifactView } from "../artifact-view.js";
 import { resolveActor } from "../auth.js";
-import { recordFlashcardReview, recordQuizAttempt } from "../assessment-artifacts.js";
+import { recordFlashcardReview } from "../assessment-artifacts.js";
 import { loadNotebookStudyState } from "../study-state.js";
 
 export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
@@ -431,67 +431,12 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
       conceptIds?: string[];
       explanation?: string;
     };
-  }>("/notebooks/:notebookId/artifacts/:artifactId/quiz-attempts", async (request, reply) => {
-    const actor = await resolveActor(ctx, request);
-    const { notebookId, artifactId } = request.params;
-    const [row] = await ctx.db.db
-      .select()
-      .from(notebooks)
-      .where(and(eq(notebooks.id, notebookId), eq(notebooks.ownerId, actor.id)))
-      .limit(1);
-
-    if (!row) {
-      return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
-    }
-
-    const [artifact] = await ctx.db.db
-      .select()
-      .from(artifacts)
-      .where(and(eq(artifacts.id, artifactId), eq(artifacts.notebookId, notebookId)))
-      .limit(1);
-
-    if (!artifact || artifact.artifactType !== "quiz") {
-      return reply.status(404).send({ code: "not_found", message: "Quiz artifact not found" });
-    }
-
-    const body = request.body ?? ({} as Record<string, unknown>);
-    const payload = (artifact.payloadJson ?? {}) as Record<string, unknown>;
-    const questions = Array.isArray(payload.questions) ? payload.questions : [];
-    const selectedQuestion = questions.find(
-      (question) =>
-        question &&
-        typeof question === "object" &&
-        (question as { id?: unknown }).id === body.questionId,
-    ) as { conceptId?: string; explanation?: string } | undefined;
-
-    const conceptIds = (body.conceptIds?.length ? body.conceptIds : selectedQuestion?.conceptId ? [selectedQuestion.conceptId] : [])
-      .filter((value): value is string => typeof value === "string" && value.length > 0);
-
-    const explanation =
-      typeof body.explanation === "string"
-        ? body.explanation
-        : typeof selectedQuestion?.explanation === "string"
-          ? selectedQuestion.explanation
-          : undefined;
-
-    const result = await recordQuizAttempt(ctx.db, {
-      notebookId,
-      userId: actor.id,
-      artifactId,
-      questionId: body.questionId,
-      answer: body.answer,
-      isCorrect: body.isCorrect,
-      conceptIds,
-      ...(body.score !== undefined ? { score: body.score } : {}),
-      ...(explanation ? { explanation } : {}),
+  }>("/notebooks/:notebookId/artifacts/:artifactId/quiz-attempts", async (_request, reply) => {
+    return reply.status(410).send({
+      code: "deprecated",
+      message:
+        "Quiz attempts must be recorded through POST /api/v1/notebooks/:notebookId/interactive-learning/actions with actionName quiz.answer_submitted.",
     });
-
-    return reply.send({
-      ok: true,
-      attemptId: result.attemptId,
-      updatedConceptStates: result.updatedConceptStates,
-    });
-
   });
 
   app.post<{

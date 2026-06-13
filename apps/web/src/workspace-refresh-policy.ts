@@ -5,6 +5,7 @@ import {
   type WorkspaceRefreshPolicy,
 } from "@studyagent/schemas";
 import type { QueryClient } from "@tanstack/react-query";
+import { notebookStudyStateQueryKey } from "./notebook-queries.js";
 
 export const WORKSPACE_REFRESH_EVENT_TYPES = eventTypeSchema.options;
 
@@ -33,7 +34,7 @@ export function applyWorkspaceRefreshInvalidations(input: {
     onGraphProjectionUpdated();
   }
   if (policy.targets.includes("studyState")) {
-    void queryClient.invalidateQueries({ queryKey: ["whiteboard-study-state", notebookId] });
+    void queryClient.invalidateQueries({ queryKey: notebookStudyStateQueryKey(notebookId) });
   }
   if (policy.targets.includes("artifacts")) {
     void queryClient.invalidateQueries({ queryKey: ["notebook-artifacts", notebookId] });

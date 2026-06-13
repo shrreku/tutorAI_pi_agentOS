@@ -256,7 +256,7 @@ describe("agent trace helpers", () => {
 
     expect(phases.map((phase) => phase.label)).toEqual([
       "Read span · Thermo.pdf · 40ms",
-      "Created quiz · Heat transfer quiz · 90ms",
+      "Generated quiz · Heat transfer quiz · 90ms",
     ]);
     expect(phases.find((phase) => phase.label.startsWith("Read span"))?.detail).toContain("Heat flows");
   });

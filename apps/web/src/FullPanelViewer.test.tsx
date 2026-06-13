@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReferenceSurface } from "@studyagent/schemas";
 import FullPanelViewer from "./FullPanelViewer.js";
+import { WorkspaceShellProvider } from "./workspace-shell-context.js";
 
 describe("FullPanelViewer", () => {
   const renderViewer = (node: React.ComponentProps<typeof FullPanelViewer>["node"], referenceSurface?: ReferenceSurface) => {
@@ -13,7 +14,9 @@ describe("FullPanelViewer", () => {
     }
     return renderToStaticMarkup(
       <QueryClientProvider client={client}>
-        <FullPanelViewer notebookId="nb_1" node={node} onClose={() => {}} />
+        <WorkspaceShellProvider notebookId="nb_1" selectedNodeRefs={[]} onSelectedNodeRefsChange={() => {}}>
+          <FullPanelViewer notebookId="nb_1" node={node} onClose={() => {}} />
+        </WorkspaceShellProvider>
       </QueryClientProvider>,
     );
   };
@@ -25,7 +28,9 @@ describe("FullPanelViewer", () => {
     }
     return renderToStaticMarkup(
       <QueryClientProvider client={client}>
-        <FullPanelViewer notebookId="nb_1" node={node} onClose={() => {}} onLaunchTutor={() => {}} onShowProvenance={() => {}} />
+        <WorkspaceShellProvider notebookId="nb_1" selectedNodeRefs={[]} onSelectedNodeRefsChange={() => {}}>
+          <FullPanelViewer notebookId="nb_1" node={node} onClose={() => {}} onLaunchTutor={() => {}} onShowProvenance={() => {}} />
+        </WorkspaceShellProvider>
       </QueryClientProvider>,
     );
   };
@@ -65,6 +70,7 @@ describe("FullPanelViewer", () => {
         scopeRefs: [],
         sourceRefs: [],
         provenanceRefs: [],
+        interactiveBlocks: [],
         coverageRefs: [],
         primaryActions: ["open_source", "ask_tutor"],
         quality: { confidence: 0.9, sourceBacked: true, needsReview: false },
@@ -104,6 +110,7 @@ describe("FullPanelViewer", () => {
         scopeRefs: [],
         sourceRefs: [],
         provenanceRefs: [],
+        interactiveBlocks: [],
         coverageRefs: [],
         primaryActions: ["quiz", "ask_tutor"],
         quality: { confidence: 0.9, sourceBacked: true, needsReview: false },
@@ -149,6 +156,7 @@ describe("FullPanelViewer", () => {
         scopeRefs: [],
         sourceRefs: [],
         provenanceRefs: [],
+        interactiveBlocks: [],
         coverageRefs: [],
         primaryActions: ["open_source", "ask_tutor"],
         quality: { confidence: 0.9, sourceBacked: true, needsReview: false },
@@ -180,6 +188,7 @@ describe("FullPanelViewer", () => {
       scopeRefs: [],
       sourceRefs: [],
       provenanceRefs: [],
+      interactiveBlocks: [],
       coverageRefs: [],
       primaryActions: ["ask_tutor"],
       quality: { confidence: null, sourceBacked: false, needsReview: true },
@@ -210,6 +219,7 @@ describe("FullPanelViewer", () => {
         scopeRefs: [],
         sourceRefs: [],
         provenanceRefs: [],
+        interactiveBlocks: [],
         coverageRefs: [],
         primaryActions: ["open_source", "ask_tutor"],
         quality: { confidence: 0.9, sourceBacked: true, needsReview: false },
@@ -239,6 +249,7 @@ describe("FullPanelViewer", () => {
         scopeRefs: [] as ReferenceSurface["scopeRefs"],
         sourceRefs: [] as ReferenceSurface["sourceRefs"],
         provenanceRefs: [] as ReferenceSurface["provenanceRefs"],
+        interactiveBlocks: [],
         coverageRefs: [] as ReferenceSurface["coverageRefs"],
         primaryActions: ["open_source", "ask_tutor"],
         quality: { confidence: null, sourceBacked: true, needsReview: false },
@@ -270,13 +281,16 @@ describe("FullPanelViewer", () => {
       scopeRefs: [],
       sourceRefs: [],
       provenanceRefs: [],
+      interactiveBlocks: [],
       coverageRefs: [],
       primaryActions: ["ask_tutor"],
       quality: { confidence: 0.8, sourceBacked: true, needsReview: false },
     } satisfies ReferenceSurface);
     const html = renderToStaticMarkup(
       <QueryClientProvider client={client}>
-        <FullPanelViewer notebookId="nb_1" node={node} onClose={() => {}} />
+        <WorkspaceShellProvider notebookId="nb_1" selectedNodeRefs={[]} onSelectedNodeRefsChange={() => {}}>
+          <FullPanelViewer notebookId="nb_1" node={node} onClose={() => {}} />
+        </WorkspaceShellProvider>
       </QueryClientProvider>,
     );
     expect(html).toContain("Heat flux relates");
@@ -296,6 +310,7 @@ describe("FullPanelViewer", () => {
       scopeRefs: [],
       sourceRefs: [],
       provenanceRefs: [],
+      interactiveBlocks: [],
       coverageRefs: [],
       primaryActions: ["ask_tutor"],
       quality: { confidence: 0.9, sourceBacked: true, needsReview: false },
@@ -320,12 +335,48 @@ describe("FullPanelViewer", () => {
       scopeRefs: [],
       sourceRefs: [],
       provenanceRefs: [],
+      interactiveBlocks: [],
       coverageRefs: [],
       primaryActions: ["ask_tutor", "open_provenance"],
       quality: { confidence: 0.9, sourceBacked: true, needsReview: false },
     });
     expect(html).toContain("Teach me");
     expect(html).toContain("Evidence");
+  });
+
+  it("renders object evidence content without object coercion", () => {
+    const html = renderViewer(baseNode, {
+      id: "surface_evidence_objects",
+      notebookId: "nb_1",
+      nodeRef: { refType: "artifact", refId: "artifact_1" },
+      title: "Artifact",
+      surfaceType: "artifact",
+      summary: "Artifact summary",
+      status: "ready",
+      blocks: [
+        {
+          id: "evidence",
+          kind: "summary",
+          title: "Evidence",
+          content: [
+            { refType: "source", refId: "src_1" },
+            { refType: "concept", refId: "cnc_1" },
+          ],
+          evidenceRefs: [],
+        },
+      ],
+      scopeRefs: [],
+      sourceRefs: [],
+      provenanceRefs: [],
+      interactiveBlocks: [],
+      coverageRefs: [],
+      primaryActions: ["ask_tutor"],
+      quality: { confidence: 0.9, sourceBacked: true, needsReview: false },
+    });
+    expect(html).not.toContain("[object Object]");
+    expect(html).toContain("refType");
+    expect(html).toContain("src_1");
+    expect(html).toContain("cnc_1");
   });
 
   it("renders regeneration controls for artifacts and pages", () => {
@@ -341,6 +392,7 @@ describe("FullPanelViewer", () => {
       scopeRefs: [],
       sourceRefs: [],
       provenanceRefs: [],
+      interactiveBlocks: [],
       coverageRefs: [],
       primaryActions: ["ask_tutor", "regenerate"],
       quality: { confidence: 0.9, sourceBacked: true, needsReview: false },
@@ -370,6 +422,7 @@ describe("FullPanelViewer", () => {
       scopeRefs: [],
       sourceRefs: [],
       provenanceRefs: [],
+      interactiveBlocks: [],
       coverageRefs: [],
       primaryActions: ["ask_tutor"],
       quality: { confidence: 0.9, sourceBacked: true, needsReview: false },
@@ -378,17 +431,17 @@ describe("FullPanelViewer", () => {
   });
 
   it("renders generation badges, markdown tables, and latex formulas", () => {
-    const html = renderViewer(baseNode, {
+    const surface = {
       id: "surface_math",
       notebookId: "nb_1",
       nodeRef: { refType: "artifact", refId: "artifact_1" },
       title: "Formula Sheet",
-      surfaceType: "artifact",
+      surfaceType: "artifact" as const,
       summary: "Formula summary",
       status: "ready",
       blocks: [{
         id: "body",
-        kind: "markdown",
+        kind: "markdown" as const,
         title: "Sheet",
         content: ["# Formula Sheet", "| Formula | Use |", "| --- | --- |", "| $q=-k\\\\nabla T$ | Heat flux |", "", "$$q=-k\\\\nabla T$$"].join("\n"),
         evidenceRefs: [],
@@ -396,11 +449,21 @@ describe("FullPanelViewer", () => {
       scopeRefs: [],
       sourceRefs: [],
       provenanceRefs: [],
+      interactiveBlocks: [],
       coverageRefs: [],
-      primaryActions: ["ask_tutor"],
+      primaryActions: ["ask_tutor"] as const,
       quality: { confidence: 0.9, sourceBacked: true, needsReview: false },
-      generation: { mode: "ai", label: "AI", generatedAt: "2026-05-19T00:00:00.000Z" },
-    });
+      generation: { mode: "ai" as const, label: "AI", generatedAt: "2026-05-19T00:00:00.000Z" },
+    };
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(["reference-surface", "nb_1", "artifact_1"], surface);
+    const html = renderToStaticMarkup(
+      <QueryClientProvider client={client}>
+        <WorkspaceShellProvider notebookId="nb_1" selectedNodeRefs={[]} onSelectedNodeRefsChange={() => {}}>
+          <FullPanelViewer notebookId="nb_1" node={baseNode} onClose={() => {}} devMode />
+        </WorkspaceShellProvider>
+      </QueryClientProvider>,
+    );
     expect(html).toContain("AI");
     expect(html).toContain("<table");
     expect(html).toContain("katex");
@@ -426,6 +489,7 @@ describe("FullPanelViewer", () => {
       scopeRefs: [],
       sourceRefs: [],
       provenanceRefs: [],
+      interactiveBlocks: [],
       coverageRefs: [],
       primaryActions: ["ask_tutor"],
       quality: { confidence: 0.7, sourceBacked: true, needsReview: false },
@@ -444,5 +508,47 @@ describe("FullPanelViewer", () => {
     });
     expect(html).toContain("Loading reference surface");
     expect(html).not.toContain("debug_secret");
+  });
+
+  it("shows page readiness badges in learner mode and hides generation mode labels", () => {
+    const conceptNode = {
+      id: "cnc_1",
+      nodeType: "concept",
+      labels: ["Concept"],
+      properties: { title: "Conduction" },
+    };
+    const surface: ReferenceSurface = {
+      id: "surface_cnc_1",
+      notebookId: "nb_1",
+      nodeRef: { refType: "concept", refId: "cnc_1" },
+      title: "Conduction",
+      surfaceType: "concept",
+      summary: "Heat transfer through solids.",
+      status: "still_improving",
+      blocks: [{ id: "summary", kind: "summary", title: "Overview", content: "Heat transfer through solids.", evidenceRefs: [] }],
+      scopeRefs: [],
+      sourceRefs: [],
+      provenanceRefs: [],
+      interactiveBlocks: [],
+      coverageRefs: [],
+      primaryActions: ["ask_tutor"],
+      quality: { confidence: 0.7, sourceBacked: true, needsReview: false },
+      generation: { mode: "heuristic", label: "Heuristic", generatedAt: null },
+    };
+    const learnerHtml = renderViewer(conceptNode, surface);
+    expect(learnerHtml).toContain("Still improving");
+    expect(learnerHtml).not.toContain("Heuristic");
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(["reference-surface", "nb_1", "cnc_1"], surface);
+    const devHtml = renderToStaticMarkup(
+      <QueryClientProvider client={client}>
+        <WorkspaceShellProvider notebookId="nb_1" selectedNodeRefs={[]} onSelectedNodeRefsChange={() => {}}>
+          <FullPanelViewer notebookId="nb_1" node={conceptNode} onClose={() => {}} devMode />
+        </WorkspaceShellProvider>
+      </QueryClientProvider>,
+    );
+    expect(devHtml).toContain("Still improving");
+    expect(devHtml).toContain("Heuristic");
   });
 });

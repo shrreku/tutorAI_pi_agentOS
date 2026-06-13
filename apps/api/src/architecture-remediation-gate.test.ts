@@ -19,7 +19,7 @@ function referenceSurfaceSupportsRegeneration(surface: ReferenceSurface | null |
 }
 
 describe("architecture remediation cross-track gate", () => {
-  it("proves runtime host-state signatures change when pedagogical context changes", () => {
+  it("proves runtime host-state signatures ignore non-binding pedagogical context changes", () => {
     const base = {
       notebookId: "nb_gate",
       userId: "user_gate",
@@ -37,7 +37,7 @@ describe("architecture remediation cross-track gate", () => {
       ...base,
       currentObjective: "Objective 2",
     });
-    expect(first).not.toEqual(second);
+    expect(first).toEqual(second);
   });
 
   it("proves mastery-backed objective completion requires strong evidence", () => {
@@ -63,6 +63,7 @@ describe("architecture remediation cross-track gate", () => {
       summary: null,
       status: "ready",
       blocks: [],
+      interactiveBlocks: [],
       scopeRefs: [],
       sourceRefs: [],
       provenanceRefs: [],

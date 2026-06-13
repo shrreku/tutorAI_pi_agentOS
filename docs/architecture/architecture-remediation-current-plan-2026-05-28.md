@@ -191,7 +191,7 @@ Exit criteria:
 
 Purpose: fix tutor correctness bugs that can corrupt learner state or use stale context.
 
-Implementation status, 2026-05-28: complete and verified. Tutor Turn Preparation now owns host-state assembly, prompt/context construction, runtime mastery preflight, tool registry creation, and run creation. Pi runtime cache replacement uses a material host-state signature. Pi-executed write tools receive Tutor Turn identity and write-tool execution rejects missing turn identity. Session lifecycle runtime disposal/replacement is behind lifecycle helpers. Runtime mastery evaluation uses persisted prompt-turn refs rather than current Workspace focus, and vague objective advancement remains regression-covered.
+Implementation status, amended 2026-06-06: complete and verified for the current Turn Bootstrap direction. Tutor Turn Preparation now owns session/run/ref bootstrap, thin prompt construction, runtime mastery preflight, tool registry creation, and run creation. Pi runtime cache replacement uses a binding-only host-state signature (mode, refs, prompt fingerprint, notebook/user/session ids), not material study-plan or mastery state. Pi-executed write tools receive Tutor Turn identity and write-tool execution rejects missing turn identity. Session lifecycle runtime disposal/replacement is behind lifecycle helpers. Runtime mastery evaluation uses persisted prompt-turn refs rather than current Workspace focus, and vague objective advancement remains regression-covered.
 
 Tickets:
 
@@ -365,7 +365,7 @@ Acceptance criteria:
 
 - Tutor chat route delegates preparation after auth and request parsing.
 - Route no longer builds prompt sections or pedagogical source-scope instructions inline.
-- Prepared turn output contains material host-state signature inputs for T02.
+- Prepared turn output contains binding host-state signature inputs for T02.
 - Module-level tests cover open artifact context, selected source strictness, context-selection failure, personalization recommendations, and missing planning state.
 - Route tests remain protocol/SSE smoke tests.
 
@@ -384,7 +384,7 @@ Blocked by: T01.
 
 What to build:
 
-Add a material StudyAgent host-state signature to Tutor Turn Preparation and Pi Adapter cache decisions. The signature must include all state that changes tutor behavior, not just selected refs or prompt template.
+Use a binding-only StudyAgent host-state signature in Tutor Turn Preparation and Pi Adapter cache decisions. Per ADR-0018, the signature must exclude ordinary notebook material changes; notebook facts are read on demand through tools.
 
 Required signature inputs:
 

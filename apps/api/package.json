@@ -10,7 +10,8 @@
     "build": "tsc -b",
     "check": "tsc -b --pretty false",
     "langfuse:sync-prompts": "tsx src/scripts/sync-langfuse-prompts.ts",
-    "cache:cleanup-stale-host-context": "tsx src/scripts/cleanup-stale-agentic-cache.ts"
+    "cache:cleanup-stale-host-context": "tsx src/scripts/cleanup-stale-agentic-cache.ts",
+    "simulation:promote-draft": "tsx src/scripts/promote-simulation-draft.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.758.0",
@@ -20,11 +21,13 @@
     "@studyagent/config": "workspace:*",
     "@studyagent/db": "workspace:*",
     "@studyagent/graph": "workspace:*",
+    "@studyagent/llm-client": "workspace:*",
     "@studyagent/observability": "workspace:*",
     "@studyagent/schemas": "workspace:*",
     "@studyagent/search": "workspace:*",
     "@studyagent/tools": "workspace:^",
     "@studyagent/wiki-core": "workspace:*",
+    "@studyagent/wiki-generation": "workspace:*",
     "bullmq": "^5.41.2",
     "drizzle-orm": "^0.44.2",
     "fastify": "^5.2.1",

@@ -1,6 +1,6 @@
 import React from "react";
 import type { GraphCanvasNode } from "@studyagent/schemas";
-import { learnerFacingNodeTypeLabel, learnerFacingPipelineStatus } from "./learner-copy-guard.js";
+import { learnerFacingNodeTypeLabel, learnerFacingPipelineStatus } from "@studyagent/schemas";
 
 interface NodeDetailPanelProps {
   node: GraphCanvasNode | null;
@@ -230,6 +230,10 @@ export function NodeTypePanel({ node }: { node: GraphCanvasNode }) {
         <>
           <Field label="Title" value={str("title")} />
           <Field label="Page Type" value={str("pageType") ?? str("page_type")} />
+          <Field
+            label="Page Readiness"
+            value={str("pageReadinessLabel") ?? str("pageReadiness") ?? str("page_readiness")}
+          />
           <Field label="Status" value={<StatusBadge status={str("status")} />} />
           {num("qualityScore") !== undefined && (
             <Field label="Quality" value={<ConfidenceBar value={num("qualityScore")!} />} />

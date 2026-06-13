@@ -382,7 +382,7 @@ export async function registerGraphRoutes(app: FastifyInstance, ctx: AppContext)
         return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
       }
 
-      const surface = await buildReferenceSurfaceModule(ctx, notebookId, nodeId);
+      const surface = await buildReferenceSurfaceModule(ctx, notebookId, nodeId, { userId: actor.id });
       return reply.send(surface);
     },
   );

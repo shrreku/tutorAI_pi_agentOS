@@ -28,6 +28,7 @@ import {
 } from "@studyagent/tools";
 import { appendEventWithTutorCacheInvalidation as appendEvent } from "./agentic-cache-invalidation.js";
 import type { AppContext } from "./context.js";
+import { scheduleRollingModuleBuild } from "./rolling-module-build-scheduler.js";
 
 async function activateCurriculumRecord(appCtx: AppContext, notebookId: string, input: CurriculumActivateInput) {
   const [existing] = await appCtx.db.db
@@ -36,6 +37,7 @@ async function activateCurriculumRecord(appCtx: AppContext, notebookId: string, 
     .where(and(eq(curricula.id, input.curriculumId), eq(curricula.notebookId, notebookId)))
     .limit(1);
   if (!existing) return null;
+  const previousActiveModuleId = existing.activeModuleId;
   if (input.activeModuleId) {
     const [moduleRow] = await appCtx.db.db
       .select({ id: curriculumModules.id })
@@ -51,11 +53,42 @@ async function activateCurriculumRecord(appCtx: AppContext, notebookId: string, 
     if (!moduleRow) return null;
   }
   const updatedAt = new Date();
+  const nextActiveModuleId = input.activeModuleId ?? existing.activeModuleId ?? null;
   await appCtx.db.db
     .update(curricula)
-    .set({ status: "active", activeModuleId: input.activeModuleId ?? existing.activeModuleId ?? null, updatedAt })
+    .set({ status: "active", activeModuleId: nextActiveModuleId, updatedAt })
     .where(eq(curricula.id, existing.id));
-  return { id: existing.id, notebookId: existing.notebookId, title: existing.title, status: "active", activeModuleId: input.activeModuleId ?? existing.activeModuleId ?? null };
+
+  if (
+    nextActiveModuleId &&
+    previousActiveModuleId &&
+    nextActiveModuleId !== previousActiveModuleId
+  ) {
+    const [previousModule] = await appCtx.db.db
+      .select({ orderIndex: curriculumModules.orderIndex })
+      .from(curriculumModules)
+      .where(and(eq(curriculumModules.id, previousActiveModuleId), eq(curriculumModules.notebookId, notebookId)))
+      .limit(1);
+    const [nextModule] = await appCtx.db.db
+      .select({ orderIndex: curriculumModules.orderIndex })
+      .from(curriculumModules)
+      .where(and(eq(curriculumModules.id, nextActiveModuleId), eq(curriculumModules.notebookId, notebookId)))
+      .limit(1);
+    if (
+      previousModule &&
+      nextModule &&
+      nextModule.orderIndex > previousModule.orderIndex
+    ) {
+      scheduleRollingModuleBuild(appCtx.db, {
+        notebookId,
+        curriculumId: existing.id,
+        completedModuleId: previousActiveModuleId,
+        trigger: "learner_jump",
+      });
+    }
+  }
+
+  return { id: existing.id, notebookId: existing.notebookId, title: existing.title, status: "active", activeModuleId: nextActiveModuleId };
 }
 
 async function updateModuleRecord(appCtx: AppContext, notebookId: string, input: ModuleUpdateInput) {
@@ -79,6 +112,29 @@ async function updateModuleRecord(appCtx: AppContext, notebookId: string, input:
     updatedAt,
   };
   await appCtx.db.db.update(curriculumModules).set(next).where(eq(curriculumModules.id, existing.id));
+
+  if (input.requestDeepBuild && next.status === "active") {
+    const [previousModule] = await appCtx.db.db
+      .select({ id: curriculumModules.id })
+      .from(curriculumModules)
+      .where(
+        and(
+          eq(curriculumModules.notebookId, notebookId),
+          eq(curriculumModules.curriculumId, existing.curriculumId),
+          eq(curriculumModules.orderIndex, existing.orderIndex - 1),
+        ),
+      )
+      .limit(1);
+    if (previousModule) {
+      scheduleRollingModuleBuild(appCtx.db, {
+        notebookId,
+        curriculumId: existing.curriculumId,
+        completedModuleId: previousModule.id,
+        trigger: "tutor_decision",
+      });
+    }
+  }
+
   return { id: existing.id, notebookId: existing.notebookId, curriculumId: existing.curriculumId, title: next.title, summary: next.summary, status: next.status, orderIndex: next.orderIndex };
 }
 

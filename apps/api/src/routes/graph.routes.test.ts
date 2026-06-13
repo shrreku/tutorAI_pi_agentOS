@@ -129,7 +129,6 @@ describe("graph routes", () => {
       expect.arrayContaining([
         expect.objectContaining({ relationType: "HAS_TOPIC", source: "src_1" }),
         expect.objectContaining({ relationType: "CONTAINS_CONCEPT", target: "concept_1" }),
-        expect.objectContaining({ relationType: "CONTAINS_PAGE", target: "page_1" }),
       ]),
     );
     expect(body.readModel.viewMode).toBe("source_wiki_map");

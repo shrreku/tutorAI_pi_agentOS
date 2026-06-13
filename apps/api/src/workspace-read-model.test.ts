@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { GraphCanvasEdge, GraphCanvasNode } from "@studyagent/schemas";
+import { wikiPages } from "@studyagent/db";
 import {
+  augmentCanvasWithPageReadiness,
   buildNodeCatalog,
   buildSourceWikiTopicGroups,
   filterCanvasByVisibility,
   loadStudyPlanContext,
   workspaceVisibilityForNode,
 } from "./workspace-read-model.js";
+import type { AppContext } from "./context.js";
 
 const emptyContext = {
   currentObjectiveId: null,
@@ -252,6 +255,52 @@ describe("source wiki topic groups", () => {
     expect(filtered.edges.map((edge) => edge.id)).toEqual(["e1", "e2", "e3"]);
   });
 
+});
+
+describe("page readiness augmentation", () => {
+  it("maps wiki page readiness onto concept nodes without replacing mastery status", async () => {
+    const ctx = {
+      db: {
+        db: {
+          select: () => ({
+            from: (table: unknown) => {
+              if (table === wikiPages) {
+                return {
+                  where: () =>
+                    Promise.resolve([
+                      {
+                        id: "wp_1",
+                        pageType: "concept",
+                        pageKey: "concept:cnc_1",
+                        title: "Conduction",
+                        status: "published",
+                        qualityScore: 0.84,
+                        sourceClaimIds: ["claim_1", "claim_2"],
+                        structuredJson: { conceptId: "cnc_1", generationMode: "llm_polished", pageReadiness: "ready_to_study" },
+                      },
+                    ]),
+                };
+              }
+              return { where: () => Promise.resolve([]) };
+            },
+          }),
+        },
+      },
+    } as unknown as AppContext;
+
+    const nodes = await augmentCanvasWithPageReadiness(ctx, "nb_1", [
+      {
+        id: "cnc_1",
+        nodeType: "concept",
+        labels: ["Concept"],
+        properties: { canonicalName: "Conduction", status: "weak" },
+      },
+    ]);
+
+    expect(nodes[0]?.properties.pageReadiness).toBe("ready_to_study");
+    expect(nodes[0]?.properties.pageReadinessLabel).toBe("Ready to study");
+    expect(nodes[0]?.properties.status).toBe("weak");
+  });
 });
 
 describe("study map emphasis", () => {

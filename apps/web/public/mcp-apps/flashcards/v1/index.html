@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>StudyAgent Flashcards</title>
+    <link rel="stylesheet" href="/mcp-apps/shared/v1/shell.css" />
+  </head>
+  <body>
+    <div id="sa-root" class="sa-shell">Loading flashcards…</div>
+    <script src="/mcp-apps/shared/v1/shell.js"></script>
+    <script>
+      (function () {
+        var app = StudyAgentShell.createBridge({
+          state: { ui: { index: 0, revealed: false } },
+          render: function (ctx) {
+            var h = ctx.helpers;
+            var cards = Array.isArray(ctx.content.cards) ? ctx.content.cards : [];
+            var index = ctx.state.ui.index;
+            var card = cards[Math.min(index, Math.max(cards.length - 1, 0))] || null;
+            var title = (ctx.state.block && ctx.state.block.title) || "Flashcard deck";
+
+            if (!card) {
+              ctx.root.innerHTML =
+                h.headerHtml(title, "Flip, then rate how well you remembered each card.", "Flashcards") +
+                '<div class="sa-empty">No flashcards in this deck yet.</div>';
+              return;
+            }
+
+            var front = card.front || card.term || card.title || "Card";
+            var back = card.back || card.definition || card.answer || "";
+            var html = '<div class="sa-shell">';
+            html += h.headerHtml(title, "Card " + (index + 1) + " of " + cards.length, "Flashcards");
+            html += h.pendingOverlay(ctx.state);
+            html += h.statusHtml(ctx.state);
+            html += '<div class="sa-card sa-flashcard">';
+            html += '<div class="sa-flashcard-front">' + h.escapeHtml(front) + "</div>";
+            if (ctx.state.ui.revealed) {
+              html += '<div class="sa-flashcard-back">' + h.escapeHtml(back) + "</div>";
+            } else {
+              html += '<div class="sa-subtitle">Tap reveal when you are ready to check yourself.</div>';
+            }
+            html += "</div>";
+            html += '<div class="sa-row">';
+            html += '<button class="sa-btn" id="reveal"' + (ctx.state.ui.revealed ? " disabled" : "") + ">Reveal</button>";
+            html += '<button class="sa-btn" id="again">Again</button>';
+            html += '<button class="sa-btn" id="hard">Hard</button>';
+            html += '<button class="sa-btn sa-btn-primary" id="good">Good</button>';
+            html += '<button class="sa-btn" id="easy">Easy</button>';
+            html += "</div></div>";
+            ctx.root.innerHTML = html;
+
+            function nextCard(result) {
+              app.submitAction("flashcard.review_rated", {
+                cardId: card.id || front,
+                result: result,
+              });
+              ctx.state.ui.index = Math.min(index + 1, cards.length - 1);
+              ctx.state.ui.revealed = false;
+            }
+
+            document.getElementById("reveal").onclick = function () {
+              ctx.state.ui.revealed = true;
+              app.mount();
+            };
+            document.getElementById("again").onclick = function () {
+              nextCard("again");
+            };
+            document.getElementById("hard").onclick = function () {
+              nextCard("hard");
+            };
+            document.getElementById("good").onclick = function () {
+              nextCard("good");
+            };
+            document.getElementById("easy").onclick = function () {
+              nextCard("easy");
+            };
+          },
+        });
+      })();
+    </script>
+  </body>
+</html>

@@ -26,6 +26,7 @@ const quizSurface: ReferenceSurface = {
     content: [{ id: "q1", prompt: "What is x?", choices: ["x", "y"], answer: "x" }],
     evidenceRefs: [],
   }],
+  interactiveBlocks: [],
   scopeRefs: [],
   sourceRefs: [],
   provenanceRefs: [],

@@ -151,7 +151,7 @@ describe("executeTutorTurn host-state integration", () => {
     await disposeStudyAgentTutorSession("sess_host_int");
   });
 
-  it("replaces cached runtime when current objective changes with unchanged selected refs", async () => {
+  it("keeps cached runtime when only current objective changes with unchanged selected refs", async () => {
     const fakeDb = new IntegrationFakeDb();
     const ctx = {
       db: { db: fakeDb },
@@ -196,7 +196,7 @@ describe("executeTutorTurn host-state integration", () => {
 
     const secondContext = buildPromptContext("Objective B");
     const secondSignature = buildStudyAgentHostStateSignature(secondContext);
-    expect(secondSignature).not.toBe(firstSignature);
+    expect(secondSignature).toBe(firstSignature);
 
     const secondRun = createRuntimeRun({
       notebookId: "nb_1",
@@ -226,16 +226,9 @@ describe("executeTutorTurn host-state integration", () => {
       run: secondRun,
     });
 
-    expect(appendEventMock).toHaveBeenCalledWith(
+    expect(appendEventMock).not.toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({
-        eventType: "session.runtime.replaced",
-        payload: expect.objectContaining({
-          reason: "host_state_changed",
-          previousHostStateSignature: firstSignature,
-          hostStateSignature: secondSignature,
-        }),
-      }),
+      expect.objectContaining({ eventType: "session.runtime.replaced" }),
     );
   });
 });

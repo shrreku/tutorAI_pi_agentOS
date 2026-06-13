@@ -563,21 +563,38 @@ function createHttpSyntheticLearnerSimulatorActions(baseUrl: string, cookie?: st
         };
       }
       if (decision.action === "quiz.answer") {
-        if (!decision.artifactId || !decision.questionId || !decision.answer) return failedObservation(decision, "quiz.answer requires artifactId, questionId, and answer.");
-        const response = await fetch(`${baseUrl}/api/v1/notebooks/${encodeURIComponent(notebookId)}/artifacts/${encodeURIComponent(decision.artifactId)}/quiz-attempts`, {
-          method: "POST",
-          headers,
-          body: JSON.stringify({
-            questionId: decision.questionId,
-            answer: decision.answer,
-            isCorrect: decision.isCorrect ?? false,
-            ...(decision.score !== undefined ? { score: decision.score } : {}),
-            ...(decision.conceptIds.length ? { conceptIds: decision.conceptIds } : {}),
-            ...(decision.explanation ? { explanation: decision.explanation } : {}),
-          }),
+        if (!decision.artifactId || !decision.questionId || !decision.answer) {
+          return failedObservation(decision, "quiz.answer requires artifactId, questionId, and answer.");
+        }
+        const { buildQuizAnswerSubmittedEnvelope } = await import("@studyagent/schemas");
+        const surfaceResponse = await fetch(
+          `${baseUrl}/api/v1/notebooks/${encodeURIComponent(notebookId)}/nodes/${encodeURIComponent(decision.artifactId)}/reference-surface`,
+          { headers },
+        );
+        if (!surfaceResponse.ok) {
+          return failedObservation(decision, `quiz.answer reference-surface failed (${surfaceResponse.status})`);
+        }
+        const surface = (await surfaceResponse.json()) as import("@studyagent/schemas").ReferenceSurface;
+        const envelope = buildQuizAnswerSubmittedEnvelope({
+          notebookId,
+          surface,
+          questionId: decision.questionId,
+          answer: decision.answer,
+          isCorrect: decision.isCorrect ?? false,
+          ...(decision.score !== undefined ? { score: decision.score } : {}),
+          ...(decision.conceptIds.length ? { conceptIds: decision.conceptIds } : {}),
+          ...(decision.explanation ? { explanation: decision.explanation } : {}),
         });
+        const response = await fetch(
+          `${baseUrl}/api/v1/notebooks/${encodeURIComponent(notebookId)}/interactive-learning/actions`,
+          {
+            method: "POST",
+            headers,
+            body: JSON.stringify(envelope),
+          },
+        );
         if (!response.ok) return failedObservation(decision, `quiz.answer failed (${response.status})`);
-        const payload = await response.json() as { attemptId?: string };
+        const payload = (await response.json()) as { attemptId?: string };
         return {
           action: decision.action,
           status: "ok",

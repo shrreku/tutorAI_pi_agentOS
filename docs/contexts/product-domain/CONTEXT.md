@@ -47,13 +47,25 @@ LLM Wiki: the durable knowledge layer between raw sources and live tutoring. It 
 
 Source Wiki Page: durable source-grounded reference surface generated from the LLM Wiki for a topic, concept, or source summary.
 
+Page Readiness: persisted learner-facing state for a Source Wiki Page or node, shown as a concise badge such as Still improving, Ready to study, Needs more source support, or Needs refresh.
+
+Topic Page: notebook-global Source Wiki Page that teaches a source-grounded topic by combining multiple related concepts, with links to the modules, objectives, sources, and Concept Pages where it appears.
+
 Claim: atomic source-linked knowledge statement. Claims are evidence objects and should not be the default learner-facing reading surface. They support confidence, provenance, contradiction, and supersession.
 
 Concept: learnable knowledge node. Concepts connect to source evidence, claims, pages, objectives, quizzes, notes, weak concepts, and related concepts.
 
+Concept Touch: a durable tutor or learner action involving a concept strongly enough to justify synchronously ensuring its Concept Page exists or is improved during the tutor turn.
+
+Topic Touch: a durable tutor or learner action involving a topic strongly enough to justify synchronously ensuring its Topic Page exists or is improved during the tutor turn.
+
 Concept Mastery: the learner's current understanding of a specific concept, updated through reducer-applied Mastery Evidence from mastery checks, quizzes, mistakes, clear conversational evidence, self-report, and session outcomes.
 
 Curriculum: professor-level syllabus for a coherent path through a notebook or source cluster.
+
+Initial Build Window: the first post-ingestion learner-ready slice, covering one active curriculum outline, a deep build for the first module, that module's objectives, and Source Wiki pages for topics and concepts needed by those objectives.
+
+Rolling Module Build: module-by-module deep generation after the Initial Build Window, triggered by a Module Milestone, learner jump, or tutor decision using source evidence and durable learner signals.
 
 Adaptive Curriculum: curriculum that can be modified when durable learner signals show the current path is no longer the best route.
 
@@ -119,6 +131,8 @@ Tutoring Intervention: evaluator-recommended next teaching move: clarify, reteac
 
 Live Plan: learner-facing adaptive plan backed by study plan state. Shows current objective, next objectives, progress, weak concepts, and next actions. It is not an artifact.
 
+Live Plan Action: learner interaction with the Live Plan. Safe actions may open, start, resume, or review existing learning surfaces; plan-changing actions should express learner intent for tutor or reducer-governed handling rather than directly marking mastery, completing objectives, or rewriting curriculum.
+
 Learner Level: the learner's current readiness relative to a concept, objective, or source, inferred from profile, mastery, mistakes, checkpoints, and self-report.
 
 Artifact: generated learner study output such as notes, personalized notes, summaries, quizzes, flashcards, worked examples, formula sheets, comparison pages, diagrams, revision plans, mistake lists, and session digests.
@@ -131,7 +145,27 @@ Exam Preparation: future learner goal and tutoring mode focused on preparing for
 
 Reference Surface: anything the learner can open in the Workspace to read, review, or act on: source, curriculum, module, objective, session, concept, wiki page, or artifact.
 
+Interactive Learning Surface: a learner-facing Reference Surface with interactive controls for practice, exploration, review, or Evidence inspection. It is not a separate durable object by default; durable learner outputs remain Artifacts, Mastery Evidence, or learning state. The tutor may launch, steer, and discuss it, but the tutor chat remains the teaching spine.
+
+Interactive Learning Signal: a learner action inside an Interactive Learning Surface. Only evaluable performance such as an answer, worked attempt, explanation, misconception choice, or explicit self-report should become Mastery Evidence. Meaningful submitted actions may update tutor context; high-frequency UI behavior should stay local or become aggregated telemetry, artifact/session state, or future Learner Trait Signals.
+
+Simulation Template: a trusted reusable Interactive Learning Surface pattern for visualizing or manipulating a concept, such as a function plotter, physics model, algorithm animation, probability sampler, or graph traversal. Learner-facing simulations should use Simulation Templates with tutor-generated parameters and prompts rather than arbitrary generated code.
+
+Simulation Draft: an experimental generated simulation used to explore or test a future Simulation Template. It is not learner-facing product state until it is reviewed and promoted into a trusted Simulation Template.
+
+Interactive Learning Block: a model-facing declarative unit inside an Interactive Learning Surface, named for a learning purpose such as a Mastery Check, Quiz, Flashcard Deck, Worked Example, Evidence Map, Simulation, Live Plan, Comparison, or Concept Timeline. Generic UI primitives remain renderer-owned implementation details.
+
+Page-Embedded Interactive Block: an Interactive Learning Block attached to a Source Wiki, Curriculum, Module, Topic, or Concept Reference Surface; artifact-backed blocks such as Quiz, Flashcard Deck, and Worked Example still require Artifact Lifecycle governance.
+
+Tutor-Initiated Interactive Surface: a lightweight non-durable Interactive Learning Surface the tutor opens during an active lesson to support explanation, practice, Evidence inspection, or exploration. Durable study aids remain governed by Artifact consent policy.
+
+Interactive Learning Action: a validated learner action emitted by an Interactive Learning Block, such as submitting a quiz answer, rating a flashcard, answering a worked-example step, submitting a simulation observation, selecting a Live Plan action, or completing a surface. It carries a learning context envelope with notebook, surface, block, reference, source/Evidence, and optional tutor session or turn identity. Durable outcomes from these actions must flow through the appropriate Artifacts, Mastery Evidence, learning state, and events rather than through renderer-specific state.
+
+Interactive Learning Intervention: tutor help or recommended next action prompted by Interactive Learning Actions. Ordinary actions should update state and Workspace surfaces without automatically invoking the tutor; tutor intervention should be explicit, tutor-led within an active lesson, or suggested when repeated evidence crosses an intervention threshold.
+
 Evidence: learner-facing trust layer: citations, source excerpts, source titles/pages, and relevant source-backed claims.
+
+Interactive Evidence: progressively disclosed Evidence inside an Interactive Learning Surface. Source-grounded blocks should carry Evidence refs, show compact citation affordances, and reveal relevant excerpts when feedback, worked steps, or source-specific claims are shown.
 
 Workspace: learner-facing right-side product area containing Curriculum, Study Map, Source Wiki, and full-panel reference/artifact viewers.
 

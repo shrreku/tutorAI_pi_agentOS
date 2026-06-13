@@ -9,6 +9,7 @@ import {
   chunks,
   objectives,
   sessionPlans,
+  studyPlans,
   tutorSessions,
   tutorTurns,
   sourceVersions,
@@ -29,10 +30,24 @@ import {
   toLearnerClaimEvidenceRefs,
 } from "./node-open-target.js";
 import type { EvidenceReadModel, EvidenceRef, ReferenceBlock, ReferenceSurface, LearnerFacingReferenceSurface, NodeRef } from "@studyagent/schemas";
-import { learnerFacingSurfaceStatus, learnerSafeValue, mapLearnerPrimaryActions } from "@studyagent/schemas";
+import { learnerFacingSurfaceStatus, learnerSafeValue, mapLearnerPrimaryActions, type PageReadiness } from "@studyagent/schemas";
+import { resolveGenerationModeFromWikiRecord, resolvePageReadinessFromWikiPage } from "@studyagent/wiki-core";
+import {
+  buildInteractiveBlocksForSurface,
+  buildLivePlanBlock,
+  buildPersonalizationControlsBlock,
+  buildSourceReaderBlock,
+  toLearnerFacingInteractiveBlock,
+} from "./interactive-learning-blocks.js";
+import { loadInteractiveBlockState } from "./interactive-learning-state.js";
+import { formatLearnerStateSummary, loadNotebookStudyState } from "./study-state.js";
+import {
+  compilePageBlockPlansToInteractiveBlocks,
+  interactiveBlockPlansFromStructuredJson,
+} from "@studyagent/wiki-core";
 
 export function toLearnerFacingReferenceSurface(surface: ReferenceSurface): LearnerFacingReferenceSurface {
-  const { provenanceRefs: _provenanceRefs, ...learnerSurface } = surface;
+  const { provenanceRefs: _provenanceRefs, generation: _generation, ...learnerSurface } = surface;
   return learnerSafeValue({
     ...learnerSurface,
     primaryActions: mapLearnerPrimaryActions(surface.primaryActions),
@@ -44,16 +59,74 @@ export function toLearnerFacingReferenceSurface(surface: ReferenceSurface): Lear
       ...block,
       evidenceRefs: sanitizeLearnerEvidenceRefs(block.evidenceRefs ?? [], false),
     })),
+    interactiveBlocks: (surface.interactiveBlocks ?? []).map((block) => toLearnerFacingInteractiveBlock(block)),
   });
 }
 
-export async function buildReferenceSurface(ctx: AppContext, notebookId: string, nodeId: string): Promise<LearnerFacingReferenceSurface> {
+async function withInteractiveBlocks(
+  ctx: AppContext,
+  surface: ReferenceSurface,
+  input: {
+    artifact?: {
+      id: string;
+      notebookId: string;
+      artifactType: string;
+      title: string;
+      status: string;
+      payloadJson: Record<string, unknown>;
+      sourceNodeRefsJson?: unknown[] | null;
+      sourceClaimIds?: string[] | null;
+      sourceChunkIds?: string[] | null;
+    };
+    evidenceRefs?: EvidenceRef[];
+    userId?: string | undefined;
+    structuredJson?: Record<string, unknown> | null;
+  } = {},
+): Promise<LearnerFacingReferenceSurface> {
+  const evidenceRefs =
+    input.evidenceRefs ??
+    surface.blocks.flatMap((block) => block.evidenceRefs ?? []);
+
+  const storedPlans = interactiveBlockPlansFromStructuredJson(input.structuredJson ?? null);
+  const storedInteractiveBlocks =
+    storedPlans.length > 0
+      ? compilePageBlockPlansToInteractiveBlocks(storedPlans, {
+          nodeRef: surface.nodeRef,
+          surfaceType: surface.surfaceType,
+        })
+      : [];
+
+  const interactiveBlocks = await buildInteractiveBlocksForSurface(ctx, {
+    notebookId: surface.notebookId,
+    surfaceType: surface.surfaceType,
+    nodeRef: surface.nodeRef,
+    title: surface.title,
+    artifact: input.artifact ?? null,
+    evidenceRefs,
+    sourceRefs: surface.sourceRefs,
+    userId: input.userId,
+    includeSurfaceDefaults: storedPlans.length === 0,
+  });
+
+  return toLearnerFacingReferenceSurface({
+    ...surface,
+    interactiveBlocks: [...interactiveBlocks, ...storedInteractiveBlocks],
+  });
+}
+
+export async function buildReferenceSurface(
+  ctx: AppContext,
+  notebookId: string,
+  nodeId: string,
+  options: { userId?: string } = {},
+): Promise<LearnerFacingReferenceSurface> {
   const base = (overrides: Partial<ReferenceSurface> & Pick<ReferenceSurface, "nodeRef" | "title" | "surfaceType">): ReferenceSurface => ({
     id: `surface_${nodeId}`,
     notebookId,
     summary: null,
     status: null,
     blocks: [],
+    interactiveBlocks: [],
     scopeRefs: [],
     sourceRefs: [],
     provenanceRefs: [],
@@ -65,6 +138,43 @@ export async function buildReferenceSurface(ctx: AppContext, notebookId: string,
   });
 
   const openTarget = await resolveNodeOpenTarget(ctx, notebookId, nodeId);
+
+  const [studyPlanRow] = await ctx.db.db
+    .select()
+    .from(studyPlans)
+    .where(and(eq(studyPlans.id, nodeId), eq(studyPlans.notebookId, notebookId)))
+    .limit(1);
+
+  if (studyPlanRow && options.userId) {
+    const studyState = await loadNotebookStudyState(ctx.db, notebookId, options.userId);
+    const nodeRef = { refType: "study_plan" as const, refId: studyPlanRow.id };
+    const livePlanBlock = buildLivePlanBlock(
+      {
+        currentObjective: studyState.studyPlan?.currentObjective ?? null,
+        upcomingObjectives: studyState.studyPlan?.upcomingObjectives ?? [],
+        weakConcepts: studyState.studyPlan?.weakConcepts ?? [],
+        completedObjectiveIds: (studyState.studyPlan?.completedObjectives ?? []).map((objective) => objective.id),
+      },
+      nodeRef,
+    );
+    const personalizationBlock = await buildPersonalizationControlsBlock(
+      ctx,
+      notebookId,
+      options.userId,
+      nodeRef,
+    );
+    return toLearnerFacingReferenceSurface(
+      base({
+        nodeRef,
+        title: studyPlanRow.title ?? "Live Plan",
+        surfaceType: "objective",
+        summary: formatLearnerStateSummary(studyState) ?? null,
+        interactiveBlocks: [livePlanBlock, personalizationBlock],
+        primaryActions: ["ask_tutor"],
+        quality: { confidence: null, sourceBacked: false, needsReview: false },
+      }),
+    );
+  }
 
   if (openTarget.kind === "concept" && openTarget.entity) {
     const concept = openTarget.entity;
@@ -144,47 +254,66 @@ export async function buildReferenceSurface(ctx: AppContext, notebookId: string,
       content: acceptedClaims.map((claim) => ({ title: "Source note", body: claim.claimText })),
       evidenceRefs: toLearnerClaimEvidenceRefs(acceptedClaims),
     });
-    return toLearnerFacingReferenceSurface(base({
-      nodeRef: semanticRef("concept", concept.id, concept.canonicalName),
-      title: concept.canonicalName,
-      surfaceType: "concept",
-      summary: concept.description,
-      status: "active",
-      blocks: conceptBlocks,
-      sourceRefs: chunkEvidence.map((item) => ({ refType: "chunk", refId: item.id })),
-      provenanceRefs: [
-        ...chunkEvidence.map((item) => ({ refType: "chunk" as const, refId: item.id, role: "derived_from" as const })),
-      ],
-      primaryActions: ["ask_tutor", "quiz", "regenerate", "open_provenance"],
-      quality: { confidence: conceptWikiPage?.qualityScore ?? concept.confidence ?? null, sourceBacked: chunkEvidence.length > 0 || (conceptWikiPage?.sourceChunkIds ?? []).length > 0, needsReview: acceptedClaims.length === 0 || claimRows.some((claim) => claim.status === "candidate") },
-      generation: generationFromRecord(conceptWikiPage?.structuredJson),
-    }));
+    return withInteractiveBlocks(
+      ctx,
+      base({
+        nodeRef: semanticRef("concept", concept.id, concept.canonicalName),
+        title: concept.canonicalName,
+        surfaceType: "concept",
+        summary: concept.description,
+        status: wikiPageReadinessStatus(conceptWikiPage, acceptedClaims.length),
+        blocks: conceptBlocks,
+        sourceRefs: chunkEvidence.map((item) => ({ refType: "chunk", refId: item.id })),
+        provenanceRefs: [
+          ...chunkEvidence.map((item) => ({ refType: "chunk" as const, refId: item.id, role: "derived_from" as const })),
+        ],
+        primaryActions: ["ask_tutor", "quiz", "regenerate", "open_provenance"],
+        quality: { confidence: conceptWikiPage?.qualityScore ?? concept.confidence ?? null, sourceBacked: chunkEvidence.length > 0 || (conceptWikiPage?.sourceChunkIds ?? []).length > 0, needsReview: acceptedClaims.length === 0 || claimRows.some((claim) => claim.status === "candidate") },
+        generation: generationFromRecord(conceptWikiPage?.structuredJson),
+      }),
+      {
+        evidenceRefs: learnerEvidence,
+        structuredJson: conceptWikiPage?.structuredJson ?? null,
+        ...(options.userId ? { userId: options.userId } : {}),
+      },
+    );
   }
 
   if (openTarget.kind === "wiki_page" && openTarget.entity) {
     const wikiPage = openTarget.entity;
-    const sourceRefs = (wikiPage.sourceChunkIds ?? []).map((id) => ({ refType: "chunk" as const, refId: id }));
-    const learnerEvidence = [
-      ...toChunkEvidenceRefs(
-        await mapChunkRefsWithSourceTitles(
-          ctx,
-          sourceRefs.filter((ref) => ref.refType === "chunk").map((ref) => ({ id: ref.refId, chunkType: "chunk", text: "", pageStart: null, pageEnd: null, sourceVersionId: "" })),
-        ),
-        "learner",
-      ),
-    ];
-    return toLearnerFacingReferenceSurface(base({
-      nodeRef: semanticRef("wiki_page", wikiPage.id, wikiPage.title),
-      title: wikiPage.title,
-      surfaceType: "wiki_page",
-      status: wikiPage.status,
-      blocks: [{ id: "markdown", kind: "markdown", title: "Reference", content: wikiPage.markdown, evidenceRefs: learnerEvidence }],
-      sourceRefs,
-      provenanceRefs: sourceRefs.map((ref) => ({ ...ref, role: "derived_from" })),
-      primaryActions: ["ask_tutor", "regenerate", "open_provenance"],
-      quality: { confidence: wikiPage.qualityScore ?? null, sourceBacked: sourceRefs.length > 0, needsReview: wikiPage.status !== "published" },
-      generation: generationFromRecord(wikiPage.structuredJson),
-    }));
+    const chunkRefs = (wikiPage.sourceChunkIds ?? []).map((id) => ({ refType: "chunk" as const, refId: id }));
+    const claimRefs = (wikiPage.sourceClaimIds ?? []).map((id) => ({ refType: "claim" as const, refId: id }));
+    const sourceRefs = [...chunkRefs, ...claimRefs];
+    const evidence = await buildEvidenceFromClaimAndChunkIds(
+      ctx,
+      wikiPage.sourceClaimIds ?? [],
+      wikiPage.sourceChunkIds ?? [],
+    );
+    const learnerEvidence = evidence.learnerRefs;
+    return withInteractiveBlocks(
+      ctx,
+      base({
+        nodeRef: semanticRef("wiki_page", wikiPage.id, wikiPage.title),
+        title: wikiPage.title,
+        surfaceType: "wiki_page",
+        status: wikiPageReadinessStatus(wikiPage),
+        blocks: [{ id: "markdown", kind: "markdown", title: "Reference", content: wikiPage.markdown, evidenceRefs: learnerEvidence }],
+        sourceRefs: chunkRefs,
+        provenanceRefs: sourceRefs.map((ref) => ({ ...ref, role: "derived_from" })),
+        primaryActions: ["ask_tutor", "regenerate", "open_provenance"],
+        quality: {
+          confidence: wikiPage.qualityScore ?? null,
+          sourceBacked: learnerEvidence.length > 0,
+          needsReview: wikiPage.status !== "published",
+        },
+        generation: generationFromRecord(wikiPage.structuredJson),
+      }),
+      {
+        evidenceRefs: learnerEvidence,
+        structuredJson: wikiPage.structuredJson ?? null,
+        ...(options.userId ? { userId: options.userId } : {}),
+      },
+    );
   }
 
   const [curriculum] = await ctx.db.db.select().from(curricula).where(and(eq(curricula.id, nodeId), eq(curricula.notebookId, notebookId))).limit(1);
@@ -199,12 +328,13 @@ export async function buildReferenceSurface(ctx: AppContext, notebookId: string,
       ? curriculum.scopeJson.summary
       : readablePlanningSummary(null, curriculum.title) ?? `${curriculum.title} study path.`;
     const regeneratedMarkdown = jsonString(curriculum.scopeJson, "regeneratedMarkdown");
+    const curriculumPageReadiness = await loadWikiPageReadinessByKey(ctx, notebookId, `curriculum:${curriculum.id}`);
     return toLearnerFacingReferenceSurface(base({
       nodeRef: semanticRef("curriculum", curriculum.id, curriculum.title),
       title: curriculum.title,
       surfaceType: "curriculum",
       summary: curriculumSummary,
-      status: curriculum.status,
+      status: curriculumPageReadiness,
       blocks: [
         { id: "overview", kind: "markdown", title: "Overview", content: regeneratedMarkdown ?? markdownPage(curriculum.title, curriculumSummary), evidenceRefs: [] },
         {
@@ -260,12 +390,13 @@ export async function buildReferenceSurface(ctx: AppContext, notebookId: string,
           })
           .filter((ref): ref is { refType: "source" | "chunk"; refId: string } => Boolean(ref))
       : [];
+    const modulePageReadiness = await loadWikiPageReadinessByKey(ctx, notebookId, `module:${module.id}`);
     return toLearnerFacingReferenceSurface(base({
       nodeRef: semanticRef("curriculum_module", module.id, module.title),
       title: module.title,
       surfaceType: "module",
       summary: moduleSummary,
-      status: module.status,
+      status: modulePageReadiness,
       blocks: [
         { id: "overview", kind: "markdown", title: "Overview", content: regeneratedMarkdown ?? markdownPage(module.title, moduleSummary ?? `${module.title} module reference.`), evidenceRefs: [] },
         {
@@ -547,52 +678,90 @@ export async function buildReferenceSurface(ctx: AppContext, notebookId: string,
     });
     const sourceRefs = view.sourceRefs;
     const blocks = view.sections.map(sectionToReferenceBlock);
-    return toLearnerFacingReferenceSurface(base({
-      nodeRef: semanticRef("artifact", artifact.id, view.title),
-      title: view.title,
-      surfaceType: "artifact",
-      summary: `${view.purpose} ${view.studentAction}`,
-      status: learnerFacingSurfaceStatus({
+    return withInteractiveBlocks(
+      ctx,
+      base({
+        nodeRef: semanticRef("artifact", artifact.id, view.title),
+        title: view.title,
         surfaceType: "artifact",
-        status: artifact.status,
-        quality: {
-          confidence: view.confidence,
-          sourceBacked: view.quality.sourceBacked,
-          needsReview: view.quality.needsReview,
-        },
+        summary: `${view.purpose} ${view.studentAction}`,
+        status: learnerFacingSurfaceStatus({
+          surfaceType: "artifact",
+          status: artifact.status,
+          quality: {
+            confidence: view.confidence,
+            sourceBacked: view.quality.sourceBacked,
+            needsReview: view.quality.needsReview,
+          },
+        }),
+        blocks,
+        sourceRefs,
+        provenanceRefs: sourceRefs.map((ref) => ({ ...ref, role: "derived_from" })),
+        primaryActions: artifact.artifactType === "quiz" ? ["ask_tutor", "quiz", "regenerate", "open_provenance"] : ["ask_tutor", "review", "regenerate", "open_provenance"],
+        quality: { confidence: view.confidence, sourceBacked: view.quality.sourceBacked, needsReview: view.quality.needsReview },
+        generation: generationFromRecord(artifact.payloadJson),
       }),
-      blocks,
-      sourceRefs,
-      provenanceRefs: sourceRefs.map((ref) => ({ ...ref, role: "derived_from" })),
-      primaryActions: artifact.artifactType === "quiz" ? ["ask_tutor", "quiz", "regenerate", "open_provenance"] : ["ask_tutor", "review", "regenerate", "open_provenance"],
-      quality: { confidence: view.confidence, sourceBacked: view.quality.sourceBacked, needsReview: view.quality.needsReview },
-      generation: generationFromRecord(artifact.payloadJson),
-    }));
+      {
+        artifact: {
+          id: artifact.id,
+          notebookId: artifact.notebookId,
+          artifactType: artifact.artifactType,
+          title: artifact.title,
+          status: artifact.status,
+          payloadJson: artifact.payloadJson ?? {},
+          sourceNodeRefsJson: artifact.sourceNodeRefsJson,
+          sourceClaimIds: artifact.sourceClaimIds,
+          sourceChunkIds: artifact.sourceChunkIds,
+        },
+        ...(options.userId ? { userId: options.userId } : {}),
+      },
+    );
   }
 
   if (openTarget.kind === "source" && openTarget.entity) {
     const source = openTarget.entity;
-    return toLearnerFacingReferenceSurface(base({
-      nodeRef: semanticRef("source", source.id, source.title),
-      title: source.title,
-      surfaceType: "source",
-      status: source.status,
-      blocks: [
-        {
-          id: "document",
-          kind: "callout",
-          title: "Original document",
-          content: {
-            body: "Open the original source document as the primary reference. Extracted text and Evidence are available when the original cannot be inspected directly.",
-            sourceType: source.sourceType,
-            status: source.status,
+    const sourceNodeRef = semanticRef("source", source.id, source.title);
+    const chunkEvidence = await loadSourceChunkEvidence(ctx, source.id);
+    const sourceReaderBlockId = `interactive_source_reader_${sourceNodeRef.refId}`;
+    const sourceReaderState = options.userId
+      ? await loadInteractiveBlockState(ctx, notebookId, sourceReaderBlockId)
+      : {};
+    const sourceReaderBlock = buildSourceReaderBlock(
+      {
+        notebookId,
+        surfaceType: "source",
+        nodeRef: sourceNodeRef,
+        title: source.title,
+        sourceRefs: [sourceNodeRef],
+        evidenceRefs: chunkEvidence,
+      },
+      chunkEvidence,
+      sourceReaderState,
+    );
+    return toLearnerFacingReferenceSurface(
+      base({
+        nodeRef: sourceNodeRef,
+        title: source.title,
+        surfaceType: "source",
+        status: source.status,
+        blocks: [
+          {
+            id: "document",
+            kind: "callout",
+            title: "Original document",
+            content: {
+              body: "Open the original source document as the primary reference. Extracted text and Evidence are available when the original cannot be inspected directly.",
+              sourceType: source.sourceType,
+              status: source.status,
+            },
+            evidenceRefs: [],
           },
-          evidenceRefs: [],
-        },
-      ],
-      primaryActions: ["open_source", "ask_tutor"],
-      quality: { confidence: null, sourceBacked: true, needsReview: source.status !== "tutoring_ready" },
-    }));
+        ],
+        interactiveBlocks: [sourceReaderBlock],
+        primaryActions: ["open_source", "ask_tutor"],
+        quality: { confidence: null, sourceBacked: true, needsReview: source.status !== "tutoring_ready" },
+      }),
+    );
   }
 
   return toLearnerFacingReferenceSurface(
@@ -832,14 +1001,77 @@ function jsonString(value: unknown, key: string): string | null {
   return typeof candidate === "string" && candidate.trim().length > 0 ? candidate : null;
 }
 
+async function loadWikiPageReadinessByKey(
+  ctx: AppContext,
+  notebookId: string,
+  pageKey: string,
+  fallback: PageReadiness = "still_improving",
+): Promise<PageReadiness> {
+  const [page] = await ctx.db.db
+    .select()
+    .from(wikiPages)
+    .where(and(eq(wikiPages.notebookId, notebookId), eq(wikiPages.pageKey, pageKey)))
+    .limit(1);
+  if (!page) return fallback;
+  return resolvePageReadinessFromWikiPage({
+    status: page.status,
+    qualityScore: page.qualityScore,
+    sourceClaimIds: page.sourceClaimIds,
+    structuredJson: page.structuredJson,
+  });
+}
+
+function wikiPageReadinessStatus(
+  page:
+    | {
+        status: string;
+        qualityScore?: number | null;
+        sourceClaimIds?: string[];
+        structuredJson?: Record<string, unknown> | null;
+      }
+    | null
+    | undefined,
+  evidenceCount = 0,
+): PageReadiness {
+  if (!page) {
+    return evidenceCount > 0 ? "still_improving" : "needs_more_source_support";
+  }
+  return resolvePageReadinessFromWikiPage({
+    status: page.status,
+    qualityScore: page.qualityScore ?? null,
+    sourceClaimIds: page.sourceClaimIds ?? [],
+    structuredJson: page.structuredJson ?? {},
+  });
+}
+
 function generationFromRecord(value: unknown): ReferenceSurface["generation"] {
   if (!isJsonRecord(value)) return null;
-  const mode = value.regeneratedMode === "ai" ? "ai" : value.regeneratedMode === "heuristic" || typeof value.regeneratedMarkdown === "string" ? "heuristic" : null;
-  if (!mode) return null;
+  const hasGenerationMetadata =
+    value.generationMode !== undefined ||
+    value.regeneratedMode !== undefined ||
+    value.regeneratedAt !== undefined ||
+    value.lastPolishedAt !== undefined ||
+    typeof value.regeneratedMarkdown === "string";
+  if (!hasGenerationMetadata) return null;
+  const generationMode = resolveGenerationModeFromWikiRecord(value);
+  const mode = generationMode === "heuristic" ? "heuristic" : "ai";
+  const labelByMode = {
+    heuristic: "Heuristic",
+    llm_polished: "LLM polished",
+    llm_repair: "LLM repair",
+    tutor_touch: "Tutor touch",
+    rolling_module_build: "Rolling module build",
+    initial_build: "Initial build",
+  } as const;
   return {
     mode,
-    label: mode === "ai" ? "AI" : "Heuristic",
-    generatedAt: typeof value.regeneratedAt === "string" ? value.regeneratedAt : null,
+    label: labelByMode[generationMode],
+    generatedAt:
+      typeof value.regeneratedAt === "string"
+        ? value.regeneratedAt
+        : typeof value.lastPolishedAt === "string"
+          ? value.lastPolishedAt
+          : null,
   };
 }
 

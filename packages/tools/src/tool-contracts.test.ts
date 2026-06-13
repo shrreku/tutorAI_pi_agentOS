@@ -53,6 +53,7 @@ describe("tool contract catalog", () => {
       "graph.get_source_wiki_map",
       "graph.get_study_map",
       "graph.get_subgraph",
+      "interactive_surface.launch",
       "learner_trait.record_signal",
       "learning.evaluate_response",
       "learning.get_state",
@@ -68,9 +69,13 @@ describe("tool contract catalog", () => {
       "student_profile.get",
       "student_profile.update_preferences",
       "study_plan.get_current",
+      "wiki.ensure_concept_page",
+      "wiki.ensure_topic_page",
       "wiki.get_page",
       "wiki.propose_claim",
       "wiki.search",
+      "wiki.touch_concept",
+      "wiki.touch_topic",
     ]);
   });
 

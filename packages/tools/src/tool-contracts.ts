@@ -131,6 +131,26 @@ export class ToolRegistry {
 function canonicalizeSourceSpanInput(value: unknown): unknown {
   if (!value || typeof value !== "object" || Array.isArray(value)) return value;
   const input = { ...(value as Record<string, unknown>) };
+
+  // Handle top-level nodeRef object: { nodeRef: { refType: "chunk", refId: "chk_abc" } }
+  const nodeRefField = input.nodeRef;
+  if (nodeRefField && typeof nodeRefField === "object" && !Array.isArray(nodeRefField)) {
+    const ref = nodeRefField as Record<string, unknown>;
+    if (typeof ref.refId === "string" && !input.chunkId && !input.sourceId) {
+      const refType = typeof ref.refType === "string" ? ref.refType.toLowerCase() : "";
+      const refId = ref.refId;
+      if (refType === "chunk" || refId.startsWith("chk_")) {
+        input.chunkId = refId;
+      } else {
+        input.sourceId = refId;
+      }
+    }
+    if (typeof ref.sourceVersionId === "string" && !input.sourceVersionId) {
+      input.sourceVersionId = ref.sourceVersionId;
+    }
+  }
+
+  // Handle sourceNodeRef: { sourceNodeRef: { refType: "source", refId: "src_abc" } }
   const sourceNodeRef = input.sourceNodeRef;
   if (sourceNodeRef && typeof sourceNodeRef === "object" && !Array.isArray(sourceNodeRef)) {
     const ref = sourceNodeRef as Record<string, unknown>;
@@ -139,13 +159,17 @@ function canonicalizeSourceSpanInput(value: unknown): unknown {
     if (typeof ref.sourceId === "string" && !input.sourceId) input.sourceId = ref.sourceId;
     if (typeof ref.sourceVersionId === "string" && !input.sourceVersionId) input.sourceVersionId = ref.sourceVersionId;
   }
-  for (const key of ["ref", "refId", "chunkRef"]) {
+
+  // Handle flat string aliases: ref, refId, chunkRef, id
+  for (const key of ["ref", "refId", "chunkRef", "id"]) {
     const raw = input[key];
     if (typeof raw !== "string" || input.chunkId || input.sourceId) continue;
     const id = raw.includes(":") ? raw.split(":").pop() : raw;
     if (!id) continue;
     input[id.startsWith("src_") ? "sourceId" : "chunkId"] = id;
   }
+
+  // Fix misrouted IDs: sourceId that actually looks like a chunk id
   if (typeof input.sourceId === "string" && input.sourceId.startsWith("chk_") && !input.chunkId) {
     input.chunkId = input.sourceId;
     delete input.sourceId;
@@ -158,6 +182,10 @@ function canonicalizeLearningStateInput(value: unknown): unknown {
   const input = { ...(value as Record<string, unknown>) };
   if (!Array.isArray(input.conceptIds) && Array.isArray(input.requestedConceptIds)) {
     input.conceptIds = input.requestedConceptIds;
+  }
+  // Also handle snake_case alias that may come from Pi after normalizeToolInputAliases has already run
+  if (!Array.isArray(input.conceptIds) && Array.isArray((input as Record<string, unknown>).concept_ids)) {
+    input.conceptIds = (input as Record<string, unknown>).concept_ids;
   }
   return input;
 }
@@ -603,7 +631,7 @@ export const READ_TOOL_CONTRACTS = [
   },
   {
     name: "source.get_span",
-    description: "Reads source text span and citation metadata from a source/chunk reference.",
+    description: "Reads source text span and citation metadata from a source/chunk reference. Pass chunkId (chk_... prefix) to look up by chunk, or sourceId (src_... prefix) optionally with pageStart/pageEnd to look up by page range.",
     inputSchema: sourceGetSpanInputSchema,
     outputSchema: sourceGetSpanOutputSchema,
     sideEffectClass: "read_only",
@@ -687,7 +715,7 @@ export const READ_TOOL_CONTRACTS = [
   },
   {
     name: "learning.get_state",
-    description: "Returns mastery and weak-concept signals for requested concepts.",
+    description: "Returns mastery and weak-concept signals for requested concepts. Pass conceptIds as an array of concept ID strings (e.g. [\"con_abc\", \"con_xyz\"]). Leave empty to return all tracked concepts.",
     inputSchema: learningGetStateInputSchema,
     outputSchema: learningGetStateOutputSchema,
     sideEffectClass: "read_only",

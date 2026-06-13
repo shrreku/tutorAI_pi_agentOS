@@ -35,6 +35,15 @@ The implementation tickets in `docs/architecture/architecture-deepening-implemen
 
 Cross-module regression: `apps/api/src/architecture-deepening.integration.test.ts`.
 
+## Interactive Learning Surfaces
+
+The MCP Apps, declarative UI, and generative UI adoption plan is tracked in:
+
+- `docs/architecture/interactive-learning-surfaces-implementation-plan.md`
+- `docs/architecture/interactive-learning-surfaces-implementation-tickets.md`
+
+Read these when working on Interactive Learning Surfaces, Interactive Learning Blocks, Internal MCP App Bridge, MCP App Bundles, Interactive Learning Actions, Simulation Templates, or Simulation Drafts.
+
 ## Source Documents
 
 The `greenfield-studyagent/` folder is the design record behind these contexts. Treat the context files as the short operational map, and use the greenfield docs for deeper product intent.

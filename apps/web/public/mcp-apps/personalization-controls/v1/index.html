@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>StudyAgent Personalization</title>
+    <link rel="stylesheet" href="/mcp-apps/shared/v1/shell.css" />
+  </head>
+  <body>
+    <div id="sa-root" class="sa-shell">Loading preferences…</div>
+    <script src="/mcp-apps/shared/v1/shell.js"></script>
+    <script>
+      (function () {
+        function optionEntries(pref) {
+          return (pref.options || []).map(function (option) {
+            if (option && typeof option === "object" && option.value) {
+              return { value: option.value, label: option.label || option.value };
+            }
+            return { value: String(option), label: String(option) };
+          });
+        }
+
+        function preferences(content) {
+          if (Array.isArray(content.preferences)) return content.preferences;
+          return [
+            {
+              key: "pace",
+              label: "Pace",
+              options: [
+                { value: "slow", label: "Slower" },
+                { value: "balanced", label: "Balanced" },
+                { value: "fast", label: "Faster" },
+              ],
+            },
+            {
+              key: "depth",
+              label: "Depth",
+              options: [
+                { value: "intuitive", label: "Overview" },
+                { value: "balanced", label: "Balanced" },
+                { value: "formal", label: "Deep dive" },
+              ],
+            },
+          ];
+        }
+
+        var app = StudyAgentShell.createBridge({
+          state: { ui: { selections: {} } },
+          render: function (ctx) {
+            var h = ctx.helpers;
+            var prefs = preferences(ctx.content);
+            var canonical = ctx.state.canonicalState || {};
+            if (Array.isArray(canonical.updatedPreferences)) {
+              canonical.updatedPreferences.forEach(function (entry) {
+                if (entry && entry.preference && entry.value) {
+                  ctx.state.ui.selections[entry.preference] = entry.value;
+                }
+              });
+            }
+
+            var html = '<div class="sa-shell">';
+            html += h.headerHtml(
+              "Learning preferences",
+              "Tell StudyAgent how you want explanations paced, structured, and assessed.",
+              "Personalize",
+            );
+            html += h.pendingOverlay(ctx.state);
+            html += h.statusHtml(ctx.state);
+            html += '<div class="sa-stack" id="prefs"></div></div>';
+            ctx.root.innerHTML = html;
+
+            var prefsEl = document.getElementById("prefs");
+            prefs.forEach(function (pref) {
+              var row = document.createElement("div");
+              row.className = "sa-pref-row";
+              var label = document.createElement("label");
+              label.className = "sa-field-label";
+              label.textContent = pref.label;
+              row.appendChild(label);
+              var select = document.createElement("select");
+              select.className = "sa-select";
+              optionEntries(pref).forEach(function (option) {
+                var opt = document.createElement("option");
+                opt.value = option.value;
+                opt.textContent = option.label;
+                select.appendChild(opt);
+              });
+              if (ctx.state.ui.selections[pref.key]) select.value = ctx.state.ui.selections[pref.key];
+              row.appendChild(select);
+              var save = document.createElement("button");
+              save.type = "button";
+              save.className = "sa-btn sa-btn-primary";
+              save.textContent = "Save " + pref.label.toLowerCase();
+              save.onclick = function () {
+                ctx.state.ui.selections[pref.key] = select.value;
+                app.submitAction("personalization.preference_updated", {
+                  preference: pref.key,
+                  value: select.value,
+                });
+              };
+              row.appendChild(save);
+              prefsEl.appendChild(row);
+            });
+          },
+        });
+      })();
+    </script>
+  </body>
+</html>

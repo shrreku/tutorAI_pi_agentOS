@@ -196,7 +196,7 @@ Implementation notes:
 
 ## 6. Rolling Source Wiki Polish Queue
 
-Status: implemented (`packages/wiki-core/src/wiki-polish-queue.ts`, `apps/worker/src/wiki-polish-enqueue.ts`, `apps/api/src/wiki-polish.ts`).
+Status: implemented (`packages/wiki-core/src/wiki-polish-queue.ts` scoring helper; `generation_jobs` worker processor for `initial_build`, `rolling_module_build`, and `wiki_touch_background`). Legacy `wiki-polish-enqueue` path removed.
 
 Type: AFK
 

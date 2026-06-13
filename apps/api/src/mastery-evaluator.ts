@@ -28,8 +28,17 @@ const masteryEvaluatorJudgeResultSchema = z.object({
   overallScore: z.number().min(0).max(1),
   confidence: z.number().min(0).max(1),
   uncertainty: z.number().min(0).max(1),
-  misconceptions: z.array(z.object({ conceptId: z.string().min(1), description: z.string().min(1) })),
-  tutoringIntervention: z.enum(["clarify", "reteach", "worked_example", "guided_practice", "quick_check", "advance"]),
+  misconceptions: z.array(
+    z.object({ conceptId: z.string().min(1), description: z.string().min(1) }),
+  ),
+  tutoringIntervention: z.enum([
+    "clarify",
+    "reteach",
+    "worked_example",
+    "guided_practice",
+    "quick_check",
+    "advance",
+  ]),
   notes: z.string().min(1),
 }) satisfies z.ZodType<MasteryEvaluatorJudgeResult>;
 
@@ -62,6 +71,54 @@ function tokenOverlapScore(left: string, right: string): number {
   return overlap / Math.max(a.size, b.size);
 }
 
+const CONTENT_TOKEN_STOPWORDS = new Set([
+  "about",
+  "against",
+  "answer",
+  "because",
+  "between",
+  "does",
+  "from",
+  "into",
+  "that",
+  "their",
+  "then",
+  "there",
+  "this",
+  "what",
+  "when",
+  "where",
+  "which",
+  "with",
+  "would",
+]);
+
+function contentTokenSet(value: string): Set<string> {
+  return new Set(
+    normalizeAnswer(value)
+      .split(/\W+/)
+      .map((token) => token.trim())
+      .filter((token) => token.length > 2 && !CONTENT_TOKEN_STOPWORDS.has(token)),
+  );
+}
+
+function contentTokenCoverage(
+  learnerAnswer: string,
+  referenceAnswer: string,
+): { precision: number; recall: number } {
+  const learner = contentTokenSet(learnerAnswer);
+  const reference = contentTokenSet(referenceAnswer);
+  if (!learner.size || !reference.size) return { precision: 0, recall: 0 };
+  let overlap = 0;
+  for (const token of learner) {
+    if (reference.has(token)) overlap += 1;
+  }
+  return {
+    precision: overlap / learner.size,
+    recall: overlap / reference.size,
+  };
+}
+
 type CheckpointStance = "agree" | "disagree";
 
 function extractCheckpointStance(answer: string): CheckpointStance | null {
@@ -71,14 +128,22 @@ function extractCheckpointStance(answer: string): CheckpointStance | null {
   return null;
 }
 
-function shouldDeferCheckpointToSemanticJudge(input: EvaluateLearnerResponseInput): boolean {
-  const learnerStance = extractCheckpointStance(input.learnerAnswer);
-  if (!learnerStance || !input.referenceAnswer) return false;
+function hasDeterministicReferenceAnswerJudgment(input: EvaluateLearnerResponseInput): boolean {
+  if (!input.referenceAnswer) return false;
   const reference = normalizeAnswer(input.referenceAnswer);
-  if (reference === normalizeAnswer(input.learnerAnswer)) return false;
+  if (reference === normalizeAnswer(input.learnerAnswer)) return true;
+  const learnerStance = extractCheckpointStance(input.learnerAnswer);
   const referenceStance = extractCheckpointStance(input.referenceAnswer);
-  if (referenceStance) return referenceStance !== learnerStance;
-  return reference.length > 48 || tokenOverlapScore(input.learnerAnswer, input.referenceAnswer) < 0.75;
+  return Boolean(learnerStance && referenceStance);
+}
+
+function shouldUseSemanticJudge(
+  input: EvaluateLearnerResponseInput,
+  evidenceType: MasteryEvidenceType,
+): boolean {
+  if (!input.referenceAnswer) return true;
+  if (evidenceType === "open_explanation" || evidenceType === "self_report") return true;
+  return !hasDeterministicReferenceAnswerJudgment(input);
 }
 
 function deterministicJudge(input: EvaluateLearnerResponseInput): MasteryEvaluatorJudgeResult {
@@ -150,6 +215,18 @@ function deterministicJudge(input: EvaluateLearnerResponseInput): MasteryEvaluat
     }
 
     const overlap = tokenOverlapScore(input.learnerAnswer, input.referenceAnswer);
+    const contentCoverage = contentTokenCoverage(input.learnerAnswer, input.referenceAnswer);
+    if (contentCoverage.recall >= 0.7 && contentCoverage.precision >= 0.5) {
+      return {
+        correctnessLabel: "correct",
+        overallScore: 0.9,
+        confidence: 0.78,
+        uncertainty: 0.22,
+        misconceptions: [],
+        tutoringIntervention: "advance",
+        notes: "Learner answer covered the reference answer's key content terms.",
+      };
+    }
     if (overlap >= 0.75) {
       return {
         correctnessLabel: "partial",
@@ -235,7 +312,8 @@ export async function evaluateLearnerResponse(
   input: EvaluateLearnerResponseInput,
   options: { judge?: MasteryEvaluatorJudge } = {},
 ): Promise<MasteryEvidence> {
-  const evidenceType = input.evidenceType ?? (input.referenceAnswer ? "mastery_check" : "open_explanation");
+  const evidenceType =
+    input.evidenceType ?? (input.referenceAnswer ? "mastery_check" : "open_explanation");
   const triggerSource = input.triggerSource ?? "tutor_tool";
 
   let judgment: MasteryEvaluatorJudgeResult;
@@ -243,14 +321,7 @@ export async function evaluateLearnerResponse(
   let fallbackUsed = false;
   let model: string | null = null;
 
-  const shouldUseLlm =
-    Boolean(options.judge) &&
-    (
-      !input.referenceAnswer
-      || evidenceType === "open_explanation"
-      || evidenceType === "self_report"
-      || shouldDeferCheckpointToSemanticJudge(input)
-    );
+  const shouldUseLlm = Boolean(options.judge) && shouldUseSemanticJudge(input, evidenceType);
 
   if (shouldUseLlm && options.judge) {
     try {

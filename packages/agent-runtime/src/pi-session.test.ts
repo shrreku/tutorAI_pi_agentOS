@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { TOOL_CONTRACT_CATALOG } from "@studyagent/tools";
-import { createRuntimeRun, createRuntimeToolRegistry } from "./index.js";
+import { buildStudyAgentHostStateSignature, createRuntimeRun, createRuntimeToolRegistry } from "./index.js";
 import {
   disposeStudyAgentTutorSession,
   followUpStudyAgentTutorSession,
@@ -65,18 +65,22 @@ describe("pi session runtime", () => {
     expect(metadata).toMatchObject({
       name: "artifact.create_quiz",
       label: "artifact.create_quiz",
-      description: "Creates a draft quiz artifact from notebook concepts and sources.",
+      description:
+        "Creates a quiz artifact from notebook concepts and sources. For a learner-facing quiz, pass concrete questions with prompts, choices when useful, correct answers/reference answers, explanations, and conceptIds. Do not call this with only a title/prompt after drafting questions in chat; persist those exact questions in the questions array.",
     });
     expect(Object.keys(parameters.properties ?? {})).toEqual(Object.keys(jsonSchema.properties ?? {}));
     expect(parameters.properties?.title).toEqual({ type: "string" });
     expect(parameters.properties?.questionCount).toEqual({ type: "number" });
-    expect(parameters.properties?.sourceNodeRefs).toEqual({
+    expect(parameters.properties?.sourceNodeRefs).toMatchObject({
       type: "array",
       items: {
         type: "object",
         properties: {
           refType: { type: "string" },
           refId: { type: "string" },
+          handle: { type: "string" },
+          title: { type: "string" },
+          label: { type: "string" },
         },
         required: ["refType", "refId"],
       },
@@ -348,16 +352,29 @@ describe("pi session runtime", () => {
     expect(replacement.binding?.reason).toBe("selected_refs_changed");
   });
 
-  it("replaces runtime when StudyAgent host state changes with the same selected refs", async () => {
+  it("keeps runtime when non-binding study state changes with the same selected refs", async () => {
     const toolRegistry = createRuntimeToolRegistry();
     const selectedNodeRefs = [{ refType: "source" as const, refId: "src_same" }];
+    const contextA = {
+      notebookId: "nb_host_state",
+      sessionId: "sess_host_state",
+      userId: "user_1",
+      notebookTitle: "N",
+      activeMode: "learn" as const,
+      selectedNodeRefs,
+      currentObjective: "Objective A",
+    };
+    const contextB = {
+      ...contextA,
+      currentObjective: "Objective B",
+    };
     const initialRun = createRuntimeRun({
       notebookId: "nb_host_state",
       sessionId: "sess_host_state",
       userId: "user_1",
       activeMode: "learn",
       selectedNodeRefs,
-      hostStateSignature: "host_state_current_objective_a",
+      hostStateSignature: buildStudyAgentHostStateSignature(contextA),
     });
     for await (const _event of runStudyAgentTutorSession({
       run: initialRun,
@@ -375,20 +392,15 @@ describe("pi session runtime", () => {
       userId: "user_1",
       activeMode: "learn",
       selectedNodeRefs,
-      hostStateSignature: "host_state_current_objective_b",
+      hostStateSignature: buildStudyAgentHostStateSignature(contextB),
     });
     const replacement = await replaceStudyAgentTutorRuntime({
       previousSessionId: "sess_host_state",
       nextRun: hostStateChangedRun,
     });
 
-    expect(replacement.replaced).toBe(true);
-    expect(replacement.binding).toEqual(
-      expect.objectContaining({
-        hostStateSignature: "host_state_current_objective_b",
-        reason: "host_state_changed",
-      }),
-    );
+    expect(replacement.replaced).toBe(false);
+    expect(replacement.binding?.hostStateSignature).toBe(buildStudyAgentHostStateSignature(contextA));
   });
 
   it("passes tutor turn identity to Pi-executed write tools", async () => {

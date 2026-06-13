@@ -410,9 +410,12 @@ export async function* runStudyAgentTutorSession(input: PiAgentSessionInput): As
         ? (session as { followUp: (message: string) => Promise<void> }).followUp.bind(session)
         : session.prompt.bind(session);
 
-  const modelTimeoutMs = input.config?.modelTimeoutMs ?? DEFAULT_TUTOR_MODEL_TIMEOUT_MS;
+  const modelTimeoutMs = input.config?.modelTimeoutMs;
   const dispatchStartedAt = Date.now();
-  void withTimeout(dispatch(userMessage), modelTimeoutMs, "model dispatch timed out")
+  const dispatchWork = dispatch(userMessage);
+  void (modelTimeoutMs != null
+    ? withTimeout(dispatchWork, modelTimeoutMs, "model dispatch timed out")
+    : dispatchWork)
     .then(async () => {
       if (action !== "prompt" && assistantText.trim().length === 0) {
         await session.prompt(userMessage);

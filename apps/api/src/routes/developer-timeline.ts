@@ -681,6 +681,22 @@ function mapTurnRow(row: { id: string; notebookId: string; sessionId: string; tu
 }
 
 function summarizeLearningEventSummary(eventType: string, payload: Record<string, unknown>): string {
+  if (eventType.startsWith("generation.")) {
+    const safeMessage = typeof payload.safeMessage === "string" ? payload.safeMessage : null;
+    const readiness = typeof payload.readiness === "string" ? payload.readiness : null;
+    const mode = typeof payload.generationMode === "string" ? payload.generationMode : null;
+    const pageKey = typeof payload.pageKey === "string" ? payload.pageKey : null;
+    const qualityCount = Array.isArray(payload.qualityIssues) ? payload.qualityIssues.length : null;
+    return [
+      safeMessage,
+      readiness ? `readiness ${readiness}` : undefined,
+      mode ? `mode ${mode}` : undefined,
+      pageKey ? `page ${pageKey}` : undefined,
+      qualityCount != null && qualityCount > 0 ? `${qualityCount} quality issue(s)` : undefined,
+    ]
+      .filter(Boolean)
+      .join(" · ") || summarizePayload(payload);
+  }
   if (eventType === "learning.mastery.updated") {
     const masteryScore = typeof payload.masteryScore === "number" ? payload.masteryScore.toFixed(2) : "?";
     const confidence = typeof payload.confidence === "number" ? payload.confidence.toFixed(2) : "?";
@@ -771,6 +787,7 @@ function classifyEventKind(eventType: string): DeveloperTimelineItem["kind"] {
   if (eventType.startsWith("agent.tool")) return "tool_call";
   if (eventType.startsWith("source.") || eventType.startsWith("ingestion.job.")) return "ingestion_job";
   if (eventType.startsWith("wiki.")) return "wiki_change";
+  if (eventType.startsWith("generation.")) return "wiki_change";
   if (eventType.startsWith("artifact.")) return "artifact_change";
   return "event";
 }
@@ -805,6 +822,7 @@ function isStateChangeEvent(eventType: string | undefined): boolean {
   return (
     eventType.startsWith("artifact.") ||
     eventType.startsWith("wiki.") ||
+    eventType.startsWith("generation.") ||
     eventType.startsWith("coverage.") ||
     eventType.startsWith("curriculum.") ||
     eventType.startsWith("module.") ||

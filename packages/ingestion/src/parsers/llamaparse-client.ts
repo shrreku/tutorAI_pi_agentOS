@@ -12,6 +12,8 @@ export type LlamaParseClientOptions = {
   version?: string;
   pollMs?: number;
   maxWaitMs?: number;
+  requestAttempts?: number;
+  requestRetryBaseMs?: number;
 };
 
 function trimSlash(u: string): string {
@@ -20,6 +22,86 @@ function trimSlash(u: string): string {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
+}
+
+function isTransientStatus(status: number): boolean {
+  return [408, 409, 425, 429, 499, 500, 502, 503, 504].includes(status);
+}
+
+function retryAfterMs(headers: Headers): number | null {
+  const raw = headers.get("retry-after");
+  if (!raw) return null;
+  const seconds = Number(raw);
+  if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1000;
+  const dateMs = Date.parse(raw);
+  if (!Number.isNaN(dateMs)) return Math.max(0, dateMs - Date.now());
+  return null;
+}
+
+function retryDelayMs(input: { attempt: number; baseMs: number; headers?: Headers }): number {
+  const fromHeader = input.headers ? retryAfterMs(input.headers) : null;
+  if (fromHeader != null) return Math.min(fromHeader, 30_000);
+  return Math.min(30_000, input.baseMs * 2 ** Math.max(0, input.attempt - 1));
+}
+
+function bodySnippet(body: unknown, maxChars: number): string {
+  return JSON.stringify(body).slice(0, maxChars);
+}
+
+async function readResponseJson(response: Response): Promise<unknown> {
+  const text = await response.text().catch(() => "");
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { body: text.slice(0, 1000) };
+  }
+}
+
+async function fetchJsonWithRetry(input: {
+  operation: string;
+  maxAttempts: number;
+  retryBaseMs: number;
+  snippetChars: number;
+  makeRequest: () => Promise<Response>;
+}): Promise<unknown> {
+  const attempts = Math.max(1, input.maxAttempts);
+  let lastFailure: unknown = null;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const response = await input.makeRequest();
+      const json = await readResponseJson(response);
+      if (response.ok) return json;
+
+      lastFailure = new Error(
+        `LlamaCloud ${input.operation} failed${attempts > 1 ? ` after ${attempt} attempt${attempt === 1 ? "" : "s"}` : ""} (${response.status}): ${bodySnippet(json, input.snippetChars)}`,
+      );
+      if (attempt < attempts && isTransientStatus(response.status)) {
+        await sleep(
+          retryDelayMs({ attempt, baseMs: input.retryBaseMs, headers: response.headers }),
+        );
+        continue;
+      }
+      throw lastFailure;
+    } catch (error) {
+      if (
+        attempt < attempts &&
+        (error instanceof TypeError || (error instanceof Error && error.name === "AbortError"))
+      ) {
+        lastFailure = error;
+        await sleep(retryDelayMs({ attempt, baseMs: input.retryBaseMs }));
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  throw new Error(
+    `LlamaCloud ${input.operation} request failed after ${attempts} attempts: ${
+      lastFailure instanceof Error ? lastFailure.message : String(lastFailure)
+    }`,
+  );
 }
 
 function extractJobId(json: unknown): string | null {
@@ -90,6 +172,8 @@ export async function llamaParsePdfToMarkdown(
   const version = opts.version ?? "latest";
   const pollMs = opts.pollMs ?? 2500;
   const maxWaitMs = opts.maxWaitMs ?? 600_000;
+  const requestAttempts = opts.requestAttempts ?? 3;
+  const requestRetryBaseMs = opts.requestRetryBaseMs ?? 1000;
   const auth = { Authorization: `Bearer ${opts.apiKey}` } as const;
   const observation = startObservation(
     "llamaparse.pdf",
@@ -106,22 +190,27 @@ export async function llamaParsePdfToMarkdown(
   );
 
   try {
-    const uploadFd = new FormData();
     const bodyBuf = Buffer.from(bytes);
-    uploadFd.append("file", new Blob([bodyBuf], { type: "application/pdf" }), filename || "document.pdf");
-    uploadFd.append("purpose", "parse");
-
-    const upRes = await fetch(`${base}/api/v1/beta/files`, {
-      method: "POST",
-      headers: auth,
-      body: uploadFd,
+    const upJson = await fetchJsonWithRetry({
+      operation: "file upload",
+      maxAttempts: requestAttempts,
+      retryBaseMs: requestRetryBaseMs,
+      snippetChars: 500,
+      makeRequest: () => {
+        const uploadFd = new FormData();
+        uploadFd.append(
+          "file",
+          new Blob([bodyBuf], { type: "application/pdf" }),
+          filename || "document.pdf",
+        );
+        uploadFd.append("purpose", "parse");
+        return fetch(`${base}/api/v1/beta/files`, {
+          method: "POST",
+          headers: auth,
+          body: uploadFd,
+        });
+      },
     });
-    const upJson: unknown = await upRes.json().catch(() => ({}));
-    if (!upRes.ok) {
-      throw new Error(
-        `LlamaCloud file upload failed (${upRes.status}): ${JSON.stringify(upJson).slice(0, 500)}`,
-      );
-    }
 
     const fileId =
       typeof (upJson as { id?: unknown }).id === "string"
@@ -130,40 +219,51 @@ export async function llamaParsePdfToMarkdown(
           ? (upJson as { file_id: string }).file_id
           : null;
     if (!fileId) {
-      throw new Error(`LlamaCloud file upload: missing file id in response: ${JSON.stringify(upJson).slice(0, 400)}`);
-    }
-
-    const parseRes = await fetch(`${base}/api/v2/parse`, {
-      method: "POST",
-      headers: { ...auth, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        file_id: fileId,
-        tier: opts.tier,
-        version,
-        client_name: "studyagent-ingestion",
-      }),
-    });
-    const parseJson: unknown = await parseRes.json().catch(() => ({}));
-    if (!parseRes.ok) {
       throw new Error(
-        `LlamaCloud parse job create failed (${parseRes.status}): ${JSON.stringify(parseJson).slice(0, 600)}`,
+        `LlamaCloud file upload: missing file id in response: ${JSON.stringify(upJson).slice(0, 400)}`,
       );
     }
 
+    const parseJson = await fetchJsonWithRetry({
+      operation: "parse job create",
+      maxAttempts: requestAttempts,
+      retryBaseMs: requestRetryBaseMs,
+      snippetChars: 600,
+      makeRequest: () =>
+        fetch(`${base}/api/v2/parse`, {
+          method: "POST",
+          headers: { ...auth, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            file_id: fileId,
+            tier: opts.tier,
+            version,
+            client_name: "studyagent-ingestion",
+          }),
+        }),
+    });
+
     const jobId = extractJobId(parseJson);
     if (!jobId) {
-      throw new Error(`LlamaCloud parse: missing job id: ${JSON.stringify(parseJson).slice(0, 400)}`);
+      throw new Error(
+        `LlamaCloud parse: missing job id: ${JSON.stringify(parseJson).slice(0, 400)}`,
+      );
     }
 
     const started = Date.now();
     while (Date.now() - started < maxWaitMs) {
-      const stRes = await fetch(`${base}/api/v2/parse/${encodeURIComponent(jobId)}?expand=markdown_full,job_metadata`, {
-        headers: auth,
+      const stJson = await fetchJsonWithRetry({
+        operation: "parse poll",
+        maxAttempts: requestAttempts,
+        retryBaseMs: requestRetryBaseMs,
+        snippetChars: 400,
+        makeRequest: () =>
+          fetch(
+            `${base}/api/v2/parse/${encodeURIComponent(jobId)}?expand=markdown_full,job_metadata`,
+            {
+              headers: auth,
+            },
+          ),
       });
-      const stJson: unknown = await stRes.json().catch(() => ({}));
-      if (!stRes.ok) {
-        throw new Error(`LlamaCloud parse poll failed (${stRes.status}): ${JSON.stringify(stJson).slice(0, 400)}`);
-      }
 
       const status = (extractJobStatus(stJson) ?? "").toUpperCase();
       const md = extractMarkdownFull(stJson);
@@ -178,7 +278,9 @@ export async function llamaParsePdfToMarkdown(
         return { markdown: md, jobId, warnings };
       }
       if (done && !md) {
-        throw new Error(`LlamaParse job ${jobId} finished with status ${status} but markdown_full is empty`);
+        throw new Error(
+          `LlamaParse job ${jobId} finished with status ${status} but markdown_full is empty`,
+        );
       }
 
       if (status === "FAILED" || status === "CANCELLED") {

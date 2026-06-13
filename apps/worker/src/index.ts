@@ -6,6 +6,7 @@ import {
   completeIngestionJob,
   createDb,
   failIngestionJob,
+  GENERATION_JOB_CHANNEL,
   getNextQueuedIngestionJobRunAt,
   INGESTION_JOB_CHANNEL,
   type ClaimedIngestionJob,
@@ -21,6 +22,8 @@ import { Worker } from "bullmq";
 import { Redis } from "ioredis";
 import postgres from "postgres";
 import { processIngestionPipelineJob } from "./ingestion-pipeline.js";
+import { processNextGenerationJob } from "./generation-job-processor.js";
+import { enqueueDegradedInitialBuildRetries } from "./retry-degraded-generation.js";
 import { applyClaimDecay } from "./wiki-decay.js";
 
 function createS3(env: ReturnType<typeof loadEnv>): S3Client | null {
@@ -45,12 +48,14 @@ async function main() {
   const s3 = createS3(env);
 
   const decayTimer = startClaimDecay(dbClient);
+  const generationJobWorker = startGenerationJobWorker(env, dbClient);
   const stopIngestionWorker = env.REDIS_URL
     ? await startBullMqIngestionWorker(env, dbClient, s3)
     : await startPostgresIngestionWorker(env, dbClient, s3);
 
   const shutdown = async () => {
     clearInterval(decayTimer);
+    await generationJobWorker.stop();
     await stopIngestionWorker();
     await shutdownLangfuseTracing();
     await dbClient.sql.end();
@@ -59,6 +64,72 @@ async function main() {
 
   process.on("SIGINT", () => void shutdown());
   process.on("SIGTERM", () => void shutdown());
+}
+
+function startGenerationJobWorker(
+  env: ReturnType<typeof loadEnv>,
+  dbClient: DbClient,
+): { interval: NodeJS.Timeout; stop: () => Promise<void> } {
+  const workerId = `worker_${process.pid}`;
+  let draining = false;
+
+  const drainGenerationJobs = async (): Promise<void> => {
+    if (draining) return;
+    draining = true;
+    try {
+      while (true) {
+        const result = await processNextGenerationJob(env, dbClient, { workerId });
+        if (!result.processed) break;
+        console.log(
+          `generation jobs: processed job=${result.jobId ?? "background"} name=${result.jobName ?? "resume"}`,
+        );
+      }
+    } catch (error) {
+      console.error("generation job worker failed", error);
+    } finally {
+      draining = false;
+    }
+  };
+
+  const listener = postgres(env.DATABASE_URL, { max: 1, prepare: false });
+  let listenerHandle: { unlisten: () => Promise<void> } | null = null;
+  void listener
+    .listen(
+      GENERATION_JOB_CHANNEL,
+      () => {
+        void drainGenerationJobs();
+      },
+      () => {
+        console.log("StudyAgent worker listening on Postgres generation jobs queue");
+      },
+    )
+    .then((handle) => {
+      listenerHandle = handle;
+    });
+
+  void drainGenerationJobs();
+  void enqueueDegradedInitialBuildRetries(env, dbClient)
+    .then((count) => {
+      if (count > 0) {
+        console.log(`generation jobs: enqueued ${count} degraded initial build retry(ies)`);
+        void drainGenerationJobs();
+      }
+    })
+    .catch((error) => {
+      console.error("degraded initial build retry scan failed", error);
+    });
+  const interval = setInterval(() => {
+    void drainGenerationJobs();
+  }, 60_000);
+
+  return {
+    interval,
+    stop: async () => {
+      clearInterval(interval);
+      if (listenerHandle) await listenerHandle.unlisten();
+      await listener.end();
+    },
+  };
 }
 
 function startClaimDecay(dbClient: DbClient): NodeJS.Timeout {
@@ -86,6 +157,15 @@ async function startBullMqIngestionWorker(
     async (job) => {
       const stopTimer = startMetricTimer();
       recordIngestionJobMetric({ backend: "bullmq", outcome: "claimed" });
+      console.info("ingestion job started", {
+        backend: "bullmq",
+        jobId: String(job.id ?? ""),
+        jobName: job.name,
+        notebookId: (job.data as { notebookId?: string }).notebookId,
+        sourceId: (job.data as { sourceId?: string }).sourceId,
+        sourceVersionId: (job.data as { sourceVersionId?: string }).sourceVersionId,
+        attempt: job.attemptsStarted,
+      });
       await processIngestionPipelineJob({
         env,
         dbClient,
@@ -97,14 +177,32 @@ async function startBullMqIngestionWorker(
           attemptsStarted: job.attemptsStarted,
         },
       });
-      recordIngestionJobMetric({ backend: "bullmq", outcome: "completed", durationMs: stopTimer() });
+      const durationMs = stopTimer();
+      recordIngestionJobMetric({ backend: "bullmq", outcome: "completed", durationMs });
+      console.info("ingestion job completed", {
+        backend: "bullmq",
+        jobId: String(job.id ?? ""),
+        jobName: job.name,
+        notebookId: (job.data as { notebookId?: string }).notebookId,
+        sourceId: (job.data as { sourceId?: string }).sourceId,
+        sourceVersionId: (job.data as { sourceVersionId?: string }).sourceVersionId,
+        durationMs,
+      });
     },
     { connection },
   );
 
   worker.on("failed", (job, err) => {
     recordIngestionJobMetric({ backend: "bullmq", outcome: "failed" });
-    console.error("Job failed", job?.id, err);
+    console.error("ingestion job failed", {
+      backend: "bullmq",
+      jobId: String(job?.id ?? ""),
+      jobName: job?.name,
+      notebookId: (job?.data as { notebookId?: string } | undefined)?.notebookId,
+      sourceId: (job?.data as { sourceId?: string } | undefined)?.sourceId,
+      sourceVersionId: (job?.data as { sourceVersionId?: string } | undefined)?.sourceVersionId,
+      error: err instanceof Error ? err.message : String(err),
+    });
   });
 
   console.log("StudyAgent worker listening on BullMQ queue ingestion");
@@ -191,6 +289,15 @@ async function runClaimedPostgresJob(input: {
   const { env, dbClient, s3, job } = input;
   const stopTimer = startMetricTimer();
   try {
+    console.info("ingestion job started", {
+      backend: "postgres",
+      jobId: job.id,
+      jobName: job.jobName,
+      notebookId: job.notebookId,
+      sourceId: job.sourceId,
+      sourceVersionId: job.sourceVersionId,
+      attempt: job.attemptsStarted,
+    });
     await processIngestionPipelineJob({
       env,
       dbClient,
@@ -207,13 +314,44 @@ async function runClaimedPostgresJob(input: {
       },
     });
     await completeIngestionJob(dbClient, job.id);
-    recordIngestionJobMetric({ backend: "postgres", outcome: "completed", durationMs: stopTimer() });
+    const durationMs = stopTimer();
+    recordIngestionJobMetric({ backend: "postgres", outcome: "completed", durationMs });
+    console.info("ingestion job completed", {
+      backend: "postgres",
+      jobId: job.id,
+      jobName: job.jobName,
+      notebookId: job.notebookId,
+      sourceId: job.sourceId,
+      sourceVersionId: job.sourceVersionId,
+      durationMs,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const outcome = await failIngestionJob(dbClient, { jobId: job.id, error: message });
-    recordIngestionJobMetric({ backend: "postgres", outcome: "failed", durationMs: stopTimer() });
+    const durationMs = stopTimer();
+    recordIngestionJobMetric({ backend: "postgres", outcome: "failed", durationMs });
+    console.error("ingestion job failed", {
+      backend: "postgres",
+      jobId: job.id,
+      jobName: job.jobName,
+      notebookId: job.notebookId,
+      sourceId: job.sourceId,
+      sourceVersionId: job.sourceVersionId,
+      retry: outcome.retry,
+      durationMs,
+      error: message,
+    });
     if (!outcome.retry) {
       recordIngestionJobMetric({ backend: "postgres", outcome: "dead_lettered" });
+      console.error("ingestion job dead-lettered", {
+        backend: "postgres",
+        jobId: job.id,
+        jobName: job.jobName,
+        notebookId: job.notebookId,
+        sourceId: job.sourceId,
+        sourceVersionId: job.sourceVersionId,
+        error: message,
+      });
       await appendEvent(dbClient, {
         notebookId: job.notebookId,
         eventType: "ingestion.job.dead_lettered",
