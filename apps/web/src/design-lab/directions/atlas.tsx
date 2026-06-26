@@ -1,7 +1,7 @@
 import { Compass, MapPin, Navigation, Flag, Mountain, Layers } from "lucide-react";
 import { Badge, Button, Eyebrow, Meter } from "../ui/primitives.js";
-import { ChatPane, MapPane, SplitWorkspace, WorkspaceHeader } from "../ui/workspace.js";
-import { GraphCanvas, NodePack as NodePackShowcase } from "../ui/nodes.js";
+import { CanvasWorkspace } from "../ui/layouts/canvas.js";
+import { NodePack as NodePackShowcase } from "../ui/nodes.js";
 import {
   sampleMastery,
   sampleNotebooks,
@@ -60,29 +60,7 @@ const MAP_EDGES = [
 export function Workspace() {
   const nb = useNotebooks();
   const notebook = nb.data?.[0]?.title ?? sampleNotebooks[0]!.title;
-  return (
-    <>
-      <WorkspaceHeader
-        notebook={notebook}
-        right={
-          <Button size="sm" variant="outline">
-            <Compass className="h-4 w-4" /> Full atlas
-          </Button>
-        }
-      />
-      <SplitWorkspace
-        chatRatio={1.4}
-        chat={<ChatPane context="SN2 mechanism" />}
-        map={
-          <MapPane title="Terrain · study map" meta="you are here · SN2">
-            <div className="atlas-grid absolute inset-0">
-              <GraphCanvas nodes={MAP_NODES} edges={MAP_EDGES} height={520} />
-            </div>
-          </MapPane>
-        }
-      />
-    </>
-  );
+  return <CanvasWorkspace notebook={notebook} nodes={MAP_NODES} edges={MAP_EDGES} />;
 }
 
 export function NodePack() {

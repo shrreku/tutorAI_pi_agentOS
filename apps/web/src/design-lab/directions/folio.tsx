@@ -1,7 +1,7 @@
 import { ArrowRight } from "lucide-react";
 import { Badge, Button, Eyebrow, Meter } from "../ui/primitives.js";
-import { ChatPane, MapPane, SplitWorkspace, WorkspaceHeader } from "../ui/workspace.js";
-import { GraphCanvas, NodePack as NodePackShowcase } from "../ui/nodes.js";
+import { MarginWorkspace } from "../ui/layouts/margin.js";
+import { NodePack as NodePackShowcase } from "../ui/nodes.js";
 import {
   sampleMastery,
   sampleNotebooks,
@@ -64,29 +64,7 @@ const MAP_EDGES = [
 export function Workspace() {
   const nb = useNotebooks();
   const notebook = nb.data?.[0]?.title ?? sampleNotebooks[0]!.title;
-  return (
-    <>
-      <WorkspaceHeader
-        notebook={notebook}
-        right={
-          <Button size="sm" variant="outline">
-            Open full map
-          </Button>
-        }
-      />
-      <SplitWorkspace
-        chatRatio={1.5}
-        chat={<ChatPane context="SN2 mechanism" />}
-        map={
-          <MapPane title="Study Map · figures" meta="numbered for citation">
-            <div className="absolute inset-0">
-              <GraphCanvas numbered nodes={MAP_NODES} edges={MAP_EDGES} height={520} />
-            </div>
-          </MapPane>
-        }
-      />
-    </>
-  );
+  return <MarginWorkspace notebook={notebook} nodes={MAP_NODES} edges={MAP_EDGES} />;
 }
 
 export function NodePack() {

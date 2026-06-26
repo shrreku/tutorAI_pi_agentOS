@@ -1,7 +1,7 @@
 import { ArrowRight, Clock, Flame, Layers, Sparkles, TrendingUp } from "lucide-react";
 import { Badge, Button, Eyebrow, Meter } from "../ui/primitives.js";
-import { ChatPane, MapPane, SplitWorkspace, WorkspaceHeader } from "../ui/workspace.js";
-import { GraphCanvas, NodePack as NodePackShowcase } from "../ui/nodes.js";
+import { OverlayWorkspace } from "../ui/layouts/overlay.js";
+import { NodePack as NodePackShowcase } from "../ui/nodes.js";
 import {
   sampleActivity,
   sampleMastery,
@@ -64,39 +64,7 @@ const MAP_EDGES = [
 export function Workspace() {
   const nb = useNotebooks();
   const notebook = nb.data?.[0]?.title ?? sampleNotebooks[0]!.title;
-  return (
-    <>
-      <WorkspaceHeader
-        notebook={notebook}
-        right={
-          <Button size="sm" variant="outline">
-            Open full map
-          </Button>
-        }
-      />
-      <SplitWorkspace
-        chatRatio={1.45}
-        chat={
-          <div className="min-h-0 flex-1 p-3">
-            <div className="glass flex h-full min-h-0 flex-col overflow-hidden rounded-[var(--radius-xl)] border border-border shadow-pop">
-              <ChatPane context="SN2 mechanism" />
-            </div>
-          </div>
-        }
-        map={
-          <div className="min-h-0 flex-1 p-3 pl-0">
-            <div className="glass flex h-full min-h-0 flex-col overflow-hidden rounded-[var(--radius-xl)] border border-border shadow-pop">
-              <MapPane title="Study Map · figures" meta="numbered for citation">
-                <div className="dot-grid absolute inset-0">
-                  <GraphCanvas numbered nodes={MAP_NODES} edges={MAP_EDGES} height={520} />
-                </div>
-              </MapPane>
-            </div>
-          </div>
-        }
-      />
-    </>
-  );
+  return <OverlayWorkspace notebook={notebook} nodes={MAP_NODES} edges={MAP_EDGES} />;
 }
 
 export function NodePack() {
