@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Source Wiki — TutorBook</title>
 <link rel="stylesheet" href="styles.css" />
+<link rel="stylesheet" href="themes/folio.css" />
+<link rel="stylesheet" href="themes/focus.css" />
+<link rel="stylesheet" href="themes/sunrise.css" />
+<link rel="stylesheet" href="themes/nocturne.css" />
+<link rel="stylesheet" href="themes/carbon.css" />
 </head>
 <body data-theme="mist">
 <div class="app">
@@ -12,56 +17,90 @@
 
   <div class="workspace" data-evidence>
     <div class="workspace-main">
-      <div class="workspace-canvas" style="padding:0">
-        <div style="padding:24px 24px 0">
+      <div class="workspace-canvas">
+        <div class="canvas-toolbar">
           <div class="surface-switch" data-surface>
             <a href="study-map.html">Study Map</a>
             <a href="curriculum.html">Curriculum</a>
             <a href="source-wiki.html" class="active">Source Wiki</a>
           </div>
+          <div class="spacer"></div>
+          <button class="btn sm" data-evidence-open>🛡 Evidence</button>
+          <button class="btn sm" data-ask-tutor>✦ Ask tutor</button>
         </div>
 
-        <div style="display:grid;grid-template-columns:220px 1fr;gap:18px;padding:18px 24px 24px;flex:1">
-          <!-- Source + Topics sidebar -->
+        <div style="display:grid;grid-template-columns:220px 1fr;gap:18px;align-items:start">
+          <!-- Sources + Topics nav -->
           <div>
             <div class="card tight" style="margin-bottom:14px">
-              <h4 style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);margin:0 0 8px">Source</h4>
-              <div class="obj-item active" style="background:var(--blue-soft);margin:0;padding:8px 10px">
-                <div>📄 Ch. 7 PDF</div>
-              </div>
+              <div class="section-label" style="margin-bottom:8px">Sources</div>
+              <a class="obj-item active" href="page-source.html" style="margin:0 0 4px"><div class="mark"></div><div style="flex:1">Wade · Ch. 7 PDF</div></a>
+              <a class="obj-item" href="page-source.html" style="margin:0"><div class="mark" style="border-style:dashed"></div><div style="flex:1">Lecture 12 · Slides</div></a>
+              <a class="obj-item" href="page-source.html" style="margin:0"><div class="mark" style="border-style:dashed"></div><div style="flex:1">SN2_Mechanisms.pdf</div></a>
             </div>
             <div class="card tight">
-              <h4 style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);margin:0 0 8px">Topics</h4>
-              <div class="history-item" style="color:var(--text);font-weight:600;background:var(--accent-soft);border-radius:8px">Substitution reactions</div>
-              <div class="history-item" style="color:var(--text-muted)">Stereochemistry</div>
-              <div class="history-item" style="color:var(--text-muted)">Elimination</div>
-              <div class="history-item" style="color:var(--text-muted)">Nucleophiles</div>
+              <div class="section-label" style="margin-bottom:8px">Topics</div>
+              <div class="history-item" style="color:var(--accent-deep);font-weight:650;background:var(--accent-soft);border-radius:8px">Nucleophilic substitution</div>
+              <a class="history-item" href="page-concept.html" style="display:block;color:var(--text-muted)">SN2 mechanism</a>
+              <a class="history-item" href="page-comparison.html" style="display:block;color:var(--text-muted)">SN1 vs SN2</a>
+              <a class="history-item" href="page-concept.html" style="display:block;color:var(--text-muted)">Stereochemistry</a>
+              <a class="history-item" href="page-concept.html" style="display:block;color:var(--text-muted)">Leaving groups</a>
+              <a class="history-item" href="page-concept.html" style="display:block;color:var(--text-muted)">Solvent effects</a>
             </div>
           </div>
 
           <!-- Wiki topic reader -->
-          <div class="card" style="padding:28px">
+          <div class="card pad-lg" style="max-width:760px">
             <div class="badges" style="display:flex;gap:8px;margin-bottom:10px">
               <span class="badge purple">WIKI TOPIC</span>
-              <span class="badge green">Ready</span>
+              <span class="badge gray">Wade · Ch. 7 · p. 138–152</span>
             </div>
-            <h1 style="margin:0 0 10px">Nucleophilic substitution</h1>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
-              <span class="badge" style="background:var(--accent);color:#fff;border-color:var(--accent)">SN2 mechanism</span>
-              <span class="badge gray">Leaving groups</span>
-              <span class="badge gray">Stereochemistry</span>
-              <span class="badge red">Needs practice</span>
-            </div>
-            <p style="color:#313543">Nucleophilic substitution is a fundamental class of reactions in organic chemistry in which an electron-rich nucleophile selectively bonds with the positive charge of an electrophilic carbon atom, displacing a leaving group.</p>
-            <div class="muted" style="color:var(--text-muted);font-size:12px;margin-top:8px">8 concepts linked · Evidence available</div>
+            <h1 style="margin:0 0 6px;font-size:28px;letter-spacing:-0.02em">Nucleophilic substitution</h1>
+            <p class="muted" style="margin:0 0 4px">Rolling wiki generated from your indexed sources · 8 linked concepts</p>
 
             <div class="section">
-              <h4>Definition</h4>
-              <p>The two main mechanisms are SN1 (unimolecular, via carbocation) and SN2 (bimolecular, concerted backside attack).</p>
+              <h4>Overview</h4>
+              <p>Nucleophilic substitution is a class of reactions in which an electron-rich <strong>nucleophile</strong> bonds to an electrophilic carbon atom, displacing a <strong>leaving group</strong>. It is one of the most important reaction families in organic chemistry because it interconverts functional groups under mild conditions.</p>
+              <p>Two limiting mechanisms describe how the bond-making and bond-breaking steps are timed. In the <strong>SN2</strong> pathway both events happen in a single concerted step, so the rate depends on both the substrate and the nucleophile. In the <strong>SN1</strong> pathway the leaving group departs first to form a carbocation, and the rate depends only on the substrate.</p>
             </div>
+
             <div class="callout">
-              <div class="label">Intuition</div>
-              <p style="margin:6px 0 0">Think of an umbrella flipping inside-out in a gust of wind — that's the stereochemical inversion during an SN2 backside attack.</p>
+              <div class="label">Key intuition</div>
+              <p style="margin:6px 0 0">Picture an umbrella flipping inside-out in a gust of wind — that is the stereochemical inversion (Walden inversion) the carbon centre undergoes during an SN2 backside attack.</p>
+            </div>
+
+            <div class="section">
+              <h4>What controls the rate</h4>
+              <ul class="bullets">
+                <li><strong>Substrate structure</strong> — primary substrates favour SN2; tertiary favour SN1 via a stabilised carbocation.</li>
+                <li><strong>Nucleophile strength</strong> — strong, unhindered nucleophiles accelerate SN2.</li>
+                <li><strong>Leaving-group ability</strong> — weaker bases (I⁻, TsO⁻) leave more readily.</li>
+                <li><strong>Solvent</strong> — polar aprotic solvents leave the nucleophile "naked" and reactive, boosting SN2.</li>
+              </ul>
+            </div>
+
+            <div class="callout green">
+              <div class="label">Mastery note</div>
+              <p style="margin:6px 0 0">You are at 45% on stereochemistry — the inversion step is the most-missed concept here. A quick flashcard pass is recommended before the next checkpoint.</p>
+            </div>
+
+            <div class="section">
+              <h4>Linked concepts</h4>
+              <div class="row wrap gap-8">
+                <a class="badge" href="page-concept.html" style="background:var(--accent);color:#fff;border-color:var(--accent)">SN2 mechanism</a>
+                <a class="badge gray" href="page-concept.html">Leaving groups</a>
+                <a class="badge gray" href="page-concept.html">Stereochemistry</a>
+                <a class="badge gray" href="page-concept.html">Solvent effects</a>
+                <a class="badge gray" href="page-comparison.html">SN1 vs SN2</a>
+                <a class="badge red" href="page-concept.html"><span class="dot-i"></span> Backside attack · review</a>
+              </div>
+            </div>
+
+            <div class="row gap-12 mt-20" style="padding-top:16px;border-top:1px solid var(--border)">
+              <span class="badge gray">📄 Cited from Wade · Ch. 7 · p. 142</span>
+              <div class="spacer"></div>
+              <button class="btn sm" data-evidence-open>View evidence</button>
+              <a class="btn sm primary" href="page-source.html">Open full source</a>
             </div>
           </div>
         </div>
@@ -69,11 +108,16 @@
       <div data-include="statusbar"></div>
     </div>
 
-    <div data-include="tutor" data-context="SN2 mechanism"></div>
+    <div data-include="tutor" data-context="Nucleophilic substitution"></div>
   </div>
 </div>
 
 <script src="app.js"></script>
+<script src="themes/folio.js"></script>
+<script src="themes/focus.js"></script>
+<script src="themes/sunrise.js"></script>
+<script src="themes/nocturne.js"></script>
+<script src="themes/carbon.js"></script>
 <script src="partials.js"></script>
 </body>
 </html>

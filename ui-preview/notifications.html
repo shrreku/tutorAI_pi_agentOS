@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Notifications — TutorBook</title>
+<link rel="stylesheet" href="styles.css" />
+<link rel="stylesheet" href="themes/folio.css" />
+<link rel="stylesheet" href="themes/focus.css" />
+<link rel="stylesheet" href="themes/sunrise.css" />
+<link rel="stylesheet" href="themes/nocturne.css" />
+<link rel="stylesheet" href="themes/carbon.css" />
+</head>
+<body data-theme="mist">
+<div class="app">
+  <div data-include="topbar"></div>
+
+  <div class="page-head">
+    <div class="between">
+      <div>
+        <h1>Notifications</h1>
+        <p class="ph-sub">Updates from your notebooks, tutor, and account.</p>
+      </div>
+      <button class="btn sm">Mark all read</button>
+    </div>
+  </div>
+
+  <div class="page-body">
+
+    <div class="notif-list">
+
+      <!-- FILTER TABS -->
+      <div class="ev-tabs" data-ev-tabs>
+        <button class="active">All</button>
+        <button>Mentions</button>
+        <button>System</button>
+      </div>
+
+      <!-- ITEMS -->
+      <div class="notif unread">
+        <div class="nf-ico" style="background:var(--purple)">▦</div>
+        <div style="flex:1;min-width:0">
+          <div class="nf-t">Your flashcards are ready</div>
+          <div class="nf-s">12 cards generated for SN2 mechanism in Organic Chemistry I. <a href="page-flashcards.html" style="color:var(--accent-deep);font-weight:650">Review now</a></div>
+        </div>
+        <div class="nf-time">2m ago</div>
+      </div>
+
+      <div class="notif unread">
+        <div class="nf-ico" style="background:var(--green)">✓</div>
+        <div style="flex:1;min-width:0">
+          <div class="nf-t">Quiz graded: 80%</div>
+          <div class="nf-s">Stereochemistry quiz — 4 of 5 correct. One topic still needs review. <a href="page-quiz.html" style="color:var(--accent-deep);font-weight:650">See results</a></div>
+        </div>
+        <div class="nf-time">1h ago</div>
+      </div>
+
+      <div class="notif unread">
+        <div class="nf-ico" style="background:var(--blue)">↧</div>
+        <div style="flex:1;min-width:0">
+          <div class="nf-t">Source ingested</div>
+          <div class="nf-s">Ch.7 PDF added to Organic Chemistry I. That notebook now has 7 sources. <a href="sources.html" style="color:var(--accent-deep);font-weight:650">Open sources</a></div>
+        </div>
+        <div class="nf-time">3h ago</div>
+      </div>
+
+      <div class="notif">
+        <div class="nf-ico" style="background:var(--orange)">⚠</div>
+        <div style="flex:1;min-width:0">
+          <div class="nf-t">Credits at 25% — heads up</div>
+          <div class="nf-s">You used 75% of this cycle. ~18 tutor-hours remain before the 1 July reset. <a href="credits.html" style="color:var(--accent-deep);font-weight:650">Top up</a></div>
+        </div>
+        <div class="nf-time">Yesterday</div>
+      </div>
+
+      <div class="notif">
+        <div class="nf-ico" style="background:var(--accent)">✦</div>
+        <div style="flex:1;min-width:0">
+          <div class="nf-t">New feature: Live Plan</div>
+          <div class="nf-s">Run a guided, step-by-step session that adapts as you go. <a href="page-live-plan.html" style="color:var(--accent-deep);font-weight:650">Try Live Plan</a></div>
+        </div>
+        <div class="nf-time">2 days ago</div>
+      </div>
+
+      <div class="notif">
+        <div class="nf-ico" style="background:var(--teal)">📈</div>
+        <div style="flex:1;min-width:0">
+          <div class="nf-t">Weekly progress summary</div>
+          <div class="nf-s">Cell Biology reached 88% and Linear Algebra is at 32%. <a href="dashboard.html" style="color:var(--accent-deep);font-weight:650">View dashboard</a></div>
+        </div>
+        <div class="nf-time">3 days ago</div>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script src="themes/folio.js"></script>
+<script src="themes/focus.js"></script>
+<script src="themes/sunrise.js"></script>
+<script src="themes/nocturne.js"></script>
+<script src="themes/carbon.js"></script>
+<script src="partials.js"></script>
+</body>
+</html>

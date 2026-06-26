@@ -3,58 +3,78 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Evidence Drawer · Study Map — TutorBook</title>
+<title>Evidence Drawer — TutorBook</title>
 <link rel="stylesheet" href="styles.css" />
+<link rel="stylesheet" href="themes/folio.css" />
+<link rel="stylesheet" href="themes/focus.css" />
+<link rel="stylesheet" href="themes/sunrise.css" />
+<link rel="stylesheet" href="themes/nocturne.css" />
+<link rel="stylesheet" href="themes/carbon.css" />
 </head>
 <body data-theme="mist">
 <div class="app">
   <div data-include="topbar"></div>
 
-  <div class="workspace" data-evidence>
-    <div class="workspace-main">
-      <div class="workspace-canvas">
-        <div class="surface-switch" data-surface>
-          <a href="study-map.html" class="active">Study Map</a>
-          <a href="curriculum.html">Curriculum</a>
-          <a href="source-wiki.html">Source Wiki</a>
-        </div>
-
-        <div class="card" style="max-width:760px;margin:0 auto;padding:28px">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-            <a class="back-link" href="study-map.html">← Back to Study Map</a>
-            <div class="ref-actions">
-              <button class="btn" data-ask-tutor>💬 Ask tutor</button>
-              <button class="btn" data-evidence-open>🛡 Evidence · Open</button>
-            </div>
-          </div>
-          <span class="kicker" style="color:var(--purple);font-weight:700;font-size:11px;letter-spacing:0.1em">CONCEPT</span>
-          <h1 style="margin:8px 0 4px">SN2 mechanism</h1>
-          <p style="color:#313543">The SN2 reaction is a one-step, bimolecular nucleophilic substitution in which the nucleophile attacks from the side opposite the leaving group. <span class="badge" style="cursor:pointer">📖 Ch. 7 · p. 142</span></p>
-          <p style="color:var(--text-muted);font-size:13px">Click <strong>Evidence · Open</strong> (top right) or any citation chip to open the evidence drawer with a frosted workspace scrim.</p>
+  <div class="ref-page">
+    <div class="ref-container">
+      <div class="ref-top">
+        <a class="back-link" href="study-map.html">← Back to Study Map</a>
+        <div class="ref-actions">
+          <button class="btn" data-ask-tutor>💬 Ask tutor</button>
+          <button class="btn primary" data-evidence-open>🛡 Evidence</button>
         </div>
       </div>
-      <div data-include="statusbar"></div>
-    </div>
 
-    <div data-include="tutor" data-context="SN2 mechanism"></div>
+      <div class="ref-header">
+        <div class="badges">
+          <span class="kicker">CONCEPT</span>
+          <span class="badge green">Ready to study</span>
+          <span class="badge gray">7 sources</span>
+        </div>
+        <h1>SN2 mechanism</h1>
+        <div class="summary">Backside attack, stereochemistry inversion, and the substrate factors that drive the concerted step.</div>
+      </div>
+
+      <div class="section">
+        <h4>Definition</h4>
+        <p>The SN2 reaction is a one-step, bimolecular nucleophilic substitution in which the nucleophile attacks the electrophilic carbon from the side opposite the leaving group, displacing it in a single concerted process.</p>
+        <p>Because bond formation and bond breaking happen simultaneously, the rate depends on both substrate and nucleophile concentration — it is second order overall. <span class="badge gray outline">📖 Ch. 7 · p. 142</span></p>
+      </div>
+
+      <div class="callout">
+        <div class="label">Intuition</div>
+        <p style="margin:6px 0 0">Think of an umbrella flipping inside-out in a gust of wind — the stereochemistry at the carbon inverts (Walden inversion) as the nucleophile pushes the leaving group out the back.</p>
+      </div>
+
+      <div class="section">
+        <h4>Key factors</h4>
+        <ul class="bullets">
+          <li>Primary substrates favor SN2 · steric hindrance at tertiary centres blocks backside attack</li>
+          <li>Strong, less-hindered nucleophiles accelerate the bimolecular step</li>
+          <li>Polar aprotic solvents keep the nucleophile reactive and "naked"</li>
+          <li>Good leaving groups stabilize the departing anion</li>
+        </ul>
+      </div>
+
+      <div class="ref-actions" style="margin-top:18px">
+        <button class="btn" data-ask-tutor>💬 Ask tutor</button>
+        <button class="btn primary" data-evidence-open>🛡 Open evidence</button>
+      </div>
+    </div>
   </div>
+
+  <div data-include="statusbar"></div>
 </div>
 
-<div data-include="drawer"></div>
-<div class="scrim" data-scrim></div>
+<div data-include="drawer" class="drawer open"></div>
+<div class="scrim open" data-scrim></div>
 
 <script src="app.js"></script>
+<script src="themes/folio.js"></script>
+<script src="themes/focus.js"></script>
+<script src="themes/sunrise.js"></script>
+<script src="themes/nocturne.js"></script>
+<script src="themes/carbon.js"></script>
 <script src="partials.js"></script>
-<script>
-  // Auto-open the drawer on this page to showcase the overlay.
-  window.addEventListener('load', () => {
-    setTimeout(() => {
-      const scrim = document.querySelector('[data-scrim]');
-      const drawer = document.querySelector('[data-drawer]');
-      if (scrim) scrim.classList.add('open');
-      if (drawer) drawer.classList.add('open');
-    }, 350);
-  });
-</script>
 </body>
 </html>

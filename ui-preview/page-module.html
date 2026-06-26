@@ -3,8 +3,13 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Module · Ch. 7 — TutorBook</title>
+<title>Module · SN2 Reactions — TutorBook</title>
 <link rel="stylesheet" href="styles.css" />
+<link rel="stylesheet" href="themes/folio.css" />
+<link rel="stylesheet" href="themes/focus.css" />
+<link rel="stylesheet" href="themes/sunrise.css" />
+<link rel="stylesheet" href="themes/nocturne.css" />
+<link rel="stylesheet" href="themes/carbon.css" />
 </head>
 <body data-theme="mist">
 <div class="app">
@@ -13,51 +18,132 @@
   <div class="ref-page">
     <div class="ref-container">
       <div class="ref-top">
-        <a class="back-link" href="curriculum.html">← Back to Curriculum</a>
+        <a class="back-link" href="curriculum.html">← Curriculum · Ch. 7 Substitution</a>
         <div class="ref-actions">
-          <button class="btn" data-ask-tutor>💬 Ask tutor</button>
-          <button class="btn" data-evidence-open>🛡 Evidence</button>
+          <button class="btn sm" data-evidence-open>🛡 Evidence</button>
+          <button class="btn sm" data-ask-tutor>💬 Ask tutor</button>
         </div>
       </div>
 
       <div class="ref-header">
-        <div class="badges"><span class="badge orange">MODULE</span><span class="badge purple">Current</span></div>
-        <h1>Ch. 7 · Substitution reactions</h1>
-        <div class="summary">8 objectives · 3 completed · Ch. 7 PDF</div>
+        <div class="badges">
+          <span class="badge purple">MODULE</span>
+          <span class="badge orange">In progress</span>
+        </div>
+        <div class="kicker">ORGANIC CHEMISTRY I · CH. 7</div>
+        <h1>SN2 Reactions</h1>
+        <p class="summary">Master bimolecular nucleophilic substitution — mechanism, kinetics, stereochemistry, and the factors that decide whether a substrate reacts.</p>
       </div>
 
-      <div style="margin:16px 0">
-        <div class="progress"><span style="width:38%"></span></div>
-        <div class="muted" style="color:var(--text-muted);font-size:12px;margin-top:6px">3 / 8 objectives</div>
-      </div>
-
+      <!-- Progress overview -->
       <div class="section">
-        <h4>Objectives</h4>
-        <a class="obj-item done" href="page-concept.html"><div class="mark">✓</div><div>Obj 1 · Proton transfer</div></a>
-        <a class="obj-item done" href="page-concept.html"><div class="mark">✓</div><div>Obj 2 · Leaving groups</div></a>
-        <a class="obj-item active" href="page-concept.html"><div class="mark"></div><div>Obj 3 · SN2 mechanism</div></a>
-        <div class="obj-item"><div class="mark"></div><div>Obj 4 · SN1 mechanism</div></div>
-        <div class="obj-item"><div class="mark"></div><div>Obj 5 · Stereochemistry</div></div>
+        <div class="card pad-lg">
+          <div class="between mb-16">
+            <h3 style="margin:0">Module progress</h3>
+            <span class="badge purple">2 / 4 objectives</span>
+          </div>
+          <div class="progress lg"><span style="width:55%"></span></div>
+          <div class="between mt-12" style="font-size:12px;color:var(--text-muted)">
+            <span>55% complete</span>
+            <span>Est. 25 min remaining</span>
+          </div>
+          <div class="stats-cards mt-20">
+            <div class="stat-card"><div class="n">4</div><div class="l">Objectives</div></div>
+            <div class="stat-card"><div class="n">7</div><div class="l">Sources</div></div>
+            <div class="stat-card"><div class="n">24</div><div class="l">Flashcards</div></div>
+            <div class="stat-card"><div class="n">45%</div><div class="l">Stereochem</div></div>
+          </div>
+        </div>
       </div>
 
+      <!-- Objectives checklist -->
+      <div class="section">
+        <h4>Learning objectives</h4>
+        <div class="card">
+          <div class="obj-item done">
+            <span class="mark">✓</span>
+            <div style="flex:1">
+              <div style="font-weight:650">Obj 1 · Recognise an SN2 reaction</div>
+              <div class="muted" style="font-size:12px">Strong nucleophile + accessible substrate + polar aprotic solvent</div>
+            </div>
+            <span class="badge green">Done</span>
+          </div>
+          <div class="obj-item done">
+            <span class="mark">✓</span>
+            <div style="flex:1">
+              <div style="font-weight:650">Obj 2 · Explain second-order kinetics</div>
+              <div class="muted" style="font-size:12px">Rate = k[substrate][nucleophile] from the concerted step</div>
+            </div>
+            <span class="badge green">Done</span>
+          </div>
+          <div class="obj-item active">
+            <span class="mark"></span>
+            <div style="flex:1">
+              <div style="font-weight:650">Obj 3 · Predict stereochemistry (Walden inversion)</div>
+              <div class="muted" style="font-size:12px">Backside attack inverts configuration at the stereocentre</div>
+            </div>
+            <span class="badge red">Needs review · 45%</span>
+          </div>
+          <div class="obj-item">
+            <span class="mark"></span>
+            <div style="flex:1">
+              <div style="font-weight:650">Obj 4 · Rank substrate reactivity</div>
+              <div class="muted" style="font-size:12px">Steric and leaving-group effects across primary, secondary, tertiary</div>
+            </div>
+            <span class="badge gray">To do</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Resources -->
       <div class="section">
         <h4>Resources</h4>
-        <div class="key-list">
-          <a class="item" href="page-source.html">📄 Ch. 7 PDF · 248 pages</a>
-          <a class="item" href="page-flashcards.html">🃏 Flashcard deck · 24 cards</a>
-          <a class="item" href="page-quiz.html">❓ Practice quiz · 5 questions</a>
+        <div class="card">
+          <a class="notebook-row" href="page-concept.html">
+            <div class="meta"><div class="t">Concept · SN2 Mechanism</div><div class="s">Core explanation with evidence · ~6 min read</div></div>
+            <span class="badge purple">Read →</span>
+          </a>
+          <a class="notebook-row" href="page-worked-example.html">
+            <div class="meta"><div class="t">Worked example · Predict the SN2 product</div><div class="s">Step-by-step solution with stereochemistry</div></div>
+            <span class="badge purple">Open →</span>
+          </a>
+          <a class="notebook-row" href="page-flashcards.html">
+            <div class="meta"><div class="t">Flashcards · Ch. 7 deck</div><div class="s">24 cards · spaced recall</div></div>
+            <span class="badge purple">Review →</span>
+          </a>
+          <a class="notebook-row" href="page-quiz.html">
+            <div class="meta"><div class="t">Quiz · SN2 checkpoint</div><div class="s">5 questions · checks Obj 1–3</div></div>
+            <span class="badge purple">Start →</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Start module -->
+      <div class="section">
+        <div class="card pad-lg between" style="gap:16px;flex-wrap:wrap">
+          <div>
+            <div style="font-weight:700;font-size:15px">Resume where you left off</div>
+            <div class="muted" style="font-size:13px">Next up · Obj 3 — Predict stereochemistry (Walden inversion)</div>
+          </div>
+          <div class="row gap-12">
+            <a class="btn" href="study-map.html">View on study map</a>
+            <a class="btn primary lg" href="page-concept.html">Start module →</a>
+          </div>
         </div>
       </div>
     </div>
   </div>
-
-  <div data-include="statusbar"></div>
 </div>
 
 <div data-include="drawer"></div>
 <div class="scrim" data-scrim></div>
 
 <script src="app.js"></script>
+<script src="themes/folio.js"></script>
+<script src="themes/focus.js"></script>
+<script src="themes/sunrise.js"></script>
+<script src="themes/nocturne.js"></script>
+<script src="themes/carbon.js"></script>
 <script src="partials.js"></script>
 </body>
 </html>

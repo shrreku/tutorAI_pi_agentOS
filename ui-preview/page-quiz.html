@@ -3,8 +3,13 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Quiz · SN2 mechanism — TutorBook</title>
+<title>SN2 reaction quiz — TutorBook</title>
 <link rel="stylesheet" href="styles.css" />
+<link rel="stylesheet" href="themes/folio.css" />
+<link rel="stylesheet" href="themes/focus.css" />
+<link rel="stylesheet" href="themes/sunrise.css" />
+<link rel="stylesheet" href="themes/nocturne.css" />
+<link rel="stylesheet" href="themes/carbon.css" />
 </head>
 <body data-theme="mist">
 <div class="app">
@@ -22,39 +27,78 @@
 
       <div class="ref-header">
         <div class="badges">
-          <span class="badge yellow">QUIZ</span>
-          <span class="badge green">Ready to study</span>
+          <span class="kicker">QUIZ</span>
+          <span class="badge purple">Organic Chemistry I</span>
+          <span class="badge red">Stereochemistry · needs review</span>
         </div>
-        <h1>SN2 mechanism quiz</h1>
-        <div class="summary">5 questions · Ch. 7 · Ready to study</div>
+        <h1>SN2 reaction quiz</h1>
+        <div class="summary">Mechanism, rate law, and stereochemistry · Ch. 7 · 5 questions</div>
       </div>
 
-      <div style="margin:16px 0">
-        <div class="progress"><span style="width:40%"></span></div>
-        <div class="muted" style="color:var(--text-muted);font-size:12px;margin-top:6px">2 / 5</div>
+      <div class="section">
+        <div class="between" style="margin-bottom:8px">
+          <h4 style="margin:0">Question 2 of 5</h4>
+          <span class="badge gray outline">≈ 6 min left</span>
+        </div>
+        <div class="progress lg"><span style="width:40%"></span></div>
       </div>
 
+      <!-- Q1 · answered multiple-choice (shows correct + incorrect example) -->
       <div class="quiz-q" data-quiz-q>
-        <div class="qlabel">Q1 · Multiple choice</div>
-        <div class="qtext">Which substrate most favors SN2?</div>
-        <div class="opt" data-quiz-opt><div class="radio"></div>Tertiary chloride</div>
-        <div class="opt selected" data-quiz-opt><div class="radio"></div>Primary alkyl iodide</div>
-        <div class="opt" data-quiz-opt><div class="radio"></div>Aryl bromide</div>
+        <div class="qlabel">QUESTION 1 · MULTIPLE CHOICE · ANSWERED</div>
+        <div class="qtext">Which substrate reacts fastest in an SN2 reaction?</div>
+        <div class="opt incorrect" data-quiz-opt><div class="radio"></div><div>tert-butyl bromide (3°)</div><span class="badge red" style="margin-left:auto">Your answer</span></div>
+        <div class="opt" data-quiz-opt><div class="radio"></div><div>isopropyl bromide (2°)</div></div>
+        <div class="opt correct" data-quiz-opt><div class="radio"></div><div>methyl bromide (CH₃Br)</div><span class="badge green" style="margin-left:auto">Correct</span></div>
+        <div class="opt" data-quiz-opt><div class="radio"></div><div>neopentyl bromide</div></div>
+        <div class="callout" style="margin-top:12px">
+          <div class="label">Why</div>
+          <p style="margin:6px 0 0">Less steric hindrance at the electrophilic carbon means an easier backside attack, so methyl &gt; 1° &gt; 2° &gt; 3°. <a href="page-concept.html" style="color:var(--accent-deep);font-weight:650">Review SN2 mechanism →</a></p>
+        </div>
       </div>
 
+      <!-- Q2 · open multiple-choice (current) -->
+      <div class="quiz-q" data-quiz-q style="border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)">
+        <div class="qlabel">QUESTION 2 · MULTIPLE CHOICE</div>
+        <div class="qtext">What happens to the configuration at the stereocenter during an SN2 reaction?</div>
+        <div class="opt" data-quiz-opt><div class="radio"></div><div>Retention of configuration</div></div>
+        <div class="opt" data-quiz-opt><div class="radio"></div><div>Inversion of configuration (Walden inversion)</div></div>
+        <div class="opt" data-quiz-opt><div class="radio"></div><div>Racemization to a 50:50 mixture</div></div>
+        <div class="opt" data-quiz-opt><div class="radio"></div><div>No effect — SN2 is not stereospecific</div></div>
+      </div>
+
+      <!-- Q3 · short answer -->
       <div class="quiz-q" data-quiz-q>
-        <div class="qlabel">Q2 · Short answer</div>
-        <div class="qtext">Why do polar aprotic solvents accelerate SN2?</div>
-        <textarea class="input" rows="3" placeholder="They solvate the nucleophile less, keeping it more reactive..."></textarea>
+        <div class="qlabel">QUESTION 3 · SHORT ANSWER</div>
+        <div class="qtext">Name the solvent class that maximizes SN2 reactivity and briefly explain why.</div>
+        <label class="field-label" for="q3">Your answer</label>
+        <input class="input" id="q3" type="text" placeholder="e.g. polar aprotic — does not solvate the nucleophile…" />
       </div>
 
+      <!-- Q4 · numeric -->
       <div class="quiz-q" data-quiz-q>
-        <div class="qlabel">Q3 · Numerical</div>
-        <div class="qtext">If [Nu⁻] doubles, what is the new rate when k = 2.4×10⁻³ M⁻¹s⁻¹?</div>
-        <input class="input" style="max-width:200px" value="4.8 × 10⁻³" />
+        <div class="qlabel">QUESTION 4 · NUMERIC</div>
+        <div class="qtext">If [substrate] is doubled and [nucleophile] is doubled, by what factor does the SN2 rate increase?</div>
+        <label class="field-label" for="q4">Factor (×)</label>
+        <input class="input" id="q4" type="number" inputmode="numeric" placeholder="Enter a number" style="max-width:200px" />
+        <p class="muted" style="margin:8px 0 0;font-size:12px">Recall: rate = k[substrate][nucleophile]</p>
       </div>
 
-      <button class="btn primary">Submit answer</button>
+      <!-- Q5 · multiple choice -->
+      <div class="quiz-q" data-quiz-q>
+        <div class="qlabel">QUESTION 5 · MULTIPLE CHOICE</div>
+        <div class="qtext">Which leaving group gives the fastest SN2 reaction?</div>
+        <div class="opt" data-quiz-opt><div class="radio"></div><div>Fluoride (F⁻)</div></div>
+        <div class="opt" data-quiz-opt><div class="radio"></div><div>Hydroxide (OH⁻)</div></div>
+        <div class="opt" data-quiz-opt><div class="radio"></div><div>Iodide (I⁻)</div></div>
+        <div class="opt" data-quiz-opt><div class="radio"></div><div>Amide (NH₂⁻)</div></div>
+      </div>
+
+      <div class="row gap-10 wrap" style="margin-top:18px">
+        <button class="btn primary lg">Submit answers</button>
+        <button class="btn lg">Save &amp; exit</button>
+        <a class="btn lg ghost" href="page-flashcards.html" style="margin-left:auto">Practice with flashcards →</a>
+      </div>
     </div>
   </div>
 
@@ -65,6 +109,11 @@
 <div class="scrim" data-scrim></div>
 
 <script src="app.js"></script>
+<script src="themes/folio.js"></script>
+<script src="themes/focus.js"></script>
+<script src="themes/sunrise.js"></script>
+<script src="themes/nocturne.js"></script>
+<script src="themes/carbon.js"></script>
 <script src="partials.js"></script>
 </body>
 </html>

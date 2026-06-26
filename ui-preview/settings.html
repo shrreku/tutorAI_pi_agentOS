@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Preferences — TutorBook</title>
+<link rel="stylesheet" href="styles.css" />
+<link rel="stylesheet" href="themes/folio.css" />
+<link rel="stylesheet" href="themes/focus.css" />
+<link rel="stylesheet" href="themes/sunrise.css" />
+<link rel="stylesheet" href="themes/nocturne.css" />
+<link rel="stylesheet" href="themes/carbon.css" />
+</head>
+<body data-theme="mist">
+<div class="app">
+  <div data-include="topbar"></div>
+
+  <div class="settings-layout">
+    <nav class="settings-nav">
+      <a href="account.html">Profile</a>
+      <a href="settings.html" class="active">Preferences</a>
+      <a href="credits.html">Tutor credits</a>
+      <a href="notifications.html">Notifications</a>
+      <a href="support.html">Help</a>
+    </nav>
+
+    <div>
+      <div class="settings-group">
+        <h2>Appearance</h2>
+        <p class="gdesc">Choose how TutorBook looks. Changes apply instantly across every page.</p>
+
+        <div class="field-row">
+          <div>
+            <div class="fr-label">Theme</div>
+            <div class="fr-desc">Live preview — click a swatch to switch the theme right now.</div>
+          </div>
+          <div class="row gap-8" style="flex-wrap:wrap;justify-content:flex-end">
+            <button data-theme-chip="mist" title="Mist Glass" style="width:34px;height:34px;border-radius:9px;border:1px solid var(--border);cursor:pointer;background:linear-gradient(135deg,#6366f1,#7c3aed)"></button>
+            <button data-theme-chip="folio" title="Folio" style="width:34px;height:34px;border-radius:9px;border:1px solid var(--border);cursor:pointer;background:linear-gradient(135deg,#2d5a47,#c9a86a)"></button>
+            <button data-theme-chip="focus" title="Focus" style="width:34px;height:34px;border-radius:9px;border:1px solid var(--border);cursor:pointer;background:linear-gradient(135deg,#2d5bff,#dce6ff)"></button>
+            <button data-theme-chip="sunrise" title="Sunrise" style="width:34px;height:34px;border-radius:9px;border:1px solid var(--border);cursor:pointer;background:linear-gradient(135deg,#ff8a5c,#ffd166)"></button>
+            <button data-theme-chip="nocturne" title="Nocturne" style="width:34px;height:34px;border-radius:9px;border:1px solid var(--border);cursor:pointer;background:linear-gradient(135deg,#6d5efc,#16d3c8)"></button>
+            <button data-theme-chip="carbon" title="Carbon" style="width:34px;height:34px;border-radius:9px;border:1px solid var(--border);cursor:pointer;background:linear-gradient(135deg,#2bd97c,#1a1d24)"></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <h2>Tutor behaviour</h2>
+        <p class="gdesc">Control how much of the tutor's reasoning and agent work you see.</p>
+
+        <div class="field-row">
+          <div>
+            <div class="fr-label">Show thinking</div>
+            <div class="fr-desc">Reveal the tutor's step-by-step reasoning before each answer.</div>
+          </div>
+          <div class="switch on" data-switch></div>
+        </div>
+
+        <div class="field-row">
+          <div>
+            <div class="fr-label">Show agent activity</div>
+            <div class="fr-desc">Display tool calls and source lookups as they happen.</div>
+          </div>
+          <div class="switch on" data-switch></div>
+        </div>
+
+        <div class="field-row">
+          <div>
+            <div class="fr-label">Auto-cite</div>
+            <div class="fr-desc">Attach evidence citations to every explanation automatically.</div>
+          </div>
+          <div class="switch on" data-switch></div>
+        </div>
+
+        <div class="field-row">
+          <div>
+            <div class="fr-label">Steerable tutor</div>
+            <div class="fr-desc">Let you interrupt and redirect the tutor mid-answer.</div>
+          </div>
+          <div class="switch" data-switch></div>
+        </div>
+
+        <div class="field-row">
+          <div>
+            <div class="fr-label">Default verbosity</div>
+            <div class="fr-desc">How detailed answers are by default.</div>
+          </div>
+          <div class="surface-switch" style="margin-bottom:0" data-surface>
+            <button>Concise</button>
+            <button class="active">Balanced</button>
+            <button>Detailed</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <h2>Study</h2>
+        <p class="gdesc">Tune your daily routine and accessibility preferences.</p>
+
+        <div class="field-row">
+          <div>
+            <div class="fr-label">Daily goal</div>
+            <div class="fr-desc">Minutes of focused study you aim for each day.</div>
+          </div>
+          <div class="surface-switch" style="margin-bottom:0" data-surface>
+            <button>15m</button>
+            <button class="active">30m</button>
+            <button>60m</button>
+            <button>90m</button>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div>
+            <div class="fr-label">Spaced repetition</div>
+            <div class="fr-desc">Resurface flashcards on an optimal review schedule.</div>
+          </div>
+          <div class="switch on" data-switch></div>
+        </div>
+
+        <div class="field-row">
+          <div>
+            <div class="fr-label">Reduced motion</div>
+            <div class="fr-desc">Minimise animations and transitions across the app.</div>
+          </div>
+          <div class="switch" data-switch></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script src="themes/folio.js"></script>
+<script src="themes/focus.js"></script>
+<script src="themes/sunrise.js"></script>
+<script src="themes/nocturne.js"></script>
+<script src="themes/carbon.js"></script>
+<script src="partials.js"></script>
+</body>
+</html>

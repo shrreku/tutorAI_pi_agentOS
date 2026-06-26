@@ -5,120 +5,25 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Dashboard — TutorBook</title>
 <link rel="stylesheet" href="styles.css" />
+<link rel="stylesheet" href="themes/folio.css" />
+<link rel="stylesheet" href="themes/focus.css" />
+<link rel="stylesheet" href="themes/sunrise.css" />
+<link rel="stylesheet" href="themes/nocturne.css" />
+<link rel="stylesheet" href="themes/carbon.css" />
 </head>
 <body data-theme="mist">
 <div class="app">
   <div data-include="topbar"></div>
-
-  <div class="dash">
-    <!-- Left column -->
-    <div>
-      <h1 style="font-size:24px;margin:0 0 14px">Good afternoon, Shreyash</h1>
-      <div class="card" style="margin-bottom:18px">
-        <h3>Your Profile</h3>
-        <div class="stat-row"><div class="ico">📄</div><div><div class="num">7 Ingested Docs</div><div class="sub">1,200 pages analyzed</div></div></div>
-        <div class="stat-row"><div class="ico">🏆</div><div><div class="num">14 Mastered</div><div class="sub">Key chemistry concepts</div></div></div>
-        <div class="stat-row"><div class="ico">🔥</div><div><div class="num">8 Days Streak</div><div class="sub">Daily learning goal met</div></div></div>
-        <div class="stat-row"><div class="ico">⏱</div><div><div class="num">12.4h Total Study</div><div class="sub">Tutor interaction time</div></div></div>
-      </div>
-
-      <div class="card">
-        <h3>Topic Mastery Tracker</h3>
-        <div style="margin-bottom:14px">
-          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span>SN2 Mechanism</span><span>92%</span></div>
-          <div class="progress"><span style="width:92%"></span></div>
-        </div>
-        <div>
-          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span>Stereochemistry <span class="badge red" style="margin-left:6px">Needs Review</span></span><span>45%</span></div>
-          <div class="progress"><span class="red" style="width:45%"></span></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Center column -->
-    <div>
-      <div class="search" style="margin-bottom:18px;width:100%">
-        <svg class="svg-i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-        <input placeholder="Search notebooks, references..." style="border:none;background:transparent;outline:none;flex:1;font-size:14px" />
-      </div>
-      <div class="card">
-        <h3>Active Notebooks</h3>
-        <a class="notebook-row" href="study-map.html">
-          <div class="meta"><div class="t">Chemistry · Organic Chemistry I</div><div class="s">60% complete · 4 docs</div></div>
-          <div style="width:120px"><div class="progress"><span style="width:60%"></span></div></div>
-        </a>
-        <a class="notebook-row" href="study-map.html">
-          <div class="meta"><div class="t">Mathematics · Linear Algebra</div><div class="s">32% complete · 2 docs</div></div>
-          <div style="width:120px"><div class="progress"><span style="width:32%"></span></div></div>
-        </a>
-        <a class="notebook-row" href="study-map.html">
-          <div class="meta"><div class="t">Biology · Cell Biology</div><div class="s">88% complete · 1 doc</div></div>
-          <div style="width:120px"><div class="progress"><span style="width:88%"></span></div></div>
-        </a>
-      </div>
-
-      <div class="card" style="margin-top:18px">
-        <h3>Continue learning</h3>
-        <a class="notebook-row" href="page-live-plan.html">
-          <div class="meta"><div class="t">Resume: SN2 mechanism</div><div class="s">Live plan · Obj 5 in progress</div></div>
-          <span class="badge purple">Resume →</span>
-        </a>
-        <a class="notebook-row" href="page-flashcards.html">
-          <div class="meta"><div class="t">Flashcards: Ch. 7 deck</div><div class="s">24 cards · spaced recall</div></div>
-          <span class="badge purple">Open →</span>
-        </a>
-      </div>
-    </div>
-
-    <!-- Right column -->
-    <div>
-      <div class="card" style="margin-bottom:18px">
-        <h3>Suggested Actions</h3>
-        <div class="suggest-item">
-          <span class="ico">🃏</span><span>Review 12 weak flashcards for Ch. 7</span>
-          <a class="link" href="page-flashcards.html">Open deck →</a>
-        </div>
-        <div class="suggest-item">
-          <span class="ico">📝</span><span>Complete worked example on SN2</span>
-          <a class="link" href="page-worked-example.html">Resume →</a>
-        </div>
-        <div class="suggest-item">
-          <span class="ico">❓</span><span>Try practice quiz on Nucleophiles</span>
-          <a class="link" href="page-quiz.html">Start →</a>
-        </div>
-      </div>
-
-      <div class="card" style="margin-bottom:18px">
-        <h3>Recent Activity</h3>
-        <div class="suggest-item">
-          <span class="ico" style="color:var(--green)">✓</span>
-          <div><div style="font-weight:600">Completed Quiz: Stereochemistry</div><div class="muted">Score: 80% · Mastered chiral configuration</div></div>
-        </div>
-        <div class="suggest-item">
-          <span class="ico">📄</span>
-          <div><div style="font-weight:600">Ingested SN2_Mechanisms.pdf</div><div class="muted">Generated 10 flashcards & 3 quiz questions</div></div>
-        </div>
-      </div>
-
-      <div class="card">
-        <h3>Weekly Study Activity</h3>
-        <div class="bars">
-          <div style="flex:1"><div class="bar" style="height:40%"></div><div class="lbl">M</div></div>
-          <div style="flex:1"><div class="bar" style="height:70%"></div><div class="lbl">T</div></div>
-          <div style="flex:1"><div class="bar" style="height:25%"></div><div class="lbl">W</div></div>
-          <div style="flex:1"><div class="bar" style="height:90%"></div><div class="lbl">T</div></div>
-          <div style="flex:1"><div class="bar" style="height:55%"></div><div class="lbl">F</div></div>
-          <div style="flex:1"><div class="bar" style="height:15%"></div><div class="lbl">S</div></div>
-          <div style="flex:1"><div class="bar" style="height:60%"></div><div class="lbl">S</div></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
+  <div data-include="dashboard"></div>
   <div data-include="statusbar"></div>
 </div>
 
 <script src="app.js"></script>
+<script src="themes/folio.js"></script>
+<script src="themes/focus.js"></script>
+<script src="themes/sunrise.js"></script>
+<script src="themes/nocturne.js"></script>
+<script src="themes/carbon.js"></script>
 <script src="partials.js"></script>
 </body>
 </html>
