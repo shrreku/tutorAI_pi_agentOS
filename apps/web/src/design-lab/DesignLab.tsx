@@ -1,43 +1,57 @@
 import { useEffect, useState, type ComponentType } from "react";
 import { Segmented } from "./ui/primitives.js";
-import * as Atlas from "./directions/atlas.js";
 import * as Focus from "./directions/focus.js";
-import * as Console from "./directions/console.js";
+import * as Atlas from "./directions/atlas.js";
+import * as Folio from "./directions/folio.js";
+import * as Halo from "./directions/halo.js";
+import * as Sunrise from "./directions/sunrise.js";
 
-export type Direction = "atlas" | "focus" | "console";
-export type Surface = "dashboard" | "workspace";
+export type Direction = "focus" | "atlas" | "folio" | "halo" | "sunrise";
+export type Surface = "dashboard" | "workspace" | "nodepack";
 
 const DIRECTIONS: Array<{ value: Direction; label: string; blurb: string }> = [
-  {
-    value: "focus",
-    label: "Focus",
-    blurb: "Calm, reading-first. One thing at a time, dock navigation.",
-  },
+  { value: "focus", label: "Focus", blurb: "Clean & minimal. Calm reading, one thing at a time." },
   {
     value: "atlas",
     label: "Atlas",
-    blurb: "Spatial. Your learning as a map; the graph is the workspace.",
+    blurb: "Spatial. Your learning as a map; the graph is the canvas.",
   },
-  {
-    value: "console",
-    label: "Console",
-    blurb: "Dense IDE. Multi-pane, keyboard-driven command center.",
-  },
+  { value: "folio", label: "Folio", blurb: "Editorial. Serif prose tutor, numbered figure-nodes." },
+  { value: "halo", label: "Halo", blurb: "Modern glassmorphism. Soft indigo, frosted panels." },
+  { value: "sunrise", label: "Sunrise", blurb: "Warm & friendly. Coral, rounded, encouraging." },
 ];
 
-const registry: Record<Direction, { Dashboard: ComponentType; Workspace: ComponentType }> = {
-  atlas: { Dashboard: Atlas.Dashboard, Workspace: Atlas.Workspace },
-  focus: { Dashboard: Focus.Dashboard, Workspace: Focus.Workspace },
-  console: { Dashboard: Console.Dashboard, Workspace: Console.Workspace },
+type DirModule = {
+  Dashboard: ComponentType;
+  Workspace: ComponentType;
+  NodePack: ComponentType;
 };
+
+const registry: Record<Direction, DirModule> = {
+  focus: Focus,
+  atlas: Atlas,
+  folio: Folio,
+  halo: Halo,
+  sunrise: Sunrise,
+};
+
+const SURFACES: Array<{ value: Surface; label: string }> = [
+  { value: "dashboard", label: "Dashboard" },
+  { value: "workspace", label: "Workspace" },
+  { value: "nodepack", label: "Node Pack" },
+];
+
+const DIRS: Direction[] = ["focus", "atlas", "folio", "halo", "sunrise"];
 
 function readInitial(): { dir: Direction; surface: Surface } {
   const hash = window.location.hash.replace(/^#/, "");
   const [dir, surface] = hash.split("/");
-  const validDir = (["atlas", "focus", "console"] as const).includes(dir as Direction)
-    ? (dir as Direction)
-    : "focus";
-  const validSurface = surface === "workspace" ? "workspace" : "dashboard";
+  const validDir = DIRS.includes(dir as Direction) ? (dir as Direction) : "focus";
+  const validSurface = (["dashboard", "workspace", "nodepack"] as const).includes(
+    surface as Surface,
+  )
+    ? (surface as Surface)
+    : "workspace";
   return { dir: validDir, surface: validSurface };
 }
 
@@ -50,13 +64,17 @@ export function DesignLab() {
     window.location.hash = `${dir}/${surface}`;
   }, [dir, surface]);
 
-  const active = registry[dir];
-  const Surface = surface === "dashboard" ? active.Dashboard : active.Workspace;
+  const mod = registry[dir];
+  const Surface =
+    surface === "dashboard"
+      ? mod.Dashboard
+      : surface === "workspace"
+        ? mod.Workspace
+        : mod.NodePack;
   const blurb = DIRECTIONS.find((d) => d.value === dir)?.blurb ?? "";
 
   return (
     <div data-direction="focus" className="min-h-dvh bg-[#0e0f13] text-[#e8eaf0]">
-      {/* Lab chrome — neutral tooling bar, deliberately distinct from product chrome */}
       <header className="sticky top-0 z-50 flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-white/10 bg-[#0e0f13]/90 px-4 py-2.5 backdrop-blur">
         <div className="flex items-center gap-2">
           <span className="grid h-6 w-6 place-items-center rounded-md bg-white text-[11px] font-bold text-black">
@@ -75,20 +93,19 @@ export function DesignLab() {
           size="sm"
           value={surface}
           onChange={(v) => setSurface(v as Surface)}
-          options={[
-            { value: "dashboard", label: "Dashboard" },
-            { value: "workspace", label: "Workspace" },
-          ]}
+          options={SURFACES}
           className="border-white/15 bg-white/5"
         />
-        <span className="hidden text-[12px] text-white/45 md:inline">{blurb}</span>
+        <span className="hidden text-[12px] text-white/45 lg:inline">{blurb}</span>
         <span className="ml-auto text-[11px] text-white/35">
-          live data via /api/v1 · 3 directions
+          chat-first · live /api/v1 · 5 directions
         </span>
       </header>
 
-      {/* Product surface, themed per direction */}
-      <div data-direction={dir} className="min-h-[calc(100dvh-49px)] bg-background text-foreground">
+      <div
+        data-direction={dir}
+        className="flex min-h-[calc(100dvh-49px)] flex-col bg-background text-foreground"
+      >
         <Surface />
       </div>
     </div>

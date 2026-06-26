@@ -3,8 +3,8 @@
 /* ============================================================================
    TutorBook · Design Lab tokens
    ----------------------------------------------------------------------------
-   Isolated to the /design-lab entry. Three directions override the same token
-   set via [data-direction], so one set of primitives renders three genuinely
+   Isolated to the /design-lab entry. Five directions override the same token
+   set via [data-direction], so one set of primitives renders genuinely
    different looks. shadcn-style variable names mapped into Tailwind utilities.
    ============================================================================ */
 
@@ -41,97 +41,163 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Newsreader", ui-serif, Georgia, serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-display: var(--font-sans);
 }
 
-/* ---- Base = FOCUS direction (warm editorial paper, calm, reading-first) ---- */
+/* ---- FOCUS (base) — clean, minimal, calm; cool neutral + a single blue ---- */
 :root,
 [data-direction="focus"] {
-  --background: #faf8f4;
-  --foreground: #1b1915;
-  --surface: #f3efe8;
+  --background: #f7f8fa;
+  --foreground: #1a1f2b;
+  --surface: #eef1f5;
   --elevated: #ffffff;
   --card: #ffffff;
-  --card-foreground: #1b1915;
+  --card-foreground: #1a1f2b;
   --popover: #ffffff;
-  --popover-foreground: #1b1915;
-  --primary: #1b1915;
-  --primary-foreground: #faf8f4;
-  --secondary: #efe9e0;
-  --secondary-foreground: #38332b;
-  --muted: #f1ece4;
-  --muted-foreground: #756d61;
-  --accent: #bf5a36;
+  --popover-foreground: #1a1f2b;
+  --primary: #1f2734;
+  --primary-foreground: #f7f8fa;
+  --secondary: #eaedf2;
+  --secondary-foreground: #353d4d;
+  --muted: #eef1f5;
+  --muted-foreground: #6b7280;
+  --accent: #3b6df5;
   --accent-foreground: #ffffff;
-  --destructive: #b1352c;
+  --destructive: #d64545;
   --destructive-foreground: #ffffff;
-  --success: #3c7a4e;
-  --warning: #b07d22;
-  --border: #e7e0d5;
-  --input: #e7e0d5;
-  --ring: #bf5a36;
-  --radius: 14px;
-  --shadow-color: 28 22 14;
+  --success: #2f9e6f;
+  --warning: #c98a1a;
+  --border: #e4e7ee;
+  --input: #e4e7ee;
+  --ring: #3b6df5;
+  --radius: 12px;
+  --shadow-color: 24 30 45;
+  --font-display: var(--font-sans);
   color-scheme: light;
 }
 
-/* ---- ATLAS (cartographic, cool, spatial canvas-first) ---- */
+/* ---- ATLAS — cartographic, spatial; deep teal + signal orange ---- */
 [data-direction="atlas"] {
-  --background: #eef2f4;
-  --foreground: #12202a;
-  --surface: #e3eaee;
+  --background: #eaf0f1;
+  --foreground: #122029;
+  --surface: #dfe8e9;
   --elevated: #ffffff;
   --card: #ffffff;
-  --card-foreground: #12202a;
+  --card-foreground: #122029;
   --popover: #ffffff;
-  --popover-foreground: #12202a;
+  --popover-foreground: #122029;
   --primary: #0c6b62;
   --primary-foreground: #ffffff;
-  --secondary: #dce6e9;
+  --secondary: #d6e3e3;
   --secondary-foreground: #1d3540;
-  --muted: #e0e8eb;
-  --muted-foreground: #557080;
-  --accent: #e0533d;
+  --muted: #dde8e8;
+  --muted-foreground: #517081;
+  --accent: #e2553c;
   --accent-foreground: #ffffff;
   --destructive: #c43a2c;
   --destructive-foreground: #ffffff;
   --success: #0c8a6a;
   --warning: #c08436;
-  --border: #d2dde2;
-  --input: #d2dde2;
+  --border: #cfdcdc;
+  --input: #cfdcdc;
   --ring: #0c6b62;
   --radius: 12px;
-  --shadow-color: 18 32 42;
+  --shadow-color: 16 32 40;
+  --font-display: var(--font-sans);
   color-scheme: light;
 }
 
-/* ---- CONSOLE (dark, dense, IDE / terminal command center) ---- */
-[data-direction="console"] {
-  --background: #0b0d12;
-  --foreground: #d8dde6;
-  --surface: #11141b;
-  --elevated: #161a23;
-  --card: #14171f;
-  --card-foreground: #e4e8f0;
-  --popover: #161a23;
-  --popover-foreground: #e4e8f0;
-  --primary: #5b9dff;
-  --primary-foreground: #060a12;
-  --secondary: #1b2030;
-  --secondary-foreground: #b9c2d4;
-  --muted: #161b26;
-  --muted-foreground: #7e889c;
-  --accent: #34d399;
-  --accent-foreground: #04140d;
-  --destructive: #ff5f56;
-  --destructive-foreground: #1a0807;
-  --success: #34d399;
-  --warning: #f5b342;
-  --border: #232a38;
-  --input: #1b2230;
-  --ring: #5b9dff;
-  --radius: 8px;
-  --shadow-color: 0 0 0;
-  color-scheme: dark;
+/* ---- FOLIO — editorial ivory, serif display, forest green ---- */
+[data-direction="folio"] {
+  --background: #faf6ed;
+  --foreground: #221f18;
+  --surface: #f1ead9;
+  --elevated: #fffdf8;
+  --card: #fffdf8;
+  --card-foreground: #221f18;
+  --popover: #fffdf8;
+  --popover-foreground: #221f18;
+  --primary: #25402f;
+  --primary-foreground: #faf6ed;
+  --secondary: #ece3cf;
+  --secondary-foreground: #3a4438;
+  --muted: #efe8d6;
+  --muted-foreground: #6f6a59;
+  --accent: #2f6f4f;
+  --accent-foreground: #ffffff;
+  --destructive: #a23a2e;
+  --destructive-foreground: #ffffff;
+  --success: #2f6f4f;
+  --warning: #9a7b1f;
+  --border: #e2d8c1;
+  --input: #e2d8c1;
+  --ring: #2f6f4f;
+  --radius: 6px;
+  --shadow-color: 60 48 24;
+  --font-display: "Newsreader", ui-serif, Georgia, serif;
+  color-scheme: light;
+}
+
+/* ---- HALO — modern glassmorphism; indigo + violet, soft and rounded ---- */
+[data-direction="halo"] {
+  --background: #f4f5fc;
+  --foreground: #191b2e;
+  --surface: #eceefb;
+  --elevated: #ffffff;
+  --card: #ffffff;
+  --card-foreground: #191b2e;
+  --popover: #ffffff;
+  --popover-foreground: #191b2e;
+  --primary: #4f46e5;
+  --primary-foreground: #ffffff;
+  --secondary: #e7e9fb;
+  --secondary-foreground: #312e6b;
+  --muted: #eceefb;
+  --muted-foreground: #6b6f8d;
+  --accent: #7c3aed;
+  --accent-foreground: #ffffff;
+  --destructive: #e11d48;
+  --destructive-foreground: #ffffff;
+  --success: #10b981;
+  --warning: #d97706;
+  --border: #e3e4f4;
+  --input: #e3e4f4;
+  --ring: #7c3aed;
+  --radius: 18px;
+  --shadow-color: 40 38 90;
+  --font-display: var(--font-sans);
+  color-scheme: light;
+}
+
+/* ---- SUNRISE — warm, friendly, very rounded; coral + amber ---- */
+[data-direction="sunrise"] {
+  --background: #fff6ef;
+  --foreground: #2c231e;
+  --surface: #ffece0;
+  --elevated: #fffdfb;
+  --card: #fffdfb;
+  --card-foreground: #2c231e;
+  --popover: #fffdfb;
+  --popover-foreground: #2c231e;
+  --primary: #e8643a;
+  --primary-foreground: #ffffff;
+  --secondary: #ffe2d2;
+  --secondary-foreground: #6b4a39;
+  --muted: #ffe9dc;
+  --muted-foreground: #927a6c;
+  --accent: #f59e0b;
+  --accent-foreground: #3a2600;
+  --destructive: #dc4a3d;
+  --destructive-foreground: #ffffff;
+  --success: #3f9e6a;
+  --warning: #d98324;
+  --border: #f6ddca;
+  --input: #f6ddca;
+  --ring: #e8643a;
+  --radius: 20px;
+  --shadow-color: 60 36 20;
+  --font-display: var(--font-sans);
+  color-scheme: light;
 }
 
 @layer base {
@@ -147,25 +213,23 @@
   ::selection {
     background: color-mix(in oklab, var(--accent) 24%, transparent);
   }
-  /* refined focus ring */
   :where(button, a, input, textarea, [tabindex]):focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
     border-radius: 4px;
   }
-  /* thin themed scrollbars */
   ::-webkit-scrollbar {
     width: 10px;
     height: 10px;
   }
   ::-webkit-scrollbar-thumb {
-    background: color-mix(in oklab, var(--muted-foreground) 35%, transparent);
+    background: color-mix(in oklab, var(--muted-foreground) 32%, transparent);
     border-radius: 999px;
     border: 3px solid transparent;
     background-clip: padding-box;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: color-mix(in oklab, var(--muted-foreground) 55%, transparent);
+    background: color-mix(in oklab, var(--muted-foreground) 52%, transparent);
     background-clip: padding-box;
   }
 }
@@ -181,7 +245,7 @@
     0 24px 60px rgb(var(--shadow-color) / 0.2);
 }
 
-/* Atlas canvas: faint topographic grid */
+/* faint grid wash for spatial canvases (Atlas) */
 @utility atlas-grid {
   background-image:
     linear-gradient(
@@ -194,13 +258,19 @@
       color-mix(in oklab, var(--primary) 7%, transparent) 1px,
       transparent 1px
     );
-  background-size: 28px 28px;
+  background-size: 30px 30px;
 }
-/* Console panes: dotted grid */
-@utility console-grid {
+/* soft dotted wash (Halo/Focus map backdrop) */
+@utility dot-grid {
   background-image: radial-gradient(
-    color-mix(in oklab, var(--primary) 16%, transparent) 1px,
+    color-mix(in oklab, var(--muted-foreground) 18%, transparent) 1px,
     transparent 1px
   );
   background-size: 22px 22px;
+}
+/* glassmorphism panel (Halo) */
+@utility glass {
+  background: color-mix(in oklab, var(--elevated) 70%, transparent);
+  -webkit-backdrop-filter: saturate(160%) blur(14px);
+  backdrop-filter: saturate(160%) blur(14px);
 }
