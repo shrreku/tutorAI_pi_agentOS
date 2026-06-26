@@ -1,0 +1,206 @@
+@import "tailwindcss";
+
+/* ============================================================================
+   TutorBook · Design Lab tokens
+   ----------------------------------------------------------------------------
+   Isolated to the /design-lab entry. Three directions override the same token
+   set via [data-direction], so one set of primitives renders three genuinely
+   different looks. shadcn-style variable names mapped into Tailwind utilities.
+   ============================================================================ */
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-surface: var(--surface);
+  --color-elevated: var(--elevated);
+
+  --radius-xl: calc(var(--radius) + 6px);
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 3px);
+  --radius-sm: calc(var(--radius) - 6px);
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Newsreader", ui-serif, Georgia, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+/* ---- Base = FOCUS direction (warm editorial paper, calm, reading-first) ---- */
+:root,
+[data-direction="focus"] {
+  --background: #faf8f4;
+  --foreground: #1b1915;
+  --surface: #f3efe8;
+  --elevated: #ffffff;
+  --card: #ffffff;
+  --card-foreground: #1b1915;
+  --popover: #ffffff;
+  --popover-foreground: #1b1915;
+  --primary: #1b1915;
+  --primary-foreground: #faf8f4;
+  --secondary: #efe9e0;
+  --secondary-foreground: #38332b;
+  --muted: #f1ece4;
+  --muted-foreground: #756d61;
+  --accent: #bf5a36;
+  --accent-foreground: #ffffff;
+  --destructive: #b1352c;
+  --destructive-foreground: #ffffff;
+  --success: #3c7a4e;
+  --warning: #b07d22;
+  --border: #e7e0d5;
+  --input: #e7e0d5;
+  --ring: #bf5a36;
+  --radius: 14px;
+  --shadow-color: 28 22 14;
+  color-scheme: light;
+}
+
+/* ---- ATLAS (cartographic, cool, spatial canvas-first) ---- */
+[data-direction="atlas"] {
+  --background: #eef2f4;
+  --foreground: #12202a;
+  --surface: #e3eaee;
+  --elevated: #ffffff;
+  --card: #ffffff;
+  --card-foreground: #12202a;
+  --popover: #ffffff;
+  --popover-foreground: #12202a;
+  --primary: #0c6b62;
+  --primary-foreground: #ffffff;
+  --secondary: #dce6e9;
+  --secondary-foreground: #1d3540;
+  --muted: #e0e8eb;
+  --muted-foreground: #557080;
+  --accent: #e0533d;
+  --accent-foreground: #ffffff;
+  --destructive: #c43a2c;
+  --destructive-foreground: #ffffff;
+  --success: #0c8a6a;
+  --warning: #c08436;
+  --border: #d2dde2;
+  --input: #d2dde2;
+  --ring: #0c6b62;
+  --radius: 12px;
+  --shadow-color: 18 32 42;
+  color-scheme: light;
+}
+
+/* ---- CONSOLE (dark, dense, IDE / terminal command center) ---- */
+[data-direction="console"] {
+  --background: #0b0d12;
+  --foreground: #d8dde6;
+  --surface: #11141b;
+  --elevated: #161a23;
+  --card: #14171f;
+  --card-foreground: #e4e8f0;
+  --popover: #161a23;
+  --popover-foreground: #e4e8f0;
+  --primary: #5b9dff;
+  --primary-foreground: #060a12;
+  --secondary: #1b2030;
+  --secondary-foreground: #b9c2d4;
+  --muted: #161b26;
+  --muted-foreground: #7e889c;
+  --accent: #34d399;
+  --accent-foreground: #04140d;
+  --destructive: #ff5f56;
+  --destructive-foreground: #1a0807;
+  --success: #34d399;
+  --warning: #f5b342;
+  --border: #232a38;
+  --input: #1b2230;
+  --ring: #5b9dff;
+  --radius: 8px;
+  --shadow-color: 0 0 0;
+  color-scheme: dark;
+}
+
+@layer base {
+  #design-lab-root {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    min-height: 100vh;
+    min-height: 100dvh;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--accent) 24%, transparent);
+  }
+  /* refined focus ring */
+  :where(button, a, input, textarea, [tabindex]):focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  /* thin themed scrollbars */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--muted-foreground) 35%, transparent);
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklab, var(--muted-foreground) 55%, transparent);
+    background-clip: padding-box;
+  }
+}
+
+@utility shadow-soft {
+  box-shadow:
+    0 1px 2px rgb(var(--shadow-color) / 0.06),
+    0 8px 24px rgb(var(--shadow-color) / 0.08);
+}
+@utility shadow-pop {
+  box-shadow:
+    0 2px 4px rgb(var(--shadow-color) / 0.08),
+    0 24px 60px rgb(var(--shadow-color) / 0.2);
+}
+
+/* Atlas canvas: faint topographic grid */
+@utility atlas-grid {
+  background-image:
+    linear-gradient(
+      to right,
+      color-mix(in oklab, var(--primary) 7%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in oklab, var(--primary) 7%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: 28px 28px;
+}
+/* Console panes: dotted grid */
+@utility console-grid {
+  background-image: radial-gradient(
+    color-mix(in oklab, var(--primary) 16%, transparent) 1px,
+    transparent 1px
+  );
+  background-size: 22px 22px;
+}
