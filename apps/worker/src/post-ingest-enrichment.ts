@@ -2,8 +2,6 @@ import type { StudyAgentEnv } from "@studyagent/config";
 import type { DbClient } from "@studyagent/db";
 import {
   appendEvent,
-  coverageItems,
-  coverageRecords,
   claims,
   concepts,
   curricula,

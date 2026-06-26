@@ -93,15 +93,17 @@ export function RouteGuard({
     }
 
     if (session.consentAccepted) {
-      void fetchReplayPolicy().then(async (policy) => {
-        await initPostHog(policy);
-        if (session.user) {
-          identifyPostHogUser(session.user.id, {
-            email: session.user.email,
-            ...(session.user.displayName ? { name: session.user.displayName } : {}),
-          });
-        }
-      });
+      void fetchReplayPolicy()
+        .then(async (policy) => {
+          await initPostHog(policy);
+          if (session.user) {
+            identifyPostHogUser(session.user.id, {
+              email: session.user.email,
+              ...(session.user.displayName ? { name: session.user.displayName } : {}),
+            });
+          }
+        })
+        .catch(() => undefined);
     }
 
     if (isEvalRunsRoute(match)) {
@@ -161,7 +163,7 @@ export function RouteGuard({
     return <GuardLoading />;
   }
 
-  if (!isAdminRoute(match) && !session.entitlements.studyAccess) {
+  if (!isAdminRoute(match) && !isEvalRunsRoute(match) && !session.entitlements.studyAccess) {
     return <GuardLoading />;
   }
 

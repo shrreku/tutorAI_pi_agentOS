@@ -25,7 +25,6 @@ import {
 import { planMockTutorSessionSteps } from "./mock-tutor-plan.js";
 import { getPiToolMetadata } from "./pi-tool-schema.js";
 import {
-  isRecoverablePiSessionDispatchError,
   normalizeRehydrationMessagesForPiSession,
   type SimpleRehydrationMessage,
 } from "./pi-rehydration-messages.js";

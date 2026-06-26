@@ -41,6 +41,7 @@ export async function registerAccessCodeRoutes(app: FastifyInstance, ctx: AppCon
 
       const result = await redeemAccessCode(ctx.db, actor.id, code);
 
+      // Post-grant analytics must never fail a successful redemption.
       await recordProductAnalytics(ctx, {
         userId: actor.id,
         eventName: "access_code_redeemed",
@@ -48,7 +49,7 @@ export async function registerAccessCodeRoutes(app: FastifyInstance, ctx: AppCon
           accessCodeId: result.accessCodeId,
           grants: result.grants,
         },
-      });
+      }).catch(() => undefined);
       if ((result.grants.tutorCreditsCents ?? 0) > 0 || (result.grants.ingestionCreditsCents ?? 0) > 0) {
         await recordProductAnalytics(ctx, {
           userId: actor.id,
@@ -59,7 +60,7 @@ export async function registerAccessCodeRoutes(app: FastifyInstance, ctx: AppCon
             tutorCreditsCents: result.grants.tutorCreditsCents ?? 0,
             ingestionCreditsCents: result.grants.ingestionCreditsCents ?? 0,
           },
-        });
+        }).catch(() => undefined);
       }
 
       return reply.send({ ok: true, grants: result.grants });

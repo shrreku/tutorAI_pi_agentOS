@@ -40,8 +40,11 @@ async function withNeo4jSession<T>(
     }
     return await fn(session);
   } finally {
-    await session.close();
-    await driver.close();
+    try {
+      await session.close();
+    } finally {
+      await driver.close();
+    }
   }
 }
 

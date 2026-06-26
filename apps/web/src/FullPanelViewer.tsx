@@ -47,8 +47,9 @@ export const FullPanelViewer: React.FC<FullPanelViewerProps> = ({
   onDraftTutorPrompt,
   devMode = false,
 }) => {
+  // All hooks must run unconditionally (Rules of Hooks). `node` is a non-null
+  // prop guaranteed by the parent, so no early return is needed here.
   const { tutorRuntime } = useWorkspaceShell();
-  if (!node) return null;
   const [regenInstruction, setRegenInstruction] = React.useState("");
   const [showRegenOptions, setShowRegenOptions] = React.useState(false);
   const [quizIndexBySurface, setQuizIndexBySurface] = React.useState<Record<string, number>>({});
