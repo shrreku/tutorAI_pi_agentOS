@@ -377,9 +377,9 @@ const curriculumGetInputSchema = z.object({
   curriculumId: z.string().min(1).optional(),
 });
 
-export const studentProfileGetInputSchema = z.object({
-  userId: z.string().min(1).optional(),
-});
+// The student profile is always resolved from the authenticated tool context,
+// never from an LLM-supplied userId (which would allow cross-user reads).
+export const studentProfileGetInputSchema = z.object({});
 
 const curriculumGetOutputSchema = z.object({
   curriculum: z
