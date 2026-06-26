@@ -45,7 +45,9 @@ export async function scheduleRollingModuleBuild(
         ),
       )
       .orderBy(asc(curriculumModules.orderIndex));
-    const nextModule = nextModules.find((module) => module.orderIndex === completedModule.orderIndex + 1);
+    const nextModule = nextModules.find(
+      (module) => module.orderIndex === completedModule.orderIndex + 1,
+    );
     if (!nextModule) {
       return;
     }

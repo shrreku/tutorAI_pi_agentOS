@@ -4,7 +4,11 @@ import type {
   SyntheticLearnerRubricDefinition,
   SyntheticLearnerScenario,
 } from "./synthetic-learner-evals.js";
-import { getLearnerTraitArchetype, learnerTraitArchetypeFixtures, type LearnerTraitArchetype } from "./learner-traits.js";
+import {
+  getLearnerTraitArchetype,
+  learnerTraitArchetypeFixtures,
+  type LearnerTraitArchetype,
+} from "./learner-traits.js";
 
 const syntheticLearnerEvalTracerBulletFixtureState = {
   notebook: {
@@ -28,7 +32,8 @@ const syntheticLearnerEvalTracerBulletFixtureState = {
       status: "ready",
       metadataJson: {
         topic: "derivatives",
-        sourceContentHash: "sha256:8d8e9c5f1b0a1d1e1b1a8f0f0a2f4adf5d3f0d2c5a0e6b7a9d4f3c2b1a0d9e8f",
+        sourceContentHash:
+          "sha256:8d8e9c5f1b0a1d1e1b1a8f0f0a2f4adf5d3f0d2c5a0e6b7a9d4f3c2b1a0d9e8f",
       },
     },
   ],
@@ -88,7 +93,8 @@ const syntheticLearnerEvalTracerBulletFixtureState = {
       description: "The rate-of-change concept introduced by a limit process.",
       confidence: 0.98,
       metadataJson: {
-        sourceContentHash: "sha256:8d8e9c5f1b0a1d1e1b1a8f0f0a2f4adf5d3f0d2c5a0e6b7a9d4f3c2b1a0d9e8f",
+        sourceContentHash:
+          "sha256:8d8e9c5f1b0a1d1e1b1a8f0f0a2f4adf5d3f0d2c5a0e6b7a9d4f3c2b1a0d9e8f",
       },
     },
   ],
@@ -261,23 +267,30 @@ function requiredLearnerTraitArchetype(id: string): LearnerTraitArchetype {
   return archetype;
 }
 
-function learnerLevelForArchetype(archetype: LearnerTraitArchetype): SyntheticLearnerPersona["learnerLevel"] {
-  if (archetype.id === "beginner_misconception" || archetype.id === "help_avoidant_stuck") return "beginner";
+function learnerLevelForArchetype(
+  archetype: LearnerTraitArchetype,
+): SyntheticLearnerPersona["learnerLevel"] {
+  if (archetype.id === "beginner_misconception" || archetype.id === "help_avoidant_stuck")
+    return "beginner";
   if (archetype.id === "fast_advanced") return "advanced";
   return "intermediate";
 }
 
-function responsePolicyForArchetype(archetype: LearnerTraitArchetype): SyntheticLearnerPersona["responsePolicy"] {
-  const tone = archetype.id === "overconfident_skimmer"
-    ? "direct"
-    : archetype.id === "anxious_exam_prep" || archetype.id === "low_confidence_high_mastery"
-      ? "encouraging"
-      : "supportive";
-  const brevity = archetype.traitValues.pacePreference === "fast"
-    ? "short"
-    : archetype.traitValues.depthPreference === "formal"
-      ? "detailed"
-      : "balanced";
+function responsePolicyForArchetype(
+  archetype: LearnerTraitArchetype,
+): SyntheticLearnerPersona["responsePolicy"] {
+  const tone =
+    archetype.id === "overconfident_skimmer"
+      ? "direct"
+      : archetype.id === "anxious_exam_prep" || archetype.id === "low_confidence_high_mastery"
+        ? "encouraging"
+        : "supportive";
+  const brevity =
+    archetype.traitValues.pacePreference === "fast"
+      ? "short"
+      : archetype.traitValues.depthPreference === "formal"
+        ? "detailed"
+        : "balanced";
 
   return {
     mode: "scripted",
@@ -290,7 +303,9 @@ function responsePolicyForArchetype(archetype: LearnerTraitArchetype): Synthetic
   };
 }
 
-export function buildSyntheticLearnerPersonaFromArchetype(archetype: LearnerTraitArchetype): SyntheticLearnerPersona {
+export function buildSyntheticLearnerPersonaFromArchetype(
+  archetype: LearnerTraitArchetype,
+): SyntheticLearnerPersona {
   return {
     id: `persona_${archetype.id}`,
     name: archetype.label,
@@ -329,7 +344,8 @@ export const syntheticLearnerEvalTracerBulletScenarios: SyntheticLearnerScenario
         id: "beat_opening",
         kind: "opening",
         scriptedMessage: "Teach me the topic and check whether I am missing a key idea.",
-        liveInstruction: "Open with a learner message that asks for foundational help and admits uncertainty.",
+        liveInstruction:
+          "Open with a learner message that asks for foundational help and admits uncertainty.",
         allowedActions: ["ask_question", "request_hint"],
         stopConditions: [],
         assertionRefs: [{ refType: "assertion", refId: "learner_visible_no_id_leak" }],
@@ -338,7 +354,8 @@ export const syntheticLearnerEvalTracerBulletScenarios: SyntheticLearnerScenario
         id: "beat_checkpoint",
         kind: "checkpoint",
         scriptedMessage: "I think the rule is about slope, but I may be mixing things up.",
-        liveInstruction: "Let the learner surface a partial misconception that can be corrected by the tutor.",
+        liveInstruction:
+          "Let the learner surface a partial misconception that can be corrected by the tutor.",
         allowedActions: ["answer_question", "correct_mistake", "request_hint"],
         stopConditions: ["mastery_reached"],
         assertionRefs: [],
@@ -346,13 +363,13 @@ export const syntheticLearnerEvalTracerBulletScenarios: SyntheticLearnerScenario
       {
         id: "beat_remediation",
         kind: "remediation",
-        scriptedMessage: "I think it is the tangent line, not the secant line, because the limit shrinks to one point. Is that correction right?",
-        liveInstruction: "Answer the tutor's checkpoint with a corrected explanation and explicitly ask the tutor to evaluate whether the correction is right.",
+        scriptedMessage:
+          "I think it is the tangent line, not the secant line, because the limit shrinks to one point. Is that correction right?",
+        liveInstruction:
+          "Answer the tutor's checkpoint with a corrected explanation and explicitly ask the tutor to evaluate whether the correction is right.",
         allowedActions: ["ask_question", "request_summary", "correct_mistake"],
         stopConditions: ["turn_limit"],
-        assertionRefs: [
-          { refType: "assertion", refId: "persistence_conservative_movement" },
-        ],
+        assertionRefs: [{ refType: "assertion", refId: "persistence_conservative_movement" }],
       },
     ],
     maxTurns: 3,
@@ -383,13 +400,16 @@ export const syntheticLearnerEvalTracerBulletScenarios: SyntheticLearnerScenario
         liveInstruction: "Ask for a study artifact rather than a direct lesson answer.",
         allowedActions: ["request_artifact", "ask_question"],
         stopConditions: [],
-        assertionRefs: [{ refType: "assertion", refId: "learner_visible_source_grounded_artifact" }],
+        assertionRefs: [
+          { refType: "assertion", refId: "learner_visible_source_grounded_artifact" },
+        ],
       },
       {
         id: "beat_generation",
         kind: "generation",
         scriptedMessage: "Please keep it tied to the source and make it useful for revision.",
-        liveInstruction: "Signal that the learner wants a source-grounded artifact and can review it.",
+        liveInstruction:
+          "Signal that the learner wants a source-grounded artifact and can review it.",
         allowedActions: ["request_artifact", "request_summary"],
         stopConditions: ["artifact_delivered"],
         assertionRefs: [{ refType: "assertion", refId: "runtime_artifact_lifecycle" }],
@@ -398,7 +418,8 @@ export const syntheticLearnerEvalTracerBulletScenarios: SyntheticLearnerScenario
         id: "beat_review",
         kind: "review",
         scriptedMessage: "That works. I'll review it and come back if I get stuck.",
-        liveInstruction: "Conclude with a review-and-return stance that keeps the artifact in scope.",
+        liveInstruction:
+          "Conclude with a review-and-return stance that keeps the artifact in scope.",
         allowedActions: ["ask_question", "request_summary", "end_session"],
         stopConditions: ["turn_limit"],
         assertionRefs: [{ refType: "assertion", refId: "persistence_artifact_status" }],
@@ -447,7 +468,8 @@ export const syntheticLearnerEvalTracerBulletScenarios: SyntheticLearnerScenario
         id: "beat_continue",
         kind: "continue",
         scriptedMessage: "Let's do one more recap before we finish.",
-        liveInstruction: "Have the learner ask for one final recap while remaining ready to conclude.",
+        liveInstruction:
+          "Have the learner ask for one final recap while remaining ready to conclude.",
         allowedActions: ["request_summary", "ask_question"],
         stopConditions: [],
         assertionRefs: [],
@@ -456,7 +478,8 @@ export const syntheticLearnerEvalTracerBulletScenarios: SyntheticLearnerScenario
         id: "beat_finish",
         kind: "finish",
         scriptedMessage: "Thanks, that's enough. Please summarize what I should do next.",
-        liveInstruction: "End the session with a concise request for next steps and a final summary.",
+        liveInstruction:
+          "End the session with a concise request for next steps and a final summary.",
         allowedActions: ["end_session", "request_summary"],
         stopConditions: ["session_concluded"],
         assertionRefs: [
@@ -493,15 +516,36 @@ export const syntheticLearnerEvalAutonomousDiscoveryScenario: SyntheticLearnerSc
       id: "beat_autonomous_start",
       kind: "opening",
       scriptedMessage: "I want to explore this topic in my own way. Let me ask follow-ups as I go.",
-      liveInstruction: "Let the synthetic learner choose follow-up questions while staying inside the fixture source scope.",
-      allowedActions: ["ask_question", "answer_question", "request_hint", "request_artifact", "inspect_artifact", "answer_quiz", "give_artifact_feedback", "request_summary", "end_session"],
+      liveInstruction:
+        "Let the synthetic learner choose follow-up questions while staying inside the fixture source scope.",
+      allowedActions: [
+        "ask_question",
+        "answer_question",
+        "request_hint",
+        "request_artifact",
+        "inspect_artifact",
+        "answer_quiz",
+        "give_artifact_feedback",
+        "request_summary",
+        "end_session",
+      ],
       stopConditions: ["turn_limit", "invariant_failed", "user_requests_stop"],
       assertionRefs: [{ refType: "assertion", refId: "learner_visible_no_id_leak" }],
     },
   ],
   maxTurns: 6,
   stopConditions: ["turn_limit", "invariant_failed", "user_requests_stop"],
-  allowedActions: ["ask_question", "answer_question", "request_hint", "request_artifact", "inspect_artifact", "answer_quiz", "give_artifact_feedback", "request_summary", "end_session"],
+  allowedActions: [
+    "ask_question",
+    "answer_question",
+    "request_hint",
+    "request_artifact",
+    "inspect_artifact",
+    "answer_quiz",
+    "give_artifact_feedback",
+    "request_summary",
+    "end_session",
+  ],
   autonomousConfig: {
     enabled: true,
     maxTurns: 6,
@@ -538,15 +582,18 @@ export const syntheticLearnerTraitEstimationScenarios: SyntheticLearnerScenario[
     runKind: "regression",
     sourceFixtureId: syntheticLearnerEvalTracerBulletFixture.id,
     personaIds: ["persona_careful_self_explainer"],
-    beats: [{
-      id: "beat_explicit_preference",
-      kind: "opening",
-      scriptedMessage: "Please go slower and use visual examples before quizzing me.",
-      liveInstruction: "State explicit pace and example preferences that should record trait signals.",
-      allowedActions: ["ask_question", "request_hint"],
-      stopConditions: ["turn_limit"],
-      assertionRefs: [{ refType: "assertion", refId: "runtime_trait_estimation" }],
-    }],
+    beats: [
+      {
+        id: "beat_explicit_preference",
+        kind: "opening",
+        scriptedMessage: "Please go slower and use visual examples before quizzing me.",
+        liveInstruction:
+          "State explicit pace and example preferences that should record trait signals.",
+        allowedActions: ["ask_question", "request_hint"],
+        stopConditions: ["turn_limit"],
+        assertionRefs: [{ refType: "assertion", refId: "runtime_trait_estimation" }],
+      },
+    ],
     maxTurns: 1,
     stopConditions: ["turn_limit"],
     allowedActions: ["ask_question", "request_hint"],
@@ -563,15 +610,19 @@ export const syntheticLearnerTraitEstimationScenarios: SyntheticLearnerScenario[
     runKind: "regression",
     sourceFixtureId: syntheticLearnerEvalTracerBulletFixture.id,
     personaIds: ["persona_overconfident_skimmer"],
-    beats: [{
-      id: "beat_overconfident_claim",
-      kind: "checkpoint",
-      scriptedMessage: "I already know this, but the derivative is just any line through two points.",
-      liveInstruction: "Claim mastery while giving a partially wrong answer so confidence calibration can be estimated.",
-      allowedActions: ["answer_question", "correct_mistake"],
-      stopConditions: ["mastery_reached"],
-      assertionRefs: [{ refType: "assertion", refId: "runtime_trait_estimation" }],
-    }],
+    beats: [
+      {
+        id: "beat_overconfident_claim",
+        kind: "checkpoint",
+        scriptedMessage:
+          "I already know this, but the derivative is just any line through two points.",
+        liveInstruction:
+          "Claim mastery while giving a partially wrong answer so confidence calibration can be estimated.",
+        allowedActions: ["answer_question", "correct_mistake"],
+        stopConditions: ["mastery_reached"],
+        assertionRefs: [{ refType: "assertion", refId: "runtime_trait_estimation" }],
+      },
+    ],
     maxTurns: 1,
     stopConditions: ["mastery_reached", "turn_limit"],
     allowedActions: ["answer_question", "correct_mistake"],
@@ -588,15 +639,18 @@ export const syntheticLearnerTraitEstimationScenarios: SyntheticLearnerScenario[
     runKind: "regression",
     sourceFixtureId: syntheticLearnerEvalTracerBulletFixture.id,
     personaIds: ["persona_help_avoidant_stuck"],
-    beats: [{
-      id: "beat_quietly_stuck",
-      kind: "remediation",
-      scriptedMessage: "I'm fine. I guess I will just reread it later.",
-      liveInstruction: "Avoid asking for help despite being stuck so help-seeking signals can be estimated.",
-      allowedActions: ["request_hint", "end_session"],
-      stopConditions: ["turn_limit"],
-      assertionRefs: [{ refType: "assertion", refId: "runtime_trait_estimation" }],
-    }],
+    beats: [
+      {
+        id: "beat_quietly_stuck",
+        kind: "remediation",
+        scriptedMessage: "I'm fine. I guess I will just reread it later.",
+        liveInstruction:
+          "Avoid asking for help despite being stuck so help-seeking signals can be estimated.",
+        allowedActions: ["request_hint", "end_session"],
+        stopConditions: ["turn_limit"],
+        assertionRefs: [{ refType: "assertion", refId: "runtime_trait_estimation" }],
+      },
+    ],
     maxTurns: 1,
     stopConditions: ["turn_limit"],
     allowedActions: ["request_hint", "end_session"],
@@ -613,15 +667,18 @@ export const syntheticLearnerTraitEstimationScenarios: SyntheticLearnerScenario[
     runKind: "regression",
     sourceFixtureId: syntheticLearnerEvalTracerBulletFixture.id,
     personaIds: ["persona_anxious_exam_prep"],
-    beats: [{
-      id: "beat_exam_urgency",
-      kind: "request",
-      scriptedMessage: "My exam is tomorrow, so give me high-yield practice from the source.",
-      liveInstruction: "State deadline pressure and request practice so urgency signals can be estimated.",
-      allowedActions: ["request_artifact", "request_summary"],
-      stopConditions: ["artifact_delivered"],
-      assertionRefs: [{ refType: "assertion", refId: "runtime_trait_estimation" }],
-    }],
+    beats: [
+      {
+        id: "beat_exam_urgency",
+        kind: "request",
+        scriptedMessage: "My exam is tomorrow, so give me high-yield practice from the source.",
+        liveInstruction:
+          "State deadline pressure and request practice so urgency signals can be estimated.",
+        allowedActions: ["request_artifact", "request_summary"],
+        stopConditions: ["artifact_delivered"],
+        assertionRefs: [{ refType: "assertion", refId: "runtime_trait_estimation" }],
+      },
+    ],
     maxTurns: 1,
     stopConditions: ["artifact_delivered", "turn_limit"],
     allowedActions: ["request_artifact", "request_summary"],
@@ -638,15 +695,19 @@ export const syntheticLearnerTraitEstimationScenarios: SyntheticLearnerScenario[
     runKind: "regression",
     sourceFixtureId: syntheticLearnerEvalTracerBulletFixture.id,
     personaIds: ["persona_low_confidence_high_mastery"],
-    beats: [{
-      id: "beat_low_confidence_strong_answer",
-      kind: "checkpoint",
-      scriptedMessage: "I'm probably wrong, but the derivative at a point is the limiting slope of secant lines approaching the tangent.",
-      liveInstruction: "Give a strong answer with low confidence so confidence-support recommendations can be tested.",
-      allowedActions: ["answer_question", "request_summary"],
-      stopConditions: ["mastery_reached"],
-      assertionRefs: [{ refType: "assertion", refId: "runtime_trait_estimation" }],
-    }],
+    beats: [
+      {
+        id: "beat_low_confidence_strong_answer",
+        kind: "checkpoint",
+        scriptedMessage:
+          "I'm probably wrong, but the derivative at a point is the limiting slope of secant lines approaching the tangent.",
+        liveInstruction:
+          "Give a strong answer with low confidence so confidence-support recommendations can be tested.",
+        allowedActions: ["answer_question", "request_summary"],
+        stopConditions: ["mastery_reached"],
+        assertionRefs: [{ refType: "assertion", refId: "runtime_trait_estimation" }],
+      },
+    ],
     maxTurns: 1,
     stopConditions: ["mastery_reached", "turn_limit"],
     allowedActions: ["answer_question", "request_summary"],
@@ -663,7 +724,12 @@ export const syntheticLearnerEvalRubrics: SyntheticLearnerRubricDefinition[] = [
     id: "rubric_tutoring_quality",
     label: "Tutoring quality",
     qualitative: true,
-    dimensions: ["explanation_clarity", "remediation_quality", "source_faithfulness", "persona_realism"],
+    dimensions: [
+      "explanation_clarity",
+      "remediation_quality",
+      "source_faithfulness",
+      "persona_realism",
+    ],
     enabled: false,
   },
   {

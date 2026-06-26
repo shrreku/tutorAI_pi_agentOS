@@ -9,7 +9,15 @@ function baseState(overrides: Partial<NotebookStudyState> = {}): NotebookStudySt
     objectiveList: null,
     sessionPlan: null,
     studyPlan: null,
-    coverage: { total: 0, planned: 0, introduced: 0, checked: 0, mastered: 0, needsReview: 0, gaps: [] },
+    coverage: {
+      total: 0,
+      planned: 0,
+      introduced: 0,
+      checked: 0,
+      mastered: 0,
+      needsReview: 0,
+      gaps: [],
+    },
     sourceLevels: [],
     learnerReadiness: [],
     learnerProgressSummary: {

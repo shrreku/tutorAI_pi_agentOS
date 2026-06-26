@@ -12,30 +12,30 @@ It does not replace Mastery Evidence, Concept Mastery, weak concepts, recent mis
 
 ## Trait Vocabulary
 
-| Trait | Values |
-| --- | --- |
-| `pace_preference` | `slow`, `balanced`, `fast` |
-| `depth_preference` | `intuitive`, `balanced`, `formal` |
-| `help_seeking_style` | `asks_early`, `tries_first`, `avoids_help` |
-| `confidence_style` | `underconfident`, `calibrated`, `overconfident` |
-| `metacognitive_accuracy` | `low`, `medium`, `high` |
-| `persistence_style` | `gives_up_fast`, `steady`, `stubborn` |
-| `source_familiarity` | `unfamiliar`, `somewhat_familiar`, `familiar` |
-| `assessment_preference` | `checkpoint`, `quiz`, `worked_problem`, `self_explain` |
-| `example_preference` | `concrete`, `visual`, `symbolic`, `applied` |
-| `urgency_context` | `exploratory`, `exam_prep`, `deadline_pressure` |
+| Trait                    | Values                                                 |
+| ------------------------ | ------------------------------------------------------ |
+| `pace_preference`        | `slow`, `balanced`, `fast`                             |
+| `depth_preference`       | `intuitive`, `balanced`, `formal`                      |
+| `help_seeking_style`     | `asks_early`, `tries_first`, `avoids_help`             |
+| `confidence_style`       | `underconfident`, `calibrated`, `overconfident`        |
+| `metacognitive_accuracy` | `low`, `medium`, `high`                                |
+| `persistence_style`      | `gives_up_fast`, `steady`, `stubborn`                  |
+| `source_familiarity`     | `unfamiliar`, `somewhat_familiar`, `familiar`          |
+| `assessment_preference`  | `checkpoint`, `quiz`, `worked_problem`, `self_explain` |
+| `example_preference`     | `concrete`, `visual`, `symbolic`, `applied`            |
+| `urgency_context`        | `exploratory`, `exam_prep`, `deadline_pressure`        |
 
 ## Archetype Matrix
 
-| Archetype | pace | depth | help seeking | confidence | metacognition | persistence | source familiarity | assessment | examples | urgency |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Beginner with misconception | slow | intuitive | asks_early | underconfident | medium | steady | unfamiliar | checkpoint | concrete | exploratory |
-| Overconfident skimmer | fast | intuitive | avoids_help | overconfident | low | stubborn | somewhat_familiar | checkpoint | applied | exploratory |
-| Anxious exam-prep learner | balanced | balanced | asks_early | underconfident | medium | steady | familiar | quiz | concrete | exam_prep |
-| Careful self-explainer | balanced | formal | tries_first | calibrated | high | steady | somewhat_familiar | self_explain | symbolic | exploratory |
-| Help-avoidant stuck learner | slow | intuitive | avoids_help | underconfident | low | gives_up_fast | unfamiliar | worked_problem | concrete | exploratory |
-| Fast advanced learner | fast | formal | tries_first | calibrated | high | stubborn | familiar | worked_problem | symbolic | exploratory |
-| Low-confidence high-mastery learner | balanced | balanced | asks_early | underconfident | high | steady | familiar | self_explain | applied | exam_prep |
+| Archetype                           | pace     | depth     | help seeking | confidence     | metacognition | persistence   | source familiarity | assessment     | examples | urgency     |
+| ----------------------------------- | -------- | --------- | ------------ | -------------- | ------------- | ------------- | ------------------ | -------------- | -------- | ----------- |
+| Beginner with misconception         | slow     | intuitive | asks_early   | underconfident | medium        | steady        | unfamiliar         | checkpoint     | concrete | exploratory |
+| Overconfident skimmer               | fast     | intuitive | avoids_help  | overconfident  | low           | stubborn      | somewhat_familiar  | checkpoint     | applied  | exploratory |
+| Anxious exam-prep learner           | balanced | balanced  | asks_early   | underconfident | medium        | steady        | familiar           | quiz           | concrete | exam_prep   |
+| Careful self-explainer              | balanced | formal    | tries_first  | calibrated     | high          | steady        | somewhat_familiar  | self_explain   | symbolic | exploratory |
+| Help-avoidant stuck learner         | slow     | intuitive | avoids_help  | underconfident | low           | gives_up_fast | unfamiliar         | worked_problem | concrete | exploratory |
+| Fast advanced learner               | fast     | formal    | tries_first  | calibrated     | high          | stubborn      | familiar           | worked_problem | symbolic | exploratory |
+| Low-confidence high-mastery learner | balanced | balanced  | asks_early   | underconfident | high          | steady        | familiar           | self_explain   | applied  | exam_prep   |
 
 ## Archetype Intent
 

@@ -68,10 +68,27 @@ type StudyState = {
     weakConcepts: Array<{ id: string; name: string }>;
   } | null;
   tutorSession: {
-    active: { id: string; status: string; mode: string; startedAt: string; endedAt: string | null } | null;
-    last: { id: string; status: string; mode: string; startedAt: string; endedAt: string | null } | null;
+    active: {
+      id: string;
+      status: string;
+      mode: string;
+      startedAt: string;
+      endedAt: string | null;
+    } | null;
+    last: {
+      id: string;
+      status: string;
+      mode: string;
+      startedAt: string;
+      endedAt: string | null;
+    } | null;
     canContinue: boolean;
-    suggestedAction: "upload_sources" | "build_curriculum" | "continue_session" | "start_session" | "review_completed";
+    suggestedAction:
+      | "upload_sources"
+      | "build_curriculum"
+      | "continue_session"
+      | "start_session"
+      | "review_completed";
   };
   coverage: {
     total: number;
@@ -116,7 +133,13 @@ type LearningArtifactView = {
   objectiveRefs: Array<{ refType: string; refId: string }>;
   confidence: number | null;
   quality: { sourceBacked: boolean; needsReview: boolean; issues: string[] };
-  sections: Array<{ id: string; title: string; kind: string; content: unknown; emptyMessage?: string }>;
+  sections: Array<{
+    id: string;
+    title: string;
+    kind: string;
+    content: unknown;
+    emptyMessage?: string;
+  }>;
 };
 
 type Flashcard = {
@@ -139,9 +162,12 @@ interface TutorPanelProps {
 }
 
 export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorPanelProps) {
-  const { draftTutorPrompt, setDraftTutorPrompt, setTutorRuntime, tutorRuntime } = useWorkspaceShell();
+  const { draftTutorPrompt, setDraftTutorPrompt, setTutorRuntime, tutorRuntime } =
+    useWorkspaceShell();
   const [input, setInput] = useState("");
-  const [mode, setMode] = useState<"learn" | "practice" | "revise" | "explore" | "wiki_maintenance">("learn");
+  const [mode, setMode] = useState<
+    "learn" | "practice" | "revise" | "explore" | "wiki_maintenance"
+  >("learn");
   const [runStatus, setRunStatus] = useState<"idle" | "running" | "completed" | "failed">("idle");
   const [retryableError, setRetryableError] = useState<string | null>(null);
   const [liveTraceRun, setLiveTraceRun] = useState<LiveTraceRun | null>(null);
@@ -165,7 +191,9 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
   const [flashcardIndex, setFlashcardIndex] = useState(0);
   const [flashcardRevealed, setFlashcardRevealed] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [sessionStatus, setSessionStatus] = useState<"active" | "paused" | "completed" | null>(null);
+  const [sessionStatus, setSessionStatus] = useState<"active" | "paused" | "completed" | null>(
+    null,
+  );
   const [isSessionLifecycleLoading, setIsSessionLifecycleLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const traceRefreshTimerRef = useRef<number | null>(null);
@@ -187,7 +215,10 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
   // Use a ref so the factory always reads the latest refs without recreating the connection
   const selectedNodeRefsRef = useRef(selectedNodeRefs);
   React.useEffect(() => {
-    selectedNodeRefsRef.current = buildTutorSelectedNodeRefs(selectedNodeRefs, selectedArtifact?.id ?? null);
+    selectedNodeRefsRef.current = buildTutorSelectedNodeRefs(
+      selectedNodeRefs,
+      selectedArtifact?.id ?? null,
+    );
   }, [selectedNodeRefs, selectedArtifact?.id]);
 
   React.useEffect(() => {
@@ -197,7 +228,10 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
     setDraftTutorPrompt(null);
   }, [draftTutorPrompt, setDraftTutorPrompt]);
 
-  const selectedSessionRefId = useMemo(() => selectedNodeRefs.find((ref) => ref.refType === "session")?.refId ?? null, [selectedNodeRefs]);
+  const selectedSessionRefId = useMemo(
+    () => selectedNodeRefs.find((ref) => ref.refType === "session")?.refId ?? null,
+    [selectedNodeRefs],
+  );
 
   React.useEffect(() => {
     if (!selectedSessionRefId) return;
@@ -215,16 +249,19 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
 
   const connection = useMemo(
     () =>
-      fetchServerSentEvents(`/api/v1/notebooks/${encodeURIComponent(notebookId)}/tutor/chat`, () => ({
-        body: {
-          data: {
-            activeMode: modeRef.current,
-            selectedNodeRefs: selectedNodeRefsRef.current,
-            action: tutorActionRef.current,
-            ...(sessionId ? { sessionId } : {}),
+      fetchServerSentEvents(
+        `/api/v1/notebooks/${encodeURIComponent(notebookId)}/tutor/chat`,
+        () => ({
+          body: {
+            data: {
+              activeMode: modeRef.current,
+              selectedNodeRefs: selectedNodeRefsRef.current,
+              action: tutorActionRef.current,
+              ...(sessionId ? { sessionId } : {}),
+            },
           },
-        },
-      })),
+        }),
+      ),
     [notebookId, sessionId],
   );
 
@@ -245,7 +282,13 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
         const activeSession = nextStudyState.tutorSession?.active;
         if (selectedSessionRefId) {
           setSessionId(selectedSessionRefId);
-          setSessionStatus(activeSession?.id === selectedSessionRefId ? (activeSession.status === "paused" ? "paused" : "active") : null);
+          setSessionStatus(
+            activeSession?.id === selectedSessionRefId
+              ? activeSession.status === "paused"
+                ? "paused"
+                : "active"
+              : null,
+          );
         } else if (activeSession && activeSession.status !== "completed") {
           setSessionId(activeSession.id);
           setSessionStatus(activeSession.status === "paused" ? "paused" : "active");
@@ -258,7 +301,9 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
       }
 
       setArtifacts(
-        (artifacts as ArtifactSummary[]).filter((artifact) => artifact.artifactType !== "teaching_arc"),
+        (artifacts as ArtifactSummary[]).filter(
+          (artifact) => artifact.artifactType !== "teaching_arc",
+        ),
       );
 
       if (settingsRes.ok) {
@@ -299,7 +344,10 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
     }, 900);
   }, [loadTraceData]);
 
-  const updateArtifactConsentSetting = async (key: "autoCreateLearnerArtifacts" | "autoCreateNotes", value: boolean) => {
+  const updateArtifactConsentSetting = async (
+    key: "autoCreateLearnerArtifacts" | "autoCreateNotes",
+    value: boolean,
+  ) => {
     const previous = settings;
     const next = {
       ...settings,
@@ -320,7 +368,9 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
       setSettings(payload.settings ?? next);
     } catch (err) {
       setSettings(previous);
-      setArtifactError(err instanceof Error ? err.message : "Failed to update artifact consent settings");
+      setArtifactError(
+        err instanceof Error ? err.message : "Failed to update artifact consent settings",
+      );
     }
   };
 
@@ -329,14 +379,20 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
       setArtifactError(null);
       setIsArtifactLoading(true);
       try {
-        const res = await fetch(`/api/v1/notebooks/${encodeURIComponent(notebookId)}/artifacts/${encodeURIComponent(artifactId)}`);
+        const res = await fetch(
+          `/api/v1/notebooks/${encodeURIComponent(notebookId)}/artifacts/${encodeURIComponent(artifactId)}`,
+        );
         if (!res.ok) {
           throw new Error(`Failed to load artifact (${res.status})`);
         }
         const payload = (await res.json()) as { artifact: ArtifactDetail };
         setSelectedArtifact(payload.artifact);
         setArtifactTitleDraft(payload.artifact.title);
-        setArtifactMarkdownDraft(typeof payload.artifact.payload.markdown === "string" ? payload.artifact.payload.markdown : "");
+        setArtifactMarkdownDraft(
+          typeof payload.artifact.payload.markdown === "string"
+            ? payload.artifact.payload.markdown
+            : "",
+        );
         setQuizFeedback(null);
         setFlashcardIndex(0);
         setFlashcardRevealed(false);
@@ -366,17 +422,24 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
     setIsArtifactSaving(true);
     setArtifactError(null);
     try {
-      const res = await fetch(`/api/v1/notebooks/${encodeURIComponent(notebookId)}/artifacts/${encodeURIComponent(selectedArtifact.id)}/approve`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
+      const res = await fetch(
+        `/api/v1/notebooks/${encodeURIComponent(notebookId)}/artifacts/${encodeURIComponent(selectedArtifact.id)}/approve`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        },
+      );
       if (!res.ok) throw new Error(await res.text());
       const payload = (await res.json()) as { artifact: ArtifactDetail | null };
       if (payload.artifact) {
         setSelectedArtifact(payload.artifact);
         setArtifactTitleDraft(payload.artifact.title);
-        setArtifactMarkdownDraft(typeof payload.artifact.payload.markdown === "string" ? payload.artifact.payload.markdown : "");
+        setArtifactMarkdownDraft(
+          typeof payload.artifact.payload.markdown === "string"
+            ? payload.artifact.payload.markdown
+            : "",
+        );
       }
       await loadSidebarData();
     } catch (err) {
@@ -391,11 +454,14 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
     setIsArtifactSaving(true);
     setArtifactError(null);
     try {
-      const res = await fetch(`/api/v1/notebooks/${encodeURIComponent(notebookId)}/artifacts/${encodeURIComponent(selectedArtifact.id)}/reject`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason: "Rejected from tutor panel" }),
-      });
+      const res = await fetch(
+        `/api/v1/notebooks/${encodeURIComponent(notebookId)}/artifacts/${encodeURIComponent(selectedArtifact.id)}/reject`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reason: "Rejected from tutor panel" }),
+        },
+      );
       if (!res.ok) throw new Error(await res.text());
       const payload = (await res.json()) as { artifact: ArtifactDetail | null };
       if (payload.artifact) {
@@ -414,15 +480,18 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
     setIsArtifactSaving(true);
     setArtifactError(null);
     try {
-      const res = await fetch(`/api/v1/notebooks/${encodeURIComponent(notebookId)}/artifacts/${encodeURIComponent(selectedArtifact.id)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: artifactTitleDraft,
-          noteMarkdown: artifactMarkdownDraft,
-          status: "ready",
-        }),
-      });
+      const res = await fetch(
+        `/api/v1/notebooks/${encodeURIComponent(notebookId)}/artifacts/${encodeURIComponent(selectedArtifact.id)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: artifactTitleDraft,
+            noteMarkdown: artifactMarkdownDraft,
+            status: "ready",
+          }),
+        },
+      );
       if (!res.ok) {
         throw new Error(await res.text());
       }
@@ -430,7 +499,11 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
       if (payload.artifact) {
         setSelectedArtifact(payload.artifact);
         setArtifactTitleDraft(payload.artifact.title);
-        setArtifactMarkdownDraft(typeof payload.artifact.payload.markdown === "string" ? payload.artifact.payload.markdown : "");
+        setArtifactMarkdownDraft(
+          typeof payload.artifact.payload.markdown === "string"
+            ? payload.artifact.payload.markdown
+            : "",
+        );
       }
       await loadSidebarData();
     } catch (err) {
@@ -469,9 +542,7 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
         const errorDetail: unknown = chunk.error;
         const retryable = isRecord(errorDetail) && errorDetail.retryable === true;
         setRetryableError(
-          retryable || errorMessage.toLowerCase().includes("retry")
-            ? errorMessage
-            : null,
+          retryable || errorMessage.toLowerCase().includes("retry") ? errorMessage : null,
         );
         void loadSidebarData();
         scheduleTraceDataRefresh();
@@ -479,8 +550,12 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
     },
     onError(err) {
       setRunStatus("failed");
-      setRetryableError(err instanceof Error ? err.message : "The tutor run failed before it could finish.");
-      setLiveTraceRun((prev) => (prev ? { ...prev, status: "failed", completedAt: Date.now() } : prev));
+      setRetryableError(
+        err instanceof Error ? err.message : "The tutor run failed before it could finish.",
+      );
+      setLiveTraceRun((prev) =>
+        prev ? { ...prev, status: "failed", completedAt: Date.now() } : prev,
+      );
     },
   });
 
@@ -567,13 +642,16 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
     },
   });
   const artifactReview = selectedArtifact
-    ? buildTutorPanelArtifactReview({
-        id: selectedArtifact.id,
-        title: selectedArtifact.title,
-        artifactType: selectedArtifact.artifactType,
-        status: selectedArtifact.status,
-        view: selectedArtifact.view ?? null,
-      }, selectedArtifactSurface)
+    ? buildTutorPanelArtifactReview(
+        {
+          id: selectedArtifact.id,
+          title: selectedArtifact.title,
+          artifactType: selectedArtifact.artifactType,
+          status: selectedArtifact.status,
+          view: selectedArtifact.view ?? null,
+        },
+        selectedArtifactSurface,
+      )
     : null;
   const activeFlashcard = flashcards[flashcardIndex] ?? null;
   const currentObjectiveTitle = studyState?.studyPlan?.currentObjective?.title ?? null;
@@ -602,7 +680,8 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
         : studyState?.tutorSession?.suggestedAction === "build_curriculum"
           ? "Build a curriculum from my uploaded sources and start with the best first topic."
           : "Start a tutoring session for this notebook.";
-  const reviewLastSessionPrompt = "Review the last completed session and suggest what I should do next.";
+  const reviewLastSessionPrompt =
+    "Review the last completed session and suggest what I should do next.";
   const historySessions = useMemo(() => {
     const query = historySearch.trim().toLowerCase();
     return buildHistorySessions(traceData)
@@ -612,15 +691,28 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
         const answer = session.latestAssistantMessage.toLowerCase();
         if (historyFilter === "questions") return question.includes(query);
         if (historyFilter === "answers") return answer.includes(query);
-        return question.includes(query) || answer.includes(query) || session.title.toLowerCase().includes(query);
+        return (
+          question.includes(query) ||
+          answer.includes(query) ||
+          session.title.toLowerCase().includes(query)
+        );
       })
       .reverse();
   }, [historyFilter, historySearch, traceData?.turns]);
-  const selectedHistoryTraceData = useMemo(() => traceDataForSession(traceData, selectedHistorySessionId), [selectedHistorySessionId, traceData]);
+  const selectedHistoryTraceData = useMemo(
+    () => traceDataForSession(traceData, selectedHistorySessionId),
+    [selectedHistorySessionId, traceData],
+  );
   const activeTraceData = selectedHistoryTraceData ?? traceData;
-  const persistedMessages = useMemo(() => messagesFromTraceData(activeTraceData), [activeTraceData]);
+  const persistedMessages = useMemo(
+    () => messagesFromTraceData(activeTraceData),
+    [activeTraceData],
+  );
   const displayMessages = useMemo(
-    () => selectedHistoryTraceData ? persistedMessages : mergePersistedAndLiveMessages(persistedMessages, messages),
+    () =>
+      selectedHistoryTraceData
+        ? persistedMessages
+        : mergePersistedAndLiveMessages(persistedMessages, messages),
     [messages, persistedMessages, selectedHistoryTraceData],
   );
 
@@ -690,11 +782,14 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
     if (!sessionId) return;
     setIsSessionLifecycleLoading(true);
     try {
-      const res = await fetch(`/api/v1/notebooks/${encodeURIComponent(notebookId)}/tutor/session/pause`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId }),
-      });
+      const res = await fetch(
+        `/api/v1/notebooks/${encodeURIComponent(notebookId)}/tutor/session/pause`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId }),
+        },
+      );
       if (!res.ok) {
         throw new Error(await res.text());
       }
@@ -711,11 +806,14 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
     if (!sessionId) return;
     setIsSessionLifecycleLoading(true);
     try {
-      const res = await fetch(`/api/v1/notebooks/${encodeURIComponent(notebookId)}/tutor/session/resume`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId }),
-      });
+      const res = await fetch(
+        `/api/v1/notebooks/${encodeURIComponent(notebookId)}/tutor/session/resume`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId }),
+        },
+      );
       if (!res.ok) {
         throw new Error(await res.text());
       }
@@ -732,11 +830,14 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
     if (!sessionId) return;
     setIsSessionLifecycleLoading(true);
     try {
-      const res = await fetch(`/api/v1/notebooks/${encodeURIComponent(notebookId)}/tutor/session/end`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId }),
-      });
+      const res = await fetch(
+        `/api/v1/notebooks/${encodeURIComponent(notebookId)}/tutor/session/end`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId }),
+        },
+      );
       if (!res.ok) {
         throw new Error(await res.text());
       }
@@ -757,11 +858,14 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
     setIsSessionLifecycleLoading(true);
     try {
       if (currentSessionId && sessionStatus !== "completed") {
-        const res = await fetch(`/api/v1/notebooks/${encodeURIComponent(notebookId)}/tutor/session/end`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionId: currentSessionId }),
-        });
+        const res = await fetch(
+          `/api/v1/notebooks/${encodeURIComponent(notebookId)}/tutor/session/end`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sessionId: currentSessionId }),
+          },
+        );
         if (!res.ok) {
           throw new Error(await res.text());
         }
@@ -784,41 +888,84 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
   };
 
   return (
-    <div className="tutor-shell" style={{ display: "flex", flexDirection: "column", height: "100%", minWidth: 300, position: "relative", color: "var(--text)" }}>
+    <div
+      className="tutor-shell"
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        minWidth: 300,
+        position: "relative",
+        color: "var(--text)",
+      }}
+    >
       <div className="tutor-header">
         <div className="tutor-compact-row">
           <div style={{ minWidth: 0 }}>
             <strong className="tutor-title">Tutor</strong>
-            <span className="tutor-subtitle">
-              {currentObjectiveTitle ?? planStatusLabel}
-            </span>
+            <span className="tutor-subtitle">{currentObjectiveTitle ?? planStatusLabel}</span>
           </div>
           <div className="tutor-header-actions">
-            <button type="button" className="study-chip-button" onClick={() => void handleNewChat()} disabled={isSessionLifecycleLoading || isLoading}>
+            <button
+              type="button"
+              className="study-chip-button"
+              onClick={() => void handleNewChat()}
+              disabled={isSessionLifecycleLoading || isLoading}
+            >
               New chat
             </button>
-            <button type="button" className="study-chip-button" data-active={showHistory} onClick={() => setShowHistory((value) => !value)}>
+            <button
+              type="button"
+              className="study-chip-button"
+              data-active={showHistory}
+              onClick={() => setShowHistory((value) => !value)}
+            >
               History
             </button>
             {sessionId && (
-              <div className="tutor-session-controls" aria-label={`Session ${sessionStatus ?? "idle"}`}>
+              <div
+                className="tutor-session-controls"
+                aria-label={`Session ${sessionStatus ?? "idle"}`}
+              >
                 <span className="tutor-session-dot" data-status={sessionStatus ?? "idle"} />
                 {sessionStatus === "active" && (
                   <>
-                    <button type="button" onClick={() => void handlePauseSession()} disabled={isSessionLifecycleLoading} className="study-chip-button">
+                    <button
+                      type="button"
+                      onClick={() => void handlePauseSession()}
+                      disabled={isSessionLifecycleLoading}
+                      className="study-chip-button"
+                    >
                       Pause
                     </button>
-                    <button type="button" onClick={() => void handleEndSession()} disabled={isSessionLifecycleLoading} className="study-chip-button" data-variant="danger">
+                    <button
+                      type="button"
+                      onClick={() => void handleEndSession()}
+                      disabled={isSessionLifecycleLoading}
+                      className="study-chip-button"
+                      data-variant="danger"
+                    >
                       End
                     </button>
                   </>
                 )}
                 {sessionStatus === "paused" && (
                   <>
-                    <button type="button" onClick={() => void handleResumeSession()} disabled={isSessionLifecycleLoading} className="study-chip-button">
+                    <button
+                      type="button"
+                      onClick={() => void handleResumeSession()}
+                      disabled={isSessionLifecycleLoading}
+                      className="study-chip-button"
+                    >
                       Resume
                     </button>
-                    <button type="button" onClick={() => void handleEndSession()} disabled={isSessionLifecycleLoading} className="study-chip-button" data-variant="danger">
+                    <button
+                      type="button"
+                      onClick={() => void handleEndSession()}
+                      disabled={isSessionLifecycleLoading}
+                      className="study-chip-button"
+                      data-variant="danger"
+                    >
                       End
                     </button>
                   </>
@@ -851,7 +998,11 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
             Plan
           </button>
           {studyState?.tutorSession?.suggestedAction === "review_completed" && (
-            <button type="button" onClick={() => handleSessionPrompt(reviewLastSessionPrompt)} className="study-chip-button">
+            <button
+              type="button"
+              onClick={() => handleSessionPrompt(reviewLastSessionPrompt)}
+              className="study-chip-button"
+            >
               Review
             </button>
           )}
@@ -865,7 +1016,11 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
                 placeholder="Search previous chats"
                 aria-label="Search previous chats"
               />
-              <select value={historyFilter} onChange={(event) => setHistoryFilter(event.target.value as typeof historyFilter)} aria-label="Filter chat history">
+              <select
+                value={historyFilter}
+                onChange={(event) => setHistoryFilter(event.target.value as typeof historyFilter)}
+                aria-label="Filter chat history"
+              >
                 <option value="all">All</option>
                 <option value="questions">Questions</option>
                 <option value="answers">Answers</option>
@@ -886,7 +1041,12 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
                     }}
                   >
                     <span>
-                      {new Date(session.startedAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                      {new Date(session.startedAt).toLocaleString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}
                       {" · "}
                       {session.turnCount} {session.turnCount === 1 ? "turn" : "turns"}
                     </span>
@@ -895,50 +1055,84 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
                   </button>
                 ))
               ) : (
-                <div className="tutor-history-empty">{traceData ? "No matching sessions." : "No previous sessions loaded yet."}</div>
+                <div className="tutor-history-empty">
+                  {traceData ? "No matching sessions." : "No previous sessions loaded yet."}
+                </div>
               )}
             </div>
           </div>
         )}
         {selectedNodeRefs.length > 0 && (
           <div className="tutor-selected-context">
-            Using selected {selectedNodeRefs.map((r) => learnerFacingNodeTypeLabel(r.refType)).join(", ")}
+            Using selected{" "}
+            {selectedNodeRefs.map((r) => learnerFacingNodeTypeLabel(r.refType)).join(", ")}
           </div>
         )}
         <details className="tutor-reference-options">
           <summary>Reference options</summary>
           <div style={{ marginTop: 8 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#374151", marginBottom: 6 }}>ARTIFACT CONSENT</div>
-          <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 11, color: "#4b5563", marginBottom: 4 }}>
-            <input
-              type="checkbox"
-              checked={settings.artifactConsent?.autoCreateLearnerArtifacts === true}
-              onChange={(e) => void updateArtifactConsentSetting("autoCreateLearnerArtifacts", e.target.checked)}
-            />
-            Auto-create learner study aids
-          </label>
-          <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 11, color: "#4b5563" }}>
-            <input
-              type="checkbox"
-              checked={settings.artifactConsent?.autoCreateNotes === true}
-              onChange={(e) => void updateArtifactConsentSetting("autoCreateNotes", e.target.checked)}
-            />
-            Auto-promote generated notes
-          </label>
-          <div style={{ marginTop: 4, fontSize: 10, color: "#6b7280", lineHeight: 1.35 }}>
-            When disabled, tutor-created learner aids stay proposed/draft until approved.
-          </div>
-          <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 11, color: "#4b5563", marginTop: 10 }}>
-            <input
-              type="checkbox"
-              checked={showTutorDiagnostics}
-              onChange={(e) => setShowTutorDiagnostics(e.target.checked)}
-            />
-            Dev Mode tutor activity details
-          </label>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#374151", marginBottom: 6 }}>
+              ARTIFACT CONSENT
+            </div>
+            <label
+              style={{
+                display: "flex",
+                gap: 6,
+                alignItems: "center",
+                fontSize: 11,
+                color: "#4b5563",
+                marginBottom: 4,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={settings.artifactConsent?.autoCreateLearnerArtifacts === true}
+                onChange={(e) =>
+                  void updateArtifactConsentSetting("autoCreateLearnerArtifacts", e.target.checked)
+                }
+              />
+              Auto-create learner study aids
+            </label>
+            <label
+              style={{
+                display: "flex",
+                gap: 6,
+                alignItems: "center",
+                fontSize: 11,
+                color: "#4b5563",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={settings.artifactConsent?.autoCreateNotes === true}
+                onChange={(e) =>
+                  void updateArtifactConsentSetting("autoCreateNotes", e.target.checked)
+                }
+              />
+              Auto-promote generated notes
+            </label>
+            <div style={{ marginTop: 4, fontSize: 10, color: "#6b7280", lineHeight: 1.35 }}>
+              When disabled, tutor-created learner aids stay proposed/draft until approved.
+            </div>
+            <label
+              style={{
+                display: "flex",
+                gap: 6,
+                alignItems: "center",
+                fontSize: 11,
+                color: "#4b5563",
+                marginTop: 10,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={showTutorDiagnostics}
+                onChange={(e) => setShowTutorDiagnostics(e.target.checked)}
+              />
+              Dev Mode tutor activity details
+            </label>
           </div>
         </details>
-
       </div>
 
       <div
@@ -955,9 +1149,16 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
         {displayMessages.length === 0 && (
           <div className="tutor-empty-thread">
             <strong>Start from the material, not a blank chat</strong>
-            <p>Ask for a plan, inspect a selected graph node, or have the tutor turn sources into a first lesson route.</p>
+            <p>
+              Ask for a plan, inspect a selected graph node, or have the tutor turn sources into a
+              first lesson route.
+            </p>
             <div className="tutor-suggestion-list">
-              {[sessionPrompt, "Explain the current objective with evidence from my sources.", "Show me what is missing from this notebook."].map((prompt) => (
+              {[
+                sessionPrompt,
+                "Explain the current objective with evidence from my sources.",
+                "Show me what is missing from this notebook.",
+              ].map((prompt) => (
                 <button key={prompt} type="button" onClick={() => handleSessionPrompt(prompt)}>
                   {prompt}
                 </button>
@@ -976,7 +1177,8 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
         {displayMessages.map((msg, index) => {
           const traceTurn = traceTurnForAssistantMessage(displayMessages, index, activeTraceData);
           const latestUserIndex = latestUserMessageIndex(displayMessages);
-          const isLatestAssistant = msg.role !== "user" && index === latestAssistantMessageIndex(displayMessages);
+          const isLatestAssistant =
+            msg.role !== "user" && index === latestAssistantMessageIndex(displayMessages);
           const isActiveAssistantTurn = isLatestAssistant && index > latestUserIndex;
           const isLatestUser = msg.role === "user" && index === latestUserIndex;
           const showInlineWorkView =
@@ -1026,7 +1228,8 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
                   showDiagnostics={showTutorDiagnostics}
                 />
               ) : null}
-              {msg.role !== "user" && !(isActiveAssistantTurn && (runStatus === "running" || isLoading))
+              {msg.role !== "user" &&
+              !(isActiveAssistantTurn && (runStatus === "running" || isLoading))
                 ? renderMessage(msg)
                 : null}
             </div>
@@ -1034,11 +1237,13 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
         })}
         {(error || runStatus === "failed") && (
           <div className="tutor-runtime-error-banner">
-            <p className="tutor-runtime-error">
-              {error?.message ?? retryableError}
-            </p>
+            <p className="tutor-runtime-error">{error?.message ?? retryableError}</p>
             {(retryableError || error) && !isLoading ? (
-              <button type="button" className="tutor-run-retry-button" onClick={() => void handleRetryFailedTurn()}>
+              <button
+                type="button"
+                className="tutor-run-retry-button"
+                onClick={() => void handleRetryFailedTurn()}
+              >
                 Retry
               </button>
             ) : null}
@@ -1058,7 +1263,10 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
           onClick={() => void handleSend()}
           disabled={!input.trim()}
           className="study-primary-button"
-          style={{ opacity: !input.trim() ? 0.55 : 1, cursor: !input.trim() ? "not-allowed" : "pointer" }}
+          style={{
+            opacity: !input.trim() ? 0.55 : 1,
+            cursor: !input.trim() ? "not-allowed" : "pointer",
+          }}
         >
           {isLoading ? "Steer current response" : "Send"}
         </button>
@@ -1091,38 +1299,70 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
             }}
           >
             <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#111827" }}>{selectedArtifact.title}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#111827" }}>
+                {selectedArtifact.title}
+              </div>
               <div style={{ fontSize: 11, color: "#6b7280" }}>
                 {artifactReview?.typeLabel ?? selectedArtifact.artifactType}
                 {artifactReview?.statusLabel ? ` · ${artifactReview.statusLabel}` : ""}
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              {artifactReview?.actions.includes("approve") && artifactReview.actions.includes("reject") && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => void approveArtifact()}
-                    disabled={isArtifactSaving}
-                    style={{ padding: "6px 9px", border: "1px solid #86efac", background: "#dcfce7", color: "#166534", borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: isArtifactSaving ? "not-allowed" : "pointer" }}
-                  >
-                    Approve
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void rejectArtifact()}
-                    disabled={isArtifactSaving}
-                    style={{ padding: "6px 9px", border: "1px solid #fca5a5", background: "#fee2e2", color: "#991b1b", borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: isArtifactSaving ? "not-allowed" : "pointer" }}
-                  >
-                    Reject
-                  </button>
-                </>
-              )}
+              {artifactReview?.actions.includes("approve") &&
+                artifactReview.actions.includes("reject") && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => void approveArtifact()}
+                      disabled={isArtifactSaving}
+                      style={{
+                        padding: "6px 9px",
+                        border: "1px solid #86efac",
+                        background: "#dcfce7",
+                        color: "#166534",
+                        borderRadius: 6,
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: isArtifactSaving ? "not-allowed" : "pointer",
+                      }}
+                    >
+                      Approve
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void rejectArtifact()}
+                      disabled={isArtifactSaving}
+                      style={{
+                        padding: "6px 9px",
+                        border: "1px solid #fca5a5",
+                        background: "#fee2e2",
+                        color: "#991b1b",
+                        borderRadius: 6,
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: isArtifactSaving ? "not-allowed" : "pointer",
+                      }}
+                    >
+                      Reject
+                    </button>
+                  </>
+                )}
               {artifactReview?.actions.includes("ask_tutor") && (
                 <button
                   type="button"
-                  onClick={() => setInput(buildTutorPromptForArtifactAction(artifactReview, "ask_tutor"))}
-                  style={{ padding: "6px 9px", border: "1px solid #bfdbfe", background: "#eff6ff", color: "#1d4ed8", borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                  onClick={() =>
+                    setInput(buildTutorPromptForArtifactAction(artifactReview, "ask_tutor"))
+                  }
+                  style={{
+                    padding: "6px 9px",
+                    border: "1px solid #bfdbfe",
+                    background: "#eff6ff",
+                    color: "#1d4ed8",
+                    borderRadius: 6,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
                 >
                   Teach me
                 </button>
@@ -1130,8 +1370,19 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
               {artifactReview?.actions.includes("practice") && (
                 <button
                   type="button"
-                  onClick={() => setInput(buildTutorPromptForArtifactAction(artifactReview, "practice"))}
-                  style={{ padding: "6px 9px", border: "1px solid #bfdbfe", background: "#eff6ff", color: "#1d4ed8", borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                  onClick={() =>
+                    setInput(buildTutorPromptForArtifactAction(artifactReview, "practice"))
+                  }
+                  style={{
+                    padding: "6px 9px",
+                    border: "1px solid #bfdbfe",
+                    background: "#eff6ff",
+                    color: "#1d4ed8",
+                    borderRadius: 6,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
                 >
                   Practice
                 </button>
@@ -1139,8 +1390,19 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
               {artifactReview?.actions.includes("review") && (
                 <button
                   type="button"
-                  onClick={() => setInput(buildTutorPromptForArtifactAction(artifactReview, "review"))}
-                  style={{ padding: "6px 9px", border: "1px solid #d1d5db", background: "#f3f4f6", color: "#374151", borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                  onClick={() =>
+                    setInput(buildTutorPromptForArtifactAction(artifactReview, "review"))
+                  }
+                  style={{
+                    padding: "6px 9px",
+                    border: "1px solid #d1d5db",
+                    background: "#f3f4f6",
+                    color: "#374151",
+                    borderRadius: 6,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
                 >
                   Review
                 </button>
@@ -1148,17 +1410,44 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
               <button
                 type="button"
                 onClick={closeArtifact}
-                style={{ border: "none", background: "none", fontSize: 18, cursor: "pointer", color: "#6b7280" }}
+                style={{
+                  border: "none",
+                  background: "none",
+                  fontSize: 18,
+                  cursor: "pointer",
+                  color: "#6b7280",
+                }}
               >
                 ×
               </button>
             </div>
           </div>
 
-          <div style={{ flex: 1, overflow: "auto", padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
-            {isArtifactLoading && <div style={{ fontSize: 12, color: "#6b7280" }}>Loading artifact…</div>}
+          <div
+            style={{
+              flex: 1,
+              overflow: "auto",
+              padding: 12,
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+            }}
+          >
+            {isArtifactLoading && (
+              <div style={{ fontSize: 12, color: "#6b7280" }}>Loading artifact…</div>
+            )}
             {artifactError && (
-              <div style={{ fontSize: 12, color: "#991b1b", background: "#fee2e2", padding: 8, borderRadius: 6 }}>{artifactError}</div>
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "#991b1b",
+                  background: "#fee2e2",
+                  padding: 8,
+                  borderRadius: 6,
+                }}
+              >
+                {artifactError}
+              </div>
             )}
             {selectedArtifact.view && <LearningArtifactOverview view={selectedArtifact.view} />}
 
@@ -1169,21 +1458,47 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
                   <input
                     value={artifactTitleDraft}
                     onChange={(e) => setArtifactTitleDraft(e.target.value)}
-                    style={{ border: "1px solid #d1d5db", borderRadius: 6, padding: "8px 10px", fontSize: 13 }}
+                    style={{
+                      border: "1px solid #d1d5db",
+                      borderRadius: 6,
+                      padding: "8px 10px",
+                      fontSize: 13,
+                    }}
                   />
                 </label>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  <span style={{ background: noteOwnerType === "human" ? "#d1fae5" : "#fef3c7", color: noteOwnerType === "human" ? "#065f46" : "#92400e", padding: "2px 8px", borderRadius: 9999, fontSize: 11, fontWeight: 600 }}>
+                  <span
+                    style={{
+                      background: noteOwnerType === "human" ? "#d1fae5" : "#fef3c7",
+                      color: noteOwnerType === "human" ? "#065f46" : "#92400e",
+                      padding: "2px 8px",
+                      borderRadius: 9999,
+                      fontSize: 11,
+                      fontWeight: 600,
+                    }}
+                  >
                     {noteOwnerType === "human" ? "human-edited" : "generated"}
                   </span>
                   {selectedArtifact.sourceNodeRefs.length > 0 && (
-                    <span style={{ background: "#dbeafe", color: "#1d4ed8", padding: "2px 8px", borderRadius: 9999, fontSize: 11, fontWeight: 600 }}>
-                      {selectedArtifact.sourceNodeRefs.length} linked source{selectedArtifact.sourceNodeRefs.length > 1 ? "s" : ""}
+                    <span
+                      style={{
+                        background: "#dbeafe",
+                        color: "#1d4ed8",
+                        padding: "2px 8px",
+                        borderRadius: 9999,
+                        fontSize: 11,
+                        fontWeight: 600,
+                      }}
+                    >
+                      {selectedArtifact.sourceNodeRefs.length} linked source
+                      {selectedArtifact.sourceNodeRefs.length > 1 ? "s" : ""}
                     </span>
                   )}
                 </div>
                 <label style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1 }}>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: "#6b7280" }}>NOTE MARKDOWN</span>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: "#6b7280" }}>
+                    NOTE MARKDOWN
+                  </span>
                   <textarea
                     value={artifactMarkdownDraft}
                     onChange={(e) => setArtifactMarkdownDraft(e.target.value)}
@@ -1202,7 +1517,9 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
                   {artifactReview?.actions.includes("ask_tutor") && (
                     <button
                       type="button"
-                      onClick={() => setInput(buildTutorPromptForArtifactAction(artifactReview, "ask_tutor"))}
+                      onClick={() =>
+                        setInput(buildTutorPromptForArtifactAction(artifactReview, "ask_tutor"))
+                      }
                       style={{
                         padding: "8px 10px",
                         background: "#f3f4f6",
@@ -1218,37 +1535,54 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
                     </button>
                   )}
                   {artifactReview?.actions.includes("save") && (
-                  <button
-                    type="button"
-                    onClick={() => void saveArtifact()}
-                    disabled={isArtifactSaving}
-                    style={{
-                      padding: "8px 12px",
-                      background: isArtifactSaving ? "#93c5fd" : "#2563eb",
-                      color: "white",
-                      border: "none",
-                      borderRadius: 6,
-                      fontSize: 12,
-                      fontWeight: 600,
-                      cursor: isArtifactSaving ? "not-allowed" : "pointer",
-                    }}
-                  >
-                    {isArtifactSaving ? "Saving…" : "Save Note"}
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => void saveArtifact()}
+                      disabled={isArtifactSaving}
+                      style={{
+                        padding: "8px 12px",
+                        background: isArtifactSaving ? "#93c5fd" : "#2563eb",
+                        color: "white",
+                        border: "none",
+                        borderRadius: 6,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        cursor: isArtifactSaving ? "not-allowed" : "pointer",
+                      }}
+                    >
+                      {isArtifactSaving ? "Saving…" : "Save Note"}
+                    </button>
                   )}
                 </div>
               </>
             ) : selectedArtifact.artifactType === "quiz" ? (
               <>
-                <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 600 }}>{QUIZ_SELF_ASSESSMENT_LABELS.sectionTitle.toUpperCase()}</div>
+                <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 600 }}>
+                  {QUIZ_SELF_ASSESSMENT_LABELS.sectionTitle.toUpperCase()}
+                </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {quizQuestions.map((question, index) => (
-                    <div key={question.id} style={{ border: "1px solid #e5e7eb", borderRadius: 8, padding: 10 }}>
-                      <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 4 }}>Question {index + 1}</div>
-                      <div style={{ fontSize: 13, color: "#111827", marginBottom: 8 }}>{question.prompt}</div>
+                    <div
+                      key={question.id}
+                      style={{ border: "1px solid #e5e7eb", borderRadius: 8, padding: 10 }}
+                    >
+                      <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 4 }}>
+                        Question {index + 1}
+                      </div>
+                      <div style={{ fontSize: 13, color: "#111827", marginBottom: 8 }}>
+                        {question.prompt}
+                      </div>
                       {(question.referenceAnswer || question.explanation) && (
-                        <div style={{ fontSize: 12, color: "#4b5563", lineHeight: 1.5, marginBottom: 8 }}>
-                          <strong>Review:</strong> {question.referenceAnswer ?? question.explanation}
+                        <div
+                          style={{
+                            fontSize: 12,
+                            color: "#4b5563",
+                            lineHeight: 1.5,
+                            marginBottom: 8,
+                          }}
+                        >
+                          <strong>Review:</strong>{" "}
+                          {question.referenceAnswer ?? question.explanation}
                         </div>
                       )}
                       <div style={{ display: "flex", gap: 8 }}>
@@ -1305,7 +1639,14 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
                       <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 6 }}>
                         Card {flashcardIndex + 1} of {flashcards.length}
                       </div>
-                      <div style={{ fontSize: 14, color: "#111827", fontWeight: 600, marginBottom: 10 }}>
+                      <div
+                        style={{
+                          fontSize: 14,
+                          color: "#111827",
+                          fontWeight: 600,
+                          marginBottom: 10,
+                        }}
+                      >
                         {flashcardRevealed ? activeFlashcard.back : activeFlashcard.front}
                       </div>
                       <button
@@ -1334,8 +1675,18 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
                             onClick={() => void submitFlashcardReview(result)}
                             style={{
                               padding: "7px 10px",
-                              background: result === "again" ? "#fee2e2" : result === "hard" ? "#ffedd5" : "#dbeafe",
-                              color: result === "again" ? "#991b1b" : result === "hard" ? "#9a3412" : "#1d4ed8",
+                              background:
+                                result === "again"
+                                  ? "#fee2e2"
+                                  : result === "hard"
+                                    ? "#ffedd5"
+                                    : "#dbeafe",
+                              color:
+                                result === "again"
+                                  ? "#991b1b"
+                                  : result === "hard"
+                                    ? "#9a3412"
+                                    : "#1d4ed8",
                               border: "1px solid #d1d5db",
                               borderRadius: 6,
                               fontSize: 12,
@@ -1356,30 +1707,70 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
               </>
             ) : selectedArtifact.artifactType === "worked_example" ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 600 }}>WORKED EXAMPLE</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: "#111827" }}>{String(selectedArtifact.payload.problemStatement ?? selectedArtifact.title)}</div>
+                <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 600 }}>
+                  WORKED EXAMPLE
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#111827" }}>
+                  {String(selectedArtifact.payload.problemStatement ?? selectedArtifact.title)}
+                </div>
                 {Array.isArray(selectedArtifact.payload.solutionSteps) && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     {selectedArtifact.payload.solutionSteps.map((step: unknown, index: number) => (
-                      <div key={index} style={{ border: "1px solid #e5e7eb", borderRadius: 8, padding: 10, background: "#fafafa" }}>
-                        <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 4 }}>Step {index + 1}</div>
-                        <div style={{ fontSize: 13, color: "#111827", lineHeight: 1.5 }}>{String(step)}</div>
+                      <div
+                        key={index}
+                        style={{
+                          border: "1px solid #e5e7eb",
+                          borderRadius: 8,
+                          padding: 10,
+                          background: "#fafafa",
+                        }}
+                      >
+                        <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 4 }}>
+                          Step {index + 1}
+                        </div>
+                        <div style={{ fontSize: 13, color: "#111827", lineHeight: 1.5 }}>
+                          {String(step)}
+                        </div>
                       </div>
                     ))}
                   </div>
                 )}
-                {Array.isArray(selectedArtifact.payload.commonMistakes) && selectedArtifact.payload.commonMistakes.length > 0 && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 600 }}>COMMON MISTAKES</div>
-                    {selectedArtifact.payload.commonMistakes.map((item: unknown, index: number) => (
-                      <div key={index} style={{ fontSize: 12, color: "#7c2d12", background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 6, padding: 8 }}>
-                        {String(item)}
+                {Array.isArray(selectedArtifact.payload.commonMistakes) &&
+                  selectedArtifact.payload.commonMistakes.length > 0 && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 600 }}>
+                        COMMON MISTAKES
                       </div>
-                    ))}
-                  </div>
-                )}
+                      {selectedArtifact.payload.commonMistakes.map(
+                        (item: unknown, index: number) => (
+                          <div
+                            key={index}
+                            style={{
+                              fontSize: 12,
+                              color: "#7c2d12",
+                              background: "#fff7ed",
+                              border: "1px solid #fed7aa",
+                              borderRadius: 6,
+                              padding: 8,
+                            }}
+                          >
+                            {String(item)}
+                          </div>
+                        ),
+                      )}
+                    </div>
+                  )}
                 {typeof selectedArtifact.payload.finalTakeaway === "string" && (
-                  <div style={{ fontSize: 13, color: "#111827", background: "#ecfdf5", border: "1px solid #bbf7d0", borderRadius: 8, padding: 10 }}>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      color: "#111827",
+                      background: "#ecfdf5",
+                      border: "1px solid #bbf7d0",
+                      borderRadius: 8,
+                      padding: 10,
+                    }}
+                  >
                     <strong>Takeaway:</strong> {selectedArtifact.payload.finalTakeaway}
                   </div>
                 )}
@@ -1387,17 +1778,53 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
             ) : selectedArtifact.artifactType === "formula_sheet" ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 600 }}>FORMULA SHEET</div>
-                {Array.isArray(selectedArtifact.payload.formulas) && selectedArtifact.payload.formulas.length > 0 ? (
+                {Array.isArray(selectedArtifact.payload.formulas) &&
+                selectedArtifact.payload.formulas.length > 0 ? (
                   selectedArtifact.payload.formulas.map((formula: any) => (
-                    <div key={formula.symbol ?? formula.expression} style={{ border: "1px solid #e5e7eb", borderRadius: 8, padding: 10, background: "#fafafa" }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: "#111827" }}>{formula.symbol}</div>
-                      <div style={{ fontSize: 12, color: "#374151", marginTop: 4 }}>{formula.expression}</div>
-                      <div style={{ fontSize: 12, color: "#6b7280", marginTop: 6 }}>{formula.meaning}</div>
+                    <div
+                      key={formula.symbol ?? formula.expression}
+                      style={{
+                        border: "1px solid #e5e7eb",
+                        borderRadius: 8,
+                        padding: 10,
+                        background: "#fafafa",
+                      }}
+                    >
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#111827" }}>
+                        {formula.symbol}
+                      </div>
+                      <div style={{ fontSize: 12, color: "#374151", marginTop: 4 }}>
+                        {formula.expression}
+                      </div>
+                      <div style={{ fontSize: 12, color: "#6b7280", marginTop: 6 }}>
+                        {formula.meaning}
+                      </div>
                       {(formula.assumptions || formula.units || formula.exampleUsage) && (
-                        <div style={{ fontSize: 11, color: "#6b7280", marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
-                          {formula.assumptions && <div><strong>Assumptions:</strong> {formula.assumptions}</div>}
-                          {formula.units && <div><strong>Units:</strong> {formula.units}</div>}
-                          {formula.exampleUsage && <div><strong>Example:</strong> {formula.exampleUsage}</div>}
+                        <div
+                          style={{
+                            fontSize: 11,
+                            color: "#6b7280",
+                            marginTop: 8,
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 4,
+                          }}
+                        >
+                          {formula.assumptions && (
+                            <div>
+                              <strong>Assumptions:</strong> {formula.assumptions}
+                            </div>
+                          )}
+                          {formula.units && (
+                            <div>
+                              <strong>Units:</strong> {formula.units}
+                            </div>
+                          )}
+                          {formula.exampleUsage && (
+                            <div>
+                              <strong>Example:</strong> {formula.exampleUsage}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -1408,37 +1835,104 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
               </div>
             ) : selectedArtifact.artifactType === "comparison_page" ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 600 }}>COMPARISON PAGE</div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                  <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 8, padding: 10, fontSize: 13, fontWeight: 600, color: "#1d4ed8" }}>{String(selectedArtifact.payload.leftTitle ?? "Left")}</div>
-                  <div style={{ background: "#f5f3ff", border: "1px solid #ddd6fe", borderRadius: 8, padding: 10, fontSize: 13, fontWeight: 600, color: "#6d28d9" }}>{String(selectedArtifact.payload.rightTitle ?? "Right")}</div>
+                <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 600 }}>
+                  COMPARISON PAGE
                 </div>
-                {Array.isArray(selectedArtifact.payload.comparisonRows) && selectedArtifact.payload.comparisonRows.length > 0 ? (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  <div
+                    style={{
+                      background: "#eff6ff",
+                      border: "1px solid #bfdbfe",
+                      borderRadius: 8,
+                      padding: 10,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: "#1d4ed8",
+                    }}
+                  >
+                    {String(selectedArtifact.payload.leftTitle ?? "Left")}
+                  </div>
+                  <div
+                    style={{
+                      background: "#f5f3ff",
+                      border: "1px solid #ddd6fe",
+                      borderRadius: 8,
+                      padding: 10,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: "#6d28d9",
+                    }}
+                  >
+                    {String(selectedArtifact.payload.rightTitle ?? "Right")}
+                  </div>
+                </div>
+                {Array.isArray(selectedArtifact.payload.comparisonRows) &&
+                selectedArtifact.payload.comparisonRows.length > 0 ? (
                   selectedArtifact.payload.comparisonRows.map((row: any) => (
-                    <div key={row.dimension} style={{ border: "1px solid #e5e7eb", borderRadius: 8, padding: 10, background: "#fafafa" }}>
-                      <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 600, marginBottom: 6 }}>{row.dimension}</div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontSize: 12, color: "#111827" }}>
+                    <div
+                      key={row.dimension}
+                      style={{
+                        border: "1px solid #e5e7eb",
+                        borderRadius: 8,
+                        padding: 10,
+                        background: "#fafafa",
+                      }}
+                    >
+                      <div
+                        style={{ fontSize: 11, color: "#6b7280", fontWeight: 600, marginBottom: 6 }}
+                      >
+                        {row.dimension}
+                      </div>
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "1fr 1fr",
+                          gap: 8,
+                          fontSize: 12,
+                          color: "#111827",
+                        }}
+                      >
                         <div>{row.left}</div>
                         <div>{row.right}</div>
                       </div>
-                      {row.takeaway && <div style={{ marginTop: 8, fontSize: 12, color: "#4b5563" }}><strong>Takeaway:</strong> {row.takeaway}</div>}
+                      {row.takeaway && (
+                        <div style={{ marginTop: 8, fontSize: 12, color: "#4b5563" }}>
+                          <strong>Takeaway:</strong> {row.takeaway}
+                        </div>
+                      )}
                     </div>
                   ))
                 ) : (
-                  <div style={{ fontSize: 12, color: "#6b7280" }}>No comparison rows available yet.</div>
+                  <div style={{ fontSize: 12, color: "#6b7280" }}>
+                    No comparison rows available yet.
+                  </div>
                 )}
               </div>
             ) : (
               <>
                 {typeof selectedArtifact.payload.summary === "string" && (
-                  <div style={{ fontSize: 13, color: "#111827", lineHeight: 1.6 }}>{selectedArtifact.payload.summary}</div>
+                  <div style={{ fontSize: 13, color: "#111827", lineHeight: 1.6 }}>
+                    {selectedArtifact.payload.summary}
+                  </div>
                 )}
-                <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 600 }}>REFERENCE FIELDS</div>
+                <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 600 }}>
+                  REFERENCE FIELDS
+                </div>
                 <ReadableArtifactPayload payload={selectedArtifact.payload} />
               </>
             )}
             {quizFeedback && (
-              <div style={{ fontSize: 12, color: "#1f2937", background: "#f3f4f6", padding: 8, borderRadius: 6 }}>{quizFeedback}</div>
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "#1f2937",
+                  background: "#f3f4f6",
+                  padding: 8,
+                  borderRadius: 6,
+                }}
+              >
+                {quizFeedback}
+              </div>
             )}
           </div>
         </div>
@@ -1473,29 +1967,64 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
             <button
               type="button"
               onClick={closeStudyPlanModal}
-              style={{ border: "none", background: "none", fontSize: 18, cursor: "pointer", color: "#6b7280" }}
+              style={{
+                border: "none",
+                background: "none",
+                fontSize: 18,
+                cursor: "pointer",
+                color: "#6b7280",
+              }}
             >
               ×
             </button>
           </div>
-          <div style={{ padding: 12, overflow: "auto", display: "flex", flexDirection: "column", gap: 10 }}>
+          <div
+            style={{
+              padding: 12,
+              overflow: "auto",
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+            }}
+          >
             <div style={{ fontSize: 12, color: "#374151" }}>
-              <strong>Current objective:</strong> {studyState.studyPlan?.currentObjective?.title ?? "No active objective"}
+              <strong>Current objective:</strong>{" "}
+              {studyState.studyPlan?.currentObjective?.title ?? "No active objective"}
             </div>
             <div style={{ fontSize: 12, color: "#475569" }}>
               <strong>Session goal:</strong> {studyState.sessionPlan?.sessionGoal ?? "Not set"}
             </div>
             <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", marginBottom: 6 }}>UPCOMING OBJECTIVES</div>
-              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: "#111827", lineHeight: 1.5 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", marginBottom: 6 }}>
+                UPCOMING OBJECTIVES
+              </div>
+              <ul
+                style={{
+                  margin: 0,
+                  paddingLeft: 18,
+                  fontSize: 12,
+                  color: "#111827",
+                  lineHeight: 1.5,
+                }}
+              >
                 {(studyState.studyPlan?.upcomingObjectives ?? []).map((objective) => (
                   <li key={objective.id}>{objective.title}</li>
                 ))}
               </ul>
             </div>
             <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", marginBottom: 6 }}>RECENTLY COMPLETED</div>
-              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: "#111827", lineHeight: 1.5 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", marginBottom: 6 }}>
+                RECENTLY COMPLETED
+              </div>
+              <ul
+                style={{
+                  margin: 0,
+                  paddingLeft: 18,
+                  fontSize: 12,
+                  color: "#111827",
+                  lineHeight: 1.5,
+                }}
+              >
                 {(studyState.studyPlan?.completedObjectives ?? []).slice(-5).map((objective) => (
                   <li key={objective.id}>{objective.title}</li>
                 ))}
@@ -1503,10 +2032,21 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
             </div>
             {(studyState.studyPlan?.weakConcepts.length ?? 0) > 0 && (
               <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", marginBottom: 6 }}>WEAK CONCEPTS</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", marginBottom: 6 }}>
+                  WEAK CONCEPTS
+                </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                   {(studyState.studyPlan?.weakConcepts ?? []).map((concept) => (
-                    <span key={concept.id} style={{ background: "#fee2e2", color: "#991b1b", padding: "2px 8px", borderRadius: 9999, fontSize: 11 }}>
+                    <span
+                      key={concept.id}
+                      style={{
+                        background: "#fee2e2",
+                        color: "#991b1b",
+                        padding: "2px 8px",
+                        borderRadius: 9999,
+                        fontSize: 11,
+                      }}
+                    >
                       {concept.name}
                     </span>
                   ))}
@@ -1520,7 +2060,10 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
   );
 }
 
-export function buildTutorSelectedNodeRefs(baseRefs: SelectedNodeRef[], selectedArtifactId: string | null): SelectedNodeRef[] {
+export function buildTutorSelectedNodeRefs(
+  baseRefs: SelectedNodeRef[],
+  selectedArtifactId: string | null,
+): SelectedNodeRef[] {
   const merged = [...baseRefs];
   if (selectedArtifactId) {
     merged.push({ refType: "artifact", refId: selectedArtifactId });
@@ -1542,16 +2085,26 @@ export function traceTurnForAssistantMessage(
   if (!traceData || messages[messageIndex]?.role === "user") return null;
   const userMessage = nearestPreviousUserMessageText(messages, messageIndex);
   if (userMessage) {
-    const matchingTurns = traceData.turns.filter((turn) => turn.userMessage?.trim() === userMessage);
+    const matchingTurns = traceData.turns.filter(
+      (turn) => turn.userMessage?.trim() === userMessage,
+    );
     if (matchingTurns.length > 0) {
       const priorMatchingAssistantMessages = messages
         .slice(0, messageIndex + 1)
-        .filter((message, index) => message.role !== "user" && nearestPreviousUserMessageText(messages, index) === userMessage)
-        .length;
-      return matchingTurns[Math.min(priorMatchingAssistantMessages - 1, matchingTurns.length - 1)] ?? matchingTurns[matchingTurns.length - 1] ?? null;
+        .filter(
+          (message, index) =>
+            message.role !== "user" &&
+            nearestPreviousUserMessageText(messages, index) === userMessage,
+        ).length;
+      return (
+        matchingTurns[Math.min(priorMatchingAssistantMessages - 1, matchingTurns.length - 1)] ??
+        matchingTurns[matchingTurns.length - 1] ??
+        null
+      );
     }
   }
-  const assistantIndex = messages.slice(0, messageIndex + 1).filter((message) => message.role !== "user").length - 1;
+  const assistantIndex =
+    messages.slice(0, messageIndex + 1).filter((message) => message.role !== "user").length - 1;
   return traceData.turns[assistantIndex] ?? null;
 }
 
@@ -1591,15 +2144,21 @@ export function messagesFromTraceData(traceData: ChatTraceResponse | null): UIMe
   });
 }
 
-export function mergePersistedAndLiveMessages(persisted: UIMessage[], live: UIMessage[]): UIMessage[] {
+export function mergePersistedAndLiveMessages(
+  persisted: UIMessage[],
+  live: UIMessage[],
+): UIMessage[] {
   if (!live.length) return persisted;
   if (!persisted.length) return live;
   const latestLiveUser = [...live].reverse().find((message) => message.role === "user");
   if (latestLiveUser) {
     const latestLiveUserText = messageText(latestLiveUser).trim();
     const persistedHasCompletedLiveTurn = persisted.some((message, index) => {
-      if (message.role !== "user" || messageText(message).trim() !== latestLiveUserText) return false;
-      return persisted.slice(index + 1).some((candidate) => candidate.role !== "user" && messageText(candidate).trim());
+      if (message.role !== "user" || messageText(message).trim() !== latestLiveUserText)
+        return false;
+      return persisted
+        .slice(index + 1)
+        .some((candidate) => candidate.role !== "user" && messageText(candidate).trim());
     });
     if (latestLiveUserText && persistedHasCompletedLiveTurn) return persisted;
   }
@@ -1607,7 +2166,10 @@ export function mergePersistedAndLiveMessages(persisted: UIMessage[], live: UIMe
   return [...persisted, ...live];
 }
 
-export function traceDataForTurn(traceData: ChatTraceResponse | null, turnId: string | null): ChatTraceResponse | null {
+export function traceDataForTurn(
+  traceData: ChatTraceResponse | null,
+  turnId: string | null,
+): ChatTraceResponse | null {
   if (!traceData || !turnId) return null;
   const turn = traceData.turns.find((item) => item.id === turnId);
   return turn ? { ...traceData, turns: [turn] } : null;
@@ -1632,15 +2194,21 @@ export function buildHistorySessions(traceData: ChatTraceResponse | null): Tutor
   }
   return [...sessions.entries()]
     .map(([sessionId, turns]) => {
-      const sortedTurns = turns.slice().sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
+      const sortedTurns = turns
+        .slice()
+        .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
       const first = sortedTurns[0];
-      const latestAssistant = [...sortedTurns].reverse().find((turn) => turn.assistantMessage?.trim());
+      const latestAssistant = [...sortedTurns]
+        .reverse()
+        .find((turn) => turn.assistantMessage?.trim());
       const firstUserMessage = first?.userMessage?.trim() ?? "";
       return {
         sessionId,
         startedAt: first?.createdAt ?? new Date(0).toISOString(),
         turnCount: sortedTurns.length,
-        title: compactHistoryTitle(firstUserMessage || latestAssistant?.assistantMessage || "Tutor session"),
+        title: compactHistoryTitle(
+          firstUserMessage || latestAssistant?.assistantMessage || "Tutor session",
+        ),
         firstUserMessage,
         latestAssistantMessage: compactHistoryTitle(latestAssistant?.assistantMessage ?? ""),
       };
@@ -1648,7 +2216,10 @@ export function buildHistorySessions(traceData: ChatTraceResponse | null): Tutor
     .sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt));
 }
 
-export function traceDataForSession(traceData: ChatTraceResponse | null, sessionId: string | null): ChatTraceResponse | null {
+export function traceDataForSession(
+  traceData: ChatTraceResponse | null,
+  sessionId: string | null,
+): ChatTraceResponse | null {
   if (!traceData || !sessionId) return null;
   const turns = traceData.turns.filter((item) => item.sessionId === sessionId);
   return turns.length ? { ...traceData, turns } : null;
@@ -1724,7 +2295,9 @@ function repairInlinePipeTable(text: string): string {
     `| ${headers.join(" | ")} |`,
     `| ${headers.map(() => "---").join(" | ")} |`,
     ...rows.map((row) => `| ${row.join(" | ")} |`),
-  ].join("\n").trim();
+  ]
+    .join("\n")
+    .trim();
 }
 
 function cleanMarkdownTableCell(value: string): string {
@@ -1771,7 +2344,10 @@ function TutorMessageText({ text }: { text: string }) {
   );
 }
 
-function nearestPreviousUserMessageText(messages: UIMessage[], messageIndex: number): string | null {
+function nearestPreviousUserMessageText(
+  messages: UIMessage[],
+  messageIndex: number,
+): string | null {
   for (let index = messageIndex - 1; index >= 0; index -= 1) {
     if (messages[index]?.role === "user") {
       const text = messageText(messages[index]!).trim();
@@ -1808,8 +2384,21 @@ function ReadableArtifactPayload({ payload }: { payload: Record<string, unknown>
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       {entries.slice(0, 8).map(([key, value]) => (
-        <div key={key} style={{ border: "1px solid #e5e7eb", borderRadius: 8, padding: 10, background: "#fff" }}>
-          <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 800, textTransform: "uppercase", marginBottom: 4 }}>{key.replace(/_/g, " ")}</div>
+        <div
+          key={key}
+          style={{ border: "1px solid #e5e7eb", borderRadius: 8, padding: 10, background: "#fff" }}
+        >
+          <div
+            style={{
+              fontSize: 11,
+              color: "#6b7280",
+              fontWeight: 800,
+              textTransform: "uppercase",
+              marginBottom: 4,
+            }}
+          >
+            {key.replace(/_/g, " ")}
+          </div>
           <ReadableValue value={value} />
         </div>
       ))}
@@ -1819,38 +2408,115 @@ function ReadableArtifactPayload({ payload }: { payload: Record<string, unknown>
 
 function LearningArtifactOverview({ view }: { view: LearningArtifactView }) {
   return (
-    <section style={{ border: "1px solid var(--line)", borderRadius: 8, background: "var(--panel-strong)", padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 10, alignItems: "start" }}>
+    <section
+      style={{
+        border: "1px solid var(--line)",
+        borderRadius: 8,
+        background: "var(--panel-strong)",
+        padding: 12,
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+      }}
+    >
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 1fr) auto",
+          gap: 10,
+          alignItems: "start",
+        }}
+      >
         <div>
-          <div style={{ fontSize: 12, fontWeight: 850, color: "var(--text-strong)" }}>{view.purpose}</div>
-          <div style={{ marginTop: 4, fontSize: 12, color: "var(--text-muted)", lineHeight: 1.45 }}>{view.studentAction}</div>
+          <div style={{ fontSize: 12, fontWeight: 850, color: "var(--text-strong)" }}>
+            {view.purpose}
+          </div>
+          <div style={{ marginTop: 4, fontSize: 12, color: "var(--text-muted)", lineHeight: 1.45 }}>
+            {view.studentAction}
+          </div>
         </div>
-        <span style={{ border: "1px solid var(--line)", borderRadius: 999, padding: "3px 8px", fontSize: 11, fontWeight: 800, color: view.quality.needsReview ? "var(--warning)" : "var(--success)" }}>
+        <span
+          style={{
+            border: "1px solid var(--line)",
+            borderRadius: 999,
+            padding: "3px 8px",
+            fontSize: 11,
+            fontWeight: 800,
+            color: view.quality.needsReview ? "var(--warning)" : "var(--success)",
+          }}
+        >
           {view.quality.needsReview ? "needs review" : "ready"}
         </span>
       </div>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        <span style={{ background: "var(--accent-soft)", color: "var(--accent)", padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 750 }}>
+        <span
+          style={{
+            background: "var(--accent-soft)",
+            color: "var(--accent)",
+            padding: "2px 8px",
+            borderRadius: 999,
+            fontSize: 11,
+            fontWeight: 750,
+          }}
+        >
           {view.sourceRefs.length} evidence ref{view.sourceRefs.length === 1 ? "" : "s"}
         </span>
         {view.objectiveRefs.length > 0 && (
-          <span style={{ background: "#ecfdf5", color: "#047857", padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 750 }}>
+          <span
+            style={{
+              background: "#ecfdf5",
+              color: "#047857",
+              padding: "2px 8px",
+              borderRadius: 999,
+              fontSize: 11,
+              fontWeight: 750,
+            }}
+          >
             {view.objectiveRefs.length} objective ref{view.objectiveRefs.length === 1 ? "" : "s"}
           </span>
         )}
       </div>
       {view.quality.issues.length > 0 && (
-        <div style={{ border: "1px solid #fde68a", background: "#fffbeb", color: "#92400e", borderRadius: 7, padding: 8, fontSize: 12, lineHeight: 1.45 }}>
+        <div
+          style={{
+            border: "1px solid #fde68a",
+            background: "#fffbeb",
+            color: "#92400e",
+            borderRadius: 7,
+            padding: 8,
+            fontSize: 12,
+            lineHeight: 1.45,
+          }}
+        >
           {view.quality.issues.join(" ")}
         </div>
       )}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {view.sections.filter((section) => section.id !== "evidence").slice(0, 4).map((section) => (
-          <div key={section.id} style={{ borderTop: "1px solid var(--line)", paddingTop: 8 }}>
-            <div style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 850, textTransform: "uppercase", marginBottom: 4 }}>{section.title}</div>
-            <ReadableValue value={section.kind === "empty" ? section.emptyMessage ?? "No content yet." : section.content} />
-          </div>
-        ))}
+        {view.sections
+          .filter((section) => section.id !== "evidence")
+          .slice(0, 4)
+          .map((section) => (
+            <div key={section.id} style={{ borderTop: "1px solid var(--line)", paddingTop: 8 }}>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "var(--text-muted)",
+                  fontWeight: 850,
+                  textTransform: "uppercase",
+                  marginBottom: 4,
+                }}
+              >
+                {section.title}
+              </div>
+              <ReadableValue
+                value={
+                  section.kind === "empty"
+                    ? (section.emptyMessage ?? "No content yet.")
+                    : section.content
+                }
+              />
+            </div>
+          ))}
       </div>
     </section>
   );
@@ -1858,13 +2524,26 @@ function LearningArtifactOverview({ view }: { view: LearningArtifactView }) {
 
 function ReadableValue({ value }: { value: unknown }) {
   if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
-    return <div style={{ fontSize: 13, color: "#111827", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{String(value)}</div>;
+    return (
+      <div style={{ fontSize: 13, color: "#111827", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+        {String(value)}
+      </div>
+    );
   }
   if (Array.isArray(value)) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {value.slice(0, 8).map((entry, index) => (
-          <div key={index} style={{ fontSize: 12, color: "#374151", background: "#f9fafb", borderRadius: 6, padding: 8 }}>
+          <div
+            key={index}
+            style={{
+              fontSize: 12,
+              color: "#374151",
+              background: "#f9fafb",
+              borderRadius: 6,
+              padding: 8,
+            }}
+          >
             <ReadableValue value={entry} />
           </div>
         ))}
@@ -1874,18 +2553,31 @@ function ReadableValue({ value }: { value: unknown }) {
   if (value && typeof value === "object") {
     const record = value as Record<string, unknown>;
     const title = record.title ?? record.prompt ?? record.front ?? record.term ?? null;
-    const body = record.body ?? record.answer ?? record.back ?? record.description ?? record.explanation ?? null;
+    const body =
+      record.body ??
+      record.answer ??
+      record.back ??
+      record.description ??
+      record.explanation ??
+      null;
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        {title ? <div style={{ fontSize: 13, fontWeight: 750, color: "#111827" }}>{String(title)}</div> : null}
-        {body ? <div style={{ fontSize: 12, color: "#4b5563", lineHeight: 1.5 }}>{String(body)}</div> : null}
-        {!title && !body ? (
-          Object.entries(record).slice(0, 6).map(([key, entry]) => (
-            <div key={key} style={{ fontSize: 12, color: "#4b5563" }}>
-              <strong>{key.replace(/_/g, " ")}:</strong> {typeof entry === "object" ? JSON.stringify(entry) : String(entry)}
-            </div>
-          ))
+        {title ? (
+          <div style={{ fontSize: 13, fontWeight: 750, color: "#111827" }}>{String(title)}</div>
         ) : null}
+        {body ? (
+          <div style={{ fontSize: 12, color: "#4b5563", lineHeight: 1.5 }}>{String(body)}</div>
+        ) : null}
+        {!title && !body
+          ? Object.entries(record)
+              .slice(0, 6)
+              .map(([key, entry]) => (
+                <div key={key} style={{ fontSize: 12, color: "#4b5563" }}>
+                  <strong>{key.replace(/_/g, " ")}:</strong>{" "}
+                  {typeof entry === "object" ? JSON.stringify(entry) : String(entry)}
+                </div>
+              ))
+          : null}
       </div>
     );
   }
@@ -1901,7 +2593,12 @@ function toFlashcards(value: unknown): Flashcard[] {
   return value.flatMap((item) => {
     if (!item || typeof item !== "object") return [];
     const record = item as Record<string, unknown>;
-    if (typeof record.id !== "string" || typeof record.front !== "string" || typeof record.back !== "string") return [];
+    if (
+      typeof record.id !== "string" ||
+      typeof record.front !== "string" ||
+      typeof record.back !== "string"
+    )
+      return [];
     return [
       {
         id: record.id,

@@ -29,8 +29,16 @@ const quizBlock = createTestInteractiveBlock({
 
 describe("mcp app bridge protocol", () => {
   it("builds initialize and block-state messages with the shared channel", () => {
-    const init = buildInitializeMessage({ theme: "light", width: 640, height: 420, devMode: false });
-    const blockState = buildBlockStateMessage({ block: quizBlock, canonicalState: { activeIndex: 1 } });
+    const init = buildInitializeMessage({
+      theme: "light",
+      width: 640,
+      height: 420,
+      devMode: false,
+    });
+    const blockState = buildBlockStateMessage({
+      block: quizBlock,
+      canonicalState: { activeIndex: 1 },
+    });
 
     expect(init).toMatchObject({
       channel: "studyagent-mcp-app",
@@ -58,7 +66,9 @@ describe("mcp app bridge protocol", () => {
       type: "action",
       actionName: "quiz.answer_submitted",
     });
-    expect(parseBridgeMessage({ channel: "other", direction: "app-to-host", type: "action" })).toBeNull();
+    expect(
+      parseBridgeMessage({ channel: "other", direction: "app-to-host", type: "action" }),
+    ).toBeNull();
   });
 
   it("builds tool-result updates for state reconciliation", () => {
@@ -90,7 +100,9 @@ describe("mcp app bridge protocol", () => {
       rendererKind: "mcp_app",
       rendererVersion: "v1",
     });
-    expect(interactiveLearningActionsUrl("nb_1")).toBe("/api/v1/notebooks/nb_1/interactive-learning/actions");
+    expect(interactiveLearningActionsUrl("nb_1")).toBe(
+      "/api/v1/notebooks/nb_1/interactive-learning/actions",
+    );
   });
 
   it("rejects actions not supported by both the bundle and block", () => {
@@ -154,8 +166,12 @@ describe("mcp app registry", () => {
   it("rejects forbidden sandbox permissions in bundle manifests", () => {
     const violations = validateBundleRegistry();
     expect(violations).toEqual([]);
-    expect(MCP_APP_BUNDLE_REGISTRY.every((entry) => entry.sandboxPolicy.includes(MCP_APP_SANDBOX_ATTR))).toBe(true);
-    expect(MCP_APP_BUNDLE_REGISTRY.every((entry) => !entry.sandboxPolicy.includes("allow-same-origin"))).toBe(true);
+    expect(
+      MCP_APP_BUNDLE_REGISTRY.every((entry) => entry.sandboxPolicy.includes(MCP_APP_SANDBOX_ATTR)),
+    ).toBe(true);
+    expect(
+      MCP_APP_BUNDLE_REGISTRY.every((entry) => !entry.sandboxPolicy.includes("allow-same-origin")),
+    ).toBe(true);
   });
 });
 

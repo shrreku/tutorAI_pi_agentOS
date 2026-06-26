@@ -1,5 +1,15 @@
-import type { EvidenceRef, GenerationMode, NodeRef, PageGenerationOutput, PageReadiness } from "@studyagent/schemas";
-import { generationModeSchema, pageGenerationOutputSchema, pageReadinessFromLearnerLabel } from "@studyagent/schemas";
+import type {
+  EvidenceRef,
+  GenerationMode,
+  NodeRef,
+  PageGenerationOutput,
+  PageReadiness,
+} from "@studyagent/schemas";
+import {
+  generationModeSchema,
+  pageGenerationOutputSchema,
+  pageReadinessFromLearnerLabel,
+} from "@studyagent/schemas";
 import {
   compileBlockPlansToMarkdown,
   decideQualityRepair,
@@ -73,13 +83,16 @@ function salvageBlocksFromLooseLlmBlocks(
     const level = typeof entry.level === "number" ? entry.level : null;
     if (type === "heading" && level === 1) lines.push(`# ${content}`);
     else if (type === "heading" && level === 2) lines.push(`## ${content}`);
-    else if (type === "heading" && level != null) lines.push(`${"#".repeat(Math.min(level, 6))} ${content}`);
+    else if (type === "heading" && level != null)
+      lines.push(`${"#".repeat(Math.min(level, 6))} ${content}`);
     else lines.push(content);
   }
   const compiled = lines.join("\n\n").trim();
   const resolvedMarkdown = markdown.trim() || compiled;
   if (!resolvedMarkdown) return [];
-  return [{ kind: "static_reference", title, markdown: resolvedMarkdown }] as PageGenerationOutput["blocks"];
+  return [
+    { kind: "static_reference", title, markdown: resolvedMarkdown },
+  ] as PageGenerationOutput["blocks"];
 }
 
 function normalizeBlocks(
@@ -90,7 +103,9 @@ function normalizeBlocks(
   const blocks = Array.isArray(record.blocks) ? record.blocks : [];
   if (blocks.length === 0) {
     return markdown.trim()
-      ? ([{ kind: "static_reference", title, markdown: markdown.trim() }] as PageGenerationOutput["blocks"])
+      ? ([
+          { kind: "static_reference", title, markdown: markdown.trim() },
+        ] as PageGenerationOutput["blocks"])
       : [];
   }
   const first = blocks[0];
@@ -104,22 +119,31 @@ function coercePolishedPageOutput(raw: unknown, input: WikiPagePolishInput): unk
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw;
   const record = raw as Record<string, unknown>;
   const markdown = typeof record.markdown === "string" ? record.markdown : "";
-  const title = typeof record.title === "string" && record.title.trim() ? record.title : input.title;
+  const title =
+    typeof record.title === "string" && record.title.trim() ? record.title : input.title;
   const readiness = normalizeReadiness(record.readiness ?? record.pageReadiness);
-  const generationMode = normalizeGenerationMode(record.generationMode, input.generationMode ?? "llm_polished");
+  const generationMode = normalizeGenerationMode(
+    record.generationMode,
+    input.generationMode ?? "llm_polished",
+  );
   return {
     title,
-    pageKey: typeof record.pageKey === "string" && record.pageKey.trim() ? record.pageKey : input.pageKey,
+    pageKey:
+      typeof record.pageKey === "string" && record.pageKey.trim() ? record.pageKey : input.pageKey,
     readiness,
     generationMode,
     blocks: normalizeBlocks(record, title, markdown),
     topicRefs: Array.isArray(record.topicRefs) ? record.topicRefs : [],
-    conceptRefs: Array.isArray(record.conceptRefs) ? record.conceptRefs : input.conceptRefs ?? [],
+    conceptRefs: Array.isArray(record.conceptRefs) ? record.conceptRefs : (input.conceptRefs ?? []),
     objectiveRefs: Array.isArray(record.objectiveRefs) ? record.objectiveRefs : [],
-    sourceRefs: Array.isArray(record.sourceRefs) ? record.sourceRefs : input.sourceRefs ?? [],
-    evidenceRefs: Array.isArray(record.evidenceRefs) ? record.evidenceRefs : input.evidenceRefs ?? [],
+    sourceRefs: Array.isArray(record.sourceRefs) ? record.sourceRefs : (input.sourceRefs ?? []),
+    evidenceRefs: Array.isArray(record.evidenceRefs)
+      ? record.evidenceRefs
+      : (input.evidenceRefs ?? []),
     citationsBySection:
-      record.citationsBySection && typeof record.citationsBySection === "object" && !Array.isArray(record.citationsBySection)
+      record.citationsBySection &&
+      typeof record.citationsBySection === "object" &&
+      !Array.isArray(record.citationsBySection)
         ? record.citationsBySection
         : {},
     qualityIssues: Array.isArray(record.qualityIssues) ? record.qualityIssues : [],
@@ -128,7 +152,10 @@ function coercePolishedPageOutput(raw: unknown, input: WikiPagePolishInput): unk
     ...(markdown.trim() ? { markdown: markdown.trim() } : {}),
   };
 }
-function safeValidatePolishedPage(raw: unknown, input: WikiPagePolishInput): PageGenerationOutput | null {
+function safeValidatePolishedPage(
+  raw: unknown,
+  input: WikiPagePolishInput,
+): PageGenerationOutput | null {
   try {
     return validatePolishedPage(coercePolishedPageOutput(raw, input));
   } catch {
@@ -136,7 +163,10 @@ function safeValidatePolishedPage(raw: unknown, input: WikiPagePolishInput): Pag
   }
 }
 
-function markdownOnlyFallback(raw: unknown, input: WikiPagePolishInput): PageGenerationOutput | null {
+function markdownOnlyFallback(
+  raw: unknown,
+  input: WikiPagePolishInput,
+): PageGenerationOutput | null {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
   const record = raw as Record<string, unknown>;
   const markdown = typeof record.markdown === "string" ? record.markdown.trim() : "";
@@ -181,7 +211,14 @@ function polishMessages(input: WikiPagePolishInput): OpenRouterJsonMessage[] {
         pageType: input.pageType,
         title: input.title,
         pageKey: input.pageKey,
-        requiredOutputKeys: ["title", "pageKey", "readiness", "generationMode", "blocks", "citationsBySection"],
+        requiredOutputKeys: [
+          "title",
+          "pageKey",
+          "readiness",
+          "generationMode",
+          "blocks",
+          "citationsBySection",
+        ],
         currentMarkdown: input.currentMarkdown,
         sourceExcerpt: input.sourceExcerpt.slice(0, 8000),
         evidenceRefs: input.evidenceRefs,
@@ -207,7 +244,9 @@ export async function polishWikiPage(
   if (!config?.apiKey) {
     return {
       output: null,
-      qualityIssues: [{ code: "llm_unavailable", message: "LLM polish unavailable.", severity: "warning" }],
+      qualityIssues: [
+        { code: "llm_unavailable", message: "LLM polish unavailable.", severity: "warning" },
+      ],
       repaired: false,
       readiness: "still_improving",
     };
@@ -224,7 +263,13 @@ export async function polishWikiPage(
   if (!output) {
     return {
       output: null,
-      qualityIssues: [{ code: "invalid_llm_output", message: "LLM returned an invalid page generation payload.", severity: "error" }],
+      qualityIssues: [
+        {
+          code: "invalid_llm_output",
+          message: "LLM returned an invalid page generation payload.",
+          severity: "error",
+        },
+      ],
       repaired: false,
       readiness: "still_improving",
     };
@@ -240,7 +285,13 @@ export async function polishWikiPage(
       if (!output) {
         return {
           output: null,
-          qualityIssues: [{ code: "invalid_llm_output", message: "LLM repair returned an invalid page generation payload.", severity: "error" }],
+          qualityIssues: [
+            {
+              code: "invalid_llm_output",
+              message: "LLM repair returned an invalid page generation payload.",
+              severity: "error",
+            },
+          ],
           repaired: true,
           readiness: "still_improving",
         };
@@ -259,9 +310,7 @@ export async function polishWikiPage(
     };
   }
 
-  const markdown = output.markdown?.trim()
-    ? output.markdown
-    : compileBlockPlansToMarkdown(output);
+  const markdown = output.markdown?.trim() ? output.markdown : compileBlockPlansToMarkdown(output);
   const mergedMarkdown = input.priorHumanMarkdown
     ? mergeAgentMarkdownWithHumanBlocks(markdown, extractHumanBlocks(input.priorHumanMarkdown))
     : markdown;
@@ -270,7 +319,8 @@ export async function polishWikiPage(
   const polished = pageGenerationOutputSchema.parse({
     ...output,
     markdown: mergedMarkdown,
-    generationMode: repaired && baseGenerationMode !== "tutor_touch" ? "llm_repair" : baseGenerationMode,
+    generationMode:
+      repaired && baseGenerationMode !== "tutor_touch" ? "llm_repair" : baseGenerationMode,
     qualityIssues: gate.issues,
   });
 

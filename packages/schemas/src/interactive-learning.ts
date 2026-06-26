@@ -56,7 +56,10 @@ export const interactiveLearningBlockSchema = z.object({
   allowedActions: z.array(interactiveLearningActionNameSchema).default([]),
   rendererPreference: interactiveLearningRendererKindSchema.default("mcp_app"),
   fallbackSummary: z.string().nullable().default(null),
-  quality: interactiveLearningBlockQualitySchema.default({ sourceBacked: false, needsReview: false }),
+  quality: interactiveLearningBlockQualitySchema.default({
+    sourceBacked: false,
+    needsReview: false,
+  }),
 });
 
 export const quizAnswerSubmittedPayloadSchema = z.object({
@@ -160,8 +163,12 @@ export const interactiveLearningActionResponseSchema = z.object({
 export type InteractiveLearningBlockKind = z.infer<typeof interactiveLearningBlockKindSchema>;
 export type InteractiveLearningActionName = z.infer<typeof interactiveLearningActionNameSchema>;
 export type InteractiveLearningBlock = z.infer<typeof interactiveLearningBlockSchema>;
-export type InteractiveLearningActionEnvelope = z.infer<typeof interactiveLearningActionEnvelopeSchema>;
-export type InteractiveLearningActionResponse = z.infer<typeof interactiveLearningActionResponseSchema>;
+export type InteractiveLearningActionEnvelope = z.infer<
+  typeof interactiveLearningActionEnvelopeSchema
+>;
+export type InteractiveLearningActionResponse = z.infer<
+  typeof interactiveLearningActionResponseSchema
+>;
 
 const ACTION_PAYLOAD_SCHEMAS: Partial<Record<InteractiveLearningActionName, z.ZodType<unknown>>> = {
   "quiz.answer_submitted": quizAnswerSubmittedPayloadSchema,
@@ -235,7 +242,9 @@ export const simulationTemplateSchema = z.object({
   supportedConceptFamilies: z.array(z.string()).default([]),
   promptSlots: z.array(z.string()).default([]),
   expectedObservationSchema: z.record(z.string(), z.unknown()).default({}),
-  actionSchema: z.array(interactiveLearningActionNameSchema).default(["simulation.observation_submitted"]),
+  actionSchema: z
+    .array(interactiveLearningActionNameSchema)
+    .default(["simulation.observation_submitted"]),
   evidenceRequired: z.boolean().default(false),
   bundleResourceUri: z.string().regex(/^ui:\/\/studyagent\//),
 });

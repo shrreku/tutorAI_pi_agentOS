@@ -1,11 +1,27 @@
 import { describe, expect, it } from "vitest";
-import { artifacts, learningState, objectiveLists, objectives, studyPlans, toolCalls, tutorSessions, tutorTurns } from "@studyagent/db";
+import {
+  artifacts,
+  learningState,
+  objectiveLists,
+  objectives,
+  studyPlans,
+  toolCalls,
+  tutorSessions,
+  tutorTurns,
+} from "@studyagent/db";
 import type { AppContext } from "./context.js";
 import { buildStudyMapReadModel } from "./workspace-read-model.js";
 
 function makeCtx(overrides: {
   studyPlan?: { currentObjectiveId: string | null; weakConceptIds?: string[] };
-  artifacts?: Array<{ id: string; title: string; artifactType: string; status: string; payloadJson?: Record<string, unknown>; sourceNodeRefsJson?: unknown[] }>;
+  artifacts?: Array<{
+    id: string;
+    title: string;
+    artifactType: string;
+    status: string;
+    payloadJson?: Record<string, unknown>;
+    sourceNodeRefsJson?: unknown[];
+  }>;
   tutorSessions?: Array<{
     id: string;
     mode: string;
@@ -88,10 +104,16 @@ function makeCtx(overrides: {
 
 describe("buildStudyMapReadModel scenarios", () => {
   it("returns an empty learner-visible study map for an empty notebook projection", async () => {
-    const result = await buildStudyMapReadModel(makeCtx({}), "nb_empty", "user_1", { nodes: [], edges: [] }, {
-      devMode: false,
-      projectionWarning: "Study Map is still building. Uploaded sources may still be processing.",
-    });
+    const result = await buildStudyMapReadModel(
+      makeCtx({}),
+      "nb_empty",
+      "user_1",
+      { nodes: [], edges: [] },
+      {
+        devMode: false,
+        projectionWarning: "Study Map is still building. Uploaded sources may still be processing.",
+      },
+    );
     expect(result.nodes).toEqual([]);
     expect(result.edges).toEqual([]);
     expect(result.projectionWarning).toContain("still building");
@@ -100,21 +122,32 @@ describe("buildStudyMapReadModel scenarios", () => {
   it("keeps partially ingested curriculum nodes while hiding draft artifacts", async () => {
     const result = await buildStudyMapReadModel(
       makeCtx({
-        artifacts: [{ id: "art_draft", title: "Draft note", artifactType: "note", status: "draft" }],
+        artifacts: [
+          { id: "art_draft", title: "Draft note", artifactType: "note", status: "draft" },
+        ],
       }),
       "nb_partial",
       "user_1",
       {
         nodes: [
           { id: "cur_1", nodeType: "curriculum", labels: [], properties: { title: "Course" } },
-          { id: "obj_1", nodeType: "objective", labels: [], properties: { title: "Objective 1", status: "not_started" } },
+          {
+            id: "obj_1",
+            nodeType: "objective",
+            labels: [],
+            properties: { title: "Objective 1", status: "not_started" },
+          },
         ],
-        edges: [{ id: "e1", source: "cur_1", target: "obj_1", relationType: "CONTAINS", properties: {} }],
+        edges: [
+          { id: "e1", source: "cur_1", target: "obj_1", relationType: "CONTAINS", properties: {} },
+        ],
       },
       { devMode: false },
     );
     expect(result.nodes.map((node) => node.id)).toEqual(["cur_1"]);
-    expect(result.nodeCatalog.find((entry) => entry.node.id === "obj_1")?.visibility).toBe("hidden");
+    expect(result.nodeCatalog.find((entry) => entry.node.id === "obj_1")?.visibility).toBe(
+      "hidden",
+    );
     expect(result.nodeCatalog.find((entry) => entry.node.id === "art_draft")).toBeUndefined();
   });
 
@@ -125,17 +158,34 @@ describe("buildStudyMapReadModel scenarios", () => {
       "user_1",
       {
         nodes: [
-          { id: "obj_current", nodeType: "objective", labels: [], properties: { title: "Current objective" } },
+          {
+            id: "obj_current",
+            nodeType: "objective",
+            labels: [],
+            properties: { title: "Current objective" },
+          },
           { id: "concept_1", nodeType: "concept", labels: [], properties: { title: "Concept A" } },
         ],
-        edges: [{ id: "e1", source: "obj_current", target: "concept_1", relationType: "COVERS", properties: {} }],
+        edges: [
+          {
+            id: "e1",
+            source: "obj_current",
+            target: "concept_1",
+            relationType: "COVERS",
+            properties: {},
+          },
+        ],
       },
       { devMode: false },
     );
     expect(result.emphasis.currentObjectiveId).toBe("obj_current");
     expect(result.emphasis.currentPathConceptIds).toEqual(["concept_1"]);
-    expect(result.nodeCatalog.find((entry) => entry.node.id === "obj_current")?.emphasis).toBe("current_objective");
-    expect(result.nodeCatalog.find((entry) => entry.node.id === "obj_current")?.visibility).toBe("hidden");
+    expect(result.nodeCatalog.find((entry) => entry.node.id === "obj_current")?.emphasis).toBe(
+      "current_objective",
+    );
+    expect(result.nodeCatalog.find((entry) => entry.node.id === "obj_current")?.visibility).toBe(
+      "hidden",
+    );
     expect(result.nodes.find((node) => node.id === "obj_current")).toBeUndefined();
   });
 
@@ -153,8 +203,12 @@ describe("buildStudyMapReadModel scenarios", () => {
       },
       { devMode: true },
     );
-    expect(result.nodes.map((node) => node.id)).toEqual(expect.arrayContaining(["claim_1", "concept_1"]));
-    expect(result.nodeCatalog.find((entry) => entry.node.id === "claim_1")?.visibility).toBe("learner");
+    expect(result.nodes.map((node) => node.id)).toEqual(
+      expect.arrayContaining(["claim_1", "concept_1"]),
+    );
+    expect(result.nodeCatalog.find((entry) => entry.node.id === "claim_1")?.visibility).toBe(
+      "learner",
+    );
   });
 
   it("connects quiz artifacts to nested question concepts and sessions directly after modules", async () => {
@@ -168,7 +222,12 @@ describe("buildStudyMapReadModel scenarios", () => {
             status: "ready",
             payloadJson: {
               questions: [
-                { id: "q1", prompt: "What is flux?", answer: "Flow per area", conceptIds: ["concept_flux"] },
+                {
+                  id: "q1",
+                  prompt: "What is flux?",
+                  answer: "Flow per area",
+                  conceptIds: ["concept_flux"],
+                },
               ],
             },
             sourceNodeRefsJson: [{ refType: "curriculum_module", refId: "mod_1" }],
@@ -179,16 +238,33 @@ describe("buildStudyMapReadModel scenarios", () => {
       "user_1",
       {
         nodes: [
-          { id: "mod_1", nodeType: "curriculum_module", labels: [], properties: { title: "Module 1" } },
-          { id: "session_1", nodeType: "session_plan", labels: [], properties: { title: "Session 1", moduleId: "mod_1" } },
-          { id: "concept_flux", nodeType: "concept", labels: [], properties: { title: "Heat flux" } },
+          {
+            id: "mod_1",
+            nodeType: "curriculum_module",
+            labels: [],
+            properties: { title: "Module 1" },
+          },
+          {
+            id: "session_1",
+            nodeType: "session_plan",
+            labels: [],
+            properties: { title: "Session 1", moduleId: "mod_1" },
+          },
+          {
+            id: "concept_flux",
+            nodeType: "concept",
+            labels: [],
+            properties: { title: "Heat flux" },
+          },
         ],
         edges: [],
       },
       { devMode: false },
     );
 
-    expect(result.nodes.map((node) => node.id)).toEqual(expect.arrayContaining(["mod_1", "concept_flux", "art_quiz"]));
+    expect(result.nodes.map((node) => node.id)).toEqual(
+      expect.arrayContaining(["mod_1", "concept_flux", "art_quiz"]),
+    );
     expect(result.nodes.map((node) => node.id)).not.toContain("session_1");
     expect(result.edges).toEqual(
       expect.arrayContaining([
@@ -244,10 +320,20 @@ describe("buildStudyMapReadModel scenarios", () => {
       "user_1",
       {
         nodes: [
-          { id: "mod_1", nodeType: "curriculum_module", labels: [], properties: { title: "Module 1" } },
+          {
+            id: "mod_1",
+            nodeType: "curriculum_module",
+            labels: [],
+            properties: { title: "Module 1" },
+          },
           { id: "obj_1", nodeType: "objective", labels: [], properties: { title: "Objective 1" } },
           { id: "src_1", nodeType: "source", labels: [], properties: { title: "Chapter 2.pdf" } },
-          { id: "concept_flux", nodeType: "concept", labels: [], properties: { title: "Heat flux" } },
+          {
+            id: "concept_flux",
+            nodeType: "concept",
+            labels: [],
+            properties: { title: "Heat flux" },
+          },
         ],
         edges: [],
       },
@@ -266,8 +352,16 @@ describe("buildStudyMapReadModel scenarios", () => {
     expect(result.edges).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ source: "mod_1", target: "sess_1", relationType: "COVERS" }),
-        expect.objectContaining({ source: "sess_1", target: "concept_flux", relationType: "COVERS" }),
-        expect.objectContaining({ source: "sess_1", target: "artifact_quiz", relationType: "COMPLETED_BY" }),
+        expect.objectContaining({
+          source: "sess_1",
+          target: "concept_flux",
+          relationType: "COVERS",
+        }),
+        expect.objectContaining({
+          source: "sess_1",
+          target: "artifact_quiz",
+          relationType: "COMPLETED_BY",
+        }),
       ]),
     );
   });

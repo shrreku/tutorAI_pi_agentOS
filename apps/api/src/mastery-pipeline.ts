@@ -2,7 +2,11 @@ import type { DbClient } from "@studyagent/db";
 import type { MasteryEvidence, MasteryEvidenceInput } from "@studyagent/schemas";
 import type { AppContext } from "./context.js";
 import { recordProductAnalytics } from "./hosted-beta/product-analytics.js";
-import { evaluateLearnerResponse, type EvaluateLearnerResponseInput, type MasteryEvaluatorJudge } from "./mastery-evaluator.js";
+import {
+  evaluateLearnerResponse,
+  type EvaluateLearnerResponseInput,
+  type MasteryEvaluatorJudge,
+} from "./mastery-evaluator.js";
 import { persistMasteryEvidence } from "./mastery-evidence-store.js";
 import { applyAdaptiveSessionPlanFromMasteryEvidence } from "./mastery-curriculum-adaptation.js";
 import { applyMasteryEvidence } from "./mastery-learning.js";
@@ -31,7 +35,9 @@ export async function recordAndApplyMasteryEvidence(
       evidence,
       updatedConceptStates: applied.updatedConceptStates,
       weakConceptIds: applied.weakConceptIds,
-      sourceCoverageGap: evidence.contextRefs.some((ref) => ref.refType === "source" && ref.refId.startsWith("gap_")),
+      sourceCoverageGap: evidence.contextRefs.some(
+        (ref) => ref.refType === "source" && ref.refId.startsWith("gap_"),
+      ),
     });
   }
   if (options.analyticsContext && evidence.evidenceType === "mastery_check" && evidence.userId) {
@@ -51,7 +57,11 @@ export async function recordAndApplyMasteryEvidence(
 export async function evaluatePersistAndApply(
   dbClient: DbClient,
   input: EvaluateLearnerResponseInput,
-  options: { judge?: MasteryEvaluatorJudge; applyAdaptivePlan?: boolean; analyticsContext?: AppContext } = {},
+  options: {
+    judge?: MasteryEvaluatorJudge;
+    applyAdaptivePlan?: boolean;
+    analyticsContext?: AppContext;
+  } = {},
 ): Promise<{
   evidence: MasteryEvidence;
   evidenceId: string;
@@ -60,14 +70,12 @@ export async function evaluatePersistAndApply(
   weakConceptIds: string[];
 }> {
   const evidence = await evaluateLearnerResponse(input, options);
-  const applied = await recordAndApplyMasteryEvidence(
-    dbClient,
-    evidence,
-    {
-      ...(options.applyAdaptivePlan !== undefined ? { applyAdaptivePlan: options.applyAdaptivePlan } : {}),
-      ...(options.analyticsContext ? { analyticsContext: options.analyticsContext } : {}),
-    },
-  );
+  const applied = await recordAndApplyMasteryEvidence(dbClient, evidence, {
+    ...(options.applyAdaptivePlan !== undefined
+      ? { applyAdaptivePlan: options.applyAdaptivePlan }
+      : {}),
+    ...(options.analyticsContext ? { analyticsContext: options.analyticsContext } : {}),
+  });
   return { evidence, ...applied };
 }
 
@@ -87,25 +95,32 @@ export async function runRuntimeMasteryEvaluation(
   },
   options: { judge?: MasteryEvaluatorJudge; analyticsContext?: AppContext } = {},
 ): Promise<{ evidence: MasteryEvidence; applied: boolean } | null> {
-  const result = await evaluatePersistAndApply(dbClient, {
-    notebookId: input.notebookId,
-    userId: input.userId,
-    sessionId: input.sessionId,
-    turnId: input.turnId,
-    ...(input.runId ? { runId: input.runId } : {}),
-    tutorQuestion: input.pending.tutorQuestion,
-    learnerAnswer: input.learnerMessage,
-    ...(input.pending.objectiveId ? { objectiveId: input.pending.objectiveId } : {}),
-    conceptRoles: input.pending.conceptIds.map((conceptId) => ({ conceptId, role: "primary" as const })),
-    masterySnapshot: input.masterySnapshot,
-    sourceRefs: input.sourceRefs,
-    contextRefs: input.contextRefs ?? [],
-    ...(input.pending.referenceAnswer ? { referenceAnswer: input.pending.referenceAnswer } : {}),
-    evidenceType: "mastery_check",
-    triggerSource: "runtime_auto",
-  }, {
-    ...(options.judge ? { judge: options.judge } : {}),
-    ...(options.analyticsContext ? { analyticsContext: options.analyticsContext } : {}),
-  });
+  const result = await evaluatePersistAndApply(
+    dbClient,
+    {
+      notebookId: input.notebookId,
+      userId: input.userId,
+      sessionId: input.sessionId,
+      turnId: input.turnId,
+      ...(input.runId ? { runId: input.runId } : {}),
+      tutorQuestion: input.pending.tutorQuestion,
+      learnerAnswer: input.learnerMessage,
+      ...(input.pending.objectiveId ? { objectiveId: input.pending.objectiveId } : {}),
+      conceptRoles: input.pending.conceptIds.map((conceptId) => ({
+        conceptId,
+        role: "primary" as const,
+      })),
+      masterySnapshot: input.masterySnapshot,
+      sourceRefs: input.sourceRefs,
+      contextRefs: input.contextRefs ?? [],
+      ...(input.pending.referenceAnswer ? { referenceAnswer: input.pending.referenceAnswer } : {}),
+      evidenceType: "mastery_check",
+      triggerSource: "runtime_auto",
+    },
+    {
+      ...(options.judge ? { judge: options.judge } : {}),
+      ...(options.analyticsContext ? { analyticsContext: options.analyticsContext } : {}),
+    },
+  );
   return { evidence: result.evidence, applied: true };
 }

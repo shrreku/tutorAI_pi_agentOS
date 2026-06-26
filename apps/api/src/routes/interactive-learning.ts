@@ -4,7 +4,10 @@ import { requireOwnedNotebook } from "../hosted-beta/notebook-context.js";
 import { withLearner } from "../hosted-beta/route-guards.js";
 import { dispatchInteractiveLearningAction } from "../interactive-learning-actions.js";
 
-export async function registerInteractiveLearningRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
+export async function registerInteractiveLearningRoutes(
+  app: FastifyInstance,
+  ctx: AppContext,
+): Promise<void> {
   app.post<{
     Params: { notebookId: string };
     Body: Record<string, unknown>;
@@ -23,7 +26,8 @@ export async function registerInteractiveLearningRoutes(app: FastifyInstance, ct
       });
 
       if (!result.ok) {
-        const status = result.error.code === "not_found" ? 404 : result.error.code === "forbidden" ? 403 : 400;
+        const status =
+          result.error.code === "not_found" ? 404 : result.error.code === "forbidden" ? 403 : 400;
         request.log.warn(
           {
             notebookId,
@@ -33,7 +37,9 @@ export async function registerInteractiveLearningRoutes(app: FastifyInstance, ct
           },
           "interactive learning action rejected",
         );
-        return reply.status(status).send({ code: result.error.code, message: result.error.message });
+        return reply
+          .status(status)
+          .send({ code: result.error.code, message: result.error.message });
       }
 
       request.log.info(

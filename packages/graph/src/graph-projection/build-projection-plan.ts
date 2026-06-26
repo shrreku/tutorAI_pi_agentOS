@@ -6,7 +6,10 @@ import { stableTopicId, topicTitleForSource } from "./topic.js";
 function asConceptRelationKind(relationType: string): IngestConceptRelationKind | null {
   const semantics = graphRelationSemantics(relationType);
   if (!semantics) return null;
-  if (!["depends_on", "supports", "example_of", "contradicts", "covers"].includes(semantics.canonical)) return null;
+  if (
+    !["depends_on", "supports", "example_of", "contradicts", "covers"].includes(semantics.canonical)
+  )
+    return null;
   return semantics.canonical as IngestConceptRelationKind;
 }
 
@@ -54,13 +57,26 @@ export function buildProjectionPlan(snapshot: CanonicalProjectionSnapshot): Proj
     if (scopedConcepts.length) {
       operations.push({ kind: "merge_concepts", concepts: scopedConcepts });
       for (const concept of scopedConcepts) {
-        operations.push({ kind: "link_topic_concept", sourceId: source.id, topicId, conceptId: concept.id });
+        operations.push({
+          kind: "link_topic_concept",
+          sourceId: source.id,
+          topicId,
+          conceptId: concept.id,
+        });
       }
     }
 
     if (curriculum) {
-      operations.push({ kind: "merge_curriculum", curriculumId: curriculum.id, title: curriculum.title });
-      operations.push({ kind: "link_source_curriculum", sourceId: source.id, curriculumId: curriculum.id });
+      operations.push({
+        kind: "merge_curriculum",
+        curriculumId: curriculum.id,
+        title: curriculum.title,
+      });
+      operations.push({
+        kind: "link_source_curriculum",
+        sourceId: source.id,
+        curriculumId: curriculum.id,
+      });
     }
 
     for (const mod of snapshot.modules.filter((m) => m.curriculumId === curriculum?.id)) {
@@ -74,7 +90,9 @@ export function buildProjectionPlan(snapshot: CanonicalProjectionSnapshot): Proj
     }
     const objectives = snapshot.objectives.filter((o) => o.curriculumId === curriculum?.id);
     for (const objective of objectives) {
-      const list = snapshot.objectiveLists.find((l) => l.objectiveIdsOrdered.includes(objective.id));
+      const list = snapshot.objectiveLists.find((l) =>
+        l.objectiveIdsOrdered.includes(objective.id),
+      );
       const sessionPlan = snapshot.sessionPlans.find((sp) => sp.objectiveListId === list?.id);
       operations.push({
         kind: "merge_objective",
@@ -104,7 +122,8 @@ export function buildProjectionPlan(snapshot: CanonicalProjectionSnapshot): Proj
       } else if (rel.sourceNodeType === "concept" && rel.targetNodeType === "concept") {
         const kind = asConceptRelationKind(rel.relationType);
         if (!kind) continue;
-        if (!scopedConceptIds.has(rel.sourceNodeId) || !scopedConceptIds.has(rel.targetNodeId)) continue;
+        if (!scopedConceptIds.has(rel.sourceNodeId) || !scopedConceptIds.has(rel.targetNodeId))
+          continue;
         operations.push({
           kind: "merge_concept_relation",
           fromId: rel.sourceNodeId,
@@ -121,7 +140,12 @@ export function buildProjectionPlan(snapshot: CanonicalProjectionSnapshot): Proj
       if (pageSourceId !== source.id) continue;
       operations.push({ kind: "merge_wiki_page", page });
       operations.push({ kind: "link_wiki_source", pageId: page.id, sourceId: source.id });
-      operations.push({ kind: "link_topic_wiki_page", sourceId: source.id, topicId, pageId: page.id });
+      operations.push({
+        kind: "link_topic_wiki_page",
+        sourceId: source.id,
+        topicId,
+        pageId: page.id,
+      });
     }
 
     return {
@@ -168,7 +192,11 @@ export function buildProjectionPlan(snapshot: CanonicalProjectionSnapshot): Proj
   }
 
   for (const curriculum of snapshot.curricula) {
-    operations.push({ kind: "merge_curriculum", curriculumId: curriculum.id, title: curriculum.title });
+    operations.push({
+      kind: "merge_curriculum",
+      curriculumId: curriculum.id,
+      title: curriculum.title,
+    });
     for (const sourceId of curriculum.sourceIds) {
       if (snapshot.sources.some((s) => s.id === sourceId)) {
         operations.push({ kind: "link_source_curriculum", sourceId, curriculumId: curriculum.id });
@@ -242,7 +270,13 @@ export function buildProjectionPlan(snapshot: CanonicalProjectionSnapshot): Proj
     const sourceId = page.sourceId ?? inferWikiPageSourceId(page, snapshot.sources[0]?.id ?? "");
     if (sourceId && snapshot.sources.some((s) => s.id === sourceId)) {
       operations.push({ kind: "link_wiki_source", pageId: page.id, sourceId });
-      const topicId = stableTopicId(sourceId, topicTitleForSource(snapshot.sources.find((s) => s.id === sourceId)!, curriculumForSource(snapshot, sourceId)));
+      const topicId = stableTopicId(
+        sourceId,
+        topicTitleForSource(
+          snapshot.sources.find((s) => s.id === sourceId)!,
+          curriculumForSource(snapshot, sourceId),
+        ),
+      );
       operations.push({ kind: "link_topic_wiki_page", sourceId, topicId, pageId: page.id });
     }
   }
@@ -259,6 +293,7 @@ function inferWikiPageSourceId(
   page: { pageType: string; pageKey: string },
   fallbackSourceId: string,
 ): string | null {
-  if (page.pageType === "source_summary" || page.pageType === "topic") return fallbackSourceId || null;
+  if (page.pageType === "source_summary" || page.pageType === "topic")
+    return fallbackSourceId || null;
   return null;
 }

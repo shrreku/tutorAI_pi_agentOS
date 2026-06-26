@@ -46,7 +46,10 @@ function toggleFilter(filters: string[], value: string): string[] {
   return filters.includes(value) ? filters.filter((entry) => entry !== value) : [...filters, value];
 }
 
-export function workspaceShellReducer(state: WorkspaceShellState, action: WorkspaceShellAction): WorkspaceShellState {
+export function workspaceShellReducer(
+  state: WorkspaceShellState,
+  action: WorkspaceShellAction,
+): WorkspaceShellState {
   switch (action.type) {
     case "selectNode":
       return {
@@ -77,12 +80,16 @@ export function workspaceShellReducer(state: WorkspaceShellState, action: Worksp
         showEvidence: action.enabled ? state.showEvidence : false,
       };
     case "removeMissingSelectedNode":
-      if (!state.selectedNodeId || action.availableNodeIds.includes(state.selectedNodeId)) return state;
+      if (!state.selectedNodeId || action.availableNodeIds.includes(state.selectedNodeId))
+        return state;
       return { ...state, selectedNodeId: null, rightPanelMode: "workspace", showEvidence: false };
     case "toggleTypeFilter":
       return { ...state, activeTypeFilters: toggleFilter(state.activeTypeFilters, action.filter) };
     case "toggleStatusFilter":
-      return { ...state, activeStatusFilters: toggleFilter(state.activeStatusFilters, action.filter) };
+      return {
+        ...state,
+        activeStatusFilters: toggleFilter(state.activeStatusFilters, action.filter),
+      };
     case "clearFilters":
       return { ...state, activeTypeFilters: [], activeStatusFilters: [] };
     case "setShowFilters":

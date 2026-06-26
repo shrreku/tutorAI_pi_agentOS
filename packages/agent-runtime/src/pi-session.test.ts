@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { TOOL_CONTRACT_CATALOG } from "@studyagent/tools";
-import { buildStudyAgentHostStateSignature, createRuntimeRun, createRuntimeToolRegistry } from "./index.js";
+import {
+  buildStudyAgentHostStateSignature,
+  createRuntimeRun,
+  createRuntimeToolRegistry,
+} from "./index.js";
 import {
   disposeStudyAgentTutorSession,
   followUpStudyAgentTutorSession,
@@ -33,7 +37,9 @@ describe("pi session runtime", () => {
       label: "wiki.search",
       description: contract?.description,
     });
-    expect(Object.keys(parameters.properties ?? {})).toEqual(Object.keys(jsonSchema.properties ?? {}));
+    expect(Object.keys(parameters.properties ?? {})).toEqual(
+      Object.keys(jsonSchema.properties ?? {}),
+    );
     expect(parameters.properties?.query).toEqual({ type: "string" });
     expect(parameters.properties?.selectedNodeRefs).toEqual({
       type: "array",
@@ -50,7 +56,9 @@ describe("pi session runtime", () => {
   });
 
   it("derives representative write tool Pi metadata from the tool contract catalog", () => {
-    const contract = TOOL_CONTRACT_CATALOG.find((candidate) => candidate.name === "artifact.create_quiz");
+    const contract = TOOL_CONTRACT_CATALOG.find(
+      (candidate) => candidate.name === "artifact.create_quiz",
+    );
     const jsonSchema = contract?.inputSchema.toJSONSchema?.() as {
       properties?: Record<string, unknown>;
       required?: string[];
@@ -68,7 +76,9 @@ describe("pi session runtime", () => {
       description:
         "Creates a quiz artifact from notebook concepts and sources. For a learner-facing quiz, pass concrete questions with prompts, choices when useful, correct answers/reference answers, explanations, and conceptIds. Do not call this with only a title/prompt after drafting questions in chat; persist those exact questions in the questions array.",
     });
-    expect(Object.keys(parameters.properties ?? {})).toEqual(Object.keys(jsonSchema.properties ?? {}));
+    expect(Object.keys(parameters.properties ?? {})).toEqual(
+      Object.keys(jsonSchema.properties ?? {}),
+    );
     expect(parameters.properties?.title).toEqual({ type: "string" });
     expect(parameters.properties?.questionCount).toEqual({ type: "number" });
     expect(parameters.properties?.sourceNodeRefs).toMatchObject({
@@ -124,9 +134,23 @@ describe("pi session runtime", () => {
       events.push(event);
     }
 
-    expect(events.some((event) => event.type === "tool_call_start" && event.data.toolName === "artifact.create_quiz")).toBe(true);
-    expect(events.some((event) => event.type === "tool_call_complete" && event.data.toolName === "artifact.create_quiz")).toBe(true);
-    expect(events.some((event) => event.type === "message_complete" && event.data.text.includes("quiz draft"))).toBe(true);
+    expect(
+      events.some(
+        (event) =>
+          event.type === "tool_call_start" && event.data.toolName === "artifact.create_quiz",
+      ),
+    ).toBe(true);
+    expect(
+      events.some(
+        (event) =>
+          event.type === "tool_call_complete" && event.data.toolName === "artifact.create_quiz",
+      ),
+    ).toBe(true);
+    expect(
+      events.some(
+        (event) => event.type === "message_complete" && event.data.text.includes("quiz draft"),
+      ),
+    ).toBe(true);
     expect(onToolLifecycleEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         phase: "completed",
@@ -161,8 +185,20 @@ describe("pi session runtime", () => {
       events.push(event);
     }
 
-    expect(events.some((event) => event.type === "tool_call_start" && event.data.toolName === "artifact.create_concept_card")).toBe(true);
-    expect(events.some((event) => event.type === "tool_call_complete" && event.data.toolName === "artifact.create_concept_card")).toBe(true);
+    expect(
+      events.some(
+        (event) =>
+          event.type === "tool_call_start" &&
+          event.data.toolName === "artifact.create_concept_card",
+      ),
+    ).toBe(true);
+    expect(
+      events.some(
+        (event) =>
+          event.type === "tool_call_complete" &&
+          event.data.toolName === "artifact.create_concept_card",
+      ),
+    ).toBe(true);
   });
 
   it("saves a resumable quiz draft when runtime tool budget is exhausted", async () => {
@@ -194,10 +230,29 @@ describe("pi session runtime", () => {
       events.push(event);
     }
 
-    expect(events.some((event) => event.type === "tool_call_start" && event.data.toolName === "artifact.create_quiz")).toBe(true);
-    expect(events.some((event) => event.type === "tool_call_complete" && event.data.toolName === "artifact.create_quiz")).toBe(true);
-    expect(events.some((event) => event.type === "run_error" && event.data.code === "tool_budget_exceeded")).toBe(false);
-    expect(events.some((event) => event.type === "message_complete" && event.data.text.includes("resumable quiz draft"))).toBe(true);
+    expect(
+      events.some(
+        (event) =>
+          event.type === "tool_call_start" && event.data.toolName === "artifact.create_quiz",
+      ),
+    ).toBe(true);
+    expect(
+      events.some(
+        (event) =>
+          event.type === "tool_call_complete" && event.data.toolName === "artifact.create_quiz",
+      ),
+    ).toBe(true);
+    expect(
+      events.some(
+        (event) => event.type === "run_error" && event.data.code === "tool_budget_exceeded",
+      ),
+    ).toBe(false);
+    expect(
+      events.some(
+        (event) =>
+          event.type === "message_complete" && event.data.text.includes("resumable quiz draft"),
+      ),
+    ).toBe(true);
     expect(onToolLifecycleEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         phase: "completed",
@@ -246,8 +301,16 @@ describe("pi session runtime", () => {
       followUpEvents.push(event);
     }
 
-    expect(steerEvents.some((event) => event.type === "narration_complete" && event.data.text.includes("[steered]"))).toBe(true);
-    expect(followUpEvents.some((event) => event.type === "narration_complete" && event.data.text.includes("[follow-up]"))).toBe(true);
+    expect(
+      steerEvents.some(
+        (event) => event.type === "narration_complete" && event.data.text.includes("[steered]"),
+      ),
+    ).toBe(true);
+    expect(
+      followUpEvents.some(
+        (event) => event.type === "narration_complete" && event.data.text.includes("[follow-up]"),
+      ),
+    ).toBe(true);
   });
 
   it("makes hosted runtime replacement explicit for material context changes", async () => {
@@ -281,12 +344,17 @@ describe("pi session runtime", () => {
       activeMode: "learn",
       selectedNodeRefs: [],
     });
-    const replacement = await replaceStudyAgentTutorRuntime({ nextRun, reason: "notebook_changed" });
+    const replacement = await replaceStudyAgentTutorRuntime({
+      nextRun,
+      reason: "notebook_changed",
+    });
 
     expect(replacement).toEqual(
       expect.objectContaining({ replaced: true, disposedSessionId: "sess_replace" }),
     );
-    expect(replacement.binding).toEqual(expect.objectContaining({ notebookId: "nb_2", reason: "notebook_changed" }));
+    expect(replacement.binding).toEqual(
+      expect.objectContaining({ notebookId: "nb_2", reason: "notebook_changed" }),
+    );
     expect(getStudyAgentTutorRuntimeBinding("sess_replace")).toBeNull();
   });
 
@@ -316,9 +384,11 @@ describe("pi session runtime", () => {
       activeMode: "learn",
       selectedNodeRefs: [],
     });
-    const byUser = await replaceStudyAgentTutorRuntime({ previousSessionId: "sess_matrix", nextRun: userChanged });
+    const byUser = await replaceStudyAgentTutorRuntime({
+      previousSessionId: "sess_matrix",
+      nextRun: userChanged,
+    });
     expect(byUser.replaced).toBe(true);
-
   });
 
   it("replaces runtime when selected refs materially change", async () => {
@@ -335,7 +405,11 @@ describe("pi session runtime", () => {
       toolRegistry,
       config: { useMock: true },
       userMessage: "teach me",
-      promptContext: { notebookTitle: "N", activeMode: "learn", selectedNodeRefs: initialRun.selectedNodeRefs },
+      promptContext: {
+        notebookTitle: "N",
+        activeMode: "learn",
+        selectedNodeRefs: initialRun.selectedNodeRefs,
+      },
     })) {
       // drain
     }
@@ -347,7 +421,10 @@ describe("pi session runtime", () => {
       activeMode: "learn",
       selectedNodeRefs: [{ refType: "concept", refId: "c_2" }],
     });
-    const replacement = await replaceStudyAgentTutorRuntime({ previousSessionId: "sess_refs", nextRun: refsChangedRun });
+    const replacement = await replaceStudyAgentTutorRuntime({
+      previousSessionId: "sess_refs",
+      nextRun: refsChangedRun,
+    });
     expect(replacement.replaced).toBe(true);
     expect(replacement.binding?.reason).toBe("selected_refs_changed");
   });
@@ -381,7 +458,12 @@ describe("pi session runtime", () => {
       toolRegistry,
       config: { useMock: true },
       userMessage: "teach me",
-      promptContext: { notebookTitle: "N", activeMode: "learn", selectedNodeRefs, currentObjective: "Objective A" },
+      promptContext: {
+        notebookTitle: "N",
+        activeMode: "learn",
+        selectedNodeRefs,
+        currentObjective: "Objective A",
+      },
     })) {
       // drain
     }
@@ -400,7 +482,9 @@ describe("pi session runtime", () => {
     });
 
     expect(replacement.replaced).toBe(false);
-    expect(replacement.binding?.hostStateSignature).toBe(buildStudyAgentHostStateSignature(contextA));
+    expect(replacement.binding?.hostStateSignature).toBe(
+      buildStudyAgentHostStateSignature(contextA),
+    );
   });
 
   it("passes tutor turn identity to Pi-executed write tools", async () => {
@@ -441,11 +525,14 @@ describe("pi session runtime", () => {
       // drain
     }
 
-    expect(writeProvider.createQuiz).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
-      runId: run.runId,
-      turnId: "turn_runtime_1",
-      sessionId: "sess_tool_turn",
-    }));
+    expect(writeProvider.createQuiz).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        runId: run.runId,
+        turnId: "turn_runtime_1",
+        sessionId: "sess_tool_turn",
+      }),
+    );
   });
 
   it("invokes learning.evaluate_response with turn and run identity through Pi tool execution", async () => {
@@ -485,11 +572,14 @@ describe("pi session runtime", () => {
       // drain
     }
 
-    expect(writeProvider.evaluateLearnerResponse).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
-      runId: run.runId,
-      turnId: "turn_eval_1",
-      sessionId: "sess_tool_eval",
-    }));
+    expect(writeProvider.evaluateLearnerResponse).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        runId: run.runId,
+        turnId: "turn_eval_1",
+        sessionId: "sess_tool_eval",
+      }),
+    );
   });
 
   it("invokes learner_trait.record_signal with turn and run identity through Pi tool execution", async () => {
@@ -528,11 +618,14 @@ describe("pi session runtime", () => {
       // drain
     }
 
-    expect(writeProvider.recordLearnerTraitSignal).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
-      runId: run.runId,
-      turnId: "turn_trait_1",
-      sessionId: "sess_tool_trait",
-    }));
+    expect(writeProvider.recordLearnerTraitSignal).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        runId: run.runId,
+        turnId: "turn_trait_1",
+        sessionId: "sess_tool_trait",
+      }),
+    );
   });
 
   it("replaces runtime when session id changes", async () => {
@@ -561,7 +654,10 @@ describe("pi session runtime", () => {
       activeMode: "learn",
       selectedNodeRefs: [],
     });
-    const replacement = await replaceStudyAgentTutorRuntime({ previousSessionId: "sess_old", nextRun: newSessionRun });
+    const replacement = await replaceStudyAgentTutorRuntime({
+      previousSessionId: "sess_old",
+      nextRun: newSessionRun,
+    });
     expect(replacement.replaced).toBe(true);
     expect(replacement.binding?.reason).toBe("session_changed");
   });
@@ -626,8 +722,19 @@ describe("pi session runtime", () => {
       events.push(event);
     }
 
-    expect(events.some((event) => event.type === "tool_call_start" && event.data.toolName === "artifact.create_flashcards")).toBe(true);
-    expect(events.some((event) => event.type === "tool_call_complete" && event.data.toolName === "artifact.create_flashcards")).toBe(true);
+    expect(
+      events.some(
+        (event) =>
+          event.type === "tool_call_start" && event.data.toolName === "artifact.create_flashcards",
+      ),
+    ).toBe(true);
+    expect(
+      events.some(
+        (event) =>
+          event.type === "tool_call_complete" &&
+          event.data.toolName === "artifact.create_flashcards",
+      ),
+    ).toBe(true);
   });
 
   it("keeps multi-turn sessions active across runs and disposes on lifecycle end", async () => {
@@ -651,7 +758,9 @@ describe("pi session runtime", () => {
     }
 
     const afterFirstTurn = getStudyAgentTutorRuntimeBinding("sess_chain");
-    expect(afterFirstTurn).toEqual(expect.objectContaining({ sessionId: "sess_chain", reason: "created" }));
+    expect(afterFirstTurn).toEqual(
+      expect.objectContaining({ sessionId: "sess_chain", reason: "created" }),
+    );
 
     const runB = createRuntimeRun({
       notebookId: "nb_chain",
@@ -660,7 +769,10 @@ describe("pi session runtime", () => {
       activeMode: "learn",
       selectedNodeRefs: [],
     });
-    const replacement = await replaceStudyAgentTutorRuntime({ previousSessionId: "sess_chain", nextRun: runB });
+    const replacement = await replaceStudyAgentTutorRuntime({
+      previousSessionId: "sess_chain",
+      nextRun: runB,
+    });
     expect(replacement.replaced).toBe(false);
     expect(getStudyAgentTutorRuntimeBinding("sess_chain")).toEqual(
       expect.objectContaining({ notebookId: "nb_chain", sessionId: "sess_chain" }),
@@ -679,14 +791,23 @@ describe("pi session runtime", () => {
       selectedNodeRefs: [],
     });
 
-    const started = mapPiSessionEventToAppendInput({ type: "message_start", data: { runId: run.runId } }, run);
-    const delta = mapPiSessionEventToAppendInput({ type: "message_delta", data: { text: "hello" } }, run);
+    const started = mapPiSessionEventToAppendInput(
+      { type: "message_start", data: { runId: run.runId } },
+      run,
+    );
+    const delta = mapPiSessionEventToAppendInput(
+      { type: "message_delta", data: { text: "hello" } },
+      run,
+    );
     const completed = mapPiSessionEventToAppendInput(
       { type: "message_complete", data: { text: "done", stopReason: "end_turn" } },
       run,
     );
     const toolStarted = mapPiSessionEventToAppendInput(
-      { type: "tool_call_start", data: { toolName: "artifact.create_note", toolCallId: "tool_1", args: { title: "Note" } } },
+      {
+        type: "tool_call_start",
+        data: { toolName: "artifact.create_note", toolCallId: "tool_1", args: { title: "Note" } },
+      },
       run,
     );
     const toolCompleted = mapPiSessionEventToAppendInput(
@@ -738,7 +859,11 @@ describe("pi session runtime", () => {
     expect(toolStarted).toEqual(
       expect.objectContaining({
         eventType: "agent.tool.started",
-        payload: expect.objectContaining({ toolName: "artifact.create_note", toolCallId: "tool_1", args: { title: "Note" } }),
+        payload: expect.objectContaining({
+          toolName: "artifact.create_note",
+          toolCallId: "tool_1",
+          args: { title: "Note" },
+        }),
       }),
     );
     expect(toolCompleted).toEqual(
@@ -775,7 +900,10 @@ describe("pi session runtime", () => {
     const mapper = createAgUiEventMapper(run);
 
     const thinking = mapper.map({ type: "thinking_delta", data: { text: "considering" } });
-    const thinkingEnd = mapper.map({ type: "thinking_complete", data: { text: "considering", durationMs: 80 } });
+    const thinkingEnd = mapper.map({
+      type: "thinking_complete",
+      data: { text: "considering", durationMs: 80 },
+    });
     const narration = mapper.map({
       type: "narration_complete",
       data: { text: "Checking the notebook", messageIndex: 0, durationMs: 20 },
@@ -790,8 +918,17 @@ describe("pi session runtime", () => {
     ]);
     expect(narration).toEqual([
       expect.objectContaining({ type: "RUNTIME_NARRATION_START" }),
-      expect.objectContaining({ type: "RUNTIME_NARRATION_CONTENT", content: "Checking the notebook", messageIndex: 0 }),
-      expect.objectContaining({ type: "RUNTIME_NARRATION_END", content: "Checking the notebook", messageIndex: 0, durationMs: 20 }),
+      expect.objectContaining({
+        type: "RUNTIME_NARRATION_CONTENT",
+        content: "Checking the notebook",
+        messageIndex: 0,
+      }),
+      expect.objectContaining({
+        type: "RUNTIME_NARRATION_END",
+        content: "Checking the notebook",
+        messageIndex: 0,
+        durationMs: 20,
+      }),
     ]);
   });
 
@@ -804,12 +941,21 @@ describe("pi session runtime", () => {
       selectedNodeRefs: [],
     });
     const appendInput = mapPiSessionEventToAppendInput(
-      { type: "run_error", data: { error: "Model completed without assistant text or tool calls", code: "empty_model_response" } },
+      {
+        type: "run_error",
+        data: {
+          error: "Model completed without assistant text or tool calls",
+          code: "empty_model_response",
+        },
+      },
       run,
     );
     const agui = createAgUiEventMapper(run).map({
       type: "run_error",
-      data: { error: "Model completed without assistant text or tool calls", code: "empty_model_response" },
+      data: {
+        error: "Model completed without assistant text or tool calls",
+        code: "empty_model_response",
+      },
     });
 
     expect(appendInput).toEqual(

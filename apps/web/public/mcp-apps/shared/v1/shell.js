@@ -55,7 +55,7 @@
     return (
       '<div class="sa-header"><div><div class="sa-eyebrow">' +
       escapeHtml(eyebrow || "Interactive") +
-      "</div><h1 class=\"sa-title\">" +
+      '</div><h1 class="sa-title">' +
       escapeHtml(title) +
       "</h1>" +
       (subtitle ? '<p class="sa-subtitle">' + escapeHtml(subtitle) + "</p>" : "") +
@@ -129,10 +129,12 @@
         return;
       }
       if (msg.type === "ui/initialize") state.host = msg.payload;
-      if (msg.type === "tool-input") state.block = (msg.payload && msg.payload.block) || msg.payload;
+      if (msg.type === "tool-input")
+        state.block = (msg.payload && msg.payload.block) || msg.payload;
       if (msg.type === "block-state") {
         state.block = (msg.payload && msg.payload.block) || state.block;
-        state.canonicalState = (msg.payload && msg.payload.canonicalState) || state.canonicalState || {};
+        state.canonicalState =
+          (msg.payload && msg.payload.canonicalState) || state.canonicalState || {};
       }
       if (msg.type === "tool-result") {
         state.ui.pending = false;
@@ -140,7 +142,8 @@
           setStatus(msg.payload.error, "error");
           return;
         }
-        state.canonicalState = (msg.payload && msg.payload.canonicalState) || state.canonicalState || {};
+        state.canonicalState =
+          (msg.payload && msg.payload.canonicalState) || state.canonicalState || {};
         setStatus("Saved", "success");
         window.setTimeout(function () {
           if (state.ui.statusMessage && state.ui.statusMessage.text === "Saved") {

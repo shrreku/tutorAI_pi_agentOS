@@ -99,7 +99,9 @@ export const envSchema = z.object({
   EMBEDDING_DIMENSIONS: z.coerce.number().int().positive().default(1536),
   LLAMAPARSE_API_KEY: z.string().optional(),
   LLAMAPARSE_API_BASE_URL: z.string().url().default("https://api.cloud.llamaindex.ai"),
-  LLAMAPARSE_TIER: z.enum(["fast", "cost_effective", "agentic", "agentic_plus"]).default("cost_effective"),
+  LLAMAPARSE_TIER: z
+    .enum(["fast", "cost_effective", "agentic", "agentic_plus"])
+    .default("cost_effective"),
   SESSION_SECRET: z.string().min(16).default("studyagent-local-session-secret"),
   PUBLIC_API_BASE_URL: z.string().url().default("http://localhost:4000"),
   LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error"]).default("info"),
@@ -132,8 +134,16 @@ export const envSchema = z.object({
   INGESTION_TRIGGER_MIN_INTERVAL_SECONDS: z.coerce.number().int().nonnegative().default(0),
   MAX_WORKSPACES_PER_LEARNER: z.coerce.number().int().positive().default(5),
   MAX_QUEUED_SOURCES_PER_LEARNER: z.coerce.number().int().positive().default(10),
-  MAX_UPLOAD_BYTES: z.coerce.number().int().positive().default(25 * 1024 * 1024),
-  CREDIT_RESERVATION_TTL_SECONDS: z.coerce.number().int().positive().default(15 * 60),
+  MAX_UPLOAD_BYTES: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(25 * 1024 * 1024),
+  CREDIT_RESERVATION_TTL_SECONDS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(15 * 60),
 });
 
 export type StudyAgentEnv = z.infer<typeof envSchema>;

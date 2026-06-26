@@ -36,4 +36,3 @@ Define the core product validation metric as Activated Learner: a logged-in lear
 - PostHog
 - Sentry
 - Langfuse
-

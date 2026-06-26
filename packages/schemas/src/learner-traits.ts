@@ -3,14 +3,40 @@ import { idSchema } from "./ids.js";
 
 export const learnerTraitPacePreferenceSchema = z.enum(["slow", "balanced", "fast"]);
 export const learnerTraitDepthPreferenceSchema = z.enum(["intuitive", "balanced", "formal"]);
-export const learnerTraitHelpSeekingStyleSchema = z.enum(["asks_early", "tries_first", "avoids_help"]);
-export const learnerTraitConfidenceStyleSchema = z.enum(["underconfident", "calibrated", "overconfident"]);
+export const learnerTraitHelpSeekingStyleSchema = z.enum([
+  "asks_early",
+  "tries_first",
+  "avoids_help",
+]);
+export const learnerTraitConfidenceStyleSchema = z.enum([
+  "underconfident",
+  "calibrated",
+  "overconfident",
+]);
 export const learnerTraitMetacognitiveAccuracySchema = z.enum(["low", "medium", "high"]);
 export const learnerTraitPersistenceStyleSchema = z.enum(["gives_up_fast", "steady", "stubborn"]);
-export const learnerTraitSourceFamiliaritySchema = z.enum(["unfamiliar", "somewhat_familiar", "familiar"]);
-export const learnerTraitAssessmentPreferenceSchema = z.enum(["checkpoint", "quiz", "worked_problem", "self_explain"]);
-export const learnerTraitExamplePreferenceSchema = z.enum(["concrete", "visual", "symbolic", "applied"]);
-export const learnerTraitUrgencyContextSchema = z.enum(["exploratory", "exam_prep", "deadline_pressure"]);
+export const learnerTraitSourceFamiliaritySchema = z.enum([
+  "unfamiliar",
+  "somewhat_familiar",
+  "familiar",
+]);
+export const learnerTraitAssessmentPreferenceSchema = z.enum([
+  "checkpoint",
+  "quiz",
+  "worked_problem",
+  "self_explain",
+]);
+export const learnerTraitExamplePreferenceSchema = z.enum([
+  "concrete",
+  "visual",
+  "symbolic",
+  "applied",
+]);
+export const learnerTraitUrgencyContextSchema = z.enum([
+  "exploratory",
+  "exam_prep",
+  "deadline_pressure",
+]);
 
 export const learnerTraitValuesSchema = z.object({
   pacePreference: learnerTraitPacePreferenceSchema,
@@ -43,10 +69,16 @@ export const learnerTraitValueByKeySchema = z.discriminatedUnion("trait", [
   z.object({ trait: z.literal("depthPreference"), value: learnerTraitDepthPreferenceSchema }),
   z.object({ trait: z.literal("helpSeekingStyle"), value: learnerTraitHelpSeekingStyleSchema }),
   z.object({ trait: z.literal("confidenceStyle"), value: learnerTraitConfidenceStyleSchema }),
-  z.object({ trait: z.literal("metacognitiveAccuracy"), value: learnerTraitMetacognitiveAccuracySchema }),
+  z.object({
+    trait: z.literal("metacognitiveAccuracy"),
+    value: learnerTraitMetacognitiveAccuracySchema,
+  }),
   z.object({ trait: z.literal("persistenceStyle"), value: learnerTraitPersistenceStyleSchema }),
   z.object({ trait: z.literal("sourceFamiliarity"), value: learnerTraitSourceFamiliaritySchema }),
-  z.object({ trait: z.literal("assessmentPreference"), value: learnerTraitAssessmentPreferenceSchema }),
+  z.object({
+    trait: z.literal("assessmentPreference"),
+    value: learnerTraitAssessmentPreferenceSchema,
+  }),
   z.object({ trait: z.literal("examplePreference"), value: learnerTraitExamplePreferenceSchema }),
   z.object({ trait: z.literal("urgencyContext"), value: learnerTraitUrgencyContextSchema }),
 ]);
@@ -112,49 +144,83 @@ const learnerTraitSignalBaseSchema = z.object({
 });
 
 export const learnerTraitSignalSchema = z.discriminatedUnion("trait", [
-  learnerTraitSignalBaseSchema.extend({ trait: z.literal("pacePreference"), suggestedValue: learnerTraitPacePreferenceSchema.optional() }),
-  learnerTraitSignalBaseSchema.extend({ trait: z.literal("depthPreference"), suggestedValue: learnerTraitDepthPreferenceSchema.optional() }),
-  learnerTraitSignalBaseSchema.extend({ trait: z.literal("helpSeekingStyle"), suggestedValue: learnerTraitHelpSeekingStyleSchema.optional() }),
-  learnerTraitSignalBaseSchema.extend({ trait: z.literal("confidenceStyle"), suggestedValue: learnerTraitConfidenceStyleSchema.optional() }),
-  learnerTraitSignalBaseSchema.extend({ trait: z.literal("metacognitiveAccuracy"), suggestedValue: learnerTraitMetacognitiveAccuracySchema.optional() }),
-  learnerTraitSignalBaseSchema.extend({ trait: z.literal("persistenceStyle"), suggestedValue: learnerTraitPersistenceStyleSchema.optional() }),
-  learnerTraitSignalBaseSchema.extend({ trait: z.literal("sourceFamiliarity"), suggestedValue: learnerTraitSourceFamiliaritySchema.optional() }),
-  learnerTraitSignalBaseSchema.extend({ trait: z.literal("assessmentPreference"), suggestedValue: learnerTraitAssessmentPreferenceSchema.optional() }),
-  learnerTraitSignalBaseSchema.extend({ trait: z.literal("examplePreference"), suggestedValue: learnerTraitExamplePreferenceSchema.optional() }),
-  learnerTraitSignalBaseSchema.extend({ trait: z.literal("urgencyContext"), suggestedValue: learnerTraitUrgencyContextSchema.optional() }),
+  learnerTraitSignalBaseSchema.extend({
+    trait: z.literal("pacePreference"),
+    suggestedValue: learnerTraitPacePreferenceSchema.optional(),
+  }),
+  learnerTraitSignalBaseSchema.extend({
+    trait: z.literal("depthPreference"),
+    suggestedValue: learnerTraitDepthPreferenceSchema.optional(),
+  }),
+  learnerTraitSignalBaseSchema.extend({
+    trait: z.literal("helpSeekingStyle"),
+    suggestedValue: learnerTraitHelpSeekingStyleSchema.optional(),
+  }),
+  learnerTraitSignalBaseSchema.extend({
+    trait: z.literal("confidenceStyle"),
+    suggestedValue: learnerTraitConfidenceStyleSchema.optional(),
+  }),
+  learnerTraitSignalBaseSchema.extend({
+    trait: z.literal("metacognitiveAccuracy"),
+    suggestedValue: learnerTraitMetacognitiveAccuracySchema.optional(),
+  }),
+  learnerTraitSignalBaseSchema.extend({
+    trait: z.literal("persistenceStyle"),
+    suggestedValue: learnerTraitPersistenceStyleSchema.optional(),
+  }),
+  learnerTraitSignalBaseSchema.extend({
+    trait: z.literal("sourceFamiliarity"),
+    suggestedValue: learnerTraitSourceFamiliaritySchema.optional(),
+  }),
+  learnerTraitSignalBaseSchema.extend({
+    trait: z.literal("assessmentPreference"),
+    suggestedValue: learnerTraitAssessmentPreferenceSchema.optional(),
+  }),
+  learnerTraitSignalBaseSchema.extend({
+    trait: z.literal("examplePreference"),
+    suggestedValue: learnerTraitExamplePreferenceSchema.optional(),
+  }),
+  learnerTraitSignalBaseSchema.extend({
+    trait: z.literal("urgencyContext"),
+    suggestedValue: learnerTraitUrgencyContextSchema.optional(),
+  }),
 ]);
 
-export const learnerTraitEstimateSchema = learnerTraitValueByKeySchema.and(z.object({
-  id: idSchema.optional(),
-  notebookId: idSchema.optional(),
-  userId: idSchema.optional(),
-  targetRef: learnerTraitEvidenceRefSchema.nullable().optional(),
-  confidence: z.number().min(0).max(1),
-  lane: learnerTraitEstimateLaneSchema.default("inferred"),
-  evidenceRefs: z.array(learnerTraitEvidenceRefSchema).default([]),
-  contradictionRefs: z.array(learnerTraitEvidenceRefSchema).default([]),
-  decay: learnerTraitDecayMetadataSchema.default({
-    decayAppliedAt: null,
-    decayHalfLifeDays: null,
-    staleAfter: null,
+export const learnerTraitEstimateSchema = learnerTraitValueByKeySchema.and(
+  z.object({
+    id: idSchema.optional(),
+    notebookId: idSchema.optional(),
+    userId: idSchema.optional(),
+    targetRef: learnerTraitEvidenceRefSchema.nullable().optional(),
+    confidence: z.number().min(0).max(1),
+    lane: learnerTraitEstimateLaneSchema.default("inferred"),
+    evidenceRefs: z.array(learnerTraitEvidenceRefSchema).default([]),
+    contradictionRefs: z.array(learnerTraitEvidenceRefSchema).default([]),
+    decay: learnerTraitDecayMetadataSchema.default({
+      decayAppliedAt: null,
+      decayHalfLifeDays: null,
+      staleAfter: null,
+    }),
+    lastUpdatedReason: z.string().min(1),
+    guardrail: learnerTraitGuardrailMetadataSchema.optional(),
+    updatedAt: z.string().datetime().optional(),
   }),
-  lastUpdatedReason: z.string().min(1),
-  guardrail: learnerTraitGuardrailMetadataSchema.optional(),
-  updatedAt: z.string().datetime().optional(),
-}));
+);
 
-export const learnerTraitProposalSchema = learnerTraitValueByKeySchema.and(z.object({
-  proposalId: idSchema,
-  notebookId: idSchema,
-  userId: idSchema,
-  confidence: z.number().min(0).max(1),
-  lane: learnerTraitEstimateLaneSchema,
-  evidenceRefs: z.array(learnerTraitEvidenceRefSchema).min(1),
-  contradictionRefs: z.array(learnerTraitEvidenceRefSchema).default([]),
-  updateReason: z.string().min(1),
-  recommendationText: z.string().min(1),
-  safetyNotes: z.array(z.string().min(1)).default([]),
-}));
+export const learnerTraitProposalSchema = learnerTraitValueByKeySchema.and(
+  z.object({
+    proposalId: idSchema,
+    notebookId: idSchema,
+    userId: idSchema,
+    confidence: z.number().min(0).max(1),
+    lane: learnerTraitEstimateLaneSchema,
+    evidenceRefs: z.array(learnerTraitEvidenceRefSchema).min(1),
+    contradictionRefs: z.array(learnerTraitEvidenceRefSchema).default([]),
+    updateReason: z.string().min(1),
+    recommendationText: z.string().min(1),
+    safetyNotes: z.array(z.string().min(1)).default([]),
+  }),
+);
 
 export const learnerTraitGuardrailDecisionSchema = z.object({
   decisionId: idSchema,
@@ -171,15 +237,19 @@ export const learnerTraitGuardrailDecisionSchema = z.object({
 
 export const learnerTraitTriggerSummarySchema = z.object({
   shouldEstimate: z.boolean(),
-  reasons: z.array(z.enum([
-    "explicit_preference_change",
-    "repeated_trait_family_signals",
-    "mastery_self_report_contradiction",
-    "repeated_tutor_observed_friction",
-    "goal_or_urgency_change",
-    "strong_estimate_contradiction",
-    "explicit_agent_decision",
-  ])).default([]),
+  reasons: z
+    .array(
+      z.enum([
+        "explicit_preference_change",
+        "repeated_trait_family_signals",
+        "mastery_self_report_contradiction",
+        "repeated_tutor_observed_friction",
+        "goal_or_urgency_change",
+        "strong_estimate_contradiction",
+        "explicit_agent_decision",
+      ]),
+    )
+    .default([]),
   evidenceRefs: z.array(learnerTraitEvidenceRefSchema).default([]),
   traitFamilies: z.array(learnerTraitKeySchema).default([]),
 });
@@ -208,15 +278,23 @@ export const learnerTraitEvidencePacketSchema = z.object({
   trigger: learnerTraitTriggerSummarySchema,
   signals: z.array(learnerTraitSignalSchema).default([]),
   currentEstimates: z.array(learnerTraitEstimateSchema).default([]),
-  masteryEvidenceSummaries: z.array(z.object({
-    evidenceRef: learnerTraitEvidenceRefSchema,
-    summary: z.string().min(1),
-  })).default([]),
+  masteryEvidenceSummaries: z
+    .array(
+      z.object({
+        evidenceRef: learnerTraitEvidenceRefSchema,
+        summary: z.string().min(1),
+      }),
+    )
+    .default([]),
   profileSummary: z.string().min(1).optional(),
-  sessionSummaries: z.array(z.object({
-    evidenceRef: learnerTraitEvidenceRefSchema,
-    summary: z.string().min(1),
-  })).default([]),
+  sessionSummaries: z
+    .array(
+      z.object({
+        evidenceRef: learnerTraitEvidenceRefSchema,
+        summary: z.string().min(1),
+      }),
+    )
+    .default([]),
   contradictionRefs: z.array(learnerTraitEvidenceRefSchema).default([]),
   builtAt: z.string().datetime(),
 });
@@ -228,7 +306,16 @@ export const personalizationRecommendationSchema = z.object({
   trait: learnerTraitKeySchema.optional(),
   lane: learnerTraitEstimateLaneSchema.optional(),
   recommendation: z.string().min(1),
-  adaptationType: z.enum(["pace", "depth", "examples", "assessment", "confidence_support", "help_seeking", "source_grounding", "urgency"]),
+  adaptationType: z.enum([
+    "pace",
+    "depth",
+    "examples",
+    "assessment",
+    "confidence_support",
+    "help_seeking",
+    "source_grounding",
+    "urgency",
+  ]),
   learnerFacingSafe: z.literal(true).default(true),
   includeRawLabel: z.literal(false).default(false),
   evidenceRefs: z.array(learnerTraitEvidenceRefSchema).default([]),
@@ -266,7 +353,9 @@ export type LearnerTraitSignal = z.infer<typeof learnerTraitSignalSchema>;
 export type LearnerTraitProposal = z.infer<typeof learnerTraitProposalSchema>;
 export type LearnerTraitGuardrailDecision = z.infer<typeof learnerTraitGuardrailDecisionSchema>;
 export type LearnerTraitTriggerSummary = z.infer<typeof learnerTraitTriggerSummarySchema>;
-export type LearnerTraitEstimationSkipReason = z.infer<typeof learnerTraitEstimationSkipReasonSchema>;
+export type LearnerTraitEstimationSkipReason = z.infer<
+  typeof learnerTraitEstimationSkipReasonSchema
+>;
 export type LearnerTraitEstimationPlan = z.infer<typeof learnerTraitEstimationPlanSchema>;
 export type LearnerTraitEvidencePacket = z.infer<typeof learnerTraitEvidencePacketSchema>;
 export type PersonalizationRecommendation = z.infer<typeof personalizationRecommendationSchema>;

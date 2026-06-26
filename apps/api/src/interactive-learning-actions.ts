@@ -1,13 +1,20 @@
 import { and, eq } from "drizzle-orm";
 import { notebooks } from "@studyagent/db";
-import type { InteractiveLearningActionResponse, InteractiveLearningBlock } from "@studyagent/schemas";
+import type {
+  InteractiveLearningActionResponse,
+  InteractiveLearningBlock,
+} from "@studyagent/schemas";
 import {
   interactiveLearningActionEnvelopeSchema,
   parseInteractiveLearningActionPayload,
   PASSIVE_INTERACTIVE_ACTIONS,
 } from "@studyagent/schemas";
 import type { AppContext } from "./context.js";
-import { actionAllowedForBlock, findInteractiveBlock, toLearnerFacingInteractiveBlock } from "./interactive-learning-blocks.js";
+import {
+  actionAllowedForBlock,
+  findInteractiveBlock,
+  toLearnerFacingInteractiveBlock,
+} from "./interactive-learning-blocks.js";
 import { buildReferenceSurface } from "./reference-surface.js";
 import { recordInteractiveLearningActionMetric, startMetricTimer } from "@studyagent/observability";
 import {
@@ -30,7 +37,12 @@ type DispatchResult =
   | { ok: true; response: InteractiveLearningActionResponse }
   | { ok: false; error: InteractiveLearningActionError };
 
-type InteractiveLearningMetricOutcome = "success" | "bad_request" | "not_found" | "forbidden" | "error";
+type InteractiveLearningMetricOutcome =
+  | "success"
+  | "bad_request"
+  | "not_found"
+  | "forbidden"
+  | "error";
 
 function actionNameFromEnvelope(envelope: unknown): string {
   if (!envelope || typeof envelope !== "object" || Array.isArray(envelope)) return "unknown";
@@ -63,12 +75,17 @@ async function rebuildBlockState(
   return block ? toLearnerFacingInteractiveBlock(block) : null;
 }
 
-export async function dispatchInteractiveLearningAction(input: DispatchInput): Promise<DispatchResult> {
+export async function dispatchInteractiveLearningAction(
+  input: DispatchInput,
+): Promise<DispatchResult> {
   const stopTimer = startMetricTimer();
   let metricActionName = actionNameFromEnvelope(input.envelope);
   let metricBlockKind: string | undefined;
   let metricRendererKind: string | undefined;
-  const recordMetric = (outcome: InteractiveLearningMetricOutcome, emitsMasteryEvidence = false) => {
+  const recordMetric = (
+    outcome: InteractiveLearningMetricOutcome,
+    emitsMasteryEvidence = false,
+  ) => {
     recordInteractiveLearningActionMetric({
       actionName: metricActionName,
       ...(metricBlockKind ? { blockKind: metricBlockKind } : {}),
@@ -108,11 +125,16 @@ export async function dispatchInteractiveLearningAction(input: DispatchInput): P
 
     const nodeId = envelope.nodeRef.refId;
     const readNotebookId = input.contentNotebookId ?? input.notebookId;
-    const surface = await buildReferenceSurface(input.ctx, readNotebookId, nodeId, { userId: input.userId });
+    const surface = await buildReferenceSurface(input.ctx, readNotebookId, nodeId, {
+      userId: input.userId,
+    });
     const block = findInteractiveBlock(surface.interactiveBlocks ?? [], envelope.blockId);
     if (!block) {
       recordMetric("not_found");
-      return { ok: false, error: { code: "not_found", message: "Interactive learning block not found." } };
+      return {
+        ok: false,
+        error: { code: "not_found", message: "Interactive learning block not found." },
+      };
     }
     metricBlockKind = block.kind;
 
@@ -120,7 +142,10 @@ export async function dispatchInteractiveLearningAction(input: DispatchInput): P
       recordMetric("bad_request");
       return {
         ok: false,
-        error: { code: "bad_request", message: "Action surface does not match the current reference surface." },
+        error: {
+          code: "bad_request",
+          message: "Action surface does not match the current reference surface.",
+        },
       };
     }
 
@@ -128,11 +153,17 @@ export async function dispatchInteractiveLearningAction(input: DispatchInput): P
       recordMetric("bad_request");
       return {
         ok: false,
-        error: { code: "bad_request", message: `Action ${envelope.actionName} is not allowed for block ${envelope.blockId}.` },
+        error: {
+          code: "bad_request",
+          message: `Action ${envelope.actionName} is not allowed for block ${envelope.blockId}.`,
+        },
       };
     }
 
-    const parsedPayload = parseInteractiveLearningActionPayload(envelope.actionName, envelope.actionPayload);
+    const parsedPayload = parseInteractiveLearningActionPayload(
+      envelope.actionName,
+      envelope.actionPayload,
+    );
     if (!parsedPayload.success) {
       recordMetric("bad_request");
       return { ok: false, error: { code: "bad_request", message: parsedPayload.error } };
@@ -141,7 +172,10 @@ export async function dispatchInteractiveLearningAction(input: DispatchInput): P
     const handler = ACTION_HANDLERS[envelope.actionName];
     if (!handler) {
       recordMetric("bad_request");
-      return { ok: false, error: { code: "bad_request", message: `Unsupported action ${envelope.actionName}.` } };
+      return {
+        ok: false,
+        error: { code: "bad_request", message: `Unsupported action ${envelope.actionName}.` },
+      };
     }
 
     const actionCtx: ActionContext = {
@@ -162,10 +196,19 @@ export async function dispatchInteractiveLearningAction(input: DispatchInput): P
     }
 
     const emitsMasteryEvidence = !PASSIVE_INTERACTIVE_ACTIONS.has(envelope.actionName);
-    const updatedBlock = await rebuildBlockState(input.ctx, readNotebookId, nodeId, envelope.blockId, input.userId);
+    const updatedBlock = await rebuildBlockState(
+      input.ctx,
+      readNotebookId,
+      nodeId,
+      envelope.blockId,
+      input.userId,
+    );
     if (!updatedBlock) {
       recordMetric("not_found", emitsMasteryEvidence);
-      return { ok: false, error: { code: "not_found", message: "Updated block state could not be rebuilt." } };
+      return {
+        ok: false,
+        error: { code: "not_found", message: "Updated block state could not be rebuilt." },
+      };
     }
 
     recordMetric("success", emitsMasteryEvidence);
@@ -175,7 +218,9 @@ export async function dispatchInteractiveLearningAction(input: DispatchInput): P
         ok: true,
         actionName: envelope.actionName,
         block: updatedBlock,
-        ...(handlerResult.data.updatedConceptStates ? { updatedConceptStates: handlerResult.data.updatedConceptStates } : {}),
+        ...(handlerResult.data.updatedConceptStates
+          ? { updatedConceptStates: handlerResult.data.updatedConceptStates }
+          : {}),
         ...(handlerResult.data.attemptId ? { attemptId: handlerResult.data.attemptId } : {}),
         emitsMasteryEvidence,
       },

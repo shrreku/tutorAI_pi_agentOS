@@ -1,8 +1,16 @@
 import type { DbClient } from "@studyagent/db";
 import { sql } from "drizzle-orm";
-import { embedTextsOpenRouter, type OpenRouterEmbedClientOptions } from "./openrouter-embeddings.js";
+import {
+  embedTextsOpenRouter,
+  type OpenRouterEmbedClientOptions,
+} from "./openrouter-embeddings.js";
 import { graphKeywordSearchNotebook } from "./notebook-graph-search.js";
-import { applyRrfRerankFactors, reciprocalRankFusion, type RerankContext, type UnifiedSearchResult } from "./rrf.js";
+import {
+  applyRrfRerankFactors,
+  reciprocalRankFusion,
+  type RerankContext,
+  type UnifiedSearchResult,
+} from "./rrf.js";
 
 function recencyFromSourceUpdatedAt(iso: string | Date | null | undefined): number {
   if (!iso) return 0.55;
@@ -228,8 +236,14 @@ export async function hybridSearchNotebook(
   const rerankCtx: RerankContext | undefined = aff ? { affinityKeys: aff } : undefined;
   const qv = embeddings[0];
   if (!qv) {
-    return applyRrfRerankFactors(reciprocalRankFusion([lexical, graph], 60), rerankCtx).slice(0, limit);
+    return applyRrfRerankFactors(reciprocalRankFusion([lexical, graph], 60), rerankCtx).slice(
+      0,
+      limit,
+    );
   }
   const vector = await vectorSearchNotebook(dbClient, notebookId, qv, third);
-  return applyRrfRerankFactors(reciprocalRankFusion([lexical, vector, graph], 60), rerankCtx).slice(0, limit);
+  return applyRrfRerankFactors(reciprocalRankFusion([lexical, vector, graph], 60), rerankCtx).slice(
+    0,
+    limit,
+  );
 }

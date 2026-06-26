@@ -36,15 +36,19 @@
             html += '<div class="sa-stack" id="items"></div>';
             html += '<div class="sa-card sa-stack">';
             html += '<label class="sa-field-label" for="note">Your note</label>';
-            html += '<textarea class="sa-textarea" id="note" placeholder="What is unclear about the selected passage?"></textarea>';
-            html += '<div class="sa-row"><button class="sa-btn sa-btn-primary" id="save">Save note</button>';
-            html += '<button class="sa-btn" id="help" type="button">Ask tutor to explain</button></div>';
+            html +=
+              '<textarea class="sa-textarea" id="note" placeholder="What is unclear about the selected passage?"></textarea>';
+            html +=
+              '<div class="sa-row"><button class="sa-btn sa-btn-primary" id="save">Save note</button>';
+            html +=
+              '<button class="sa-btn" id="help" type="button">Ask tutor to explain</button></div>';
             html += "</div></div>";
             ctx.root.innerHTML = html;
 
             var itemsEl = document.getElementById("items");
             if (!spans.length) {
-              itemsEl.innerHTML = '<div class="sa-empty">No source excerpts are available yet.</div>';
+              itemsEl.innerHTML =
+                '<div class="sa-empty">No source excerpts are available yet.</div>';
             } else {
               spans.forEach(function (item, index) {
                 var id = item.id || "span_" + index;
@@ -93,7 +97,8 @@
               });
               app.submitAction("tutor.help_requested", {
                 message: selected
-                  ? "Please explain this source excerpt: " + (selected.excerpt || selected.text || "")
+                  ? "Please explain this source excerpt: " +
+                    (selected.excerpt || selected.text || "")
                   : "Please help me understand this source material.",
               });
             };

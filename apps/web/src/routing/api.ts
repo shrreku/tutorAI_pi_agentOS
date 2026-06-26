@@ -132,7 +132,8 @@ function mapMeResponse(body: MeApiPayload): MeResponse {
     authenticated: body.authenticated ?? Boolean(user),
     disabled: body.disabled ?? false,
     consentAccepted: body.consentAccepted ?? body.consent?.accepted ?? false,
-    consentVersion: body.consentVersion ?? (body.consent?.accepted ? body.consent.requiredVersion : null),
+    consentVersion:
+      body.consentVersion ?? (body.consent?.accepted ? body.consent.requiredVersion : null),
     entitlements,
     ...(body.credits ? { credits: body.credits } : {}),
     ...(onboarding ? { onboarding } : {}),
@@ -247,7 +248,9 @@ export async function deleteSource(sourceId: string): Promise<void> {
   }
 }
 
-export async function fetchCredits(): Promise<Pick<CreditsSummary, "percentRemaining" | "exhausted">> {
+export async function fetchCredits(): Promise<
+  Pick<CreditsSummary, "percentRemaining" | "exhausted">
+> {
   const res = await api("/credits");
   if (!res.ok) {
     throw new Error(await res.text());
@@ -302,7 +305,9 @@ export async function fetchSourceIngestionStatus(sourceId: string): Promise<Inge
 }
 
 export async function retrySourceIngestion(sourceId: string): Promise<void> {
-  const res = await api(`/sources/${encodeURIComponent(sourceId)}/retry-ingestion`, { method: "POST" });
+  const res = await api(`/sources/${encodeURIComponent(sourceId)}/retry-ingestion`, {
+    method: "POST",
+  });
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { message?: string };
     throw new Error(body.message ?? "Failed to retry ingestion");

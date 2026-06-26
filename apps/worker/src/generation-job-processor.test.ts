@@ -13,7 +13,11 @@ const {
   failGenerationJob: vi.fn(),
   runInitialBuild: vi.fn(async () => ({ ok: true })),
   runRollingModuleBuild: vi.fn(async () => ({ ok: true, moduleId: "mod_2" })),
-  resumePendingBackgroundWikiPolishes: vi.fn(async () => ({ processed: 0, completed: 0, failed: 0 })),
+  resumePendingBackgroundWikiPolishes: vi.fn(async () => ({
+    processed: 0,
+    completed: 0,
+    failed: 0,
+  })),
 }));
 
 vi.mock("@studyagent/db", () => ({

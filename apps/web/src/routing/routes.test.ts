@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { isAdminRoute, isEvalRunsRoute, isProtectedRoute, matchRoute, requiresConsent } from "./routes.js";
+import {
+  isAdminRoute,
+  isEvalRunsRoute,
+  isProtectedRoute,
+  matchRoute,
+  requiresConsent,
+} from "./routes.js";
 
 describe("matchRoute", () => {
   it("matches public landing and marketing routes", () => {
@@ -23,8 +29,15 @@ describe("matchRoute", () => {
   it("matches admin and notebook workspace routes", () => {
     expect(matchRoute("/admin")).toEqual({ kind: "admin", page: "overview" });
     expect(matchRoute("/admin/templates")).toEqual({ kind: "admin", page: "templates" });
-    expect(matchRoute("/admin/users/usr_1")).toEqual({ kind: "admin", page: "user-detail", userId: "usr_1" });
-    expect(matchRoute("/admin/account-deletion")).toEqual({ kind: "admin", page: "account-deletion" });
+    expect(matchRoute("/admin/users/usr_1")).toEqual({
+      kind: "admin",
+      page: "user-detail",
+      userId: "usr_1",
+    });
+    expect(matchRoute("/admin/account-deletion")).toEqual({
+      kind: "admin",
+      page: "account-deletion",
+    });
     expect(matchRoute("/notebooks")).toEqual({ kind: "notebooks-list" });
     expect(matchRoute("/notebooks/nb_1")).toEqual({ kind: "notebook", notebookId: "nb_1" });
     expect(matchRoute("/eval-runs/run_1")).toEqual({ kind: "eval-runs", runId: "run_1" });

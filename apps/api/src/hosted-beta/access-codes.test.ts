@@ -104,12 +104,16 @@ describe("access codes integration", () => {
         createdAt: now,
         updatedAt: now,
       });
-      await expect(redeemAccessCode(dbClient, otherUserId, revokedCode.code)).rejects.toMatchObject({
-        code: "code_revoked",
-      });
+      await expect(redeemAccessCode(dbClient, otherUserId, revokedCode.code)).rejects.toMatchObject(
+        {
+          code: "code_revoked",
+        },
+      );
       await dbClient.db.delete(users).where(eq(users.id, otherUserId));
     } finally {
-      await dbClient.db.delete(accessCodeRedemptions).where(eq(accessCodeRedemptions.userId, userId));
+      await dbClient.db
+        .delete(accessCodeRedemptions)
+        .where(eq(accessCodeRedemptions.userId, userId));
       await dbClient.db.delete(creditLedgerEntries).where(eq(creditLedgerEntries.userId, userId));
       await dbClient.db.delete(userProductState).where(eq(userProductState.userId, userId));
       await dbClient.db.delete(accessCodes).where(eq(accessCodes.code, `TB-TEST-${suffix}`));
@@ -154,7 +158,9 @@ describe("access codes integration", () => {
       });
     } finally {
       for (const userId of [userA, userB, userC]) {
-        await dbClient.db.delete(accessCodeRedemptions).where(eq(accessCodeRedemptions.userId, userId));
+        await dbClient.db
+          .delete(accessCodeRedemptions)
+          .where(eq(accessCodeRedemptions.userId, userId));
         await dbClient.db.delete(userProductState).where(eq(userProductState.userId, userId));
         await dbClient.db.delete(users).where(eq(users.id, userId));
       }

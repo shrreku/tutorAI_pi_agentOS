@@ -13,7 +13,9 @@ function plainProps(props: Record<string, unknown>): Record<string, unknown> {
   return out;
 }
 
-function serializeNode(raw: unknown): { id: string; labels: string[]; props: Record<string, unknown> } | null {
+function serializeNode(
+  raw: unknown,
+): { id: string; labels: string[]; props: Record<string, unknown> } | null {
   if (!(raw instanceof Node)) {
     return null;
   }
@@ -74,8 +76,16 @@ export async function queryStudyMapSimple(
     { notebookId, limit: int(limit) },
   );
 
-  const nodeById = new Map<string, { id: string; labels: string[]; props: Record<string, unknown> }>();
-  const edges: Array<{ type: string; startId: string; endId: string; props: Record<string, unknown> }> = [];
+  const nodeById = new Map<
+    string,
+    { id: string; labels: string[]; props: Record<string, unknown> }
+  >();
+  const edges: Array<{
+    type: string;
+    startId: string;
+    endId: string;
+    props: Record<string, unknown>;
+  }> = [];
 
   const addNode = (raw: unknown) => {
     const n = serializeNode(raw);
@@ -175,8 +185,16 @@ export async function querySourceWikiMapSimple(
     { notebookId, sourceId, limit: int(limit) },
   );
 
-  const nodeById = new Map<string, { id: string; labels: string[]; props: Record<string, unknown> }>();
-  const edges: Array<{ type: string; startId: string; endId: string; props: Record<string, unknown> }> = [];
+  const nodeById = new Map<
+    string,
+    { id: string; labels: string[]; props: Record<string, unknown> }
+  >();
+  const edges: Array<{
+    type: string;
+    startId: string;
+    endId: string;
+    props: Record<string, unknown>;
+  }> = [];
 
   const addNode = (raw: unknown) => {
     const n = serializeNode(raw);

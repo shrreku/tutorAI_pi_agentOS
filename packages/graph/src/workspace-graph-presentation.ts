@@ -37,7 +37,8 @@ export function getGraphNodeLevel(graphName: string | undefined, node: GraphCanv
   if (graphName === "source_wiki_map") {
     if (node.nodeType === "source") return 0;
     if (node.nodeType === "topic" || isTopicWikiPage(node)) return 1;
-    if (node.nodeType === "concept" || (node.nodeType === "wiki_page" && !isTopicWikiPage(node))) return 2;
+    if (node.nodeType === "concept" || (node.nodeType === "wiki_page" && !isTopicWikiPage(node)))
+      return 2;
     return 2;
   }
 
@@ -61,9 +62,19 @@ function normalizeEdgeLevels(
   const sourceLevel = getGraphNodeLevel(graphName, sourceNode);
   const targetLevel = getGraphNodeLevel(graphName, targetNode);
   if (sourceLevel <= targetLevel) {
-    return { parent: sourceNode, child: targetNode, parentLevel: sourceLevel, childLevel: targetLevel };
+    return {
+      parent: sourceNode,
+      child: targetNode,
+      parentLevel: sourceLevel,
+      childLevel: targetLevel,
+    };
   }
-  return { parent: targetNode, child: sourceNode, parentLevel: targetLevel, childLevel: sourceLevel };
+  return {
+    parent: targetNode,
+    child: sourceNode,
+    parentLevel: targetLevel,
+    childLevel: sourceLevel,
+  };
 }
 
 function isAllowedStudyMapEdge(parent: GraphCanvasNode, child: GraphCanvasNode): boolean {
@@ -71,7 +82,10 @@ function isAllowedStudyMapEdge(parent: GraphCanvasNode, child: GraphCanvasNode):
     return parent.nodeType === "curriculum_module" || parent.nodeType === "tutor_session";
   }
   if (parent.nodeType === "artifact") return false;
-  if (parent.nodeType === "source" && (child.nodeType === "artifact" || child.nodeType === "tutor_session")) {
+  if (
+    parent.nodeType === "source" &&
+    (child.nodeType === "artifact" || child.nodeType === "tutor_session")
+  ) {
     return false;
   }
   if (parent.nodeType === "source" && child.nodeType === "concept") return false;
@@ -94,7 +108,10 @@ function isStudyMapLevelGapAllowed(
   return false;
 }
 
-function buildUndirectedAdjacency(edges: GraphCanvasEdge[], nodeIds: Set<string>): Map<string, Set<string>> {
+function buildUndirectedAdjacency(
+  edges: GraphCanvasEdge[],
+  nodeIds: Set<string>,
+): Map<string, Set<string>> {
   const adjacency = new Map<string, Set<string>>();
   const touch = (nodeId: string) => {
     if (!adjacency.has(nodeId)) adjacency.set(nodeId, new Set());
@@ -132,7 +149,9 @@ function pushProjectedEdge(
 export function projectStudyMapEdges(graph: WorkspacePresentationGraph): GraphCanvasEdge[] {
   const nodeById = new Map(graph.nodes.map((node) => [node.id, node] as const));
   const allNodeIds = new Set(graph.nodes.map((node) => node.id));
-  const visibleNodes = graph.nodes.filter((node) => !STUDY_MAP_EXCLUDED_NODE_TYPES.has(node.nodeType));
+  const visibleNodes = graph.nodes.filter(
+    (node) => !STUDY_MAP_EXCLUDED_NODE_TYPES.has(node.nodeType),
+  );
   const visibleIds = new Set(visibleNodes.map((node) => node.id));
   const adjacency = buildUndirectedAdjacency(graph.edges, allNodeIds);
   const projected: GraphCanvasEdge[] = [];
@@ -168,7 +187,11 @@ export function projectStudyMapEdges(graph: WorkspacePresentationGraph): GraphCa
         if (neighborId === startNode.id) continue;
         const neighborLevel = getGraphNodeLevel(graph.name, neighbor);
         if (neighborLevel === startLevel) continue;
-        const { parent, child, parentLevel, childLevel } = normalizeEdgeLevels(graph.name, startNode, neighbor);
+        const { parent, child, parentLevel, childLevel } = normalizeEdgeLevels(
+          graph.name,
+          startNode,
+          neighbor,
+        );
         if (!isAllowedStudyMapEdge(parent, child)) continue;
         if (!isStudyMapLevelGapAllowed(parent, child, parentLevel, childLevel)) continue;
         pushProjectedEdge(projected, seen, parent.id, child.id, "CONNECTS");
@@ -185,7 +208,8 @@ export function projectStudyMapEdges(graph: WorkspacePresentationGraph): GraphCa
 
   const modules = visibleNodes.filter((node) => node.nodeType === "curriculum_module");
   const sessions = visibleNodes.filter((node) => node.nodeType === "tutor_session");
-  const preferredModule = modules.find((node) => node.properties.status === "active") ?? modules[0] ?? null;
+  const preferredModule =
+    modules.find((node) => node.properties.status === "active") ?? modules[0] ?? null;
   const hasParentEdge = (nodeId: string): boolean =>
     [...childrenByParent.values()].some((children) => children.has(nodeId));
 
@@ -227,16 +251,24 @@ export function filterStudyMapNodes(graph: WorkspacePresentationGraph): Workspac
     (node) => !STUDY_MAP_EXCLUDED_NODE_TYPES.has(node.nodeType) && !isHiddenStudyMapArtifact(node),
   );
   const visibleIds = new Set(nodes.map((node) => node.id));
-  const edges = graph.edges.filter((edge) => visibleIds.has(edge.source) && visibleIds.has(edge.target));
+  const edges = graph.edges.filter(
+    (edge) => visibleIds.has(edge.source) && visibleIds.has(edge.target),
+  );
   return { ...graph, nodes, edges };
 }
 
 function isPreferredSourceWikiEdge(relationType: string): boolean {
   const normalized = relationType.trim().toUpperCase();
-  return normalized === "HAS_TOPIC" || normalized === "CONTAINS_CONCEPT" || normalized === "CONTAINS_PAGE";
+  return (
+    normalized === "HAS_TOPIC" ||
+    normalized === "CONTAINS_CONCEPT" ||
+    normalized === "CONTAINS_PAGE"
+  );
 }
 
-export function dedupeSourceWikiGraph(graph: WorkspacePresentationGraph): WorkspacePresentationGraph {
+export function dedupeSourceWikiGraph(
+  graph: WorkspacePresentationGraph,
+): WorkspacePresentationGraph {
   const nodeById = new Map(graph.nodes.map((node) => [node.id, node] as const));
   const hiddenIds = new Set<string>();
   const remapIds = new Map<string, string>();
@@ -244,9 +276,13 @@ export function dedupeSourceWikiGraph(graph: WorkspacePresentationGraph): Worksp
   for (const node of graph.nodes) {
     if (node.nodeType !== "topic") continue;
     const linkedTopicPage = graph.edges
-      .filter((edge) => edge.source === node.id && edge.relationType.toUpperCase() === "CONTAINS_PAGE")
+      .filter(
+        (edge) => edge.source === node.id && edge.relationType.toUpperCase() === "CONTAINS_PAGE",
+      )
       .map((edge) => nodeById.get(edge.target))
-      .find((candidate): candidate is GraphCanvasNode => Boolean(candidate && isTopicWikiPage(candidate)));
+      .find((candidate): candidate is GraphCanvasNode =>
+        Boolean(candidate && isTopicWikiPage(candidate)),
+      );
 
     if (linkedTopicPage) {
       hiddenIds.add(node.id);
@@ -298,7 +334,11 @@ export function filterHierarchicalGraphEdges(graph: WorkspacePresentationGraph):
     const targetNode = nodeById.get(edge.target);
     if (!sourceNode || !targetNode) return false;
 
-    const { parent, child, parentLevel, childLevel } = normalizeEdgeLevels(graphName, sourceNode, targetNode);
+    const { parent, child, parentLevel, childLevel } = normalizeEdgeLevels(
+      graphName,
+      sourceNode,
+      targetNode,
+    );
 
     if (graphName === "study_map") {
       if (!isAllowedStudyMapEdge(parent, child)) return false;
@@ -325,9 +365,10 @@ export function filterHierarchicalGraphEdges(graph: WorkspacePresentationGraph):
   });
 }
 
-export function presentStudyMapCanvas(
-  canvas: { nodes: GraphCanvasNode[]; edges: GraphCanvasEdge[] },
-): { nodes: GraphCanvasNode[]; edges: GraphCanvasEdge[] } {
+export function presentStudyMapCanvas(canvas: {
+  nodes: GraphCanvasNode[];
+  edges: GraphCanvasEdge[];
+}): { nodes: GraphCanvasNode[]; edges: GraphCanvasEdge[] } {
   const projected = {
     name: "study_map" as const,
     nodes: canvas.nodes,
@@ -340,9 +381,10 @@ export function presentStudyMapCanvas(
   };
 }
 
-export function presentSourceWikiCanvas(
-  canvas: { nodes: GraphCanvasNode[]; edges: GraphCanvasEdge[] },
-): { nodes: GraphCanvasNode[]; edges: GraphCanvasEdge[] } {
+export function presentSourceWikiCanvas(canvas: {
+  nodes: GraphCanvasNode[];
+  edges: GraphCanvasEdge[];
+}): { nodes: GraphCanvasNode[]; edges: GraphCanvasEdge[] } {
   const deduped = dedupeSourceWikiGraph({ name: "source_wiki_map", ...canvas });
   return {
     nodes: deduped.nodes,

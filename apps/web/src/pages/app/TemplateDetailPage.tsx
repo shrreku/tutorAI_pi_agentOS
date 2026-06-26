@@ -8,7 +8,11 @@ export function TemplateDetailPage({
   templateId: string;
   navigate: (path: string) => void;
 }) {
-  const { data: template, isLoading, error } = useQuery({
+  const {
+    data: template,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ["study-template", templateId],
     queryFn: () => fetchStudyTemplate(templateId),
   });

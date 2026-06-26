@@ -55,7 +55,9 @@ export function getPiToolMetadata(toolName: string): PiToolMetadata {
  * Unwraps z.preprocess schemas so Pi sees the actual inner schema instead of
  * an empty {} (which is what z.preprocess produces when .toJSONSchema() is called).
  */
-function unwrapZodPreprocess(schema: { toJSONSchema?: () => unknown }): { toJSONSchema?: () => unknown } {
+function unwrapZodPreprocess(schema: { toJSONSchema?: () => unknown }): {
+  toJSONSchema?: () => unknown;
+} {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const def = (schema as any)._def;
   if (def && def.typeName === "ZodEffects" && def.effect?.type === "preprocess") {
@@ -95,7 +97,10 @@ function jsonSchemaToPiSchema(schema: unknown): JsonSchemaLike {
     case "array": {
       const itemsSchema = jsonSchemaToPiSchema(schema.items);
       // If items resolve to empty (e.g. from z.preprocess), allow any object
-      const items = Object.keys(itemsSchema).length > 0 ? itemsSchema : { type: "object", additionalProperties: true };
+      const items =
+        Object.keys(itemsSchema).length > 0
+          ? itemsSchema
+          : { type: "object", additionalProperties: true };
       const result: JsonSchemaLike = {
         type: "array",
         items,

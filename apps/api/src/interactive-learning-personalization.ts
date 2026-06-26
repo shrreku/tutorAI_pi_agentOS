@@ -30,7 +30,10 @@ export function normalizePersonalizationPreferenceValue(
   preference: PersonalizationPreferenceKey,
   value: string,
 ): string {
-  const normalized = value.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
   const aliased = PERSONALIZATION_VALUE_ALIASES[normalized] ?? normalized;
   const trait = PREFERENCE_TO_TRAIT[preference];
   if (!trait) {

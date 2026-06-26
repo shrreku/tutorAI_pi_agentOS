@@ -7,12 +7,17 @@ import { appendEventWithTutorCacheInvalidation as appendEvent } from "../agentic
 import type { ActionContext, ActionHandlerOutcome } from "./types.js";
 import { persistWorkedExampleStepAnswer } from "./shared.js";
 
-export async function handleWorkedExampleStepAnswered(actionCtx: ActionContext): Promise<ActionHandlerOutcome> {
+export async function handleWorkedExampleStepAnswered(
+  actionCtx: ActionContext,
+): Promise<ActionHandlerOutcome> {
   const { ctx, notebookId, envelope, payload, artifactId } = actionCtx;
   if (!artifactId) {
     return {
       ok: false,
-      error: { code: "bad_request", message: "Worked example actions require an artifact reference." },
+      error: {
+        code: "bad_request",
+        message: "Worked example actions require an artifact reference.",
+      },
     };
   }
 
@@ -39,12 +44,17 @@ export async function handleWorkedExampleStepAnswered(actionCtx: ActionContext):
   return { ok: true, data: {} };
 }
 
-export async function handleWorkedExampleStepRevealed(actionCtx: ActionContext): Promise<ActionHandlerOutcome> {
+export async function handleWorkedExampleStepRevealed(
+  actionCtx: ActionContext,
+): Promise<ActionHandlerOutcome> {
   const { ctx, notebookId, envelope, payload, artifactId } = actionCtx;
   if (!artifactId) {
     return {
       ok: false,
-      error: { code: "bad_request", message: "Worked example actions require an artifact reference." },
+      error: {
+        code: "bad_request",
+        message: "Worked example actions require an artifact reference.",
+      },
     };
   }
 

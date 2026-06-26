@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { composeTeachingArc, extractCoverageItems, type ComposeTeachingArcInput } from "@studyagent/wiki-core";
+import {
+  composeTeachingArc,
+  extractCoverageItems,
+  type ComposeTeachingArcInput,
+} from "@studyagent/wiki-core";
 import { selectPreferredCoverageRow } from "./study-state.js";
 import { selectPreferredCoverageGapRow } from "./tutor-write-provider.js";
 import { mergeSelectedNodeRefs } from "./routes/tutor.js";
@@ -131,7 +135,8 @@ This concept is used in image compression.
         id: "cov_4",
         itemFamily: "misconception",
         title: "Eigenvalues are always diagonal entries",
-        description: "False: eigenvalues are roots of the characteristic polynomial, not necessarily diagonal",
+        description:
+          "False: eigenvalues are roots of the characteristic polynomial, not necessarily diagonal",
         sourceId: "src_linear_algebra_4",
         conceptId: "concept_eigenvalue",
         createdAt: new Date().toISOString(),
@@ -146,7 +151,8 @@ This concept is used in image compression.
         id: "cov_5",
         itemFamily: "distinction",
         title: "Eigenvalue vs. eigenvector difference",
-        description: "Eigenvalue is a scalar λ; eigenvector is the non-zero vector v satisfying Av = λv",
+        description:
+          "Eigenvalue is a scalar λ; eigenvector is the non-zero vector v satisfying Av = λv",
         sourceId: "src_linear_algebra_5",
         createdAt: new Date().toISOString(),
       };
@@ -191,7 +197,8 @@ This concept is used in image compression.
       const input: ComposeTeachingArcInput = {
         objectiveId: "obj_eigenvalues",
         objectiveTitle: "Understand eigenvalues and eigenvectors",
-        objectiveSummary: "Learn the fundamental definition, computation, and applications of eigenvalues",
+        objectiveSummary:
+          "Learn the fundamental definition, computation, and applications of eigenvalues",
         targetConceptNames: ["eigenvalue", "eigenvector", "characteristic polynomial"],
         mustCoverItems: [
           {
@@ -296,9 +303,7 @@ This concept is used in image compression.
         objectiveId: "obj_vectors",
         objectiveTitle: "Vector operations",
         targetConceptNames: ["vector", "scalar"],
-        mustCoverItems: [
-          { id: "cov_def1", title: "Vector definition", itemFamily: "definition" },
-        ],
+        mustCoverItems: [{ id: "cov_def1", title: "Vector definition", itemFamily: "definition" }],
       };
 
       const arc = composeTeachingArc(input);
@@ -407,7 +412,9 @@ This concept is used in image compression.
       expect(workingExample.status).toBe("ready");
       expect(workingExample.coverageItemIds).toContain("cov_1");
       expect(workingExample.payloadJson.solutionSteps.length).toBe(3);
-      expect(workingExample.payloadJson.commonMistakes.join(" ")).toContain("Forgetting to subtract");
+      expect(workingExample.payloadJson.commonMistakes.join(" ")).toContain(
+        "Forgetting to subtract",
+      );
     });
 
     it("creates formula sheet artifact scoped to module", () => {
@@ -421,7 +428,8 @@ This concept is used in image compression.
             {
               symbol: "λ",
               expression: "Av = λv",
-              meaning: "Definition of eigenvalue: λ is an eigenvalue if this equation holds for non-zero v",
+              meaning:
+                "Definition of eigenvalue: λ is an eigenvalue if this equation holds for non-zero v",
               assumptions: "A is square matrix, v is non-zero vector",
               units: "dimensionless (λ is a scalar)",
               exampleUsage: "Eigenvalue decomposition A = PDP^(-1)",
@@ -458,7 +466,8 @@ This concept is used in image compression.
               dimension: "Definition",
               left: "Scalar λ such that Av = λv",
               right: "Non-negative diagonal entry in SVD decomposition",
-              takeaway: "Eigenvalues are from characteristic polynomial; singular values are always non-negative",
+              takeaway:
+                "Eigenvalues are from characteristic polynomial; singular values are always non-negative",
             },
             {
               dimension: "Matrix requirement",
@@ -529,7 +538,8 @@ This concept is used in image compression.
         id: "digest_1",
         sessionId: "sess_1",
         status: "ready" as const,
-        summary: "Covered eigenvalue definition, characteristic polynomial, and calculation procedure",
+        summary:
+          "Covered eigenvalue definition, characteristic polynomial, and calculation procedure",
         currentObjective: "Understand eigenvalues and eigenvectors",
         studyPlanSummary: "Linear Algebra; Module 3: Eigenvalue Decomposition",
         learnerStateSummary: "Weak concepts: none identified; ready for applications",
@@ -688,7 +698,12 @@ This concept is used in image compression.
       const selected = selectPreferredCoverageGapRow(
         [
           { curriculumId: "cur_1", moduleId: "mod_1", objectiveListId: null, sessionPlanId: null },
-          { curriculumId: "cur_1", moduleId: "mod_1", objectiveListId: "olist_1", sessionPlanId: "sp_1" },
+          {
+            curriculumId: "cur_1",
+            moduleId: "mod_1",
+            objectiveListId: "olist_1",
+            sessionPlanId: "sp_1",
+          },
         ],
         {
           curriculumId: "cur_1",
@@ -703,26 +718,23 @@ This concept is used in image compression.
     });
 
     it("merges selected pedagogical context refs into runtime tool refs", () => {
-      const merged = mergeSelectedNodeRefs(
-        [{ refType: "source", refId: "src_1" }],
-        {
-          strategy: "selected-nodes-current-objective-weak-concepts-notebook",
-          query: "q",
-          retrievalMode: "hybrid",
-          maxChunks: 6,
-          selectedNodeRefs: [{ refType: "concept", refId: "concept_1" }],
-          selectedChunkIds: ["chunk_1"],
-          selectedSourceIds: ["src_1", "src_2"],
-          objectiveTitle: "Obj",
-          objectivePathConceptIds: ["concept_1"],
-          weakConceptNames: [],
-          recentMistakeConceptIds: [],
-          sourceScopePolicy: "soft_source_scope",
-          usedSourceScopeFallback: false,
-          sourceCoverageGap: false,
-          reason: "r",
-        },
-      );
+      const merged = mergeSelectedNodeRefs([{ refType: "source", refId: "src_1" }], {
+        strategy: "selected-nodes-current-objective-weak-concepts-notebook",
+        query: "q",
+        retrievalMode: "hybrid",
+        maxChunks: 6,
+        selectedNodeRefs: [{ refType: "concept", refId: "concept_1" }],
+        selectedChunkIds: ["chunk_1"],
+        selectedSourceIds: ["src_1", "src_2"],
+        objectiveTitle: "Obj",
+        objectivePathConceptIds: ["concept_1"],
+        weakConceptNames: [],
+        recentMistakeConceptIds: [],
+        sourceScopePolicy: "soft_source_scope",
+        usedSourceScopeFallback: false,
+        sourceCoverageGap: false,
+        reason: "r",
+      });
       expect(merged).toEqual(
         expect.arrayContaining([
           { refType: "source", refId: "src_1" },

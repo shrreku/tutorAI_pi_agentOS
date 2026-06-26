@@ -109,7 +109,8 @@ function buildMasteryEvidenceFromOutcome(input: {
           }))
         : [],
     readiness: masteryScoreToReadiness(avg),
-    tutoringIntervention: label === "correct" ? "advance" : label === "partial" ? "guided_practice" : "reteach",
+    tutoringIntervention:
+      label === "correct" ? "advance" : label === "partial" ? "guided_practice" : "reteach",
     uncertainty: label === "needs_more_evidence" ? 0.8 : 0.2,
     confidence: label === "incorrect" ? 0.85 : 0.75,
     evidenceType,
@@ -124,7 +125,8 @@ function buildMasteryEvidenceFromOutcome(input: {
       fallbackUsed: false,
       notes: `Mapped legacy outcome ${input.outcome} (${input.reason})`,
     },
-    learnerAnswerSummary: typeof input.metadata?.answer === "string" ? input.metadata.answer : undefined,
+    learnerAnswerSummary:
+      typeof input.metadata?.answer === "string" ? input.metadata.answer : undefined,
     createdAt: new Date().toISOString(),
   };
 }
@@ -173,52 +175,73 @@ export async function applyLearningOutcome(
     const now = new Date();
 
     if (studyPlan.currentObjectiveId) {
-    const [currentObjective] = await dbClient.db
-      .select({
-        id: objectives.id,
-        title: objectives.title,
-        status: objectives.status,
-        targetConceptIds: objectives.targetConceptIds,
-      })
-      .from(objectives)
-      .where(and(eq(objectives.notebookId, input.notebookId), eq(objectives.id, studyPlan.currentObjectiveId)))
-      .limit(1);
+      const [currentObjective] = await dbClient.db
+        .select({
+          id: objectives.id,
+          title: objectives.title,
+          status: objectives.status,
+          targetConceptIds: objectives.targetConceptIds,
+        })
+        .from(objectives)
+        .where(
+          and(
+            eq(objectives.notebookId, input.notebookId),
+            eq(objectives.id, studyPlan.currentObjectiveId),
+          ),
+        )
+        .limit(1);
 
-    if (currentObjective && currentObjective.status !== "completed") {
-      const targetConceptIds = currentObjective.targetConceptIds ?? [];
-      const conceptMasteryById: Record<string, number> = {};
-      if (targetConceptIds.length > 0) {
-        const persistedTargetMasteries = await dbClient.db
-          .select({ conceptId: learningState.conceptId, masteryScore: learningState.masteryScore })
-          .from(learningState)
-          .where(and(eq(learningState.notebookId, input.notebookId), inArray(learningState.conceptId, targetConceptIds)));
-        for (const row of persistedTargetMasteries) {
-          conceptMasteryById[row.conceptId] = row.masteryScore;
+      if (currentObjective && currentObjective.status !== "completed") {
+        const targetConceptIds = currentObjective.targetConceptIds ?? [];
+        const conceptMasteryById: Record<string, number> = {};
+        if (targetConceptIds.length > 0) {
+          const persistedTargetMasteries = await dbClient.db
+            .select({
+              conceptId: learningState.conceptId,
+              masteryScore: learningState.masteryScore,
+            })
+            .from(learningState)
+            .where(
+              and(
+                eq(learningState.notebookId, input.notebookId),
+                inArray(learningState.conceptId, targetConceptIds),
+              ),
+            );
+          for (const row of persistedTargetMasteries) {
+            conceptMasteryById[row.conceptId] = row.masteryScore;
+          }
         }
-      }
-      for (const state of applied.updatedConceptStates) {
-        conceptMasteryById[state.conceptId] = state.masteryScore;
-      }
-      const shouldComplete = decideObjectiveCompletion({
-        objectiveTitle: currentObjective.title,
-        targetConceptIds,
-        conceptMasteryById,
-      });
+        for (const state of applied.updatedConceptStates) {
+          conceptMasteryById[state.conceptId] = state.masteryScore;
+        }
+        const shouldComplete = decideObjectiveCompletion({
+          objectiveTitle: currentObjective.title,
+          targetConceptIds,
+          conceptMasteryById,
+        });
 
-      if (shouldComplete.shouldComplete) {
+        if (shouldComplete.shouldComplete) {
           await dbClient.db
             .update(objectives)
             .set({ status: "completed", updatedAt: now })
             .where(eq(objectives.id, currentObjective.id));
 
-          const nextCompleted = [...new Set([...(studyPlan.completedObjectiveIds ?? []), currentObjective.id])];
-          const nextUpcoming = (studyPlan.upcomingObjectiveIds ?? []).filter((id) => id !== currentObjective.id);
+          const nextCompleted = [
+            ...new Set([...(studyPlan.completedObjectiveIds ?? []), currentObjective.id]),
+          ];
+          const nextUpcoming = (studyPlan.upcomingObjectiveIds ?? []).filter(
+            (id) => id !== currentObjective.id,
+          );
           let nextCurrentObjectiveId = nextUpcoming[0] ?? null;
           let nextUpcomingObjectiveIds = nextUpcoming.slice(1);
 
           if (!nextCurrentObjectiveId) {
             const activeCurriculumCandidates = await dbClient.db
-              .select({ id: curricula.id, activeModuleId: curricula.activeModuleId, status: curricula.status })
+              .select({
+                id: curricula.id,
+                activeModuleId: curricula.activeModuleId,
+                status: curricula.status,
+              })
               .from(curricula)
               .where(eq(curricula.notebookId, input.notebookId))
               .orderBy(desc(curricula.updatedAt))
@@ -230,7 +253,12 @@ export async function applyLearningOutcome(
               const [activeModule] = await dbClient.db
                 .select({ orderIndex: curriculumModules.orderIndex })
                 .from(curriculumModules)
-                .where(and(eq(curriculumModules.notebookId, input.notebookId), eq(curriculumModules.id, activeCurriculum.activeModuleId)))
+                .where(
+                  and(
+                    eq(curriculumModules.notebookId, input.notebookId),
+                    eq(curriculumModules.id, activeCurriculum.activeModuleId),
+                  ),
+                )
                 .limit(1);
               if (activeModule) {
                 const [nextModule] = await dbClient.db
@@ -270,7 +298,10 @@ export async function applyLearningOutcome(
                     .limit(1);
 
                   if (nextObjectiveList) {
-                    nextCurrentObjectiveId = nextObjectiveList.currentObjectiveId ?? nextObjectiveList.objectiveIdsOrdered[0] ?? null;
+                    nextCurrentObjectiveId =
+                      nextObjectiveList.currentObjectiveId ??
+                      nextObjectiveList.objectiveIdsOrdered[0] ??
+                      null;
                     const ordered = nextObjectiveList.objectiveIdsOrdered ?? [];
                     nextUpcomingObjectiveIds = nextCurrentObjectiveId
                       ? ordered.filter((id) => id !== nextCurrentObjectiveId)
@@ -373,9 +404,20 @@ export async function applyLearningOutcome(
 
 async function advanceCoverageLifecycleForConcept(
   dbClient: DbClient,
-  input: { notebookId: string; conceptId: string; masteryScore: number; runId?: string; sessionId?: string },
+  input: {
+    notebookId: string;
+    conceptId: string;
+    masteryScore: number;
+    runId?: string;
+    sessionId?: string;
+  },
 ): Promise<void> {
-  const desiredStatus = input.masteryScore >= 0.74 ? "mastered" : input.masteryScore < 0.45 ? "needs_review" : "checked";
+  const desiredStatus =
+    input.masteryScore >= 0.74
+      ? "mastered"
+      : input.masteryScore < 0.45
+        ? "needs_review"
+        : "checked";
   const rows = await dbClient.db
     .select({
       id: coverageRecords.id,
@@ -390,7 +432,12 @@ async function advanceCoverageLifecycleForConcept(
     })
     .from(coverageRecords)
     .innerJoin(coverageItems, eq(coverageItems.id, coverageRecords.coverageItemId))
-    .where(and(eq(coverageRecords.notebookId, input.notebookId), eq(coverageItems.conceptId, input.conceptId)));
+    .where(
+      and(
+        eq(coverageRecords.notebookId, input.notebookId),
+        eq(coverageItems.conceptId, input.conceptId),
+      ),
+    );
 
   for (const row of rows) {
     await dbClient.db

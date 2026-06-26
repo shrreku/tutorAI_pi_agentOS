@@ -51,7 +51,13 @@ export type UsageLike = {
   cacheRead?: number;
   cacheWrite?: number;
   totalTokens?: number;
-  cost?: { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; total?: number };
+  cost?: {
+    input?: number;
+    output?: number;
+    cacheRead?: number;
+    cacheWrite?: number;
+    total?: number;
+  };
 };
 
 export function createTraceContext(seed: string = crypto.randomUUID()): TraceContext {
@@ -74,9 +80,13 @@ export function createW3CSpanId(): string {
 export function parseTraceparent(value: string | null | undefined): ParsedTraceparent | null {
   if (!value) return null;
   const trimmed = value.trim();
-  const match = /^([0-9a-f]{2})-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})(?:-.+)?$/i.exec(trimmed);
+  const match = /^([0-9a-f]{2})-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})(?:-.+)?$/i.exec(
+    trimmed,
+  );
   if (!match) return null;
-  const [, version = "", traceId = "", parentSpanId = "", traceFlags = ""] = match.map((part) => part.toLowerCase());
+  const [, version = "", traceId = "", parentSpanId = "", traceFlags = ""] = match.map((part) =>
+    part.toLowerCase(),
+  );
   if (version === "ff") return null;
   if (!isNonZeroHex(traceId) || !isNonZeroHex(parentSpanId)) return null;
   return { version, traceId, parentSpanId, traceFlags };
@@ -88,20 +98,28 @@ export function formatTraceparent(input: {
   traceFlags?: string | null;
 }): string {
   const traceId = isValidTraceId(input.traceId) ? input.traceId.toLowerCase() : createW3CTraceId();
-  const parentSpanId = isValidSpanId(input.parentSpanId) ? input.parentSpanId!.toLowerCase() : createW3CSpanId();
-  const traceFlags = /^[0-9a-f]{2}$/i.test(input.traceFlags ?? "") ? input.traceFlags!.toLowerCase() : "00";
+  const parentSpanId = isValidSpanId(input.parentSpanId)
+    ? input.parentSpanId!.toLowerCase()
+    : createW3CSpanId();
+  const traceFlags = /^[0-9a-f]{2}$/i.test(input.traceFlags ?? "")
+    ? input.traceFlags!.toLowerCase()
+    : "00";
   return `00-${traceId}-${parentSpanId}-${traceFlags}`;
 }
 
-export function createCorrelationContext(input: {
-  traceparent?: string | null;
-  requestId?: string | null;
-  traceId?: string | null;
-  sessionId?: string;
-  runId?: string;
-} = {}): CorrelationContext {
+export function createCorrelationContext(
+  input: {
+    traceparent?: string | null;
+    requestId?: string | null;
+    traceId?: string | null;
+    sessionId?: string;
+    runId?: string;
+  } = {},
+): CorrelationContext {
   const parsed = parseTraceparent(input.traceparent);
-  const traceId = parsed?.traceId ?? (isValidTraceId(input.traceId) ? input.traceId!.toLowerCase() : createW3CTraceId());
+  const traceId =
+    parsed?.traceId ??
+    (isValidTraceId(input.traceId) ? input.traceId!.toLowerCase() : createW3CTraceId());
   const parentSpanId = createW3CSpanId();
   const traceFlags = parsed?.traceFlags ?? "00";
   return {
@@ -115,7 +133,9 @@ export function createCorrelationContext(input: {
   };
 }
 
-export function correlationAttributes(context: TraceContext | null | undefined): Record<string, string> {
+export function correlationAttributes(
+  context: TraceContext | null | undefined,
+): Record<string, string> {
   if (!context) return {};
   return Object.fromEntries(
     Object.entries({
@@ -168,7 +188,10 @@ export function normalizeTraceUsage(usage: UsageLike | null | undefined): TraceU
     },
   };
 
-  if (normalized.totalTokens === 0 && normalized.input + normalized.output + normalized.cacheRead + normalized.cacheWrite === 0) {
+  if (
+    normalized.totalTokens === 0 &&
+    normalized.input + normalized.output + normalized.cacheRead + normalized.cacheWrite === 0
+  ) {
     return undefined;
   }
 
@@ -215,7 +238,11 @@ type LangfuseTracingModule = {
     fn: (observation: ObservationLike) => T | Promise<T>,
     options?: Record<string, unknown>,
   ) => T | Promise<T>;
-  startObservation?: (name: string, payload?: Record<string, unknown>, options?: Record<string, unknown>) => ObservationLike;
+  startObservation?: (
+    name: string,
+    payload?: Record<string, unknown>,
+    options?: Record<string, unknown>,
+  ) => ObservationLike;
   updateActiveObservation?: (payload: Record<string, unknown>) => void;
 };
 
@@ -282,7 +309,8 @@ const noopObservation: ObservationLike = {
 };
 
 function normalizeObservation(observation: unknown): ObservationLike {
-  const candidate = observation && typeof observation === "object" ? (observation as Partial<ObservationLike>) : {};
+  const candidate =
+    observation && typeof observation === "object" ? (observation as Partial<ObservationLike>) : {};
   const updateTrace =
     typeof candidate.updateTrace === "function"
       ? (payload: Record<string, unknown>) => {
@@ -324,10 +352,12 @@ async function importOptionalModule<T>(specifier: string): Promise<T | null> {
 
 function getTracingModulePromise(): Promise<LangfuseTracingModule | null> {
   if (!tracingModulePromise) {
-    tracingModulePromise = importOptionalModule<LangfuseTracingModule>("@langfuse/tracing").then((module) => {
-      tracingModule = module;
-      return module;
-    });
+    tracingModulePromise = importOptionalModule<LangfuseTracingModule>("@langfuse/tracing").then(
+      (module) => {
+        tracingModule = module;
+        return module;
+      },
+    );
   }
   return tracingModulePromise;
 }
@@ -337,24 +367,29 @@ function getLangfuseClientPromise(env: LangfuseTracingConfig): Promise<LangfuseC
   const secretKey = env.LANGFUSE_SECRET_KEY?.trim();
   if (!publicKey || !secretKey) return Promise.resolve(null);
   if (!langfuseClientPromise) {
-    langfuseClientPromise = importOptionalModule<LangfuseClientModule>("@langfuse/client").then((module) => {
-      const LangfuseClient = module?.LangfuseClient;
-      if (!LangfuseClient) return null;
-      langfuseClient = new LangfuseClient({
-        publicKey,
-        secretKey,
-        ...(env.LANGFUSE_BASE_URL?.trim() ? { baseUrl: env.LANGFUSE_BASE_URL.trim() } : {}),
-        ...(env.LANGFUSE_PROMPT_FETCH_TIMEOUT_MS != null
-          ? { timeout: Math.max(1, Math.ceil(env.LANGFUSE_PROMPT_FETCH_TIMEOUT_MS / 1000)) }
-          : {}),
-      });
-      return langfuseClient;
-    });
+    langfuseClientPromise = importOptionalModule<LangfuseClientModule>("@langfuse/client").then(
+      (module) => {
+        const LangfuseClient = module?.LangfuseClient;
+        if (!LangfuseClient) return null;
+        langfuseClient = new LangfuseClient({
+          publicKey,
+          secretKey,
+          ...(env.LANGFUSE_BASE_URL?.trim() ? { baseUrl: env.LANGFUSE_BASE_URL.trim() } : {}),
+          ...(env.LANGFUSE_PROMPT_FETCH_TIMEOUT_MS != null
+            ? { timeout: Math.max(1, Math.ceil(env.LANGFUSE_PROMPT_FETCH_TIMEOUT_MS / 1000)) }
+            : {}),
+        });
+        return langfuseClient;
+      },
+    );
   }
   return langfuseClientPromise;
 }
 
-export function initializeLangfuseTracing(serviceName: string, env: LangfuseTracingConfig): boolean {
+export function initializeLangfuseTracing(
+  serviceName: string,
+  env: LangfuseTracingConfig,
+): boolean {
   const publicKey = env.LANGFUSE_PUBLIC_KEY?.trim();
   const secretKey = env.LANGFUSE_SECRET_KEY?.trim();
 
@@ -386,7 +421,9 @@ export function initializeLangfuseTracing(serviceName: string, env: LangfuseTrac
           : {}),
         ...(env.LANGFUSE_RELEASE?.trim() ? { release: env.LANGFUSE_RELEASE.trim() } : {}),
         ...(env.LANGFUSE_FLUSH_AT != null ? { flushAt: env.LANGFUSE_FLUSH_AT } : {}),
-        ...(env.LANGFUSE_FLUSH_INTERVAL != null ? { flushInterval: env.LANGFUSE_FLUSH_INTERVAL } : {}),
+        ...(env.LANGFUSE_FLUSH_INTERVAL != null
+          ? { flushInterval: env.LANGFUSE_FLUSH_INTERVAL }
+          : {}),
       });
 
       tracingModule?.setLangfuseTracerProvider?.(null);
@@ -424,7 +461,9 @@ export function startObservation(
   options?: Record<string, unknown>,
 ): ObservationLike {
   void getTracingModulePromise();
-  return normalizeObservation(tracingModule?.startObservation?.(name, payload, options) ?? noopObservation);
+  return normalizeObservation(
+    tracingModule?.startObservation?.(name, payload, options) ?? noopObservation,
+  );
 }
 
 export async function startActiveObservation<T>(
@@ -434,7 +473,11 @@ export async function startActiveObservation<T>(
 ): Promise<T> {
   const tracing = await getTracingModulePromise();
   if (tracing?.startActiveObservation) {
-    return await tracing.startActiveObservation(name, (observation) => fn(normalizeObservation(observation)), options);
+    return await tracing.startActiveObservation(
+      name,
+      (observation) => fn(normalizeObservation(observation)),
+      options,
+    );
   }
   return await fn(noopObservation);
 }
@@ -581,11 +624,15 @@ export async function syncManagedTextPrompts(input: {
 }): Promise<Array<ResolvedManagedTextPrompt["metadata"]>> {
   const client = await getLangfuseClientPromise(input.env);
   if (!client) {
-    throw new Error("LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY are required to sync Langfuse prompts");
+    throw new Error(
+      "LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY are required to sync Langfuse prompts",
+    );
   }
   const synced: Array<ResolvedManagedTextPrompt["metadata"]> = [];
   for (const definition of input.prompts) {
-    const labels = definition.labels ?? [input.defaultLabel ?? input.env.LANGFUSE_PROMPT_LABEL ?? "production"];
+    const labels = definition.labels ?? [
+      input.defaultLabel ?? input.env.LANGFUSE_PROMPT_LABEL ?? "production",
+    ];
     const created = await client.prompt.create({
       name: definition.name,
       type: "text",
@@ -659,7 +706,9 @@ export type MetricRegistrySnapshot = {
   }>;
 };
 
-const DEFAULT_HISTOGRAM_BUCKETS_SECONDS = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30];
+const DEFAULT_HISTOGRAM_BUCKETS_SECONDS = [
+  0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30,
+];
 
 export class MetricRegistry {
   private definitions = new Map<string, MetricDefinition>();
@@ -689,7 +738,10 @@ export class MetricRegistry {
     if (!Number.isFinite(value)) return;
     const definition = this.defineMetric(name, "gauge", help);
     const normalizedLabels = normalizeMetricLabels(labels);
-    this.gauges.set(metricSeriesKey(definition.name, normalizedLabels), { labels: normalizedLabels, value });
+    this.gauges.set(metricSeriesKey(definition.name, normalizedLabels), {
+      labels: normalizedLabels,
+      value,
+    });
   }
 
   observeHistogram(
@@ -728,13 +780,25 @@ export class MetricRegistry {
     };
     return {
       counters: [...this.counters.entries()]
-        .map(([key, series]) => ({ name: key.split("{", 1)[0]!, help: definitionFor(key.split("{", 1)[0]!).help, ...series }))
+        .map(([key, series]) => ({
+          name: key.split("{", 1)[0]!,
+          help: definitionFor(key.split("{", 1)[0]!).help,
+          ...series,
+        }))
         .sort(compareMetricSamples),
       gauges: [...this.gauges.entries()]
-        .map(([key, series]) => ({ name: key.split("{", 1)[0]!, help: definitionFor(key.split("{", 1)[0]!).help, ...series }))
+        .map(([key, series]) => ({
+          name: key.split("{", 1)[0]!,
+          help: definitionFor(key.split("{", 1)[0]!).help,
+          ...series,
+        }))
         .sort(compareMetricSamples),
       histograms: [...this.histograms.entries()]
-        .map(([key, series]) => ({ name: key.split("{", 1)[0]!, help: definitionFor(key.split("{", 1)[0]!).help, ...series }))
+        .map(([key, series]) => ({
+          name: key.split("{", 1)[0]!,
+          help: definitionFor(key.split("{", 1)[0]!).help,
+          ...series,
+        }))
         .sort(compareMetricSamples),
     };
   }
@@ -742,17 +806,23 @@ export class MetricRegistry {
   renderPrometheus(): string {
     recordRuntimeMetrics(this);
     const lines: string[] = [];
-    const definitions = [...this.definitions.values()].sort((left, right) => left.name.localeCompare(right.name));
+    const definitions = [...this.definitions.values()].sort((left, right) =>
+      left.name.localeCompare(right.name),
+    );
     for (const definition of definitions) {
       lines.push(`# HELP ${definition.name} ${escapePrometheusHelp(definition.help)}`);
       lines.push(`# TYPE ${definition.name} ${definition.kind}`);
       if (definition.kind === "counter") {
         for (const sample of this.samplesFor(this.counters, definition.name)) {
-          lines.push(`${definition.name}${formatPrometheusLabels(sample.labels)} ${formatMetricNumber(sample.value)}`);
+          lines.push(
+            `${definition.name}${formatPrometheusLabels(sample.labels)} ${formatMetricNumber(sample.value)}`,
+          );
         }
       } else if (definition.kind === "gauge") {
         for (const sample of this.samplesFor(this.gauges, definition.name)) {
-          lines.push(`${definition.name}${formatPrometheusLabels(sample.labels)} ${formatMetricNumber(sample.value)}`);
+          lines.push(
+            `${definition.name}${formatPrometheusLabels(sample.labels)} ${formatMetricNumber(sample.value)}`,
+          );
         }
       } else {
         for (const sample of this.samplesFor(this.histograms, definition.name)) {
@@ -761,9 +831,15 @@ export class MetricRegistry {
               `${definition.name}_bucket${formatPrometheusLabels({ ...sample.labels, le: formatMetricNumber(bucket) })} ${formatMetricNumber(sample.bucketCounts[index] ?? 0)}`,
             );
           });
-          lines.push(`${definition.name}_bucket${formatPrometheusLabels({ ...sample.labels, le: "+Inf" })} ${formatMetricNumber(sample.count)}`);
-          lines.push(`${definition.name}_sum${formatPrometheusLabels(sample.labels)} ${formatMetricNumber(sample.sum)}`);
-          lines.push(`${definition.name}_count${formatPrometheusLabels(sample.labels)} ${formatMetricNumber(sample.count)}`);
+          lines.push(
+            `${definition.name}_bucket${formatPrometheusLabels({ ...sample.labels, le: "+Inf" })} ${formatMetricNumber(sample.count)}`,
+          );
+          lines.push(
+            `${definition.name}_sum${formatPrometheusLabels(sample.labels)} ${formatMetricNumber(sample.sum)}`,
+          );
+          lines.push(
+            `${definition.name}_count${formatPrometheusLabels(sample.labels)} ${formatMetricNumber(sample.count)}`,
+          );
         }
       }
     }
@@ -777,7 +853,12 @@ export class MetricRegistry {
     this.histograms.clear();
   }
 
-  private defineMetric(name: string, kind: MetricKind, help: string, buckets?: number[]): MetricDefinition {
+  private defineMetric(
+    name: string,
+    kind: MetricKind,
+    help: string,
+    buckets?: number[],
+  ): MetricDefinition {
     const normalizedName = normalizeMetricName(name);
     const existing = this.definitions.get(normalizedName);
     if (existing) return existing;
@@ -825,7 +906,12 @@ export function recordHttpRequestMetric(input: {
     route: normalizeRouteLabel(input.route),
     status_class: `${Math.trunc(input.statusCode / 100)}xx`,
   };
-  registry.incrementCounter("studyagent_http_requests_total", 1, labels, "Total HTTP requests handled by StudyAgent.");
+  registry.incrementCounter(
+    "studyagent_http_requests_total",
+    1,
+    labels,
+    "Total HTTP requests handled by StudyAgent.",
+  );
   registry.observeHistogram(
     "studyagent_http_request_duration_seconds",
     input.durationMs / 1000,
@@ -848,7 +934,12 @@ export function recordAgenticCacheMetric(input: {
     operation: input.operation,
     outcome: input.outcome,
   };
-  registry.incrementCounter("studyagent_agentic_cache_operations_total", 1, labels, "Agentic cache operations by namespace, operation, and outcome.");
+  registry.incrementCounter(
+    "studyagent_agentic_cache_operations_total",
+    1,
+    labels,
+    "Agentic cache operations by namespace, operation, and outcome.",
+  );
   if (input.deleted != null) {
     registry.incrementCounter(
       "studyagent_agentic_cache_deleted_entries_total",
@@ -933,7 +1024,12 @@ export function recordDurableEventMetric(input: {
     event_family: normalizeEventFamily(input.eventType),
     outcome: input.outcome,
   };
-  registry.incrementCounter("studyagent_notebook_events_appended_total", 1, labels, "Durable notebook events appended by event type.");
+  registry.incrementCounter(
+    "studyagent_notebook_events_appended_total",
+    1,
+    labels,
+    "Durable notebook events appended by event type.",
+  );
   if (input.durationMs != null) {
     registry.observeHistogram(
       "studyagent_notebook_event_append_duration_seconds",
@@ -983,12 +1079,14 @@ export class DurableEventSummaryCollector {
     return [...this.records];
   }
 
-  async flush(input: {
-    traceId?: string | null;
-    sessionId?: string | null;
-    runId?: string | null;
-    metadata?: Record<string, unknown>;
-  } = {}): Promise<void> {
+  async flush(
+    input: {
+      traceId?: string | null;
+      sessionId?: string | null;
+      runId?: string | null;
+      metadata?: Record<string, unknown>;
+    } = {},
+  ): Promise<void> {
     if (!this.records.length) return;
     const countsByEventType = new Map<string, number>();
     const countsByOutcome = new Map<DurableEventSummaryOutcome, number>();
@@ -1005,8 +1103,12 @@ export class DurableEventSummaryCollector {
         },
         output: {
           records: this.records,
-          countsByEventType: Object.fromEntries([...countsByEventType.entries()].sort(([a], [b]) => a.localeCompare(b))),
-          countsByOutcome: Object.fromEntries([...countsByOutcome.entries()].sort(([a], [b]) => a.localeCompare(b))),
+          countsByEventType: Object.fromEntries(
+            [...countsByEventType.entries()].sort(([a], [b]) => a.localeCompare(b)),
+          ),
+          countsByOutcome: Object.fromEntries(
+            [...countsByOutcome.entries()].sort(([a], [b]) => a.localeCompare(b)),
+          ),
         },
         metadata: {
           ...(input.traceId ? { traceId: input.traceId } : {}),
@@ -1028,7 +1130,12 @@ export function recordIngestionJobMetric(input: {
 }): void {
   const registry = input.registry ?? defaultMetricRegistry;
   const labels = { backend: input.backend, outcome: input.outcome };
-  registry.incrementCounter("studyagent_ingestion_jobs_total", 1, labels, "Ingestion job outcomes by backend.");
+  registry.incrementCounter(
+    "studyagent_ingestion_jobs_total",
+    1,
+    labels,
+    "Ingestion job outcomes by backend.",
+  );
   if (input.durationMs != null) {
     registry.observeHistogram(
       "studyagent_ingestion_job_duration_seconds",
@@ -1045,11 +1152,31 @@ export function startMetricTimer(): () => number {
 }
 
 function recordRuntimeMetrics(registry: MetricRegistry): void {
-  registry.setGauge("studyagent_process_uptime_seconds", process.uptime(), {}, "Process uptime in seconds.");
+  registry.setGauge(
+    "studyagent_process_uptime_seconds",
+    process.uptime(),
+    {},
+    "Process uptime in seconds.",
+  );
   const memory = process.memoryUsage();
-  registry.setGauge("studyagent_process_memory_rss_bytes", memory.rss, {}, "Resident set size in bytes.");
-  registry.setGauge("studyagent_process_memory_heap_used_bytes", memory.heapUsed, {}, "V8 heap used in bytes.");
-  registry.setGauge("studyagent_process_memory_heap_total_bytes", memory.heapTotal, {}, "V8 heap total in bytes.");
+  registry.setGauge(
+    "studyagent_process_memory_rss_bytes",
+    memory.rss,
+    {},
+    "Resident set size in bytes.",
+  );
+  registry.setGauge(
+    "studyagent_process_memory_heap_used_bytes",
+    memory.heapUsed,
+    {},
+    "V8 heap used in bytes.",
+  );
+  registry.setGauge(
+    "studyagent_process_memory_heap_total_bytes",
+    memory.heapTotal,
+    {},
+    "V8 heap total in bytes.",
+  );
 }
 
 function normalizeMetricName(name: string): string {
@@ -1072,8 +1199,9 @@ function normalizeLabelName(name: string): string {
 }
 
 function normalizeHistogramBuckets(buckets: number[]): number[] {
-  return [...new Set(buckets.filter((bucket) => Number.isFinite(bucket) && bucket > 0))]
-    .sort((left, right) => left - right);
+  return [...new Set(buckets.filter((bucket) => Number.isFinite(bucket) && bucket > 0))].sort(
+    (left, right) => left - right,
+  );
 }
 
 function metricSeriesKey(name: string, labels: Record<string, string>): string {
@@ -1116,10 +1244,16 @@ function normalizeEventFamily(eventType: string): string {
   return normalizeEventTypeLabel(eventType.split(".", 1)[0] ?? "unknown");
 }
 
-function compareMetricSamples<T extends { name: string; labels: Record<string, string> }>(left: T, right: T): number {
+function compareMetricSamples<T extends { name: string; labels: Record<string, string> }>(
+  left: T,
+  right: T,
+): number {
   return left.name.localeCompare(right.name) || compareLabelledSamples(left, right);
 }
 
-function compareLabelledSamples<T extends { labels: Record<string, string> }>(left: T, right: T): number {
+function compareLabelledSamples<T extends { labels: Record<string, string> }>(
+  left: T,
+  right: T,
+): number {
   return JSON.stringify(left.labels).localeCompare(JSON.stringify(right.labels));
 }

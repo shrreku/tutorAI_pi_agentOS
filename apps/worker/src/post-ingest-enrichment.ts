@@ -145,8 +145,12 @@ function trimCorpus(chunks: Array<{ id: string; text: string }>, maxChars: numbe
 }
 
 function buildLocalExtractionFallback(input: EnrichmentInput): z.infer<typeof extractionSchema> {
-  const corpus = input.chunks.map((chunk) => chunk.text).join("\n\n").toLowerCase();
-  const hasHeatTransfer = /\b(fourier|heat flux|thermal conductivity|temperature gradient|conduction)\b/.test(corpus);
+  const corpus = input.chunks
+    .map((chunk) => chunk.text)
+    .join("\n\n")
+    .toLowerCase();
+  const hasHeatTransfer =
+    /\b(fourier|heat flux|thermal conductivity|temperature gradient|conduction)\b/.test(corpus);
   const fallbackConcepts = hasHeatTransfer
     ? [
         { name: "Fourier's law", conceptType: "formula", aliases: ["conduction rate equation"] },
@@ -161,13 +165,15 @@ function buildLocalExtractionFallback(input: EnrichmentInput): z.infer<typeof ex
   const claims = hasHeatTransfer
     ? [
         {
-          claimText: "Fourier's law describes conduction heat transfer driven by a temperature gradient.",
+          claimText:
+            "Fourier's law describes conduction heat transfer driven by a temperature gradient.",
           claimType: "source_summary",
           conceptNames: ["Fourier's law", "Conduction heat transfer", "Temperature gradient"],
           ...(firstChunkId ? { evidenceChunkId: firstChunkId } : {}),
         },
         {
-          claimText: "The negative sign in the one-dimensional conduction rate equation encodes that heat flows toward lower temperature.",
+          claimText:
+            "The negative sign in the one-dimensional conduction rate equation encodes that heat flows toward lower temperature.",
           claimType: "source_summary",
           conceptNames: ["Fourier's law", "Heat flux", "Temperature gradient"],
           ...(secondChunkId ? { evidenceChunkId: secondChunkId } : {}),
@@ -191,9 +197,24 @@ function buildLocalExtractionFallback(input: EnrichmentInput): z.infer<typeof ex
     claims,
     relations: hasHeatTransfer
       ? [
-          { fromConcept: "Fourier's law", toConcept: "Heat flux", relationType: "covers", confidence: 0.7 },
-          { fromConcept: "Temperature gradient", toConcept: "Heat flux", relationType: "supports", confidence: 0.7 },
-          { fromConcept: "Thermal conductivity", toConcept: "Fourier's law", relationType: "supports", confidence: 0.65 },
+          {
+            fromConcept: "Fourier's law",
+            toConcept: "Heat flux",
+            relationType: "covers",
+            confidence: 0.7,
+          },
+          {
+            fromConcept: "Temperature gradient",
+            toConcept: "Heat flux",
+            relationType: "supports",
+            confidence: 0.7,
+          },
+          {
+            fromConcept: "Thermal conductivity",
+            toConcept: "Fourier's law",
+            relationType: "supports",
+            confidence: 0.65,
+          },
         ]
       : [],
     sourceSummaryMarkdown: [
@@ -215,7 +236,9 @@ function buildLocalExtractionFallback(input: EnrichmentInput): z.infer<typeof ex
   });
 }
 
-function buildKeywordConcepts(input: EnrichmentInput): Array<{ name: string; conceptType: string; aliases: string[] }> {
+function buildKeywordConcepts(
+  input: EnrichmentInput,
+): Array<{ name: string; conceptType: string; aliases: string[] }> {
   const stopWords = new Set([
     "about",
     "after",
@@ -239,13 +262,25 @@ function buildKeywordConcepts(input: EnrichmentInput): Array<{ name: string; con
   const names = [...counts.entries()]
     .sort((left, right) => right[1] - left[1])
     .slice(0, 6)
-    .map(([token]) => token.replace(/(^|-)([a-z])/g, (_match, prefix: string, letter: string) => `${prefix}${letter.toUpperCase()}`));
-  const fallbackNames = names.length ? names : [cleanLearnerTitle(input.sourceTitle) ?? "Source concept"];
+    .map(([token]) =>
+      token.replace(
+        /(^|-)([a-z])/g,
+        (_match, prefix: string, letter: string) => `${prefix}${letter.toUpperCase()}`,
+      ),
+    );
+  const fallbackNames = names.length
+    ? names
+    : [cleanLearnerTitle(input.sourceTitle) ?? "Source concept"];
   return fallbackNames.map((name) => ({ name, conceptType: "concept", aliases: [] }));
 }
 
 function toExtractionRelations(
-  relations: Array<{ fromConcept: string; toConcept: string; relationType: string; confidence?: number | undefined }>,
+  relations: Array<{
+    fromConcept: string;
+    toConcept: string;
+    relationType: string;
+    confidence?: number | undefined;
+  }>,
 ): SourceExtractionRelation[] {
   return relations.map((relation) => {
     const base: SourceExtractionRelation = {
@@ -270,7 +305,10 @@ function buildConceptGroundedFallbackModules(
 
   return Array.from({ length: safeModuleCount }, (_, index) => {
     const start = Math.floor((index / safeModuleCount) * cleanConcepts.length);
-    const end = Math.max(start + 1, Math.floor(((index + 1) / safeModuleCount) * cleanConcepts.length));
+    const end = Math.max(
+      start + 1,
+      Math.floor(((index + 1) / safeModuleCount) * cleanConcepts.length),
+    );
     const moduleConcepts = cleanConcepts.slice(start, end);
     const primary = moduleConcepts[0] ?? sourceTitle;
     const secondary = moduleConcepts[1] ?? moduleConcepts[0] ?? sourceTitle;
@@ -309,7 +347,11 @@ function objectiveTitleForIndex(
 ): string {
   const planned = cleanLearnerTitle(objectiveTitles[objectiveIndex]);
   if (planned) return planned;
-  const primary = cleanLearnerTitle(conceptNames[objectiveIndex]) ?? cleanLearnerTitle(conceptNames[0]) ?? cleanLearnerTitle(sourceTitle) ?? "the source";
+  const primary =
+    cleanLearnerTitle(conceptNames[objectiveIndex]) ??
+    cleanLearnerTitle(conceptNames[0]) ??
+    cleanLearnerTitle(sourceTitle) ??
+    "the source";
   return objectiveIndex === 0 ? `Explain ${primary}` : `Apply ${primary}`;
 }
 
@@ -351,7 +393,9 @@ async function openRouterJsonObject(
       signal: controller.signal,
     });
   } catch (error) {
-    throw new Error(`OpenRouter chat failed: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(
+      `OpenRouter chat failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
   } finally {
     clearTimeout(timeout);
   }
@@ -360,7 +404,9 @@ async function openRouterJsonObject(
     error?: { message?: string };
   };
   if (!res.ok) {
-    throw new Error(`OpenRouter chat failed (${res.status}): ${body?.error?.message ?? JSON.stringify(body).slice(0, 400)}`);
+    throw new Error(
+      `OpenRouter chat failed (${res.status}): ${body?.error?.message ?? JSON.stringify(body).slice(0, 400)}`,
+    );
   }
   const text = body.choices?.[0]?.message?.content;
   if (!text) {
@@ -370,7 +416,10 @@ async function openRouterJsonObject(
 }
 
 export function parseLlmJsonObject(text: string): unknown {
-  const trimmed = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
+  const trimmed = text
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/i, "");
   const candidates = [trimmed];
   const firstBrace = trimmed.indexOf("{");
   const lastBrace = trimmed.lastIndexOf("}");
@@ -419,12 +468,15 @@ async function extractFocusedRelations(
 
   const user = [
     "Concepts:",
-    ...concepts.map((concept) =>
-      `- ${concept.name}${concept.aliases?.length ? ` (aliases: ${concept.aliases.join(", ")})` : ""}`,
+    ...concepts.map(
+      (concept) =>
+        `- ${concept.name}${concept.aliases?.length ? ` (aliases: ${concept.aliases.join(", ")})` : ""}`,
     ),
     "",
     "Claims:",
-    ...claimsList.map((claim) => `- ${claim.claimText} [concepts: ${claim.conceptNames.join(", ")}]`),
+    ...claimsList.map(
+      (claim) => `- ${claim.claimText} [concepts: ${claim.conceptNames.join(", ")}]`,
+    ),
   ].join("\n");
 
   try {
@@ -489,7 +541,9 @@ async function planSessionBootstrapWithLLM(
 async function refineCoverageFamiliesWithLLM(
   env: StudyAgentEnv,
   items: Array<{ title: string; itemFamily: string; description?: string | null }>,
-): Promise<Map<string, z.infer<typeof coverageFamilyRefinementSchema>["refinements"][number]["itemFamily"]>> {
+): Promise<
+  Map<string, z.infer<typeof coverageFamilyRefinementSchema>["refinements"][number]["itemFamily"]>
+> {
   if (!env.OPENROUTER_API_KEY || items.length === 0) return new Map();
   try {
     const raw = await openRouterJsonObject(
@@ -501,7 +555,10 @@ async function refineCoverageFamiliesWithLLM(
       ].join("\n"),
       items
         .slice(0, 30)
-        .map((item) => `title: ${item.title}\ncurrentFamily: ${item.itemFamily}\ndescription: ${item.description ?? ""}`)
+        .map(
+          (item) =>
+            `title: ${item.title}\ncurrentFamily: ${item.itemFamily}\ndescription: ${item.description ?? ""}`,
+        )
         .join("\n---\n"),
     );
     const parsed = coverageFamilyRefinementSchema.parse(raw);
@@ -575,7 +632,10 @@ export async function runPostIngestEnrichment(
             name: concept.name.trim(),
             ...(concept.aliases ? { aliases: concept.aliases } : {}),
           })),
-          parsed.claims.map((claim) => ({ claimText: claim.claimText.trim(), conceptNames: claim.conceptNames })),
+          parsed.claims.map((claim) => ({
+            claimText: claim.claimText.trim(),
+            conceptNames: claim.conceptNames,
+          })),
         )
       : [];
 
@@ -606,7 +666,11 @@ export async function runPostIngestEnrichment(
     );
 
   const priorConceptPages = await dbClient.db
-    .select({ pageKey: wikiPages.pageKey, pageType: wikiPages.pageType, markdown: wikiPages.markdown })
+    .select({
+      pageKey: wikiPages.pageKey,
+      pageType: wikiPages.pageType,
+      markdown: wikiPages.markdown,
+    })
     .from(wikiPages)
     .where(
       and(
@@ -617,7 +681,11 @@ export async function runPostIngestEnrichment(
     );
 
   const [priorSummary] = await dbClient.db
-    .select({ pageKey: wikiPages.pageKey, pageType: wikiPages.pageType, markdown: wikiPages.markdown })
+    .select({
+      pageKey: wikiPages.pageKey,
+      pageType: wikiPages.pageType,
+      markdown: wikiPages.markdown,
+    })
     .from(wikiPages)
     .where(
       and(
@@ -665,7 +733,13 @@ export async function runPostIngestEnrichment(
     priorWikiPages: [
       ...priorConceptPages,
       ...(priorSummary
-        ? [{ pageKey: priorSummary.pageKey, pageType: priorSummary.pageType, markdown: priorSummary.markdown }]
+        ? [
+            {
+              pageKey: priorSummary.pageKey,
+              pageType: priorSummary.pageType,
+              markdown: priorSummary.markdown,
+            },
+          ]
         : []),
     ],
     focusedRelations: toExtractionRelations(focusedRelations),
@@ -710,7 +784,10 @@ export async function runPostIngestEnrichment(
       const existing = conceptsById.get(concept.id);
       if (existing) {
         conceptsById.set(concept.id, { ...existing, aliases: concept.aliases });
-        registerConceptLookup(conceptLookup, concept.id, [concept.canonicalName, ...concept.aliases]);
+        registerConceptLookup(conceptLookup, concept.id, [
+          concept.canonicalName,
+          ...concept.aliases,
+        ]);
       }
     }
   }
@@ -730,7 +807,11 @@ export async function runPostIngestEnrichment(
   const pageId = sourceSummaryPage?.id ?? `wp_${crypto.randomUUID().replaceAll("-", "")}`;
   const pageKey = sourceSummaryPage?.pageKey ?? sourceSummaryPageKey;
 
-  const [nb] = await dbClient.db.select().from(notebooks).where(eq(notebooks.id, input.notebookId)).limit(1);
+  const [nb] = await dbClient.db
+    .select()
+    .from(notebooks)
+    .where(eq(notebooks.id, input.notebookId))
+    .limit(1);
   if (!nb) {
     return { ok: false, reason: "notebook_missing" };
   }
@@ -761,12 +842,18 @@ export async function runPostIngestEnrichment(
     await dbClient.db.insert(curricula).values({
       id: curriculumId,
       notebookId: input.notebookId,
-      title: cleanLearnerTitle(parsed.curriculumTitle) ?? cleanLearnerTitle(input.sourceTitle) ?? "Source-based course",
+      title:
+        cleanLearnerTitle(parsed.curriculumTitle) ??
+        cleanLearnerTitle(input.sourceTitle) ??
+        "Source-based course",
       curriculumType: "from_sources",
       scopeJson: { sourceIds: [input.sourceId] },
       status: "active",
       sourceIds: [input.sourceId],
-      coverageSummaryJson: { conceptCount: parsed.concepts.length, claimCount: parsed.claims.length },
+      coverageSummaryJson: {
+        conceptCount: parsed.concepts.length,
+        claimCount: parsed.claims.length,
+      },
       confidence: extractionMode === "llm" ? 0.65 : 0.45,
       createdAt: now,
       updatedAt: now,
@@ -805,14 +892,23 @@ export async function runPostIngestEnrichment(
     if (llmCurriculumPlan?.curriculumTitle) {
       await dbClient.db
         .update(curricula)
-        .set({ title: cleanLearnerTitle(llmCurriculumPlan.curriculumTitle) ?? cleanLearnerTitle(input.sourceTitle) ?? "Source-based course", updatedAt: now })
+        .set({
+          title:
+            cleanLearnerTitle(llmCurriculumPlan.curriculumTitle) ??
+            cleanLearnerTitle(input.sourceTitle) ??
+            "Source-based course",
+          updatedAt: now,
+        })
         .where(eq(curricula.id, curriculumId));
     }
     const fallbackModuleCount = Math.min(8, Math.max(2, Math.ceil(seedConceptIds.length / 4)));
-    const curriculumModulesPlan =
-      llmCurriculumPlan?.modules?.length
-        ? llmCurriculumPlan.modules
-        : buildConceptGroundedFallbackModules(input.sourceTitle, parsed.concepts.map((c) => c.name.trim()), fallbackModuleCount);
+    const curriculumModulesPlan = llmCurriculumPlan?.modules?.length
+      ? llmCurriculumPlan.modules
+      : buildConceptGroundedFallbackModules(
+          input.sourceTitle,
+          parsed.concepts.map((c) => c.name.trim()),
+          fallbackModuleCount,
+        );
 
     moduleId = `mod_${crypto.randomUUID().replaceAll("-", "")}`;
     objectiveListId = `objlist_${crypto.randomUUID().replaceAll("-", "")}`;
@@ -828,8 +924,12 @@ export async function runPostIngestEnrichment(
       const end = Math.floor(((m + 1) / curriculumModulesPlan.length) * seedConceptIds.length);
       const modConcepts = seedConceptIds.slice(start, end);
       const modulePlan = curriculumModulesPlan[m]!;
-      const moduleConceptNames = modConcepts.map((conceptId) => conceptNameForId(conceptNamesById, conceptId));
-      const moduleTitle = cleanLearnerTitle(modulePlan.title) ?? `Understand ${moduleConceptNames[0] ?? input.sourceTitle}`;
+      const moduleConceptNames = modConcepts.map((conceptId) =>
+        conceptNameForId(conceptNamesById, conceptId),
+      );
+      const moduleTitle =
+        cleanLearnerTitle(modulePlan.title) ??
+        `Understand ${moduleConceptNames[0] ?? input.sourceTitle}`;
 
       await dbClient.db.insert(curriculumModules).values({
         id: modId,
@@ -843,7 +943,10 @@ export async function runPostIngestEnrichment(
         targetConceptIds: modConcepts,
         prerequisiteModuleIds: prevModuleId ? [prevModuleId] : [],
         estimatedSessionCount: Math.max(2, Math.ceil(modConcepts.length / 3)),
-        coverageRequirementsJson: { conceptCount: modConcepts.length, claimCount: Math.min(5, parsed.claims.length) },
+        coverageRequirementsJson: {
+          conceptCount: modConcepts.length,
+          claimCount: Math.min(5, parsed.claims.length),
+        },
         masteryGateJson: { minObjectivesCompleted: 1 },
         createdAt: now,
         updatedAt: now,
@@ -864,8 +967,11 @@ export async function runPostIngestEnrichment(
         const objectiveTitles =
           modulePlan.objectiveTitles.length > 0
             ? modulePlan.objectiveTitles
-            : buildConceptGroundedFallbackModules(input.sourceTitle, parsed.concepts.map((c) => c.name.trim()), 1)[0]
-                ?.objectiveTitles ?? [];
+            : (buildConceptGroundedFallbackModules(
+                input.sourceTitle,
+                parsed.concepts.map((c) => c.name.trim()),
+                1,
+              )[0]?.objectiveTitles ?? []);
         for (let i = 0; i < objectiveTitles.length; i += 1) {
           const oid = `obj_${crypto.randomUUID().replaceAll("-", "")}`;
           const objectiveTitle = objectiveTitleForIndex(
@@ -925,15 +1031,15 @@ export async function runPostIngestEnrichment(
         .map((index) => objectiveIds[index])
         .filter((value): value is string => typeof value === "string")
         .slice(0, 2) ?? [];
-    const plannedObjectiveIds = llmPlannedObjectiveIds.length > 0 ? llmPlannedObjectiveIds : objectiveIds.slice(0, 2);
+    const plannedObjectiveIds =
+      llmPlannedObjectiveIds.length > 0 ? llmPlannedObjectiveIds : objectiveIds.slice(0, 2);
     const teachingArcDrafts = plannedObjectiveIds.map((objectiveId) => {
-      const objectiveTitle =
-        objectiveTitleForIndex(
-          firstModuleObjectiveTitles,
-          objectiveIds.indexOf(objectiveId),
-          input.sourceTitle,
-          seedConceptIds.map((conceptId) => conceptNameForId(conceptNamesById, conceptId)),
-        );
+      const objectiveTitle = objectiveTitleForIndex(
+        firstModuleObjectiveTitles,
+        objectiveIds.indexOf(objectiveId),
+        input.sourceTitle,
+        seedConceptIds.map((conceptId) => conceptNameForId(conceptNamesById, conceptId)),
+      );
       return composeTeachingArc({
         objectiveId,
         objectiveTitle,
@@ -1053,7 +1159,9 @@ export async function runPostIngestEnrichment(
           payload: { sessionPlanId, reason: "missing_after_insert" },
         });
       } else {
-        const planned: string[] = Array.isArray(persisted.plannedObjectiveIds) ? persisted.plannedObjectiveIds : [];
+        const planned: string[] = Array.isArray(persisted.plannedObjectiveIds)
+          ? persisted.plannedObjectiveIds
+          : [];
         const missing = planned.filter((id) => !objectiveIds.includes(id));
         if (missing.length) {
           await appendEvent(dbClient, {
@@ -1071,7 +1179,10 @@ export async function runPostIngestEnrichment(
       });
     }
     // Update curriculum with active module
-    await dbClient.db.update(curricula).set({ activeModuleId: moduleId }).where(eq(curricula.id, curriculumId));
+    await dbClient.db
+      .update(curricula)
+      .set({ activeModuleId: moduleId })
+      .where(eq(curricula.id, curriculumId));
 
     const extractedCoverageSeedItems = input.chunks.flatMap((chunk) =>
       extractCoverageItems({
@@ -1113,7 +1224,10 @@ export async function runPostIngestEnrichment(
                 : {}),
             } as Record<string, unknown>,
             ...(llmCoverageRefinements.has(item.title.slice(0, 160))
-              ? { itemFamily: llmCoverageRefinements.get(item.title.slice(0, 160)) ?? item.itemFamily }
+              ? {
+                  itemFamily:
+                    llmCoverageRefinements.get(item.title.slice(0, 160)) ?? item.itemFamily,
+                }
               : {}),
           }))
         : [
@@ -1123,7 +1237,10 @@ export async function runPostIngestEnrichment(
               description: null as string | null,
               conceptId,
               claimId: null as string | null,
-              metadataJson: { seededBy: "post_ingest_bootstrap_fallback" } as Record<string, unknown>,
+              metadataJson: { seededBy: "post_ingest_bootstrap_fallback" } as Record<
+                string,
+                unknown
+              >,
             })),
             ...parsed.claims.slice(0, 5).map((claim) => ({
               itemFamily: "example",
@@ -1131,7 +1248,10 @@ export async function runPostIngestEnrichment(
               description: null as string | null,
               conceptId: null as string | null,
               claimId: null as string | null,
-              metadataJson: { seededBy: "post_ingest_bootstrap_fallback" } as Record<string, unknown>,
+              metadataJson: { seededBy: "post_ingest_bootstrap_fallback" } as Record<
+                string,
+                unknown
+              >,
             })),
           ];
 
@@ -1156,9 +1276,14 @@ export async function runPostIngestEnrichment(
 
     for (let i = 0; i < objectiveIds.length; i += 1) {
       const objectiveId = objectiveIds[i]!;
-      const mustCoverCoverageItemIds = (objectiveCoverageFamilies[i] ?? []).flatMap((family) => coverageByFamily.get(family) ?? []);
+      const mustCoverCoverageItemIds = (objectiveCoverageFamilies[i] ?? []).flatMap(
+        (family) => coverageByFamily.get(family) ?? [],
+      );
       const targetConceptIds = [
-        ...new Set([...(Array.from(conceptIdsByObjective[i] ?? []) as string[]), ...(i === 0 ? seedConceptIds.slice(0, 5) : [])]),
+        ...new Set([
+          ...(Array.from(conceptIdsByObjective[i] ?? []) as string[]),
+          ...(i === 0 ? seedConceptIds.slice(0, 5) : []),
+        ]),
       ];
       await dbClient.db
         .update(objectives)
@@ -1213,12 +1338,15 @@ export async function runPostIngestEnrichment(
       sourceId: input.sourceId,
       sourceTitle: input.sourceTitle,
       curriculumId,
-      curriculumTitle: curriculumRow?.title ?? cleanLearnerTitle(input.sourceTitle) ?? "Source-based course",
+      curriculumTitle:
+        curriculumRow?.title ?? cleanLearnerTitle(input.sourceTitle) ?? "Source-based course",
       activeModuleId: moduleId,
       modules: curriculumModulesPlan.map((modulePlan, index) => {
         const modId = moduleIds[index]!;
         const start = Math.floor((index / curriculumModulesPlan.length) * seedConceptIds.length);
-        const end = Math.floor(((index + 1) / curriculumModulesPlan.length) * seedConceptIds.length);
+        const end = Math.floor(
+          ((index + 1) / curriculumModulesPlan.length) * seedConceptIds.length,
+        );
         const modConcepts = seedConceptIds.slice(start, end);
         return {
           id: modId,
@@ -1226,15 +1354,20 @@ export async function runPostIngestEnrichment(
           summary: modulePlan.summary,
           orderIndex: index,
           status: index === 0 ? "active" : "not_started",
-          conceptNames: modConcepts.map((conceptId) => conceptNameForId(conceptNamesById, conceptId)),
+          conceptNames: modConcepts.map((conceptId) =>
+            conceptNameForId(conceptNamesById, conceptId),
+          ),
           objectiveTitles:
             index === 0
               ? (moduleObjectives[0] ?? []).map((objectiveId, objectiveIndex) =>
                   objectiveTitleForIndex(
                     modulePlan.objectiveTitles.length > 0
                       ? modulePlan.objectiveTitles
-                      : buildConceptGroundedFallbackModules(input.sourceTitle, parsed.concepts.map((c) => c.name.trim()), 1)[0]
-                          ?.objectiveTitles ?? [],
+                      : (buildConceptGroundedFallbackModules(
+                          input.sourceTitle,
+                          parsed.concepts.map((c) => c.name.trim()),
+                          1,
+                        )[0]?.objectiveTitles ?? []),
                     objectiveIndex,
                     input.sourceTitle,
                     modConcepts.map((conceptId) => conceptNameForId(conceptNamesById, conceptId)),
@@ -1330,24 +1463,27 @@ export async function runPostIngestEnrichment(
     const coverageSeedItems =
       extractedCoverageSeedItems.length > 0
         ? extractedCoverageSeedItems.map((item) => ({
-          itemFamily: item.itemFamily,
-          title: item.title.slice(0, 160),
-          description: item.description ?? null,
-          conceptId: item.conceptId ?? null,
-          claimId: item.claimId ?? null,
-          metadataJson: {
-            ...item.metadataJson,
-            seededBy: "coverage_family_extractor",
+            itemFamily: item.itemFamily,
+            title: item.title.slice(0, 160),
+            description: item.description ?? null,
+            conceptId: item.conceptId ?? null,
+            claimId: item.claimId ?? null,
+            metadataJson: {
+              ...item.metadataJson,
+              seededBy: "coverage_family_extractor",
+              ...(llmCoverageRefinements.has(item.title.slice(0, 160))
+                ? {
+                    llmFamilyRefinedFrom: item.itemFamily,
+                    llmFamilyRefinedTo: llmCoverageRefinements.get(item.title.slice(0, 160)),
+                  }
+                : {}),
+            } as Record<string, unknown>,
             ...(llmCoverageRefinements.has(item.title.slice(0, 160))
               ? {
-                  llmFamilyRefinedFrom: item.itemFamily,
-                  llmFamilyRefinedTo: llmCoverageRefinements.get(item.title.slice(0, 160)),
+                  itemFamily:
+                    llmCoverageRefinements.get(item.title.slice(0, 160)) ?? item.itemFamily,
                 }
               : {}),
-          } as Record<string, unknown>,
-          ...(llmCoverageRefinements.has(item.title.slice(0, 160))
-            ? { itemFamily: llmCoverageRefinements.get(item.title.slice(0, 160)) ?? item.itemFamily }
-            : {}),
           }))
         : [];
 
@@ -1373,7 +1509,9 @@ export async function runPostIngestEnrichment(
     for (let i = 0; i < objectiveIdsOrdered.length; i += 1) {
       const objectiveId = objectiveIdsOrdered[i];
       if (!objectiveId) continue;
-      const mustCoverCoverageItemIds = (objectiveCoverageFamilies[i] ?? []).flatMap((family) => coverageByFamily.get(family) ?? []);
+      const mustCoverCoverageItemIds = (objectiveCoverageFamilies[i] ?? []).flatMap(
+        (family) => coverageByFamily.get(family) ?? [],
+      );
       if (mustCoverCoverageItemIds.length === 0) continue;
       await dbClient.db
         .update(objectives)
@@ -1390,7 +1528,8 @@ export async function runPostIngestEnrichment(
   }
 
   let projectionReady = false;
-  let projectionMessage: string | null = env.NEO4J_URI && env.NEO4J_PASSWORD ? null : "Study Map projection is unavailable.";
+  let projectionMessage: string | null =
+    env.NEO4J_URI && env.NEO4J_PASSWORD ? null : "Study Map projection is unavailable.";
   if (env.NEO4J_URI && env.NEO4J_PASSWORD) {
     const projectionResult = await projectGraphFromCanonical(
       dbClient,
@@ -1442,7 +1581,11 @@ export async function runPostIngestEnrichment(
     projectionMessage,
     updatedAt: readinessUpdatedAt,
   });
-  const [sourceRow] = await dbClient.db.select({ metadataJson: sources.metadataJson }).from(sources).where(eq(sources.id, input.sourceId)).limit(1);
+  const [sourceRow] = await dbClient.db
+    .select({ metadataJson: sources.metadataJson })
+    .from(sources)
+    .where(eq(sources.id, input.sourceId))
+    .limit(1);
   await dbClient.db
     .update(sources)
     .set({
@@ -1458,13 +1601,29 @@ export async function runPostIngestEnrichment(
   await appendEvent(dbClient, {
     notebookId: input.notebookId,
     eventType: "source.readiness.updated",
-    payload: { sourceId: input.sourceId, sourceVersionId: input.sourceVersionId, readiness: finalReadiness },
+    payload: {
+      sourceId: input.sourceId,
+      sourceVersionId: input.sourceVersionId,
+      readiness: finalReadiness,
+    },
   });
 
-  const lintPages = await dbClient.db.select().from(wikiPages).where(eq(wikiPages.notebookId, input.notebookId));
-  const lintConcepts = await dbClient.db.select().from(concepts).where(eq(concepts.notebookId, input.notebookId));
-  const lintClaims = await dbClient.db.select().from(claims).where(eq(claims.notebookId, input.notebookId));
-  const lintGraph = await dbClient.db.select().from(graphRelations).where(eq(graphRelations.notebookId, input.notebookId));
+  const lintPages = await dbClient.db
+    .select()
+    .from(wikiPages)
+    .where(eq(wikiPages.notebookId, input.notebookId));
+  const lintConcepts = await dbClient.db
+    .select()
+    .from(concepts)
+    .where(eq(concepts.notebookId, input.notebookId));
+  const lintClaims = await dbClient.db
+    .select()
+    .from(claims)
+    .where(eq(claims.notebookId, input.notebookId));
+  const lintGraph = await dbClient.db
+    .select()
+    .from(graphRelations)
+    .where(eq(graphRelations.notebookId, input.notebookId));
   const lintIssues = lintNotebookWiki({
     pages: lintPages.map((p) => ({
       id: p.id,

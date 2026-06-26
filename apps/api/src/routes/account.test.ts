@@ -1,6 +1,12 @@
 import Fastify from "fastify";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { accountDeletionRequests, notebooks, sources, userProductState, users } from "@studyagent/db";
+import {
+  accountDeletionRequests,
+  notebooks,
+  sources,
+  userProductState,
+  users,
+} from "@studyagent/db";
 import type { AppContext } from "../context.js";
 import { resetCachedDevActorForTests } from "../auth.js";
 import {
@@ -45,10 +51,7 @@ type DeletionRequestRow = {
   completedAt: Date | null;
 };
 
-function createAccountTestContext(options?: {
-  admin?: boolean;
-  s3Configured?: boolean;
-}) {
+function createAccountTestContext(options?: { admin?: boolean; s3Configured?: boolean }) {
   const notebookRows: NotebookRow[] = [
     {
       id: "nb_personal",
@@ -127,7 +130,10 @@ function createAccountTestContext(options?: {
                     limit: async (count: number) => sorted.slice(0, count),
                   };
                 },
-                then(onFulfilled: (value: unknown[]) => unknown, onRejected?: (reason: unknown) => unknown) {
+                then(
+                  onFulfilled: (value: unknown[]) => unknown,
+                  onRejected?: (reason: unknown) => unknown,
+                ) {
                   return Promise.resolve(listForTable()).then(onFulfilled, onRejected);
                 },
               };
@@ -135,7 +141,9 @@ function createAccountTestContext(options?: {
             orderBy(_order: unknown) {
               return Promise.resolve(
                 table === accountDeletionRequests
-                  ? [...deletionRequestRows].sort((left, right) => right.requestedAt.getTime() - left.requestedAt.getTime())
+                  ? [...deletionRequestRows].sort(
+                      (left, right) => right.requestedAt.getTime() - left.requestedAt.getTime(),
+                    )
                   : [],
               );
             },
@@ -195,7 +203,10 @@ function createAccountTestContext(options?: {
                 },
               };
             },
-            then(onFulfilled: (value: unknown) => unknown, onRejected?: (reason: unknown) => unknown) {
+            then(
+              onFulfilled: (value: unknown) => unknown,
+              onRejected?: (reason: unknown) => unknown,
+            ) {
               if (table === notebooks) {
                 const index = notebookRows.findIndex((row) => row.id === "nb_personal");
                 if (index >= 0) notebookRows.splice(index, 1);
@@ -299,7 +310,9 @@ describe("account routes", () => {
     });
     expect(duplicate.statusCode).toBe(200);
     expect(deletionRequestRows).toHaveLength(1);
-    expect(duplicate.json()).toEqual({ request: expect.objectContaining({ id: deletionRequestRows[0]!.id }) });
+    expect(duplicate.json()).toEqual({
+      request: expect.objectContaining({ id: deletionRequestRows[0]!.id }),
+    });
   });
 
   it("lets admins list and update deletion requests", async () => {

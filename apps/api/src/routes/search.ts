@@ -35,7 +35,9 @@ export async function registerSearchRoutes(app: FastifyInstance, ctx: AppContext
 
             const parsed = notebookSearchRequestSchema.safeParse(request.body);
             if (!parsed.success) {
-              return reply.status(400).send({ code: "bad_request", message: parsed.error.flatten() });
+              return reply
+                .status(400)
+                .send({ code: "bad_request", message: parsed.error.flatten() });
             }
 
             const { query, limit, mode, expandParents, selectedNodeRefs, conceptIds } = parsed.data;
@@ -68,7 +70,9 @@ export async function registerSearchRoutes(app: FastifyInstance, ctx: AppContext
               });
             }
 
-            const embedBase = (ctx.env.EMBEDDING_API_BASE_URL?.trim() || ctx.env.OPENROUTER_BASE_URL).replace(/\/+$/, "");
+            const embedBase = (
+              ctx.env.EMBEDDING_API_BASE_URL?.trim() || ctx.env.OPENROUTER_BASE_URL
+            ).replace(/\/+$/, "");
             const embedOpts = {
               baseUrl: embedBase,
               apiKey: ctx.env.OPENROUTER_API_KEY,
@@ -80,7 +84,9 @@ export async function registerSearchRoutes(app: FastifyInstance, ctx: AppContext
               const { embeddings } = await embedTextsOpenRouter([query], embedOpts);
               const qv = embeddings[0];
               if (!qv) {
-                return reply.status(500).send({ code: "embedding_failed", message: "No query embedding returned" });
+                return reply
+                  .status(500)
+                  .send({ code: "embedding_failed", message: "No query embedding returned" });
               }
               let rows = await vectorSearchNotebook(ctx.db, contentNotebookId, qv, limit);
               if (expandParents) {
@@ -88,17 +94,28 @@ export async function registerSearchRoutes(app: FastifyInstance, ctx: AppContext
               }
               const hits = rrfResultsToHits(rows);
               const body = notebookSearchResponseSchema.parse({ mode, query, hits });
-              searchObservation.update({ output: { mode, hitCount: hits.length, embeddingModel: embedOpts.model } });
+              searchObservation.update({
+                output: { mode, hitCount: hits.length, embeddingModel: embedOpts.model },
+              });
               return reply.send(body);
             }
 
-            let fused = await hybridSearchNotebook(ctx.db, contentNotebookId, query, limit, embedOpts, hybridCtx);
+            let fused = await hybridSearchNotebook(
+              ctx.db,
+              contentNotebookId,
+              query,
+              limit,
+              embedOpts,
+              hybridCtx,
+            );
             if (expandParents) {
               fused = await expandRetrievalChunksWithParents(ctx.db, fused);
             }
             const hits = rrfResultsToHits(fused);
             const body = notebookSearchResponseSchema.parse({ mode, query, hits });
-            searchObservation.update({ output: { mode, hitCount: hits.length, embeddingModel: embedOpts.model } });
+            searchObservation.update({
+              output: { mode, hitCount: hits.length, embeddingModel: embedOpts.model },
+            });
             return reply.send(body);
           });
         },

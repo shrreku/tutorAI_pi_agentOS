@@ -7,12 +7,16 @@ test.describe("hosted beta launch smoke", () => {
     await expectNoConsoleErrors(page, async () => {
       for (const path of ["/", "/demo", "/contact", "/privacy", "/terms", "/login"]) {
         await page.goto(path);
-        await expect(page.locator("body")).toContainText(/TutorBook|Privacy|Terms|Sign in|Contact|demo/i);
+        await expect(page.locator("body")).toContainText(
+          /TutorBook|Privacy|Terms|Sign in|Contact|demo/i,
+        );
       }
     });
   });
 
-  test("first login, consent, onboarding, templates, analytics, and protected notebook guard", async ({ page }) => {
+  test("first login, consent, onboarding, templates, analytics, and protected notebook guard", async ({
+    page,
+  }) => {
     const email = `e2e-${Date.now()}@studyagent.local`;
 
     await expectNoConsoleErrors(page, async () => {
@@ -27,14 +31,25 @@ test.describe("hosted beta launch smoke", () => {
       await expect(page.getByRole("heading", { name: /study templates/i })).toBeVisible();
       const setupDialog = page.getByRole("dialog", { name: /quick setup/i });
       if (await setupDialog.isVisible().catch(() => false)) {
-        await setupDialog.getByLabel(/what are you trying to learn/i).fill("Hosted beta launch smoke");
+        await setupDialog
+          .getByLabel(/what are you trying to learn/i)
+          .fill("Hosted beta launch smoke");
         await setupDialog.getByRole("button", { name: /^continue$/i }).click();
         await expect(setupDialog).toBeHidden();
       }
 
-      const templates = await fetchJson<{ templates: unknown[] }>(page, `${apiBase}/api/v1/study-templates`);
-      expect(templates.templates.length, "launch must expose 3-8 published templates").toBeGreaterThanOrEqual(3);
-      expect(templates.templates.length, "launch must expose 3-8 published templates").toBeLessThanOrEqual(8);
+      const templates = await fetchJson<{ templates: unknown[] }>(
+        page,
+        `${apiBase}/api/v1/study-templates`,
+      );
+      expect(
+        templates.templates.length,
+        "launch must expose 3-8 published templates",
+      ).toBeGreaterThanOrEqual(3);
+      expect(
+        templates.templates.length,
+        "launch must expose 3-8 published templates",
+      ).toBeLessThanOrEqual(8);
 
       await page.getByRole("button", { name: /algebra foundations/i }).click();
       await expect(page).toHaveURL(/\/app\/templates\//);
@@ -45,7 +60,9 @@ test.describe("hosted beta launch smoke", () => {
       await expect(page.getByText(/ready to study/i)).toBeVisible();
 
       await page.goto("/app/support");
-      await page.getByLabel(/what were you trying to learn/i).fill("Whether the hosted beta feedback flow works");
+      await page
+        .getByLabel(/what were you trying to learn/i)
+        .fill("Whether the hosted beta feedback flow works");
       await page.getByLabel(/yes, it helped/i).check();
       await page.getByLabel(/where did it break down/i).fill("No issue in the smoke path");
       await page.getByRole("button", { name: /submit learning feedback/i }).click();

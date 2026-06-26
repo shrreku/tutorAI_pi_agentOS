@@ -1,102 +1,125 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Consent & data use — TutorBook</title>
-<link rel="stylesheet" href="styles.css" />
-<link rel="stylesheet" href="themes/folio.css" />
-<link rel="stylesheet" href="themes/focus.css" />
-<link rel="stylesheet" href="themes/sunrise.css" />
-<link rel="stylesheet" href="themes/nocturne.css" />
-<link rel="stylesheet" href="themes/carbon.css" />
-</head>
-<body data-theme="mist">
-<div class="app">
-  <div data-include="topbar"></div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Consent & data use — TutorBook</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="themes/folio.css" />
+    <link rel="stylesheet" href="themes/focus.css" />
+    <link rel="stylesheet" href="themes/sunrise.css" />
+    <link rel="stylesheet" href="themes/nocturne.css" />
+    <link rel="stylesheet" href="themes/carbon.css" />
+  </head>
+  <body data-theme="mist">
+    <div class="app">
+      <div data-include="topbar"></div>
 
-  <div class="page-head">
-    <h1>Consent &amp; data use</h1>
-    <p class="ph-sub">A plain-language summary of what TutorBook processes, where it lives, and how the model uses your study materials. Review and set your preferences before continuing.</p>
-  </div>
-
-  <div class="page-body">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start">
-
-      <div class="card">
-        <h3>What data is processed</h3>
-        <ul class="bullets">
-          <li>Sources you upload (PDFs, slides, notes) for Organic Chemistry I and other notebooks.</li>
-          <li>Your learning state — quiz results, flashcard ratings, and mastery per concept.</li>
-          <li>Tutor conversations and the artifacts generated from them.</li>
-          <li>Basic account details: name, email, and tutor-credit balance.</li>
-        </ul>
+      <div class="page-head">
+        <h1>Consent &amp; data use</h1>
+        <p class="ph-sub">
+          A plain-language summary of what TutorBook processes, where it lives, and how the model
+          uses your study materials. Review and set your preferences before continuing.
+        </p>
       </div>
 
-      <div class="card">
-        <h3>Source storage</h3>
-        <p class="muted" style="margin:0 0 10px">Your 7 ingested sources (about 1,200 pages) are stored encrypted at rest in your private workspace.</p>
-        <ul class="bullets">
-          <li>Sources are scoped to your account and never shared between learners.</li>
-          <li>Indexed embeddings power retrieval and citations like <span class="badge gray">Ch. 7 · p. 142</span>.</li>
-          <li>Delete a source at any time and its index is purged within 24 hours.</li>
-        </ul>
-      </div>
-
-      <div class="card" style="grid-column:1 / -1">
-        <h3>Model usage</h3>
-        <div class="callout green">
-          <span class="label">No training on your data</span>
-          <p style="margin:6px 0 0">Your sources, conversations, and learning state are never used to train foundation models. They are used only to power your tutoring sessions and generate your study artifacts.</p>
-        </div>
-        <p class="muted" style="margin:12px 0 0">Model responses are grounded in your uploaded sources with inline citations so you can verify every claim against the original material.</p>
-      </div>
-
-      <div class="card" style="grid-column:1 / -1">
-        <div class="card-head"><h3>Consent preferences</h3></div>
-        <div class="field-row">
-          <div>
-            <div class="fr-label">Allow source ingestion</div>
-            <div class="fr-desc">Process and index uploaded materials so the tutor can cite them.</div>
+      <div class="page-body">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start">
+          <div class="card">
+            <h3>What data is processed</h3>
+            <ul class="bullets">
+              <li>
+                Sources you upload (PDFs, slides, notes) for Organic Chemistry I and other
+                notebooks.
+              </li>
+              <li>
+                Your learning state — quiz results, flashcard ratings, and mastery per concept.
+              </li>
+              <li>Tutor conversations and the artifacts generated from them.</li>
+              <li>Basic account details: name, email, and tutor-credit balance.</li>
+            </ul>
           </div>
-          <div class="switch on" data-switch></div>
-        </div>
-        <div class="field-row">
-          <div>
-            <div class="fr-label">Product analytics</div>
-            <div class="fr-desc">Share anonymised usage to help improve TutorBook features.</div>
+
+          <div class="card">
+            <h3>Source storage</h3>
+            <p class="muted" style="margin: 0 0 10px">
+              Your 7 ingested sources (about 1,200 pages) are stored encrypted at rest in your
+              private workspace.
+            </p>
+            <ul class="bullets">
+              <li>Sources are scoped to your account and never shared between learners.</li>
+              <li>
+                Indexed embeddings power retrieval and citations like
+                <span class="badge gray">Ch. 7 · p. 142</span>.
+              </li>
+              <li>Delete a source at any time and its index is purged within 24 hours.</li>
+            </ul>
           </div>
-          <div class="switch" data-switch></div>
-        </div>
-        <div class="field-row">
-          <div>
-            <div class="fr-label">Email updates</div>
-            <div class="fr-desc">Occasional product news and study reminders. No spam.</div>
+
+          <div class="card" style="grid-column: 1 / -1">
+            <h3>Model usage</h3>
+            <div class="callout green">
+              <span class="label">No training on your data</span>
+              <p style="margin: 6px 0 0">
+                Your sources, conversations, and learning state are never used to train foundation
+                models. They are used only to power your tutoring sessions and generate your study
+                artifacts.
+              </p>
+            </div>
+            <p class="muted" style="margin: 12px 0 0">
+              Model responses are grounded in your uploaded sources with inline citations so you can
+              verify every claim against the original material.
+            </p>
           </div>
-          <div class="switch" data-switch></div>
+
+          <div class="card" style="grid-column: 1 / -1">
+            <div class="card-head"><h3>Consent preferences</h3></div>
+            <div class="field-row">
+              <div>
+                <div class="fr-label">Allow source ingestion</div>
+                <div class="fr-desc">
+                  Process and index uploaded materials so the tutor can cite them.
+                </div>
+              </div>
+              <div class="switch on" data-switch></div>
+            </div>
+            <div class="field-row">
+              <div>
+                <div class="fr-label">Product analytics</div>
+                <div class="fr-desc">
+                  Share anonymised usage to help improve TutorBook features.
+                </div>
+              </div>
+              <div class="switch" data-switch></div>
+            </div>
+            <div class="field-row">
+              <div>
+                <div class="fr-label">Email updates</div>
+                <div class="fr-desc">Occasional product news and study reminders. No spam.</div>
+              </div>
+              <div class="switch" data-switch></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="between" style="margin-top: 22px; flex-wrap: wrap; gap: 12px">
+          <div class="muted" style="font-size: 13px">
+            By continuing you agree to our
+            <a href="#" style="color: var(--accent-deep); font-weight: 650">Privacy Policy</a>
+            and
+            <a href="#" style="color: var(--accent-deep); font-weight: 650">Terms of Service</a>.
+          </div>
+          <a class="btn primary lg" href="dashboard.html">Accept &amp; continue</a>
         </div>
       </div>
-
     </div>
 
-    <div class="between" style="margin-top:22px;flex-wrap:wrap;gap:12px">
-      <div class="muted" style="font-size:13px">
-        By continuing you agree to our
-        <a href="#" style="color:var(--accent-deep);font-weight:650">Privacy Policy</a>
-        and
-        <a href="#" style="color:var(--accent-deep);font-weight:650">Terms of Service</a>.
-      </div>
-      <a class="btn primary lg" href="dashboard.html">Accept &amp; continue</a>
-    </div>
-  </div>
-</div>
-
-<script src="app.js"></script>
-<script src="themes/folio.js"></script>
-<script src="themes/focus.js"></script>
-<script src="themes/sunrise.js"></script>
-<script src="themes/nocturne.js"></script>
-<script src="themes/carbon.js"></script>
-<script src="partials.js"></script>
-</body>
+    <script src="app.js"></script>
+    <script src="themes/folio.js"></script>
+    <script src="themes/focus.js"></script>
+    <script src="themes/sunrise.js"></script>
+    <script src="themes/nocturne.js"></script>
+    <script src="themes/carbon.js"></script>
+    <script src="partials.js"></script>
+  </body>
 </html>

@@ -38,7 +38,9 @@ describe("Langfuse observability facade", () => {
   });
 
   it("keeps agentic observations no-op safe without initialized tracing", () => {
-    const observation = startAgenticObservation("tool.call", { input: { toolName: "wiki.search" } });
+    const observation = startAgenticObservation("tool.call", {
+      input: { toolName: "wiki.search" },
+    });
     observation.update({ output: { status: "ok" } });
     observation.updateTrace?.({ tags: ["test"] });
     observation.end();

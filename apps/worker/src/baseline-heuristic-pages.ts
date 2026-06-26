@@ -89,7 +89,8 @@ export async function upsertBaselineHeuristicPages(
   input: BaselineHeuristicPagesInput,
 ): Promise<{ curriculumPageId: string; modulePageIds: string[] }> {
   const now = input.now ?? new Date();
-  const activeModule = input.modules.find((module) => module.id === input.activeModuleId) ?? input.modules[0];
+  const activeModule =
+    input.modules.find((module) => module.id === input.activeModuleId) ?? input.modules[0];
   const curriculumPageResult = buildHeuristicCurriculumPageMarkdown({
     curriculumTitle: input.curriculumTitle,
     sourceTitles: [input.sourceTitle],
@@ -136,8 +137,14 @@ export async function upsertBaselineHeuristicPages(
       moduleTitle: module.title,
       summary: module.summary,
       sourceSections: [input.sourceTitle],
-      topics: module.conceptNames.map((name, index) => ({ id: `topic_${module.id}_${index}`, name })),
-      concepts: module.conceptNames.map((name, index) => ({ id: `concept_${module.id}_${index}`, name })),
+      topics: module.conceptNames.map((name, index) => ({
+        id: `topic_${module.id}_${index}`,
+        name,
+      })),
+      concepts: module.conceptNames.map((name, index) => ({
+        id: `concept_${module.id}_${index}`,
+        name,
+      })),
       objectives: module.objectiveTitles.map((title, index) => ({
         id: `obj_${module.id}_${index}`,
         title,

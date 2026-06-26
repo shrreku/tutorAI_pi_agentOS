@@ -1,21 +1,31 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { LearnerTraitEstimate, LearnerTraitSignal } from "@studyagent/schemas";
-import { planLearnerTraitEstimation, persistLearnerTraitEstimationPlan } from "./learner-trait-estimation-planner.js";
+import {
+  planLearnerTraitEstimation,
+  persistLearnerTraitEstimationPlan,
+} from "./learner-trait-estimation-planner.js";
 
 const readRecentLearnerTraitSignalsMock = vi.fn<() => Promise<LearnerTraitSignal[]>>();
 const readCurrentLearnerTraitEstimatesMock = vi.fn<() => Promise<LearnerTraitEstimate[]>>();
 const appendEventMock = vi.fn(async () => ({ id: "evt_plan_1" }));
 
 vi.mock("./learner-trait-store.js", () => ({
-  readRecentLearnerTraitSignals: (...args: unknown[]) => readRecentLearnerTraitSignalsMock(...(args as Parameters<typeof readRecentLearnerTraitSignalsMock>)),
-  readCurrentLearnerTraitEstimates: (...args: unknown[]) => readCurrentLearnerTraitEstimatesMock(...(args as Parameters<typeof readCurrentLearnerTraitEstimatesMock>)),
+  readRecentLearnerTraitSignals: (...args: unknown[]) =>
+    readRecentLearnerTraitSignalsMock(
+      ...(args as Parameters<typeof readRecentLearnerTraitSignalsMock>),
+    ),
+  readCurrentLearnerTraitEstimates: (...args: unknown[]) =>
+    readCurrentLearnerTraitEstimatesMock(
+      ...(args as Parameters<typeof readCurrentLearnerTraitEstimatesMock>),
+    ),
 }));
 
 vi.mock("@studyagent/db", async () => {
   const actual = await vi.importActual<typeof import("@studyagent/db")>("@studyagent/db");
   return {
     ...actual,
-    appendEvent: (...args: unknown[]) => appendEventMock(...(args as Parameters<typeof appendEventMock>)),
+    appendEvent: (...args: unknown[]) =>
+      appendEventMock(...(args as Parameters<typeof appendEventMock>)),
   };
 });
 
@@ -29,7 +39,9 @@ function signal(patch: Partial<LearnerTraitSignal> = {}): LearnerTraitSignal {
     suggestedValue: patch.suggestedValue ?? "avoids_help",
     strength: patch.strength ?? 0.7,
     confidence: patch.confidence ?? 0.65,
-    evidenceRefs: patch.evidenceRefs ?? [{ refType: "tutor_observation", refId: patch.id ?? "turn_1" }],
+    evidenceRefs: patch.evidenceRefs ?? [
+      { refType: "tutor_observation", refId: patch.id ?? "turn_1" },
+    ],
     internalVisibility: true,
     observedAt: patch.observedAt ?? "2026-05-25T08:00:00.000Z",
     ...patch,
@@ -107,7 +119,11 @@ describe("learner trait estimation planner", () => {
   it("plans estimation for repeated cross-session trait-family signals", async () => {
     readRecentLearnerTraitSignalsMock.mockResolvedValue([
       signal({ id: "lts_1", sessionId: "sess_a" }),
-      signal({ id: "lts_2", sessionId: "sess_b", evidenceRefs: [{ refType: "tutor_observation", refId: "turn_2" }] }),
+      signal({
+        id: "lts_2",
+        sessionId: "sess_b",
+        evidenceRefs: [{ refType: "tutor_observation", refId: "turn_2" }],
+      }),
     ]);
 
     const plan = await planLearnerTraitEstimation(createDbClient(), {
@@ -141,7 +157,11 @@ describe("learner trait estimation planner", () => {
 
   it("plans estimation for goal or urgency changes", async () => {
     readRecentLearnerTraitSignalsMock.mockResolvedValue([
-      signal({ source: "explicit_self_report", trait: "urgencyContext", suggestedValue: "exam_prep" }),
+      signal({
+        source: "explicit_self_report",
+        trait: "urgencyContext",
+        suggestedValue: "exam_prep",
+      }),
     ]);
 
     const plan = await planLearnerTraitEstimation(createDbClient(), {
@@ -157,20 +177,25 @@ describe("learner trait estimation planner", () => {
   it("plans estimation when persisted mastery evidence shows self-report contradiction", async () => {
     readRecentLearnerTraitSignalsMock.mockResolvedValue([]);
 
-    const plan = await planLearnerTraitEstimation(createDbClient([{
-      id: "mev_1",
-      turnId: "turn_1",
-      sessionId: "sess_1",
-      evidenceJson: {
-        evidenceType: "self_report",
-        correctnessLabel: "incorrect",
-        confidence: 0.88,
+    const plan = await planLearnerTraitEstimation(
+      createDbClient([
+        {
+          id: "mev_1",
+          turnId: "turn_1",
+          sessionId: "sess_1",
+          evidenceJson: {
+            evidenceType: "self_report",
+            correctnessLabel: "incorrect",
+            confidence: 0.88,
+          },
+        },
+      ]),
+      {
+        notebookId: "nb_1",
+        userId: "user_1",
+        sessionId: "sess_1",
       },
-    }]), {
-      notebookId: "nb_1",
-      userId: "user_1",
-      sessionId: "sess_1",
-    });
+    );
 
     expect(plan.decision).toBe("run");
     expect(plan.trigger.reasons).toContain("mastery_self_report_contradiction");
@@ -186,7 +211,11 @@ describe("learner trait estimation planner", () => {
     await persistLearnerTraitEstimationPlan(createDbClient(), skipped);
 
     readRecentLearnerTraitSignalsMock.mockResolvedValue([
-      signal({ source: "explicit_self_report", trait: "urgencyContext", suggestedValue: "exam_prep" }),
+      signal({
+        source: "explicit_self_report",
+        trait: "urgencyContext",
+        suggestedValue: "exam_prep",
+      }),
     ]);
     const planned = await planLearnerTraitEstimation(createDbClient(), {
       notebookId: "nb_1",

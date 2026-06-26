@@ -44,20 +44,33 @@ function createHttpSyntheticLearnerEvalApi(
 
   return {
     async seedNotebook({ fixture, persona, scenario }) {
-      const response = await fetch(`${baseUrl}/api/v1/eval/source-fixtures/${encodeURIComponent(fixture.id)}/notebooks`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          title: `Synthetic learner: ${persona.name} / ${scenario.name}`,
-          freshnessMode,
-        }),
-      });
+      const response = await fetch(
+        `${baseUrl}/api/v1/eval/source-fixtures/${encodeURIComponent(fixture.id)}/notebooks`,
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            title: `Synthetic learner: ${persona.name} / ${scenario.name}`,
+            freshnessMode,
+          }),
+        },
+      );
       if (!response.ok) {
-        throw new Error(`Failed to seed eval notebook (${response.status}): ${await response.text()}`);
+        throw new Error(
+          `Failed to seed eval notebook (${response.status}): ${await response.text()}`,
+        );
       }
-      const payload = (await response.json()) as { notebook: { id: string }; traceRefs?: Array<{ refType: string; refId: string }> };
-      const traceRefs = payload.traceRefs?.map((ref) => ({ refType: ref.refType as NodeRef["refType"], refId: ref.refId }));
-      const validTraceRefs = traceRefs?.filter((ref) => nodeRefSchema.shape.refType.safeParse(ref.refType).success);
+      const payload = (await response.json()) as {
+        notebook: { id: string };
+        traceRefs?: Array<{ refType: string; refId: string }>;
+      };
+      const traceRefs = payload.traceRefs?.map((ref) => ({
+        refType: ref.refType as NodeRef["refType"],
+        refId: ref.refId,
+      }));
+      const validTraceRefs = traceRefs?.filter(
+        (ref) => nodeRefSchema.shape.refType.safeParse(ref.refType).success,
+      );
       return {
         notebookId: payload.notebook.id,
         notebookRef: { refType: "notebook", refId: payload.notebook.id },
@@ -65,14 +78,22 @@ function createHttpSyntheticLearnerEvalApi(
       };
     },
     async sendTutorTurn({ notebookId, scriptedMessage }) {
-      const response = await fetch(`${baseUrl}/api/v1/notebooks/${encodeURIComponent(notebookId)}/tutor/chat`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          messages: [{ role: "user", content: scriptedMessage }],
-          data: { activeMode: "learn", selectedNodeRefs: [], action: "prompt", sourceScopePolicy: "soft_source_scope" },
-        }),
-      });
+      const response = await fetch(
+        `${baseUrl}/api/v1/notebooks/${encodeURIComponent(notebookId)}/tutor/chat`,
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            messages: [{ role: "user", content: scriptedMessage }],
+            data: {
+              activeMode: "learn",
+              selectedNodeRefs: [],
+              action: "prompt",
+              sourceScopePolicy: "soft_source_scope",
+            },
+          }),
+        },
+      );
       if (!response.ok) {
         throw new Error(`Tutor request failed (${response.status}): ${await response.text()}`);
       }
@@ -81,11 +102,23 @@ function createHttpSyntheticLearnerEvalApi(
       const assistantMessage = collectAssistantMessage(events);
       const started = events.find((event) => event.eventType === "SESSION_STARTED");
       const runStarted = events.find((event) => event.eventType === "RUN_STARTED");
-      const sessionId = response.headers.get("x-studyagent-session-id") ??
-        (typeof started?.payload.sessionId === "string" ? started.payload.sessionId : `sess_${notebookId}`);
-      const runId = response.headers.get("x-studyagent-run-id") ??
-        (typeof runStarted?.payload.runId === "string" ? runStarted.payload.runId : `run_${notebookId}`);
-      const traceEvents = await fetchTutorTraceEvents(baseUrl, headers, notebookId, sessionId, runId);
+      const sessionId =
+        response.headers.get("x-studyagent-session-id") ??
+        (typeof started?.payload.sessionId === "string"
+          ? started.payload.sessionId
+          : `sess_${notebookId}`);
+      const runId =
+        response.headers.get("x-studyagent-run-id") ??
+        (typeof runStarted?.payload.runId === "string"
+          ? runStarted.payload.runId
+          : `run_${notebookId}`);
+      const traceEvents = await fetchTutorTraceEvents(
+        baseUrl,
+        headers,
+        notebookId,
+        sessionId,
+        runId,
+      );
       return {
         sessionId,
         runId,
@@ -96,13 +129,18 @@ function createHttpSyntheticLearnerEvalApi(
       };
     },
     async endTutorSession({ notebookId, phase = "full" }) {
-      const response = await fetch(`${baseUrl}/api/v1/notebooks/${encodeURIComponent(notebookId)}/tutor/session/end`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ phase }),
-      });
+      const response = await fetch(
+        `${baseUrl}/api/v1/notebooks/${encodeURIComponent(notebookId)}/tutor/session/end`,
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ phase }),
+        },
+      );
       if (!response.ok) {
-        throw new Error(`Failed to end tutor session (${response.status}): ${await response.text()}`);
+        throw new Error(
+          `Failed to end tutor session (${response.status}): ${await response.text()}`,
+        );
       }
       const payload = (await response.json()) as { sessionId?: string };
       const sessionId = payload.sessionId ?? `sess_${notebookId}`;
@@ -111,7 +149,10 @@ function createHttpSyntheticLearnerEvalApi(
   };
 }
 
-async function readSseEvents(response: Response, source: SyntheticLearnerEvalStreamEvent["source"]): Promise<SyntheticLearnerEvalStreamEvent[]> {
+async function readSseEvents(
+  response: Response,
+  source: SyntheticLearnerEvalStreamEvent["source"],
+): Promise<SyntheticLearnerEvalStreamEvent[]> {
   const reader = response.body?.getReader();
   if (!reader) return [];
   const decoder = new TextDecoder();
@@ -133,14 +174,24 @@ async function readSseEvents(response: Response, source: SyntheticLearnerEvalStr
   return events;
 }
 
-function parseSseFrame(frame: string, source: SyntheticLearnerEvalStreamEvent["source"]): SyntheticLearnerEvalStreamEvent | null {
+function parseSseFrame(
+  frame: string,
+  source: SyntheticLearnerEvalStreamEvent["source"],
+): SyntheticLearnerEvalStreamEvent | null {
   const lines = frame.split("\n");
-  const explicitEventType = lines.find((line) => line.startsWith("event: "))?.slice("event: ".length)?.trim();
-  const dataLine = lines.find((line) => line.startsWith("data: "))?.slice("data: ".length)?.trim();
+  const explicitEventType = lines
+    .find((line) => line.startsWith("event: "))
+    ?.slice("event: ".length)
+    ?.trim();
+  const dataLine = lines
+    .find((line) => line.startsWith("data: "))
+    ?.slice("data: ".length)
+    ?.trim();
   if (!dataLine) return null;
   try {
     const payload = JSON.parse(dataLine) as Record<string, unknown>;
-    const eventType = explicitEventType ?? (typeof payload.type === "string" ? payload.type : undefined);
+    const eventType =
+      explicitEventType ?? (typeof payload.type === "string" ? payload.type : undefined);
     if (!eventType) return null;
     return {
       source,
@@ -148,14 +199,19 @@ function parseSseFrame(frame: string, source: SyntheticLearnerEvalStreamEvent["s
       payload,
     };
   } catch {
-    return explicitEventType ? { source, eventType: explicitEventType, payload: { raw: dataLine } } : null;
+    return explicitEventType
+      ? { source, eventType: explicitEventType, payload: { raw: dataLine } }
+      : null;
   }
 }
 
 function collectAssistantMessage(events: SyntheticLearnerEvalStreamEvent[]): string {
-  const complete = [...events].reverse().find(
-    (event) => event.eventType === "TEXT_MESSAGE_END" && typeof event.payload.content === "string",
-  );
+  const complete = [...events]
+    .reverse()
+    .find(
+      (event) =>
+        event.eventType === "TEXT_MESSAGE_END" && typeof event.payload.content === "string",
+    );
   if (typeof complete?.payload.content === "string") return complete.payload.content;
 
   return events
@@ -181,15 +237,23 @@ async function fetchTutorTraceEvents(
     { headers },
   );
   if (!response.ok) return [];
-  const trace = await response.json() as {
+  const trace = (await response.json()) as {
     turns?: Array<{
       id: string;
       runs?: Array<{
         id: string;
         tools?: Array<{ id: string; toolName: string; status: string }>;
-        thinking?: Array<{ eventType?: string; payload?: Record<string, unknown>; timestamp?: string }>;
+        thinking?: Array<{
+          eventType?: string;
+          payload?: Record<string, unknown>;
+          timestamp?: string;
+        }>;
         stateChanges?: Array<{ eventType: string; payload?: Record<string, unknown> }>;
-        rawEvents?: Array<{ eventType?: string; payload?: Record<string, unknown>; timestamp?: string }>;
+        rawEvents?: Array<{
+          eventType?: string;
+          payload?: Record<string, unknown>;
+          timestamp?: string;
+        }>;
       }>;
     }>;
   };
@@ -218,7 +282,11 @@ async function fetchTutorTraceEvents(
           },
         });
       }
-      const traceStates = dedupeTraceStates([...(run.rawEvents ?? []), ...(run.thinking ?? []), ...(run.stateChanges ?? [])]);
+      const traceStates = dedupeTraceStates([
+        ...(run.rawEvents ?? []),
+        ...(run.thinking ?? []),
+        ...(run.stateChanges ?? []),
+      ]);
       for (const state of traceStates) {
         if (!state.eventType) continue;
         if (state.eventType === "tutor.message.delta") continue;
@@ -241,7 +309,11 @@ function dedupeTraceStates(
   states: Array<{ eventType?: string; payload?: Record<string, unknown>; timestamp?: string }>,
 ): Array<{ eventType?: string; payload?: Record<string, unknown>; timestamp?: string }> {
   const seen = new Set<string>();
-  const result: Array<{ eventType?: string; payload?: Record<string, unknown>; timestamp?: string }> = [];
+  const result: Array<{
+    eventType?: string;
+    payload?: Record<string, unknown>;
+    timestamp?: string;
+  }> = [];
   for (const state of states) {
     if (!state.eventType) continue;
     const key = `${state.timestamp ?? ""}:${state.eventType}:${JSON.stringify(state.payload ?? {})}`;
@@ -256,7 +328,9 @@ async function isApiHealthy(baseUrl: string): Promise<boolean> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 2500);
   try {
-    const response = await fetch(`${baseUrl.replace(/\/+$/, "")}/health`, { signal: controller.signal });
+    const response = await fetch(`${baseUrl.replace(/\/+$/, "")}/health`, {
+      signal: controller.signal,
+    });
     return response.ok;
   } catch {
     return false;
@@ -265,9 +339,14 @@ async function isApiHealthy(baseUrl: string): Promise<boolean> {
   }
 }
 
-async function resolveSyntheticLearnerApiBaseUrl(): Promise<{ baseUrl: string; fallbackUsed: boolean }> {
+async function resolveSyntheticLearnerApiBaseUrl(): Promise<{
+  baseUrl: string;
+  fallbackUsed: boolean;
+}> {
   const explicit = process.env.PUBLIC_API_BASE_URL?.trim() || undefined;
-  const candidates = Array.from(new Set([explicit, "http://localhost:4000", "http://api:4000"].filter(Boolean) as string[]));
+  const candidates = Array.from(
+    new Set([explicit, "http://localhost:4000", "http://api:4000"].filter(Boolean) as string[]),
+  );
   for (const candidate of candidates) {
     if (await isApiHealthy(candidate)) {
       return { baseUrl: candidate, fallbackUsed: Boolean(explicit && explicit !== candidate) };
@@ -290,11 +369,17 @@ async function main() {
     const regenerated = regenerateEvalSourceFixtureManifest({
       fixture: loadedMatrix.fixture,
       ...definedEnvOverride("generatedAt", process.env.SYNTHETIC_LEARNER_EVAL_GENERATED_AT),
-      ...definedEnvOverride("ingestionPipelineVersion", process.env.SYNTHETIC_LEARNER_EVAL_INGESTION_PIPELINE_VERSION),
+      ...definedEnvOverride(
+        "ingestionPipelineVersion",
+        process.env.SYNTHETIC_LEARNER_EVAL_INGESTION_PIPELINE_VERSION,
+      ),
       ...definedEnvOverride("schemaVersion", process.env.SYNTHETIC_LEARNER_EVAL_SCHEMA_VERSION),
       ...definedEnvOverride("modelProvider", process.env.SYNTHETIC_LEARNER_EVAL_MODEL_PROVIDER),
       ...definedEnvOverride("modelName", process.env.SYNTHETIC_LEARNER_EVAL_MODEL_NAME),
-      ...definedEnvOverride("sourceContentHash", process.env.SYNTHETIC_LEARNER_EVAL_SOURCE_CONTENT_HASH),
+      ...definedEnvOverride(
+        "sourceContentHash",
+        process.env.SYNTHETIC_LEARNER_EVAL_SOURCE_CONTENT_HASH,
+      ),
       notes: "Explicitly regenerated by the synthetic learner eval CLI.",
     });
     process.stdout.write(`${JSON.stringify(regenerated, null, 2)}\n`);
@@ -317,39 +402,56 @@ async function main() {
     throw new Error(`Fixture ${fixture.id} is stale: ${freshness.reasons.join("; ")}`);
   }
   if (freshness.status === "stale_warning") {
-    process.stderr.write(`WARNING: Fixture ${fixture.id} is stale: ${freshness.reasons.join("; ")}\n`);
+    process.stderr.write(
+      `WARNING: Fixture ${fixture.id} is stale: ${freshness.reasons.join("; ")}\n`,
+    );
   }
 
-  const api = createHttpSyntheticLearnerEvalApi(baseUrl, process.env.STUDYAGENT_API_COOKIE, args.freshnessMode);
+  const api = createHttpSyntheticLearnerEvalApi(
+    baseUrl,
+    process.env.STUDYAGENT_API_COOKIE,
+    args.freshnessMode,
+  );
   const simulatorModelConfig = resolveSyntheticLearnerModelConfig(process.env);
-  const syntheticLearnerModel = args.learnerMode === "scripted"
-    ? undefined
-    : createOpenAICompatibleSyntheticLearnerModelClient(simulatorModelConfig, process.env.SYNTHETIC_LEARNER_API_KEY ?? process.env.OPENROUTER_API_KEY);
-  const simulatorActions = args.learnerMode === "scenario_autonomous_llm" || args.learnerMode === "full_autonomous_llm"
-    ? createHttpSyntheticLearnerSimulatorActions(baseUrl, process.env.STUDYAGENT_API_COOKIE)
-    : undefined;
+  const syntheticLearnerModel =
+    args.learnerMode === "scripted"
+      ? undefined
+      : createOpenAICompatibleSyntheticLearnerModelClient(
+          simulatorModelConfig,
+          process.env.SYNTHETIC_LEARNER_API_KEY ?? process.env.OPENROUTER_API_KEY,
+        );
+  const simulatorActions =
+    args.learnerMode === "scenario_autonomous_llm" || args.learnerMode === "full_autonomous_llm"
+      ? createHttpSyntheticLearnerSimulatorActions(baseUrl, process.env.STUDYAGENT_API_COOKIE)
+      : undefined;
   const selectedScenarioIds = new Set(args.scenarioIds);
   const includeTraitScenarios = args.scenarioIds.some((id) => id.startsWith("scenario_trait_"));
   const matrix = buildSyntheticLearnerEvalMatrix({
     fixture,
-    personas: includeTraitScenarios ? syntheticLearnerTraitArchetypePersonas : loadedMatrix.personas,
+    personas: includeTraitScenarios
+      ? syntheticLearnerTraitArchetypePersonas
+      : loadedMatrix.personas,
     scenarios: includeTraitScenarios
       ? [
           ...loadedMatrix.scenarios,
-          ...syntheticLearnerTraitEstimationScenarios.filter((scenario) => selectedScenarioIds.has(scenario.id)),
+          ...syntheticLearnerTraitEstimationScenarios.filter((scenario) =>
+            selectedScenarioIds.has(scenario.id),
+          ),
         ]
       : loadedMatrix.scenarios,
   });
 
-  const selectedScenarios = matrix.scenarios.filter((scenario) =>
-    !args.scenarioIds.length || args.scenarioIds.includes(scenario.id),
+  const selectedScenarios = matrix.scenarios.filter(
+    (scenario) => !args.scenarioIds.length || args.scenarioIds.includes(scenario.id),
   );
-  const selectedPersonas = matrix.personas.filter((persona) =>
-    !args.personaIds.length || args.personaIds.includes(persona.id),
+  const selectedPersonas = matrix.personas.filter(
+    (persona) => !args.personaIds.length || args.personaIds.includes(persona.id),
   );
   const evalPlans: SyntheticLearnerEvalRunPlan[] = [];
   for (const scenario of selectedScenarios) {
-    for (const persona of selectedPersonas.filter((candidate) => scenario.personaIds.includes(candidate.id))) {
+    for (const persona of selectedPersonas.filter((candidate) =>
+      scenario.personaIds.includes(candidate.id),
+    )) {
       const plan = planSyntheticLearnerEvalRun({
         scenario,
         persona,
@@ -363,7 +465,10 @@ async function main() {
   }
 
   const runId = `slrun_${fixture.id}_${selectedPersonas.length}x${selectedScenarios.length}_${Date.now()}`;
-  const captureSnapshot = createHttpEvalEvidenceSnapshotClient(baseUrl, process.env.STUDYAGENT_API_COOKIE);
+  const captureSnapshot = createHttpEvalEvidenceSnapshotClient(
+    baseUrl,
+    process.env.STUDYAGENT_API_COOKIE,
+  );
   let persistedRunningRunIds = new Set<string>();
   const result = await runSyntheticLearnerEvalSuite({
     matrix,
@@ -381,8 +486,11 @@ async function main() {
       process.stdout.write(`${line}\n`);
     },
     writeObservation: async (event, run) => {
-      process.stdout.write(`OBS: ${JSON.stringify({ kind: event.kind, status: event.status ?? run.status, message: event.message })}\n`);
-      const notebookId = run.notebookRefs.find((ref) => ref.refType === "notebook")?.refId ?? run.seededNotebookId;
+      process.stdout.write(
+        `OBS: ${JSON.stringify({ kind: event.kind, status: event.status ?? run.status, message: event.message })}\n`,
+      );
+      const notebookId =
+        run.notebookRefs.find((ref) => ref.refType === "notebook")?.refId ?? run.seededNotebookId;
       const hasSeededNotebook = Boolean(notebookId && notebookId !== fixture.seededNotebookId);
       if (!persistedRunningRunIds.has(run.id)) {
         if (!hasSeededNotebook) return;
@@ -409,8 +517,11 @@ async function main() {
   process.stdout.write(`REPORT: ${result.runRecord.status} ${result.runRecord.id}\n`);
 }
 
-function definedEnvOverride<K extends string>(key: K, value: string | undefined): Partial<Record<K, string>> {
-  return value ? { [key]: value } as Record<K, string> : {};
+function definedEnvOverride<K extends string>(
+  key: K,
+  value: string | undefined,
+): Partial<Record<K, string>> {
+  return value ? ({ [key]: value } as Record<K, string>) : {};
 }
 
 function parseSyntheticLearnerEvalArgs(args: string[]): {
@@ -441,14 +552,31 @@ function parseSyntheticLearnerEvalArgs(args: string[]): {
       freshnessMode = value;
     }
     if (arg.startsWith("--scenario=")) {
-      scenarioIds.push(...arg.slice("--scenario=".length).split(",").map((value) => value.trim()).filter(Boolean));
+      scenarioIds.push(
+        ...arg
+          .slice("--scenario=".length)
+          .split(",")
+          .map((value) => value.trim())
+          .filter(Boolean),
+      );
     }
     if (arg.startsWith("--persona=")) {
-      personaIds.push(...arg.slice("--persona=".length).split(",").map((value) => value.trim()).filter(Boolean));
+      personaIds.push(
+        ...arg
+          .slice("--persona=".length)
+          .split(",")
+          .map((value) => value.trim())
+          .filter(Boolean),
+      );
     }
     if (arg.startsWith("--learner-mode=")) {
       const value = arg.slice("--learner-mode=".length);
-      if (value !== "scripted" && value !== "beat_llm" && value !== "scenario_autonomous_llm" && value !== "full_autonomous_llm") {
+      if (
+        value !== "scripted" &&
+        value !== "beat_llm" &&
+        value !== "scenario_autonomous_llm" &&
+        value !== "full_autonomous_llm"
+      ) {
         throw new Error(`Unsupported learner mode: ${value}`);
       }
       learnerMode = value;
@@ -464,13 +592,23 @@ function parseSyntheticLearnerEvalArgs(args: string[]): {
   if (learnerMode === "full_autonomous_llm" && !autonomyStartProfile) {
     autonomyStartProfile = "naive_entry";
   }
-  return { freshnessMode, regenerateFixture, scenarioIds, personaIds, learnerMode, ...(autonomyStartProfile ? { autonomyStartProfile } : {}) };
+  return {
+    freshnessMode,
+    regenerateFixture,
+    scenarioIds,
+    personaIds,
+    learnerMode,
+    ...(autonomyStartProfile ? { autonomyStartProfile } : {}),
+  };
 }
 
 function resolveSyntheticLearnerModelConfig(env: NodeJS.ProcessEnv): SyntheticLearnerModelConfig {
   const model = env.SYNTHETIC_LEARNER_MODEL ?? env.OPENROUTER_MODEL ?? "openai/gpt-4.1-mini";
-  const baseUrl = env.SYNTHETIC_LEARNER_BASE_URL ?? env.OPENROUTER_BASE_URL ?? "https://openrouter.ai/api/v1";
-  const temperature = env.SYNTHETIC_LEARNER_TEMPERATURE ? Number(env.SYNTHETIC_LEARNER_TEMPERATURE) : 0.2;
+  const baseUrl =
+    env.SYNTHETIC_LEARNER_BASE_URL ?? env.OPENROUTER_BASE_URL ?? "https://openrouter.ai/api/v1";
+  const temperature = env.SYNTHETIC_LEARNER_TEMPERATURE
+    ? Number(env.SYNTHETIC_LEARNER_TEMPERATURE)
+    : 0.2;
   const maxActionRepairAttempts = env.SYNTHETIC_LEARNER_MAX_ACTION_REPAIR_ATTEMPTS
     ? Number.parseInt(env.SYNTHETIC_LEARNER_MAX_ACTION_REPAIR_ATTEMPTS, 10)
     : 2;
@@ -503,22 +641,33 @@ function createOpenAICompatibleSyntheticLearnerModelClient(
         temperature: config.temperature,
         response_format: { type: "json_object" },
         messages: [
-          { role: "system", content: "Return only valid JSON for the Synthetic Learner simulator." },
+          {
+            role: "system",
+            content: "Return only valid JSON for the Synthetic Learner simulator.",
+          },
           { role: "user", content: prompt },
         ],
       }),
     });
     if (!response.ok) {
-      throw new Error(`Synthetic Learner model request failed (${response.status}): ${await response.text()}`);
+      throw new Error(
+        `Synthetic Learner model request failed (${response.status}): ${await response.text()}`,
+      );
     }
-    const payload = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
+    const payload = (await response.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
     const content = payload.choices?.[0]?.message?.content;
     if (!content) throw new Error("Synthetic Learner model response did not include content.");
     return JSON.parse(content);
   }
   return {
     async generateActionDecision(input) {
-      return completeJson(input.repairFeedback ? `${input.prompt}\n\nRepair feedback: ${input.repairFeedback}` : input.prompt);
+      return completeJson(
+        input.repairFeedback
+          ? `${input.prompt}\n\nRepair feedback: ${input.repairFeedback}`
+          : input.prompt,
+      );
     },
     async generateLearnerResponse(input) {
       return syntheticLearnerLearnerResponseSchema.parse(await completeJson(input.prompt));
@@ -526,7 +675,10 @@ function createOpenAICompatibleSyntheticLearnerModelClient(
   };
 }
 
-function createHttpSyntheticLearnerSimulatorActions(baseUrl: string, cookie?: string): SyntheticLearnerSimulatorActions {
+function createHttpSyntheticLearnerSimulatorActions(
+  baseUrl: string,
+  cookie?: string,
+): SyntheticLearnerSimulatorActions {
   const headers = {
     ...(cookie ? { cookie } : {}),
     "content-type": "application/json",
@@ -535,25 +687,45 @@ function createHttpSyntheticLearnerSimulatorActions(baseUrl: string, cookie?: st
   return {
     async execute({ notebookId, decision }): Promise<SyntheticLearnerActionObservation> {
       if (decision.action === "session.finish") {
-        return { action: decision.action, status: "finished", summary: decision.finishReason ?? "Synthetic Learner finished the session.", data: {}, evidenceRefs: [] };
+        return {
+          action: decision.action,
+          status: "finished",
+          summary: decision.finishReason ?? "Synthetic Learner finished the session.",
+          data: {},
+          evidenceRefs: [],
+        };
       }
       if (decision.action === "artifact.list") {
-        const response = await fetch(`${baseUrl}/api/v1/notebooks/${encodeURIComponent(notebookId)}/artifacts`, { headers });
-        if (!response.ok) return failedObservation(decision, `artifact.list failed (${response.status})`);
-        const payload = await response.json() as { artifacts?: Array<{ id: string; title: string; artifactType: string; status: string }> };
+        const response = await fetch(
+          `${baseUrl}/api/v1/notebooks/${encodeURIComponent(notebookId)}/artifacts`,
+          { headers },
+        );
+        if (!response.ok)
+          return failedObservation(decision, `artifact.list failed (${response.status})`);
+        const payload = (await response.json()) as {
+          artifacts?: Array<{ id: string; title: string; artifactType: string; status: string }>;
+        };
         return {
           action: decision.action,
           status: "ok",
           summary: `Listed ${payload.artifacts?.length ?? 0} learner-visible artifacts.`,
           data: { artifacts: payload.artifacts ?? [], count: payload.artifacts?.length ?? 0 },
-          evidenceRefs: (payload.artifacts ?? []).map((artifact) => ({ refType: "artifact" as const, refId: artifact.id })),
+          evidenceRefs: (payload.artifacts ?? []).map((artifact) => ({
+            refType: "artifact" as const,
+            refId: artifact.id,
+          })),
         };
       }
       if (decision.action === "artifact.view") {
-        if (!decision.artifactId) return failedObservation(decision, "artifact.view requires artifactId.");
-        const response = await fetch(`${baseUrl}/api/v1/notebooks/${encodeURIComponent(notebookId)}/artifacts/${encodeURIComponent(decision.artifactId)}`, { headers });
-        if (!response.ok) return failedObservation(decision, `artifact.view failed (${response.status})`);
-        const payload = await response.json() as { artifact?: unknown };
+        if (!decision.artifactId)
+          return failedObservation(decision, "artifact.view requires artifactId.");
+        const response = await fetch(
+          `${baseUrl}/api/v1/notebooks/${encodeURIComponent(notebookId)}/artifacts/${encodeURIComponent(decision.artifactId)}`,
+          { headers },
+        );
+        if (!response.ok)
+          return failedObservation(decision, `artifact.view failed (${response.status})`);
+        const payload = (await response.json()) as { artifact?: unknown };
         return {
           action: decision.action,
           status: "ok",
@@ -564,7 +736,10 @@ function createHttpSyntheticLearnerSimulatorActions(baseUrl: string, cookie?: st
       }
       if (decision.action === "quiz.answer") {
         if (!decision.artifactId || !decision.questionId || !decision.answer) {
-          return failedObservation(decision, "quiz.answer requires artifactId, questionId, and answer.");
+          return failedObservation(
+            decision,
+            "quiz.answer requires artifactId, questionId, and answer.",
+          );
         }
         const { buildQuizAnswerSubmittedEnvelope } = await import("@studyagent/schemas");
         const surfaceResponse = await fetch(
@@ -572,9 +747,13 @@ function createHttpSyntheticLearnerSimulatorActions(baseUrl: string, cookie?: st
           { headers },
         );
         if (!surfaceResponse.ok) {
-          return failedObservation(decision, `quiz.answer reference-surface failed (${surfaceResponse.status})`);
+          return failedObservation(
+            decision,
+            `quiz.answer reference-surface failed (${surfaceResponse.status})`,
+          );
         }
-        const surface = (await surfaceResponse.json()) as import("@studyagent/schemas").ReferenceSurface;
+        const surface =
+          (await surfaceResponse.json()) as import("@studyagent/schemas").ReferenceSurface;
         const envelope = buildQuizAnswerSubmittedEnvelope({
           notebookId,
           surface,
@@ -593,7 +772,8 @@ function createHttpSyntheticLearnerSimulatorActions(baseUrl: string, cookie?: st
             body: JSON.stringify(envelope),
           },
         );
-        if (!response.ok) return failedObservation(decision, `quiz.answer failed (${response.status})`);
+        if (!response.ok)
+          return failedObservation(decision, `quiz.answer failed (${response.status})`);
         const payload = (await response.json()) as { attemptId?: string };
         return {
           action: decision.action,
@@ -618,15 +798,26 @@ function createHttpSyntheticLearnerSimulatorActions(baseUrl: string, cookie?: st
             confusion: decision.confusion,
             sourceGrounding: decision.sourceGrounding,
           },
-          evidenceRefs: decision.artifactId ? [{ refType: "artifact", refId: decision.artifactId }] : [],
+          evidenceRefs: decision.artifactId
+            ? [{ refType: "artifact", refId: decision.artifactId }]
+            : [],
         };
       }
-      return { action: decision.action, status: "ok", summary: "Chat response selected.", data: {}, evidenceRefs: [] };
+      return {
+        action: decision.action,
+        status: "ok",
+        summary: "Chat response selected.",
+        data: {},
+        evidenceRefs: [],
+      };
     },
   };
 }
 
-function failedObservation(decision: SyntheticLearnerActionDecision, summary: string): SyntheticLearnerActionObservation {
+function failedObservation(
+  decision: SyntheticLearnerActionDecision,
+  summary: string,
+): SyntheticLearnerActionObservation {
   return {
     action: decision.action,
     status: "failed",
@@ -636,7 +827,11 @@ function failedObservation(decision: SyntheticLearnerActionDecision, summary: st
   };
 }
 
-async function persistSyntheticLearnerEvalRun(baseUrl: string, cookie: string | undefined, run: unknown): Promise<void> {
+async function persistSyntheticLearnerEvalRun(
+  baseUrl: string,
+  cookie: string | undefined,
+  run: unknown,
+): Promise<void> {
   const response = await fetch(`${baseUrl}/api/v1/eval/runs`, {
     method: "POST",
     headers: {
@@ -661,7 +856,9 @@ function createHttpEvalEvidenceSnapshotClient(baseUrl: string, cookie?: string) 
       { headers },
     );
     if (!response.ok) {
-      throw new Error(`Failed to capture eval evidence snapshot (${response.status}): ${await response.text()}`);
+      throw new Error(
+        `Failed to capture eval evidence snapshot (${response.status}): ${await response.text()}`,
+      );
     }
     const payload = (await response.json()) as { snapshot: unknown };
     return evalEvidenceSnapshotSchema.parse(payload.snapshot);
@@ -671,7 +868,9 @@ function createHttpEvalEvidenceSnapshotClient(baseUrl: string, cookie?: string) 
 async function patchSyntheticLearnerEvalRun(
   baseUrl: string,
   cookie: string | undefined,
-  run: SyntheticLearnerEvalRunRecord | Pick<SyntheticLearnerEvalRunRecord, "id" | "status" | "observationEvents">,
+  run:
+    | SyntheticLearnerEvalRunRecord
+    | Pick<SyntheticLearnerEvalRunRecord, "id" | "status" | "observationEvents">,
 ): Promise<void> {
   const response = await fetch(`${baseUrl}/api/v1/eval/runs/${encodeURIComponent(run.id)}`, {
     method: "PATCH",

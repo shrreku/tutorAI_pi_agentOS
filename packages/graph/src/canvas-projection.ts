@@ -3,7 +3,12 @@ import { learnerVisibleRelationLabel } from "@studyagent/schemas";
 import { deriveSourceWikiTopicAnchors } from "./source-wiki-topics.js";
 
 export type RawNeo4jCanvasNode = { id: string; labels: string[]; props: Record<string, unknown> };
-export type RawNeo4jCanvasEdge = { type: string; startId: string; endId: string; props: Record<string, unknown> };
+export type RawNeo4jCanvasEdge = {
+  type: string;
+  startId: string;
+  endId: string;
+  props: Record<string, unknown>;
+};
 
 export function normalizeNeo4jCanvasNodes(raw: RawNeo4jCanvasNode[]): GraphCanvasNode[] {
   return raw.map((n) => ({
@@ -34,7 +39,10 @@ function normalizeNodeLabel(label: string): string {
     .toLowerCase();
 }
 
-export function normalizeNeo4jCanvasEdges(raw: RawNeo4jCanvasEdge[], existingIds: Set<string>): GraphCanvasEdge[] {
+export function normalizeNeo4jCanvasEdges(
+  raw: RawNeo4jCanvasEdge[],
+  existingIds: Set<string>,
+): GraphCanvasEdge[] {
   return raw
     .map((e, idx) => ({
       id: `${e.startId}-${e.endId}-${e.type}-${idx}`,
@@ -55,7 +63,9 @@ export function buildSourceWikiTopicProjection(input: {
   nodes: GraphCanvasNode[];
   edges: GraphCanvasEdge[];
 }): GraphQueryResponse {
-  const sourceNode = input.nodes.find((node) => node.nodeType === "source" && node.id === input.sourceId);
+  const sourceNode = input.nodes.find(
+    (node) => node.nodeType === "source" && node.id === input.sourceId,
+  );
   if (!sourceNode) {
     return {
       name: "source_wiki_map",
@@ -130,14 +140,23 @@ export function buildSourceWikiTopicProjection(input: {
   };
 }
 
-function pushProjectionEdge(edges: GraphCanvasEdge[], seenEdgeIds: Set<string>, edge: GraphCanvasEdge): void {
+function pushProjectionEdge(
+  edges: GraphCanvasEdge[],
+  seenEdgeIds: Set<string>,
+  edge: GraphCanvasEdge,
+): void {
   if (seenEdgeIds.has(edge.id)) return;
   seenEdgeIds.add(edge.id);
   edges.push(edge);
 }
 
 function slugTopicKey(topic: string): string {
-  return topic.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "ungrouped";
+  return (
+    topic
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "") || "ungrouped"
+  );
 }
 
 function topicFromHeadingPath(props: Record<string, unknown>): string {

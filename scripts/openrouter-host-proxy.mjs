@@ -10,7 +10,10 @@ import { URL } from "node:url";
 
 const listenHost = process.env.OPENROUTER_HOST_PROXY_HOST ?? "127.0.0.1";
 const listenPort = Number(process.env.OPENROUTER_HOST_PROXY_PORT ?? 8787);
-const targetOrigin = (process.env.OPENROUTER_PROXY_TARGET ?? "https://openrouter.ai").replace(/\/+$/, "");
+const targetOrigin = (process.env.OPENROUTER_PROXY_TARGET ?? "https://openrouter.ai").replace(
+  /\/+$/,
+  "",
+);
 
 function forwardRequest(clientReq, clientRes) {
   const incomingPath = clientReq.url ?? "/";

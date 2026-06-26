@@ -38,7 +38,11 @@ import { requireLearner } from "../hosted-beta/learner-gate.js";
 import { requireOwnedNotebook } from "../hosted-beta/notebook-context.js";
 import { sendAuthOrEntitlementError } from "../hosted-beta/entitlements.js";
 import type { GraphCanvasNode, GraphCanvasEdge } from "@studyagent/schemas";
-import { buildNodeEvidence, buildReferenceSurface as buildReferenceSurfaceModule, readablePlanningSummary } from "../reference-surface.js";
+import {
+  buildNodeEvidence,
+  buildReferenceSurface as buildReferenceSurfaceModule,
+  readablePlanningSummary,
+} from "../reference-surface.js";
 import { buildSourceWikiReadModel, buildStudyMapReadModel } from "../workspace-read-model.js";
 
 const graphQueryBodySchema = z.discriminatedUnion("name", [
@@ -67,7 +71,11 @@ const graphQueryBodySchema = z.discriminatedUnion("name", [
 ]);
 
 export async function registerGraphRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
-  async function requireRouteOwnedNotebook(request: import("fastify").FastifyRequest, reply: import("fastify").FastifyReply, notebookId: string) {
+  async function requireRouteOwnedNotebook(
+    request: import("fastify").FastifyRequest,
+    reply: import("fastify").FastifyReply,
+    notebookId: string,
+  ) {
     try {
       const { actor } = await requireLearner(ctx, request);
       const owned = await requireOwnedNotebook(ctx, actor.id, notebookId);
@@ -78,63 +86,58 @@ export async function registerGraphRoutes(app: FastifyInstance, ctx: AppContext)
     }
   }
 
-    // Save or update node layout positions (persisted to whiteboard_nodes)
-    app.post<{
-      Params: { notebookId: string; nodeId: string };
-      Body: { position: { x: number; y: number }; nodeType?: string; refType?: string };
-    }>(
-      "/notebooks/:notebookId/graph/layout/:nodeId",
-      async (request, reply) => {
-        const { notebookId, nodeId } = request.params;
-        const routeCtx = await requireRouteOwnedNotebook(request, reply, notebookId);
-        if (!routeCtx) return;
-        const { position, nodeType = "unknown", refType = "whiteboard_node" } = request.body;
+  // Save or update node layout positions (persisted to whiteboard_nodes)
+  app.post<{
+    Params: { notebookId: string; nodeId: string };
+    Body: { position: { x: number; y: number }; nodeType?: string; refType?: string };
+  }>("/notebooks/:notebookId/graph/layout/:nodeId", async (request, reply) => {
+    const { notebookId, nodeId } = request.params;
+    const routeCtx = await requireRouteOwnedNotebook(request, reply, notebookId);
+    if (!routeCtx) return;
+    const { position, nodeType = "unknown", refType = "whiteboard_node" } = request.body;
 
-        const existing = await ctx.db.db
-          .select()
-          .from(whiteboardNodes)
-          .where(and(eq(whiteboardNodes.notebookId, notebookId), eq(whiteboardNodes.refId, nodeId)))
-          .limit(1);
+    const existing = await ctx.db.db
+      .select()
+      .from(whiteboardNodes)
+      .where(and(eq(whiteboardNodes.notebookId, notebookId), eq(whiteboardNodes.refId, nodeId)))
+      .limit(1);
 
-        if (existing.length > 0 && existing[0]) {
-          await ctx.db.db
-            .update(whiteboardNodes)
-            .set({ positionJson: position })
-            .where(eq(whiteboardNodes.id, existing[0].id));
-        } else {
-          await ctx.db.db.insert(whiteboardNodes).values({
-            id: `wbn_${nodeId}`,
-            notebookId,
-            nodeType,
-            refType,
-            refId: nodeId,
-            positionJson: position,
-            layoutJson: {},
-            metadataJson: {},
-          });
-        }
+    if (existing.length > 0 && existing[0]) {
+      await ctx.db.db
+        .update(whiteboardNodes)
+        .set({ positionJson: position })
+        .where(eq(whiteboardNodes.id, existing[0].id));
+    } else {
+      await ctx.db.db.insert(whiteboardNodes).values({
+        id: `wbn_${nodeId}`,
+        notebookId,
+        nodeType,
+        refType,
+        refId: nodeId,
+        positionJson: position,
+        layoutJson: {},
+        metadataJson: {},
+      });
+    }
 
-        return reply.send({ ok: true, nodeId, position });
-      },
-    );
+    return reply.send({ ok: true, nodeId, position });
+  });
 
-    // Delete all persisted layout positions for a notebook (reset to auto-layout)
-    app.delete<{ Params: { notebookId: string } }>(
-      "/notebooks/:notebookId/graph/layout",
-      async (request, reply) => {
-        const { notebookId } = request.params;
-        const routeCtx = await requireRouteOwnedNotebook(request, reply, notebookId);
-        if (!routeCtx) return;
-        const { actor } = routeCtx;
-        const contentNotebookId = routeCtx.owned.contentNotebookId;
+  // Delete all persisted layout positions for a notebook (reset to auto-layout)
+  app.delete<{ Params: { notebookId: string } }>(
+    "/notebooks/:notebookId/graph/layout",
+    async (request, reply) => {
+      const { notebookId } = request.params;
+      const routeCtx = await requireRouteOwnedNotebook(request, reply, notebookId);
+      if (!routeCtx) return;
+      const { actor } = routeCtx;
+      const contentNotebookId = routeCtx.owned.contentNotebookId;
 
-        await ctx.db.db
-          .delete(whiteboardNodes)
-          .where(eq(whiteboardNodes.notebookId, notebookId));
+      await ctx.db.db.delete(whiteboardNodes).where(eq(whiteboardNodes.notebookId, notebookId));
 
-        return reply.send({ ok: true, notebookId });
-      },
-    );
+      return reply.send({ ok: true, notebookId });
+    },
+  );
 
   // Get persisted layout positions for a notebook
   app.get<{ Params: { notebookId: string } }>(
@@ -175,7 +178,11 @@ export async function registerGraphRoutes(app: FastifyInstance, ctx: AppContext)
         return reply.status(503).send({ ok: false, message: "Neo4j credentials not configured" });
       }
 
-      const driver = createNeo4jDriver(ctx.env.NEO4J_URI, ctx.env.NEO4J_USERNAME, ctx.env.NEO4J_PASSWORD);
+      const driver = createNeo4jDriver(
+        ctx.env.NEO4J_URI,
+        ctx.env.NEO4J_USERNAME,
+        ctx.env.NEO4J_PASSWORD,
+      );
       const session = driver.session();
       try {
         const result = await verifyNeo4jProjection(session);
@@ -200,7 +207,9 @@ export async function registerGraphRoutes(app: FastifyInstance, ctx: AppContext)
       const contentNotebookId = routeCtx.owned.contentNotebookId;
 
       if (!ctx.env.NEO4J_URI || !ctx.env.NEO4J_PASSWORD) {
-        return reply.status(503).send({ code: "graph_unavailable", message: "Neo4j not configured" });
+        return reply
+          .status(503)
+          .send({ code: "graph_unavailable", message: "Neo4j not configured" });
       }
 
       const parsed = graphQueryBodySchema.safeParse(request.body);
@@ -208,7 +217,11 @@ export async function registerGraphRoutes(app: FastifyInstance, ctx: AppContext)
         return reply.status(400).send({ code: "bad_request", message: parsed.error.flatten() });
       }
 
-      const driver = createNeo4jDriver(ctx.env.NEO4J_URI, ctx.env.NEO4J_USERNAME, ctx.env.NEO4J_PASSWORD);
+      const driver = createNeo4jDriver(
+        ctx.env.NEO4J_URI,
+        ctx.env.NEO4J_USERNAME,
+        ctx.env.NEO4J_PASSWORD,
+      );
       const session = driver.session();
       try {
         const body = parsed.data;
@@ -217,15 +230,27 @@ export async function registerGraphRoutes(app: FastifyInstance, ctx: AppContext)
           const nodes = normalizeNeo4jCanvasNodes(data.nodes);
           const nodeIds = new Set(nodes.map((n) => n.id));
           const base = { nodes, edges: normalizeNeo4jCanvasEdges(data.edges, nodeIds) };
-          const projectionHealth = await loadNotebookProjectionHealth(ctx.db, contentNotebookId, body.devMode);
+          const projectionHealth = await loadNotebookProjectionHealth(
+            ctx.db,
+            contentNotebookId,
+            body.devMode,
+          );
           const projectionWarning =
             projectionHealth.learnerWarning ??
-            (base.nodes.length === 0 ? "Study Map is still building. Uploaded sources may still be processing." : null);
-          const readModelPayload = await buildStudyMapReadModel(ctx, contentNotebookId, actor.id, base, {
-            devMode: body.devMode,
-            projectionWarning,
-            projectionHealth,
-          });
+            (base.nodes.length === 0
+              ? "Study Map is still building. Uploaded sources may still be processing."
+              : null);
+          const readModelPayload = await buildStudyMapReadModel(
+            ctx,
+            contentNotebookId,
+            actor.id,
+            base,
+            {
+              devMode: body.devMode,
+              projectionWarning,
+              projectionHealth,
+            },
+          );
           const { nodes: visibleNodes, edges: visibleEdges, ...readModel } = readModelPayload;
           return reply.send({
             name: body.name,
@@ -236,12 +261,29 @@ export async function registerGraphRoutes(app: FastifyInstance, ctx: AppContext)
           });
         }
         if (body.name === "source_wiki_map") {
-          const data = await querySourceWikiMapSimple(session, contentNotebookId, body.sourceId, body.limit);
-          const nodes = normalizeNeo4jCanvasNodes(data.nodes).filter((node) => node.nodeType !== "claim");
+          const data = await querySourceWikiMapSimple(
+            session,
+            contentNotebookId,
+            body.sourceId,
+            body.limit,
+          );
+          const nodes = normalizeNeo4jCanvasNodes(data.nodes).filter(
+            (node) => node.nodeType !== "claim",
+          );
           const nodeIds = new Set(nodes.map((n) => n.id));
           const edges = normalizeNeo4jCanvasEdges(data.edges, nodeIds);
-          const projected = buildSourceWikiTopicProjection({ notebookId, sourceId: body.sourceId, nodes, edges });
-          const projectionHealth = await loadSourceProjectionHealth(ctx.db, contentNotebookId, body.sourceId, body.devMode);
+          const projected = buildSourceWikiTopicProjection({
+            notebookId,
+            sourceId: body.sourceId,
+            nodes,
+            edges,
+          });
+          const projectionHealth = await loadSourceProjectionHealth(
+            ctx.db,
+            contentNotebookId,
+            body.sourceId,
+            body.devMode,
+          );
           const projectionWarning =
             projectionHealth.learnerWarning ??
             (projected.nodes.length <= 1 ? "Source Wiki is still building for this source." : null);
@@ -264,18 +306,40 @@ export async function registerGraphRoutes(app: FastifyInstance, ctx: AppContext)
           });
         }
         if (body.name === "concept_neighborhood") {
-          const nb = await queryConceptNeighborhood(session, contentNotebookId, body.conceptId, body.limit);
+          const nb = await queryConceptNeighborhood(
+            session,
+            contentNotebookId,
+            body.conceptId,
+            body.limit,
+          );
           // Flatten neighborhood into canvas nodes+edges
           const rawNodes: GraphCanvasNode[] = [];
-          const makeNode = (id: string, label: string, nodeType: string, title: string): GraphCanvasNode => ({
-            id, nodeType, labels: [label], properties: { title },
+          const makeNode = (
+            id: string,
+            label: string,
+            nodeType: string,
+            title: string,
+          ): GraphCanvasNode => ({
+            id,
+            nodeType,
+            labels: [label],
+            properties: { title },
           });
-          if (nb.center) rawNodes.push(makeNode(nb.center.id, "Concept", "concept", nb.center.name));
-          nb.prerequisites.forEach((n) => rawNodes.push(makeNode(n.id, "Concept", "concept", n.name)));
+          if (nb.center)
+            rawNodes.push(makeNode(nb.center.id, "Concept", "concept", nb.center.name));
+          nb.prerequisites.forEach((n) =>
+            rawNodes.push(makeNode(n.id, "Concept", "concept", n.name)),
+          );
           nb.examples.forEach((n) => rawNodes.push(makeNode(n.id, "Concept", "concept", n.name)));
-          nb.contradicts.forEach((n) => rawNodes.push(makeNode(n.id, "Concept", "concept", n.name)));
-          nb.wikiPages.forEach((n) => rawNodes.push(makeNode(n.id, "WikiPage", "wiki_page", n.title)));
-          nb.artifacts.forEach((n) => rawNodes.push(makeNode(n.id, "Artifact", "artifact", n.title)));
+          nb.contradicts.forEach((n) =>
+            rawNodes.push(makeNode(n.id, "Concept", "concept", n.name)),
+          );
+          nb.wikiPages.forEach((n) =>
+            rawNodes.push(makeNode(n.id, "WikiPage", "wiki_page", n.title)),
+          );
+          nb.artifacts.forEach((n) =>
+            rawNodes.push(makeNode(n.id, "Artifact", "artifact", n.title)),
+          );
           const visibleIds = new Set(rawNodes.map((n) => n.id));
           const canvasEdges = nb.edges
             .filter((e) => visibleIds.has(e.startId) && visibleIds.has(e.endId))
@@ -286,7 +350,13 @@ export async function registerGraphRoutes(app: FastifyInstance, ctx: AppContext)
               relationType: e.type,
               properties: {} as Record<string, unknown>,
             }));
-          return reply.send({ name: body.name, notebookId, conceptId: body.conceptId, nodes: rawNodes, edges: canvasEdges });
+          return reply.send({
+            name: body.name,
+            notebookId,
+            conceptId: body.conceptId,
+            nodes: rawNodes,
+            edges: canvasEdges,
+          });
         }
         const pathResult = await queryConceptShortestPath(
           session,
@@ -297,7 +367,10 @@ export async function registerGraphRoutes(app: FastifyInstance, ctx: AppContext)
         );
         // Build minimal canvas nodes from nodeIds (just IDs, no titles in path result)
         const pathNodes: GraphCanvasNode[] = pathResult.nodeIds.map((id) => ({
-          id, nodeType: "concept", labels: ["Concept"], properties: { title: "Concept needs review", needsReview: true },
+          id,
+          nodeType: "concept",
+          labels: ["Concept"],
+          properties: { title: "Concept needs review", needsReview: true },
         }));
         const pathEdges = pathResult.nodeIds.slice(0, -1).map((id, idx) => ({
           id: `path-${idx}`,
@@ -330,7 +403,10 @@ export async function registerGraphRoutes(app: FastifyInstance, ctx: AppContext)
       const { actor } = routeCtx;
       const contentNotebookId = routeCtx.owned.contentNotebookId;
 
-      const devMode = typeof request.query === "object" && request.query !== null && (request.query as Record<string, unknown>).devMode === "true";
+      const devMode =
+        typeof request.query === "object" &&
+        request.query !== null &&
+        (request.query as Record<string, unknown>).devMode === "true";
       return reply.send(await buildNodeEvidence(ctx, contentNotebookId, nodeId, { devMode }));
     },
   );
@@ -344,7 +420,9 @@ export async function registerGraphRoutes(app: FastifyInstance, ctx: AppContext)
       const { actor } = routeCtx;
       const contentNotebookId = routeCtx.owned.contentNotebookId;
 
-      const surface = await buildReferenceSurfaceModule(ctx, contentNotebookId, nodeId, { userId: actor.id });
+      const surface = await buildReferenceSurfaceModule(ctx, contentNotebookId, nodeId, {
+        userId: actor.id,
+      });
       return reply.send(surface);
     },
   );
@@ -352,26 +430,25 @@ export async function registerGraphRoutes(app: FastifyInstance, ctx: AppContext)
   app.post<{
     Params: { notebookId: string; nodeId: string };
     Body: { target?: string; instruction?: string };
-  }>(
-    "/notebooks/:notebookId/nodes/:nodeId/regenerate-reference",
-    async (request, reply) => {
-      const { notebookId, nodeId } = request.params;
-      const routeCtx = await requireRouteOwnedNotebook(request, reply, notebookId);
-      if (!routeCtx) return;
-      const { actor } = routeCtx;
-      const contentNotebookId = routeCtx.owned.contentNotebookId;
+  }>("/notebooks/:notebookId/nodes/:nodeId/regenerate-reference", async (request, reply) => {
+    const { notebookId, nodeId } = request.params;
+    const routeCtx = await requireRouteOwnedNotebook(request, reply, notebookId);
+    if (!routeCtx) return;
+    const { actor } = routeCtx;
+    const contentNotebookId = routeCtx.owned.contentNotebookId;
 
-      const instruction =
-        typeof request.body?.instruction === "string" && request.body.instruction.trim()
-          ? request.body.instruction.trim().slice(0, 2000)
-          : "";
-      const result = await regenerateReferenceSurface(ctx, notebookId, nodeId, instruction);
-      if (!result) {
-        return reply.status(404).send({ code: "not_found", message: "Regeneratable page or artifact not found" });
-      }
-      return reply.send(result);
-    },
-  );
+    const instruction =
+      typeof request.body?.instruction === "string" && request.body.instruction.trim()
+        ? request.body.instruction.trim().slice(0, 2000)
+        : "";
+    const result = await regenerateReferenceSurface(ctx, notebookId, nodeId, instruction);
+    if (!result) {
+      return reply
+        .status(404)
+        .send({ code: "not_found", message: "Regeneratable page or artifact not found" });
+    }
+    return reply.send(result);
+  });
 
   app.get<{ Params: { notebookId: string } }>(
     "/notebooks/:notebookId/curriculum-outline",
@@ -387,7 +464,12 @@ export async function registerGraphRoutes(app: FastifyInstance, ctx: AppContext)
   );
 }
 
-async function regenerateReferenceSurface(ctx: AppContext, notebookId: string, nodeId: string, instruction: string): Promise<{ ok: true; kind: string; id: string } | null> {
+async function regenerateReferenceSurface(
+  ctx: AppContext,
+  notebookId: string,
+  nodeId: string,
+  instruction: string,
+): Promise<{ ok: true; kind: string; id: string } | null> {
   const now = new Date();
   const [artifact] = await ctx.db.db
     .select()
@@ -399,7 +481,8 @@ async function regenerateReferenceSurface(ctx: AppContext, notebookId: string, n
     const generated = await generateStudyMarkdown(ctx, {
       title: artifact.title,
       kind: `artifact:${artifact.artifactType}`,
-      currentMarkdown: typeof artifact.payloadJson?.markdown === "string" ? artifact.payloadJson.markdown : "",
+      currentMarkdown:
+        typeof artifact.payloadJson?.markdown === "string" ? artifact.payloadJson.markdown : "",
       sourceText,
       instruction,
     });
@@ -418,7 +501,11 @@ async function regenerateReferenceSurface(ctx: AppContext, notebookId: string, n
     await appendEvent(ctx.db, {
       notebookId,
       eventType: "artifact.updated",
-      payload: { artifactId: artifact.id, artifactType: artifact.artifactType, trigger: "reference_surface_regenerate" },
+      payload: {
+        artifactId: artifact.id,
+        artifactType: artifact.artifactType,
+        trigger: "reference_surface_regenerate",
+      },
     });
     return { ok: true, kind: "artifact", id: artifact.id };
   }
@@ -444,7 +531,12 @@ async function regenerateReferenceSurface(ctx: AppContext, notebookId: string, n
         status: "published",
         version: page.version + 1,
         qualityScore: 0.82,
-        structuredJson: { ...(page.structuredJson ?? {}), regeneratedMode: generated.mode, regeneratedAt: now.toISOString(), regeneratedBy: "reference_surface_regenerate" },
+        structuredJson: {
+          ...(page.structuredJson ?? {}),
+          regeneratedMode: generated.mode,
+          regeneratedAt: now.toISOString(),
+          regeneratedBy: "reference_surface_regenerate",
+        },
         updatedAt: now,
       })
       .where(and(eq(wikiPages.id, page.id), eq(wikiPages.notebookId, notebookId)));
@@ -463,9 +555,19 @@ async function regenerateReferenceSurface(ctx: AppContext, notebookId: string, n
     .limit(1);
   if (curriculum) {
     const moduleRows = await ctx.db.db
-      .select({ title: curriculumModules.title, summary: curriculumModules.summary, status: curriculumModules.status, orderIndex: curriculumModules.orderIndex })
+      .select({
+        title: curriculumModules.title,
+        summary: curriculumModules.summary,
+        status: curriculumModules.status,
+        orderIndex: curriculumModules.orderIndex,
+      })
       .from(curriculumModules)
-      .where(and(eq(curriculumModules.notebookId, notebookId), eq(curriculumModules.curriculumId, curriculum.id)))
+      .where(
+        and(
+          eq(curriculumModules.notebookId, notebookId),
+          eq(curriculumModules.curriculumId, curriculum.id),
+        ),
+      )
       .orderBy(asc(curriculumModules.orderIndex))
       .limit(16);
     const currentMarkdown = [
@@ -474,7 +576,9 @@ async function regenerateReferenceSurface(ctx: AppContext, notebookId: string, n
       typeof curriculum.scopeJson?.summary === "string" ? curriculum.scopeJson.summary : "",
       "",
       "## Current modules",
-      ...moduleRows.map((row) => `- ${row.title}: ${readablePlanningSummary(row.summary, row.title) ?? row.status}`),
+      ...moduleRows.map(
+        (row) => `- ${row.title}: ${readablePlanningSummary(row.summary, row.title) ?? row.status}`,
+      ),
     ].join("\n");
     const generated = await generateStudyMarkdown(ctx, {
       title: curriculum.title,
@@ -487,7 +591,14 @@ async function regenerateReferenceSurface(ctx: AppContext, notebookId: string, n
     await ctx.db.db
       .update(curricula)
       .set({
-        scopeJson: { ...(curriculum.scopeJson ?? {}), summary: firstParagraph(markdown), regeneratedMarkdown: markdown, regeneratedMode: generated.mode, regeneratedAt: now.toISOString(), regeneratedBy: "reference_surface_regenerate" },
+        scopeJson: {
+          ...(curriculum.scopeJson ?? {}),
+          summary: firstParagraph(markdown),
+          regeneratedMarkdown: markdown,
+          regeneratedMode: generated.mode,
+          regeneratedAt: now.toISOString(),
+          regeneratedBy: "reference_surface_regenerate",
+        },
         updatedAt: now,
       })
       .where(and(eq(curricula.id, curriculum.id), eq(curricula.notebookId, notebookId)));
@@ -508,19 +619,36 @@ async function regenerateReferenceSurface(ctx: AppContext, notebookId: string, n
       .limit(1);
     const objectiveRows = objectiveList?.objectiveIdsOrdered?.length
       ? await ctx.db.db
-          .select({ id: objectives.id, title: objectives.title, status: objectives.status, successCriteriaJson: objectives.successCriteriaJson })
+          .select({
+            id: objectives.id,
+            title: objectives.title,
+            status: objectives.status,
+            successCriteriaJson: objectives.successCriteriaJson,
+          })
           .from(objectives)
-          .where(and(eq(objectives.notebookId, notebookId), inArray(objectives.id, objectiveList.objectiveIdsOrdered)))
+          .where(
+            and(
+              eq(objectives.notebookId, notebookId),
+              inArray(objectives.id, objectiveList.objectiveIdsOrdered),
+            ),
+          )
       : [];
-    const order = new Map((objectiveList?.objectiveIdsOrdered ?? []).map((id, index) => [id, index] as const));
-    const orderedObjectives = [...objectiveRows].sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+    const order = new Map(
+      (objectiveList?.objectiveIdsOrdered ?? []).map((id, index) => [id, index] as const),
+    );
+    const orderedObjectives = [...objectiveRows].sort(
+      (a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0),
+    );
     const currentMarkdown = [
       `# ${module.title}`,
       "",
       module.summary ?? "",
       "",
       "## Objectives",
-      ...orderedObjectives.map((objective) => `- ${objective.title}: ${objectiveSuccessSummary(objective.successCriteriaJson)}`),
+      ...orderedObjectives.map(
+        (objective) =>
+          `- ${objective.title}: ${objectiveSuccessSummary(objective.successCriteriaJson)}`,
+      ),
     ].join("\n");
     const sourceRefs = parseSourceLikeRefs(module.sourceRefsJson);
     const generated = await generateStudyMarkdown(ctx, {
@@ -535,10 +663,18 @@ async function regenerateReferenceSurface(ctx: AppContext, notebookId: string, n
       .update(curriculumModules)
       .set({
         summary: firstParagraph(markdown),
-        coverageRequirementsJson: { ...(module.coverageRequirementsJson ?? {}), regeneratedMarkdown: markdown, regeneratedMode: generated.mode, regeneratedAt: now.toISOString(), regeneratedBy: "reference_surface_regenerate" },
+        coverageRequirementsJson: {
+          ...(module.coverageRequirementsJson ?? {}),
+          regeneratedMarkdown: markdown,
+          regeneratedMode: generated.mode,
+          regeneratedAt: now.toISOString(),
+          regeneratedBy: "reference_surface_regenerate",
+        },
         updatedAt: now,
       })
-      .where(and(eq(curriculumModules.id, module.id), eq(curriculumModules.notebookId, notebookId)));
+      .where(
+        and(eq(curriculumModules.id, module.id), eq(curriculumModules.notebookId, notebookId)),
+      );
     await appendReferenceRegeneratedEvent(ctx, notebookId, "module", module.id);
     return { ok: true, kind: "module", id: module.id };
   }
@@ -551,19 +687,39 @@ async function regenerateReferenceSurface(ctx: AppContext, notebookId: string, n
   if (objectiveList) {
     const objectiveRows = objectiveList.objectiveIdsOrdered.length
       ? await ctx.db.db
-          .select({ id: objectives.id, title: objectives.title, status: objectives.status, successCriteriaJson: objectives.successCriteriaJson, sourceRefsJson: objectives.sourceRefsJson })
+          .select({
+            id: objectives.id,
+            title: objectives.title,
+            status: objectives.status,
+            successCriteriaJson: objectives.successCriteriaJson,
+            sourceRefsJson: objectives.sourceRefsJson,
+          })
           .from(objectives)
-          .where(and(eq(objectives.notebookId, notebookId), inArray(objectives.id, objectiveList.objectiveIdsOrdered)))
+          .where(
+            and(
+              eq(objectives.notebookId, notebookId),
+              inArray(objectives.id, objectiveList.objectiveIdsOrdered),
+            ),
+          )
       : [];
-    const order = new Map(objectiveList.objectiveIdsOrdered.map((id, index) => [id, index] as const));
-    const orderedObjectives = [...objectiveRows].sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+    const order = new Map(
+      objectiveList.objectiveIdsOrdered.map((id, index) => [id, index] as const),
+    );
+    const orderedObjectives = [...objectiveRows].sort(
+      (a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0),
+    );
     const currentMarkdown = [
       "# Objective list",
       "",
       "## Current sequence",
-      ...orderedObjectives.map((objective, index) => `${index + 1}. ${objective.title}: ${objectiveSuccessSummary(objective.successCriteriaJson)}`),
+      ...orderedObjectives.map(
+        (objective, index) =>
+          `${index + 1}. ${objective.title}: ${objectiveSuccessSummary(objective.successCriteriaJson)}`,
+      ),
     ].join("\n");
-    const sourceRefs = orderedObjectives.flatMap((objective) => parseSourceLikeRefs(objective.sourceRefsJson));
+    const sourceRefs = orderedObjectives.flatMap((objective) =>
+      parseSourceLikeRefs(objective.sourceRefsJson),
+    );
     const generated = await generateStudyMarkdown(ctx, {
       title: "Objective list",
       kind: "objective_list",
@@ -575,10 +731,18 @@ async function regenerateReferenceSurface(ctx: AppContext, notebookId: string, n
     await ctx.db.db
       .update(objectiveLists)
       .set({
-        coverageSnapshotJson: { ...(objectiveList.coverageSnapshotJson ?? {}), regeneratedMarkdown: markdown, regeneratedMode: generated.mode, regeneratedAt: now.toISOString(), regeneratedBy: "reference_surface_regenerate" },
+        coverageSnapshotJson: {
+          ...(objectiveList.coverageSnapshotJson ?? {}),
+          regeneratedMarkdown: markdown,
+          regeneratedMode: generated.mode,
+          regeneratedAt: now.toISOString(),
+          regeneratedBy: "reference_surface_regenerate",
+        },
         updatedAt: now,
       })
-      .where(and(eq(objectiveLists.id, objectiveList.id), eq(objectiveLists.notebookId, notebookId)));
+      .where(
+        and(eq(objectiveLists.id, objectiveList.id), eq(objectiveLists.notebookId, notebookId)),
+      );
     await appendReferenceRegeneratedEvent(ctx, notebookId, "objective_list", objectiveList.id);
     return { ok: true, kind: "objective_list", id: objectiveList.id };
   }
@@ -596,20 +760,32 @@ async function regenerateReferenceSurface(ctx: AppContext, notebookId: string, n
       JSON.stringify(objective.successCriteriaJson ?? {}, null, 2),
       "",
       "## Target concepts",
-      [...(objective.prerequisiteConceptIds ?? []), ...(objective.targetConceptIds ?? [])].map((id) => `- ${id}`).join("\n"),
+      [...(objective.prerequisiteConceptIds ?? []), ...(objective.targetConceptIds ?? [])]
+        .map((id) => `- ${id}`)
+        .join("\n"),
     ].join("\n");
     const generated = await generateStudyMarkdown(ctx, {
       title: objective.title,
       kind: "objective",
       currentMarkdown,
-      sourceText: await loadSourceExcerptForRefs(ctx, notebookId, parseSourceLikeRefs(objective.sourceRefsJson)),
+      sourceText: await loadSourceExcerptForRefs(
+        ctx,
+        notebookId,
+        parseSourceLikeRefs(objective.sourceRefsJson),
+      ),
       instruction,
     });
     const markdown = generated.markdown;
     await ctx.db.db
       .update(objectives)
       .set({
-        successCriteriaJson: { ...(objective.successCriteriaJson ?? {}), regeneratedMarkdown: markdown, regeneratedMode: generated.mode, regeneratedAt: now.toISOString(), regeneratedBy: "reference_surface_regenerate" },
+        successCriteriaJson: {
+          ...(objective.successCriteriaJson ?? {}),
+          regeneratedMarkdown: markdown,
+          regeneratedMode: generated.mode,
+          regeneratedAt: now.toISOString(),
+          regeneratedBy: "reference_surface_regenerate",
+        },
         updatedAt: now,
       })
       .where(and(eq(objectives.id, objective.id), eq(objectives.notebookId, notebookId)));
@@ -625,21 +801,39 @@ async function regenerateReferenceSurface(ctx: AppContext, notebookId: string, n
   if (sessionPlan) {
     const objectiveRows = sessionPlan.plannedObjectiveIds.length
       ? await ctx.db.db
-          .select({ id: objectives.id, title: objectives.title, status: objectives.status, successCriteriaJson: objectives.successCriteriaJson, sourceRefsJson: objectives.sourceRefsJson })
+          .select({
+            id: objectives.id,
+            title: objectives.title,
+            status: objectives.status,
+            successCriteriaJson: objectives.successCriteriaJson,
+            sourceRefsJson: objectives.sourceRefsJson,
+          })
           .from(objectives)
-          .where(and(eq(objectives.notebookId, notebookId), inArray(objectives.id, sessionPlan.plannedObjectiveIds)))
+          .where(
+            and(
+              eq(objectives.notebookId, notebookId),
+              inArray(objectives.id, sessionPlan.plannedObjectiveIds),
+            ),
+          )
       : [];
     const order = new Map(sessionPlan.plannedObjectiveIds.map((id, index) => [id, index] as const));
-    const orderedObjectives = [...objectiveRows].sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+    const orderedObjectives = [...objectiveRows].sort(
+      (a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0),
+    );
     const currentMarkdown = [
       `# ${sessionPlan.title}`,
       "",
       sessionPlan.sessionGoal ?? "",
       "",
       "## Planned objectives",
-      ...orderedObjectives.map((objective) => `- ${objective.title}: ${objectiveSuccessSummary(objective.successCriteriaJson)}`),
+      ...orderedObjectives.map(
+        (objective) =>
+          `- ${objective.title}: ${objectiveSuccessSummary(objective.successCriteriaJson)}`,
+      ),
     ].join("\n");
-    const sourceRefs = orderedObjectives.flatMap((objective) => parseSourceLikeRefs(objective.sourceRefsJson));
+    const sourceRefs = orderedObjectives.flatMap((objective) =>
+      parseSourceLikeRefs(objective.sourceRefsJson),
+    );
     const generated = await generateStudyMarkdown(ctx, {
       title: sessionPlan.title,
       kind: "session_plan",
@@ -652,7 +846,13 @@ async function regenerateReferenceSurface(ctx: AppContext, notebookId: string, n
       .update(sessionPlans)
       .set({
         sessionGoal: firstParagraph(markdown),
-        recommendationReasonJson: { ...(sessionPlan.recommendationReasonJson ?? {}), regeneratedMarkdown: markdown, regeneratedMode: generated.mode, regeneratedAt: now.toISOString(), regeneratedBy: "reference_surface_regenerate" },
+        recommendationReasonJson: {
+          ...(sessionPlan.recommendationReasonJson ?? {}),
+          regeneratedMarkdown: markdown,
+          regeneratedMode: generated.mode,
+          regeneratedAt: now.toISOString(),
+          regeneratedBy: "reference_surface_regenerate",
+        },
         updatedAt: now,
       })
       .where(and(eq(sessionPlans.id, sessionPlan.id), eq(sessionPlans.notebookId, notebookId)));
@@ -669,7 +869,13 @@ async function regenerateReferenceSurface(ctx: AppContext, notebookId: string, n
   const existing = await ctx.db.db
     .select()
     .from(wikiPages)
-    .where(and(eq(wikiPages.notebookId, notebookId), eq(wikiPages.pageType, "concept"), eq(wikiPages.pageKey, `concept:${concept.id}`)))
+    .where(
+      and(
+        eq(wikiPages.notebookId, notebookId),
+        eq(wikiPages.pageType, "concept"),
+        eq(wikiPages.pageKey, `concept:${concept.id}`),
+      ),
+    )
     .limit(1);
   const sourceText = await loadConceptSourceExcerpt(ctx, notebookId, concept.id);
   const generated = await generateStudyMarkdown(ctx, {
@@ -689,7 +895,13 @@ async function regenerateReferenceSurface(ctx: AppContext, notebookId: string, n
         status: "published",
         version: existing[0].version + 1,
         qualityScore: 0.82,
-        structuredJson: { ...(existing[0].structuredJson ?? {}), conceptId: concept.id, regeneratedMode: generated.mode, regeneratedAt: now.toISOString(), regeneratedBy: "reference_surface_regenerate" },
+        structuredJson: {
+          ...(existing[0].structuredJson ?? {}),
+          conceptId: concept.id,
+          regeneratedMode: generated.mode,
+          regeneratedAt: now.toISOString(),
+          regeneratedBy: "reference_surface_regenerate",
+        },
         updatedAt: now,
       })
       .where(and(eq(wikiPages.id, pageId), eq(wikiPages.notebookId, notebookId)));
@@ -702,7 +914,12 @@ async function regenerateReferenceSurface(ctx: AppContext, notebookId: string, n
       title: `Concept · ${concept.canonicalName}`,
       version: 1,
       status: "published",
-      structuredJson: { conceptId: concept.id, regeneratedMode: generated.mode, regeneratedAt: now.toISOString(), regeneratedBy: "reference_surface_regenerate" },
+      structuredJson: {
+        conceptId: concept.id,
+        regeneratedMode: generated.mode,
+        regeneratedAt: now.toISOString(),
+        regeneratedBy: "reference_surface_regenerate",
+      },
       markdown,
       sourceClaimIds: [],
       sourceChunkIds: [],
@@ -731,10 +948,17 @@ async function loadSourceExcerpt(ctx: AppContext, chunkIds: string[]): Promise<s
     .from(chunks)
     .where(inArray(chunks.id, chunkIds.slice(0, 12)))
     .limit(12);
-  return rows.map((row) => row.text).join("\n\n").slice(0, 9000);
+  return rows
+    .map((row) => row.text)
+    .join("\n\n")
+    .slice(0, 9000);
 }
 
-async function loadSourceExcerptForRefs(ctx: AppContext, notebookId: string, refs: Array<{ refType: "source" | "chunk"; refId: string }>): Promise<string> {
+async function loadSourceExcerptForRefs(
+  ctx: AppContext,
+  notebookId: string,
+  refs: Array<{ refType: "source" | "chunk"; refId: string }>,
+): Promise<string> {
   const chunkIds = refs.filter((ref) => ref.refType === "chunk").map((ref) => ref.refId);
   const sourceIds = refs.filter((ref) => ref.refType === "source").map((ref) => ref.refId);
   const [chunkText, sourceText] = await Promise.all([
@@ -744,7 +968,11 @@ async function loadSourceExcerptForRefs(ctx: AppContext, notebookId: string, ref
   return [chunkText, sourceText].filter(Boolean).join("\n\n").slice(0, 9000);
 }
 
-async function loadSourceExcerptForSourceIds(ctx: AppContext, notebookId: string, sourceIds: string[]): Promise<string> {
+async function loadSourceExcerptForSourceIds(
+  ctx: AppContext,
+  notebookId: string,
+  sourceIds: string[],
+): Promise<string> {
   if (!sourceIds.length) return "";
   const validSources = await ctx.db.db
     .select({ id: sources.id })
@@ -763,41 +991,74 @@ async function loadSourceExcerptForSourceIds(ctx: AppContext, notebookId: string
   const rows = await ctx.db.db
     .select({ text: chunks.text })
     .from(chunks)
-    .where(inArray(chunks.sourceVersionId, versions.map((version) => version.id)))
+    .where(
+      inArray(
+        chunks.sourceVersionId,
+        versions.map((version) => version.id),
+      ),
+    )
     .limit(12);
-  return rows.map((row) => row.text).join("\n\n").slice(0, 9000);
+  return rows
+    .map((row) => row.text)
+    .join("\n\n")
+    .slice(0, 9000);
 }
 
-async function loadConceptSourceExcerpt(ctx: AppContext, notebookId: string, conceptId: string): Promise<string> {
-  const links = await ctx.db.db.select({ claimId: claimConceptLinks.claimId }).from(claimConceptLinks).where(eq(claimConceptLinks.conceptId, conceptId));
+async function loadConceptSourceExcerpt(
+  ctx: AppContext,
+  notebookId: string,
+  conceptId: string,
+): Promise<string> {
+  const links = await ctx.db.db
+    .select({ claimId: claimConceptLinks.claimId })
+    .from(claimConceptLinks)
+    .where(eq(claimConceptLinks.conceptId, conceptId));
   const claimIds = links.map((link) => link.claimId);
   if (!claimIds.length) return "";
-  const claimRows = await ctx.db.db.select({ sourceChunkIds: claims.sourceChunkIds }).from(claims).where(and(eq(claims.notebookId, notebookId), inArray(claims.id, claimIds))).limit(16);
-  return loadSourceExcerpt(ctx, Array.from(new Set(claimRows.flatMap((claim) => claim.sourceChunkIds ?? []))));
+  const claimRows = await ctx.db.db
+    .select({ sourceChunkIds: claims.sourceChunkIds })
+    .from(claims)
+    .where(and(eq(claims.notebookId, notebookId), inArray(claims.id, claimIds)))
+    .limit(16);
+  return loadSourceExcerpt(
+    ctx,
+    Array.from(new Set(claimRows.flatMap((claim) => claim.sourceChunkIds ?? []))),
+  );
 }
 
-function parseSourceLikeRefs(value: unknown): Array<{ refType: "source" | "chunk"; refId: string }> {
+function parseSourceLikeRefs(
+  value: unknown,
+): Array<{ refType: "source" | "chunk"; refId: string }> {
   if (!Array.isArray(value)) return [];
   return value.flatMap((item) => {
     if (typeof item !== "object" || item === null) return [];
     const record = item as Record<string, unknown>;
-    const refId = typeof record.refId === "string" ? record.refId : typeof record.id === "string" ? record.id : null;
+    const refId =
+      typeof record.refId === "string"
+        ? record.refId
+        : typeof record.id === "string"
+          ? record.id
+          : null;
     if (!refId) return [];
     return [{ refType: record.refType === "chunk" ? "chunk" : "source", refId }];
   });
 }
 
 function objectiveSuccessSummary(value: unknown): string {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return "Study this objective, then check understanding in tutor chat.";
+  if (typeof value !== "object" || value === null || Array.isArray(value))
+    return "Study this objective, then check understanding in tutor chat.";
   const statements = Object.entries(value as Record<string, unknown>)
     .flatMap(([key, entry]) => {
       if (key === "regeneratedMarkdown" || key.endsWith("At") || key.endsWith("By")) return [];
       if (typeof entry === "string") return [`${labelFromKey(key)}: ${entry}`];
-      if (Array.isArray(entry)) return entry.filter((item): item is string => typeof item === "string");
+      if (Array.isArray(entry))
+        return entry.filter((item): item is string => typeof item === "string");
       return [];
     })
     .slice(0, 3);
-  return statements.length ? statements.join(" ") : "Study this objective, then check understanding in tutor chat.";
+  return statements.length
+    ? statements.join(" ")
+    : "Study this objective, then check understanding in tutor chat.";
 }
 
 function labelFromKey(value: string): string {
@@ -807,7 +1068,12 @@ function labelFromKey(value: string): string {
     .replace(/^\w/, (char) => char.toUpperCase());
 }
 
-async function appendReferenceRegeneratedEvent(ctx: AppContext, notebookId: string, kind: string, id: string): Promise<void> {
+async function appendReferenceRegeneratedEvent(
+  ctx: AppContext,
+  notebookId: string,
+  kind: string,
+  id: string,
+): Promise<void> {
   await appendEvent(ctx.db, {
     notebookId,
     eventType: "reference.regenerated",
@@ -817,7 +1083,13 @@ async function appendReferenceRegeneratedEvent(ctx: AppContext, notebookId: stri
 
 async function generateStudyMarkdown(
   ctx: AppContext,
-  input: { title: string; kind: string; currentMarkdown: string; sourceText: string; instruction?: string },
+  input: {
+    title: string;
+    kind: string;
+    currentMarkdown: string;
+    sourceText: string;
+    instruction?: string;
+  },
 ): Promise<{ markdown: string; mode: "ai" | "heuristic" }> {
   if (!ctx.env.OPENROUTER_API_KEY) {
     return { markdown: fallbackStudyMarkdown(input), mode: "heuristic" };
@@ -865,7 +1137,10 @@ async function generateStudyMarkdown(
         ],
       }),
     });
-    const body = (await response.json()) as { choices?: Array<{ message?: { content?: string } }>; error?: { message?: string } };
+    const body = (await response.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+      error?: { message?: string };
+    };
     if (!response.ok) throw new Error(body.error?.message ?? "OpenRouter error");
     const markdown = body.choices?.[0]?.message?.content?.trim();
     return markdown && markdown.length > 80
@@ -876,8 +1151,18 @@ async function generateStudyMarkdown(
   }
 }
 
-function fallbackStudyMarkdown(input: { title: string; kind: string; currentMarkdown: string; sourceText: string; instruction?: string }): string {
-  const excerpt = input.sourceText.split(/\n+/).map((line) => line.trim()).filter(Boolean).slice(0, 5);
+function fallbackStudyMarkdown(input: {
+  title: string;
+  kind: string;
+  currentMarkdown: string;
+  sourceText: string;
+  instruction?: string;
+}): string {
+  const excerpt = input.sourceText
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, 5);
   const artifactSpecific = fallbackFormatSections(input.kind, input.title);
   return [
     `# ${input.title}`,
@@ -887,7 +1172,9 @@ function fallbackStudyMarkdown(input: { title: string; kind: string; currentMark
     input.instruction ? `\nInstruction used: ${input.instruction}` : "",
     "",
     "## Core explanation",
-    input.currentMarkdown.trim() || excerpt[0] || "This page needs more source evidence. Ask the tutor to connect it to a specific uploaded source.",
+    input.currentMarkdown.trim() ||
+      excerpt[0] ||
+      "This page needs more source evidence. Ask the tutor to connect it to a specific uploaded source.",
     "",
     "## Source-grounded notes",
     ...(excerpt.length ? excerpt.map((line) => `- ${line}`) : ["- Needs source support."]),
@@ -942,50 +1229,101 @@ function formatGuidanceForKind(kind: string): string {
       "## What to ask the tutor next",
     ].join("\n");
   }
-  if (kind === "objective") return "For an objective, include: measurable success criteria, prerequisite concepts, explanation, worked example, practice tasks, mastery checks, and one source-backed formula or definition if applicable.";
-  if (kind === "session_plan") return "For a session plan, include: opener, diagnostic question, teaching arc, guided practice, misconception checks, exit ticket, and next action. Keep it immediately usable by a tutor.";
-  if (kind.includes("flashcard")) return "For flashcards, create 10-14 high-quality cards grouped by Basic recall, Formula/notation, Application, and Confusion checks. Each card should have Front, Back, Why it matters, and Source clue.";
-  if (kind.includes("quiz")) return "For quizzes, create 6-10 questions mixed across recall, application, and transfer. Include answer, explanation, difficulty, misconception tested, and source clue.";
-  if (kind.includes("formula")) return "For formula sheets, group formulas by use case, render formulas in LaTeX, define variables and units, list assumptions, and add one worked substitution per major formula.";
-  if (kind.includes("comparison")) return "For comparison pages, use a clear comparison table, when-to-use guidance, common confusion, and source-backed examples.";
-  if (kind.includes("worked_example")) return "For worked examples, show setup, knowns/unknowns, assumptions, step-by-step solution with LaTeX formulas, sanity checks, and a nearby practice problem.";
-  if (kind.includes("concept_card") || kind === "concept_wiki_page" || kind.startsWith("wiki_page:concept")) return "For concept pages, include: definition, intuition, formal details with LaTeX if needed, worked example, common confusions, source-backed notes, and quick self-check.";
+  if (kind === "objective")
+    return "For an objective, include: measurable success criteria, prerequisite concepts, explanation, worked example, practice tasks, mastery checks, and one source-backed formula or definition if applicable.";
+  if (kind === "session_plan")
+    return "For a session plan, include: opener, diagnostic question, teaching arc, guided practice, misconception checks, exit ticket, and next action. Keep it immediately usable by a tutor.";
+  if (kind.includes("flashcard"))
+    return "For flashcards, create 10-14 high-quality cards grouped by Basic recall, Formula/notation, Application, and Confusion checks. Each card should have Front, Back, Why it matters, and Source clue.";
+  if (kind.includes("quiz"))
+    return "For quizzes, create 6-10 questions mixed across recall, application, and transfer. Include answer, explanation, difficulty, misconception tested, and source clue.";
+  if (kind.includes("formula"))
+    return "For formula sheets, group formulas by use case, render formulas in LaTeX, define variables and units, list assumptions, and add one worked substitution per major formula.";
+  if (kind.includes("comparison"))
+    return "For comparison pages, use a clear comparison table, when-to-use guidance, common confusion, and source-backed examples.";
+  if (kind.includes("worked_example"))
+    return "For worked examples, show setup, knowns/unknowns, assumptions, step-by-step solution with LaTeX formulas, sanity checks, and a nearby practice problem.";
+  if (
+    kind.includes("concept_card") ||
+    kind === "concept_wiki_page" ||
+    kind.startsWith("wiki_page:concept")
+  )
+    return "For concept pages, include: definition, intuition, formal details with LaTeX if needed, worked example, common confusions, source-backed notes, and quick self-check.";
   return "Choose the format that best helps a student study quickly: concise sections, examples, self-checks, and source-grounded notes.";
 }
 
 function fallbackFormatSections(kind: string, title: string): string[] {
   if (kind.includes("flashcard")) {
-    return ["", "## Flashcards", `- Front: What is the central idea behind ${title}? Back: Explain it from the source in one or two sentences. Why it matters: It anchors later practice.`];
+    return [
+      "",
+      "## Flashcards",
+      `- Front: What is the central idea behind ${title}? Back: Explain it from the source in one or two sentences. Why it matters: It anchors later practice.`,
+    ];
   }
   if (kind.includes("quiz")) {
-    return ["", "## Practice questions", `1. Explain ${title} without looking at the notes.`, "2. Identify one source detail that supports your answer.", "3. Write one mistake a learner might make and correct it."];
+    return [
+      "",
+      "## Practice questions",
+      `1. Explain ${title} without looking at the notes.`,
+      "2. Identify one source detail that supports your answer.",
+      "3. Write one mistake a learner might make and correct it.",
+    ];
   }
   if (kind === "curriculum") {
-    return ["", "## Study path", "- Start with prerequisites, then work module by module.", "- After each module, answer a checkpoint question before moving on."];
+    return [
+      "",
+      "## Study path",
+      "- Start with prerequisites, then work module by module.",
+      "- After each module, answer a checkpoint question before moving on.",
+    ];
   }
   if (kind === "module" || kind === "objective_list") {
-    return ["", "## Practice ladder", "- Recall the definitions.", "- Solve a direct example.", "- Explain how this connects to the next objective."];
+    return [
+      "",
+      "## Practice ladder",
+      "- Recall the definitions.",
+      "- Solve a direct example.",
+      "- Explain how this connects to the next objective.",
+    ];
   }
   if (kind === "session_plan") {
-    return ["", "## Session flow", "- Opener: quick recall.", "- Teach: source-backed explanation.", "- Practice: one guided problem.", "- Exit: one self-check."];
+    return [
+      "",
+      "## Session flow",
+      "- Opener: quick recall.",
+      "- Teach: source-backed explanation.",
+      "- Practice: one guided problem.",
+      "- Exit: one self-check.",
+    ];
   }
   return [];
 }
 
 function firstParagraph(markdown: string): string {
-  return markdown
-    .replace(/^# .+$/m, "")
-    .split(/\n{2,}/)
-    .map((part) => part.replace(/^#+\s+/gm, "").trim())
-    .find((part) => part.length > 0)
-    ?.slice(0, 500) ?? "";
+  return (
+    markdown
+      .replace(/^# .+$/m, "")
+      .split(/\n{2,}/)
+      .map((part) => part.replace(/^#+\s+/gm, "").trim())
+      .find((part) => part.length > 0)
+      ?.slice(0, 500) ?? ""
+  );
 }
 
-async function buildCurriculumOutlineReadModel(ctx: AppContext, notebookId: string, userId: string) {
+async function buildCurriculumOutlineReadModel(
+  ctx: AppContext,
+  notebookId: string,
+  userId: string,
+) {
   const [curriculum] = await ctx.db.db
     .select()
     .from(curricula)
-    .where(and(eq(curricula.notebookId, notebookId), inArray(curricula.status, ["active", "published", "draft"])))
+    .where(
+      and(
+        eq(curricula.notebookId, notebookId),
+        inArray(curricula.status, ["active", "published", "draft"]),
+      ),
+    )
     .orderBy(desc(curricula.updatedAt))
     .limit(1);
 
@@ -1002,7 +1340,12 @@ async function buildCurriculumOutlineReadModel(ctx: AppContext, notebookId: stri
   const moduleRows = await ctx.db.db
     .select()
     .from(curriculumModules)
-    .where(and(eq(curriculumModules.notebookId, notebookId), eq(curriculumModules.curriculumId, curriculum.id)))
+    .where(
+      and(
+        eq(curriculumModules.notebookId, notebookId),
+        eq(curriculumModules.curriculumId, curriculum.id),
+      ),
+    )
     .orderBy(asc(curriculumModules.orderIndex));
 
   const objectiveRows = await ctx.db.db
@@ -1014,12 +1357,19 @@ async function buildCurriculumOutlineReadModel(ctx: AppContext, notebookId: stri
   const objectiveListRows = await ctx.db.db
     .select()
     .from(objectiveLists)
-    .where(and(eq(objectiveLists.notebookId, notebookId), eq(objectiveLists.curriculumId, curriculum.id)));
+    .where(
+      and(
+        eq(objectiveLists.notebookId, notebookId),
+        eq(objectiveLists.curriculumId, curriculum.id),
+      ),
+    );
 
   const sessionPlanRows = await ctx.db.db
     .select()
     .from(sessionPlans)
-    .where(and(eq(sessionPlans.notebookId, notebookId), eq(sessionPlans.curriculumId, curriculum.id)));
+    .where(
+      and(eq(sessionPlans.notebookId, notebookId), eq(sessionPlans.curriculumId, curriculum.id)),
+    );
 
   const artifactRows = await ctx.db.db
     .select()
@@ -1045,7 +1395,9 @@ async function buildCurriculumOutlineReadModel(ctx: AppContext, notebookId: stri
     : [];
   const conceptTitleById = new Map(conceptRows.map((concept) => [concept.id, concept.title]));
   const artifactTitleById = new Map(artifactRows.map((artifact) => [artifact.id, artifact.title]));
-  const sessionTitleById = new Map(sessionPlanRows.map((sessionPlan) => [sessionPlan.id, sessionPlan.title]));
+  const sessionTitleById = new Map(
+    sessionPlanRows.map((sessionPlan) => [sessionPlan.id, sessionPlan.title]),
+  );
 
   const completedObjectiveIds = new Set(plan?.completedObjectiveIds ?? []);
   const upcomingObjectiveIds = new Set(plan?.upcomingObjectiveIds ?? []);
@@ -1072,8 +1424,18 @@ async function buildCurriculumOutlineReadModel(ctx: AppContext, notebookId: stri
     for (const ref of refs) {
       if (typeof ref !== "object" || ref === null) continue;
       const record = ref as Record<string, unknown>;
-      const refId = typeof record.refId === "string" ? record.refId : typeof record.id === "string" ? record.id : null;
-      const refType = typeof record.refType === "string" ? record.refType : typeof record.type === "string" ? record.type : null;
+      const refId =
+        typeof record.refId === "string"
+          ? record.refId
+          : typeof record.id === "string"
+            ? record.id
+            : null;
+      const refType =
+        typeof record.refType === "string"
+          ? record.refType
+          : typeof record.type === "string"
+            ? record.type
+            : null;
       if (refId && (!refType || refType === "objective")) {
         const list = artifactIdsByObjectiveId.get(refId) ?? [];
         list.push(artifact.id);
@@ -1088,17 +1450,21 @@ async function buildCurriculumOutlineReadModel(ctx: AppContext, notebookId: stri
       {
         id: objective.id,
         title: objective.title,
-        status: objective.id === currentObjectiveId
-          ? "current"
-          : completedObjectiveIds.has(objective.id)
-            ? "completed"
-            : upcomingObjectiveIds.has(objective.id)
-              ? "upcoming"
-              : objective.status,
+        status:
+          objective.id === currentObjectiveId
+            ? "current"
+            : completedObjectiveIds.has(objective.id)
+              ? "completed"
+              : upcomingObjectiveIds.has(objective.id)
+                ? "upcoming"
+                : objective.status,
         summary: null,
         artifactIds: artifactIdsByObjectiveId.get(objective.id) ?? [],
         sessionIds: sessionIdsByObjectiveId.get(objective.id) ?? [],
-        conceptIds: [...(objective.prerequisiteConceptIds ?? []), ...(objective.targetConceptIds ?? [])],
+        conceptIds: [
+          ...(objective.prerequisiteConceptIds ?? []),
+          ...(objective.targetConceptIds ?? []),
+        ],
         artifactRefs: (artifactIdsByObjectiveId.get(objective.id) ?? []).map((id) => ({
           id,
           title: artifactTitleById.get(id) ?? "Learning artifact",
@@ -1107,7 +1473,10 @@ async function buildCurriculumOutlineReadModel(ctx: AppContext, notebookId: stri
           id,
           title: sessionTitleById.get(id) ?? "Lesson plan",
         })),
-        conceptRefs: [...(objective.prerequisiteConceptIds ?? []), ...(objective.targetConceptIds ?? [])].map((id) => ({
+        conceptRefs: [
+          ...(objective.prerequisiteConceptIds ?? []),
+          ...(objective.targetConceptIds ?? []),
+        ].map((id) => ({
           id,
           title: conceptTitleById.get(id) ?? "Concept needs review",
         })),
@@ -1118,7 +1487,9 @@ async function buildCurriculumOutlineReadModel(ctx: AppContext, notebookId: stri
 
   const modules = moduleRows.map((module) => {
     const orderedIds = moduleObjectiveIds.get(module.id) ?? [];
-    const moduleObjectives = orderedIds.map((id) => objectivesById.get(id)).filter((objective): objective is NonNullable<typeof objective> => Boolean(objective));
+    const moduleObjectives = orderedIds
+      .map((id) => objectivesById.get(id))
+      .filter((objective): objective is NonNullable<typeof objective> => Boolean(objective));
     return {
       id: module.id,
       title: module.title,
@@ -1129,15 +1500,20 @@ async function buildCurriculumOutlineReadModel(ctx: AppContext, notebookId: stri
     };
   });
 
-  const assignedObjectiveIds = new Set(modules.flatMap((module) => module.objectives.map((objective) => objective.id)));
-  const orphanObjectives = Array.from(objectivesById.values()).filter((objective) => !assignedObjectiveIds.has(objective.id));
+  const assignedObjectiveIds = new Set(
+    modules.flatMap((module) => module.objectives.map((objective) => objective.id)),
+  );
+  const orphanObjectives = Array.from(objectivesById.values()).filter(
+    (objective) => !assignedObjectiveIds.has(objective.id),
+  );
 
   return {
     curriculum: {
       id: curriculum.id,
       title: curriculum.title,
       status: curriculum.status,
-      summary: typeof curriculum.scopeJson?.summary === "string" ? curriculum.scopeJson.summary : null,
+      summary:
+        typeof curriculum.scopeJson?.summary === "string" ? curriculum.scopeJson.summary : null,
       needsReview: isWeakPlanningLabel(curriculum.title),
     },
     modules,

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { allGraphRelationSemantics, graphRelationSemantics, learnerVisibleRelationLabel, normalizeGraphRelationKind } from "@studyagent/schemas";
+import {
+  allGraphRelationSemantics,
+  graphRelationSemantics,
+  learnerVisibleRelationLabel,
+  normalizeGraphRelationKind,
+} from "@studyagent/schemas";
 
 describe("graph semantics registry", () => {
   it.each([
@@ -12,7 +17,11 @@ describe("graph semantics registry", () => {
     ["contains_page", "CONTAINS_PAGE", "source_to_target", "includes page"],
     ["plans", "PLANS", "source_to_target", "plans"],
   ])("%s maps to one projection/search/canvas contract", (kind, neo4jType, direction, label) => {
-    expect(graphRelationSemantics(kind)).toMatchObject({ neo4jType, direction, learnerLabel: label });
+    expect(graphRelationSemantics(kind)).toMatchObject({
+      neo4jType,
+      direction,
+      learnerLabel: label,
+    });
   });
 
   it("fails closed for unknown learner relation labels", () => {
@@ -46,7 +55,9 @@ describe("graph semantics registry", () => {
   });
 
   it("covers every canonical relation kind in the registry snapshot", () => {
-    const canonical = allGraphRelationSemantics().map((entry) => entry.canonical).sort();
+    const canonical = allGraphRelationSemantics()
+      .map((entry) => entry.canonical)
+      .sort();
     expect(canonical).toEqual([
       "cites",
       "contains",

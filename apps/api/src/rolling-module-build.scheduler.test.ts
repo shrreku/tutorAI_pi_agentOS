@@ -14,7 +14,10 @@ vi.mock("@studyagent/observability", () => ({
 
 import { scheduleRollingModuleBuild } from "./rolling-module-build-scheduler.js";
 
-function mockDbWithModules(completedModule: { id: string; orderIndex: number }, nextModule: { id: string; orderIndex: number }) {
+function mockDbWithModules(
+  completedModule: { id: string; orderIndex: number },
+  nextModule: { id: string; orderIndex: number },
+) {
   const select = vi.fn().mockReturnValue({
     from: vi.fn().mockReturnValue({
       where: vi.fn().mockReturnValue({

@@ -150,7 +150,10 @@ export const generationJobs = pgTable(
   (t) => [
     index("generation_jobs_ready_idx").on(t.status, t.runAt, t.priority),
     index("generation_jobs_notebook_idx").on(t.notebookId, t.createdAt),
-    uniqueIndex("generation_jobs_notebook_idempotency_active_unique").on(t.notebookId, t.idempotencyKey),
+    uniqueIndex("generation_jobs_notebook_idempotency_active_unique").on(
+      t.notebookId,
+      t.idempotencyKey,
+    ),
   ],
 );
 
@@ -228,9 +231,18 @@ export const studentProfiles = pgTable(
     backgroundSummary: text("background_summary"),
     pacePreference: text("pace_preference"),
     depthPreference: text("depth_preference"),
-    examplePreferencesJson: jsonb("example_preferences_json").$type<Record<string, unknown>>().notNull().default({}),
-    assessmentPreferenceJson: jsonb("assessment_preference_json").$type<Record<string, unknown>>().notNull().default({}),
-    constraintsJson: jsonb("constraints_json").$type<Record<string, unknown>>().notNull().default({}),
+    examplePreferencesJson: jsonb("example_preferences_json")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+    assessmentPreferenceJson: jsonb("assessment_preference_json")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+    constraintsJson: jsonb("constraints_json")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
     ...timestamps,
   },
   (t) => [uniqueIndex("student_profiles_notebook_user_unique").on(t.notebookId, t.userId)],
@@ -257,7 +269,11 @@ export const learnerTraitSignals = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    index("learner_trait_signals_notebook_user_created_idx").on(t.notebookId, t.userId, t.createdAt),
+    index("learner_trait_signals_notebook_user_created_idx").on(
+      t.notebookId,
+      t.userId,
+      t.createdAt,
+    ),
     index("learner_trait_signals_session_idx").on(t.sessionId, t.createdAt),
     index("learner_trait_signals_trait_idx").on(t.notebookId, t.userId, t.trait),
   ],
@@ -280,13 +296,22 @@ export const learnerTraitEstimates = pgTable(
     confidence: real("confidence").notNull(),
     estimateJson: jsonb("estimate_json").$type<Record<string, unknown>>().notNull(),
     evidenceRefsJson: jsonb("evidence_refs_json").$type<unknown[]>().notNull().default([]),
-    contradictionRefsJson: jsonb("contradiction_refs_json").$type<unknown[]>().notNull().default([]),
+    contradictionRefsJson: jsonb("contradiction_refs_json")
+      .$type<unknown[]>()
+      .notNull()
+      .default([]),
     guardrailJson: jsonb("guardrail_json").$type<Record<string, unknown>>().notNull().default({}),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    uniqueIndex("learner_trait_estimates_current_unique").on(t.notebookId, t.userId, t.trait, t.targetRefType, t.targetRefId),
+    uniqueIndex("learner_trait_estimates_current_unique").on(
+      t.notebookId,
+      t.userId,
+      t.trait,
+      t.targetRefType,
+      t.targetRefId,
+    ),
     index("learner_trait_estimates_notebook_user_idx").on(t.notebookId, t.userId),
   ],
 );
@@ -330,8 +355,14 @@ export const curriculumModules = pgTable(
     targetConceptIds: jsonb("target_concept_ids").$type<string[]>().notNull().default([]),
     prerequisiteModuleIds: jsonb("prerequisite_module_ids").$type<string[]>().notNull().default([]),
     estimatedSessionCount: integer("estimated_session_count").notNull().default(1),
-    coverageRequirementsJson: jsonb("coverage_requirements_json").$type<Record<string, unknown>>().notNull().default({}),
-    masteryGateJson: jsonb("mastery_gate_json").$type<Record<string, unknown>>().notNull().default({}),
+    coverageRequirementsJson: jsonb("coverage_requirements_json")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+    masteryGateJson: jsonb("mastery_gate_json")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -355,7 +386,10 @@ export const objectiveLists = pgTable(
     status: text("status").notNull().default("draft"),
     currentObjectiveId: text("current_objective_id"),
     objectiveIdsOrdered: jsonb("objective_ids_ordered").$type<string[]>().notNull().default([]),
-    coverageSnapshotJson: jsonb("coverage_snapshot_json").$type<Record<string, unknown>>().notNull().default({}),
+    coverageSnapshotJson: jsonb("coverage_snapshot_json")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
     createdByRunId: text("created_by_run_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -387,13 +421,22 @@ export const sessionPlans = pgTable(
     diagnosticQuestionIds: jsonb("diagnostic_question_ids").$type<string[]>().notNull().default([]),
     teachingArcIds: jsonb("teaching_arc_ids").$type<string[]>().notNull().default([]),
     artifactRefsJson: jsonb("artifact_refs_json").$type<unknown[]>().notNull().default([]),
-    exitCriteriaJson: jsonb("exit_criteria_json").$type<Record<string, unknown>>().notNull().default({}),
-    recommendationReasonJson: jsonb("recommendation_reason_json").$type<Record<string, unknown>>().notNull().default({}),
+    exitCriteriaJson: jsonb("exit_criteria_json")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+    recommendationReasonJson: jsonb("recommendation_reason_json")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
     createdByRunId: text("created_by_run_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("session_plans_notebook_idx").on(t.notebookId), index("session_plans_module_idx").on(t.moduleId)],
+  (t) => [
+    index("session_plans_notebook_idx").on(t.notebookId),
+    index("session_plans_module_idx").on(t.moduleId),
+  ],
 );
 
 export const coverageItems = pgTable(
@@ -404,7 +447,9 @@ export const coverageItems = pgTable(
       .notNull()
       .references(() => notebooks.id, { onDelete: "cascade" }),
     sourceId: text("source_id").references(() => sources.id, { onDelete: "cascade" }),
-    sourceVersionId: text("source_version_id").references(() => sourceVersions.id, { onDelete: "cascade" }),
+    sourceVersionId: text("source_version_id").references(() => sourceVersions.id, {
+      onDelete: "cascade",
+    }),
     itemFamily: text("item_family").notNull(),
     title: text("title").notNull(),
     description: text("description"),
@@ -430,8 +475,12 @@ export const coverageRecords = pgTable(
       .references(() => coverageItems.id, { onDelete: "cascade" }),
     curriculumId: text("curriculum_id").references(() => curricula.id, { onDelete: "cascade" }),
     moduleId: text("module_id").references(() => curriculumModules.id, { onDelete: "cascade" }),
-    objectiveListId: text("objective_list_id").references(() => objectiveLists.id, { onDelete: "cascade" }),
-    sessionPlanId: text("session_plan_id").references(() => sessionPlans.id, { onDelete: "cascade" }),
+    objectiveListId: text("objective_list_id").references(() => objectiveLists.id, {
+      onDelete: "cascade",
+    }),
+    sessionPlanId: text("session_plan_id").references(() => sessionPlans.id, {
+      onDelete: "cascade",
+    }),
     status: text("status").notNull().default("planned"),
     evidenceJson: jsonb("evidence_json").$type<Record<string, unknown>>().notNull().default({}),
     updatedByRunId: text("updated_by_run_id"),
@@ -454,7 +503,10 @@ export const objectives = pgTable(
     title: text("title").notNull(),
     status: text("status").notNull().default("not_started"),
     orderIndex: integer("order_index").notNull().default(0),
-    prerequisiteConceptIds: jsonb("prerequisite_concept_ids").$type<string[]>().notNull().default([]),
+    prerequisiteConceptIds: jsonb("prerequisite_concept_ids")
+      .$type<string[]>()
+      .notNull()
+      .default([]),
     targetConceptIds: jsonb("target_concept_ids").$type<string[]>().notNull().default([]),
     successCriteriaJson: jsonb("success_criteria_json").$type<Record<string, unknown>>(),
     sourceRefsJson: jsonb("source_refs_json").$type<unknown[]>(),
@@ -564,7 +616,12 @@ export const graphRelations = pgTable(
   },
   (t) => [
     index("graph_relations_notebook_idx").on(t.notebookId),
-    index("graph_relations_endpoints_idx").on(t.sourceNodeType, t.sourceNodeId, t.targetNodeType, t.targetNodeId),
+    index("graph_relations_endpoints_idx").on(
+      t.sourceNodeType,
+      t.sourceNodeId,
+      t.targetNodeType,
+      t.targetNodeId,
+    ),
   ],
 );
 
@@ -675,7 +732,13 @@ export const learningState = pgTable(
     misconceptionJson: jsonb("misconception_json").$type<Record<string, unknown>>(),
     metadataJson: jsonb("metadata_json").$type<Record<string, unknown>>().notNull().default({}),
   },
-  (t) => [uniqueIndex("learning_state_notebook_user_concept_unique").on(t.notebookId, t.userId, t.conceptId)],
+  (t) => [
+    uniqueIndex("learning_state_notebook_user_concept_unique").on(
+      t.notebookId,
+      t.userId,
+      t.conceptId,
+    ),
+  ],
 );
 
 export const tutorSessions = pgTable(
@@ -691,7 +754,10 @@ export const tutorSessions = pgTable(
     mode: text("mode").notNull(),
     status: text("status").notNull().default("active"),
     selectedNodeRefsJson: jsonb("selected_node_refs_json").$type<unknown[]>().notNull().default([]),
-    runtimeContextJson: jsonb("runtime_context_json").$type<Record<string, unknown>>().notNull().default({}),
+    runtimeContextJson: jsonb("runtime_context_json")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
     startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
     endedAt: timestamp("ended_at", { withTimezone: true }),
   },
@@ -726,7 +792,10 @@ export const agentRuns = pgTable(
     turnId: text("turn_id").references(() => tutorTurns.id, { onDelete: "set null" }),
     runType: text("run_type").notNull(),
     status: text("status").notNull().default("running"),
-    modelConfigJson: jsonb("model_config_json").$type<Record<string, unknown>>().notNull().default({}),
+    modelConfigJson: jsonb("model_config_json")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
     budgetJson: jsonb("budget_json").$type<Record<string, unknown>>(),
     traceId: text("trace_id"),
     startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
@@ -820,7 +889,10 @@ export const syntheticLearnerEvalRuns = pgTable(
     failedScenarioCount: integer("failed_scenario_count").notNull().default(0),
     personaCoverageJson: jsonb("persona_coverage_json").$type<string[]>().notNull().default([]),
     scenarioCoverageJson: jsonb("scenario_coverage_json").$type<string[]>().notNull().default([]),
-    notebookRefsJson: jsonb("notebook_refs_json").$type<Array<{ refType: string; refId: string }>>().notNull().default([]),
+    notebookRefsJson: jsonb("notebook_refs_json")
+      .$type<Array<{ refType: string; refId: string }>>()
+      .notNull()
+      .default([]),
     runJson: jsonb("run_json").$type<Record<string, unknown>>().notNull(),
     ...timestamps,
   },
@@ -980,7 +1052,10 @@ export const studyTemplates = pgTable(
       .notNull()
       .references(() => notebooks.id, { onDelete: "restrict" }),
     readinessJson: jsonb("readiness_json").$type<Record<string, unknown>>().notNull().default({}),
-    sourceRightsJson: jsonb("source_rights_json").$type<Record<string, unknown>>().notNull().default({}),
+    sourceRightsJson: jsonb("source_rights_json")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
     sortOrder: integer("sort_order").notNull().default(0),
     ...timestamps,
   },
@@ -1001,7 +1076,9 @@ export const accessCodes = pgTable(
     redemptionCount: integer("redemption_count").notNull().default(0),
     expiresAt: timestamp("expires_at", { withTimezone: true }),
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
-    createdByUserId: text("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    createdByUserId: text("created_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
     ...timestamps,
   },
   (t) => [uniqueIndex("access_codes_code_unique").on(t.code)],
@@ -1096,7 +1173,9 @@ export const ingestionTriggerRuns = pgTable(
   {
     id: text("id").primaryKey(),
     triggeredBy: text("triggered_by").notNull(),
-    triggeredByUserId: text("triggered_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    triggeredByUserId: text("triggered_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
     status: text("status").notNull().default("started"),
     jobsClaimed: integer("jobs_claimed").notNull().default(0),
     jobsCompleted: integer("jobs_completed").notNull().default(0),
@@ -1129,7 +1208,10 @@ export const neo4jSourceProjectionState = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    uniqueIndex("neo4j_source_projection_state_notebook_source_unique").on(t.notebookId, t.sourceId),
+    uniqueIndex("neo4j_source_projection_state_notebook_source_unique").on(
+      t.notebookId,
+      t.sourceId,
+    ),
     index("neo4j_source_projection_state_notebook_idx").on(t.notebookId),
   ],
 );

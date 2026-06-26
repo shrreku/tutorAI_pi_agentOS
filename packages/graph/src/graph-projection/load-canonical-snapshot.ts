@@ -100,7 +100,8 @@ export async function loadCanonicalProjectionSnapshot(
   const wikiPagesFiltered =
     scope === "source" && sourceId
       ? wikiRows.filter((page) => {
-          if (page.pageType === "source_summary" && page.pageKey === `source:${sourceId}`) return true;
+          if (page.pageType === "source_summary" && page.pageKey === `source:${sourceId}`)
+            return true;
           if (page.pageType === "topic" && page.pageKey === `topic:${sourceId}`) return true;
           const conceptId = parseConceptIdFromPageKey(page.pageKey);
           if (!conceptId) return false;
@@ -162,7 +163,10 @@ export async function loadCanonicalProjectionSnapshot(
           })
           .from(curriculumModules)
           .where(
-            and(eq(curriculumModules.notebookId, notebookId), inArray(curriculumModules.curriculumId, curriculumIds)),
+            and(
+              eq(curriculumModules.notebookId, notebookId),
+              inArray(curriculumModules.curriculumId, curriculumIds),
+            ),
           )
       : [];
 
@@ -178,7 +182,12 @@ export async function loadCanonicalProjectionSnapshot(
             objectiveIdsOrdered: objectiveLists.objectiveIdsOrdered,
           })
           .from(objectiveLists)
-          .where(and(eq(objectiveLists.notebookId, notebookId), inArray(objectiveLists.curriculumId, curriculumIds)))
+          .where(
+            and(
+              eq(objectiveLists.notebookId, notebookId),
+              inArray(objectiveLists.curriculumId, curriculumIds),
+            ),
+          )
       : [];
 
   const sessionPlanRows =
@@ -194,7 +203,12 @@ export async function loadCanonicalProjectionSnapshot(
             sessionGoal: sessionPlans.sessionGoal,
           })
           .from(sessionPlans)
-          .where(and(eq(sessionPlans.notebookId, notebookId), inArray(sessionPlans.curriculumId, curriculumIds)))
+          .where(
+            and(
+              eq(sessionPlans.notebookId, notebookId),
+              inArray(sessionPlans.curriculumId, curriculumIds),
+            ),
+          )
       : [];
 
   const objectiveRows =
@@ -208,7 +222,12 @@ export async function loadCanonicalProjectionSnapshot(
             status: objectives.status,
           })
           .from(objectives)
-          .where(and(eq(objectives.notebookId, notebookId), inArray(objectives.curriculumId, curriculumIds)))
+          .where(
+            and(
+              eq(objectives.notebookId, notebookId),
+              inArray(objectives.curriculumId, curriculumIds),
+            ),
+          )
       : [];
 
   const studyPlanRows = input.userId
@@ -242,7 +261,9 @@ export async function loadCanonicalProjectionSnapshot(
             itemFamily: coverageItems.itemFamily,
           })
           .from(coverageItems)
-          .where(and(eq(coverageItems.notebookId, notebookId), eq(coverageItems.sourceId, sourceId)))
+          .where(
+            and(eq(coverageItems.notebookId, notebookId), eq(coverageItems.sourceId, sourceId)),
+          )
       : await dbClient.db
           .select({
             id: coverageItems.id,
@@ -264,7 +285,10 @@ export async function loadCanonicalProjectionSnapshot(
           })
           .from(coverageRecords)
           .where(
-            and(eq(coverageRecords.notebookId, notebookId), inArray(coverageRecords.coverageItemId, coverageItemIds)),
+            and(
+              eq(coverageRecords.notebookId, notebookId),
+              inArray(coverageRecords.coverageItemId, coverageItemIds),
+            ),
           )
       : [];
 
@@ -290,7 +314,7 @@ export async function loadCanonicalProjectionSnapshot(
         p.pageType === "source_summary" && p.pageKey.startsWith("source:")
           ? p.pageKey.slice("source:".length)
           : scope === "source"
-            ? sourceId ?? null
+            ? (sourceId ?? null)
             : p.pageKey.startsWith("source:")
               ? p.pageKey.slice("source:".length)
               : null,
@@ -338,7 +362,10 @@ export async function maxCanonicalUpdatedAt(
         .select({ updatedAt: sources.updatedAt })
         .from(sources)
         .where(and(eq(sources.notebookId, notebookId), eq(sources.id, sourceId)))
-    : await dbClient.db.select({ updatedAt: sources.updatedAt }).from(sources).where(eq(sources.notebookId, notebookId));
+    : await dbClient.db
+        .select({ updatedAt: sources.updatedAt })
+        .from(sources)
+        .where(eq(sources.notebookId, notebookId));
   timestamps.push(...sourceTs.map((r) => r.updatedAt));
 
   const claimTs = sourceId
@@ -346,7 +373,10 @@ export async function maxCanonicalUpdatedAt(
         .select({ updatedAt: claims.updatedAt })
         .from(claims)
         .where(and(eq(claims.notebookId, notebookId), eq(claims.sourceId, sourceId)))
-    : await dbClient.db.select({ updatedAt: claims.updatedAt }).from(claims).where(eq(claims.notebookId, notebookId));
+    : await dbClient.db
+        .select({ updatedAt: claims.updatedAt })
+        .from(claims)
+        .where(eq(claims.notebookId, notebookId));
   timestamps.push(...claimTs.map((r) => r.updatedAt));
 
   const wikiTs = await dbClient.db

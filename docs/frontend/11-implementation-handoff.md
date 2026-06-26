@@ -62,7 +62,7 @@ Learner credit summary (`GET /api/v1/credits` and `GET /api/v1/me`):
 
 ```ts
 {
-  percentRemaining: number;  // 0–100
+  percentRemaining: number; // 0–100
   exhausted: boolean;
 }
 ```
@@ -78,8 +78,8 @@ List packs (`GET /api/v1/checkout/credits/packs`):
 
 ```ts
 {
-  id: string;           // e.g. "tutor_500"
-  label: string;      // e.g. "Tutor credits ($5)"
+  id: string; // e.g. "tutor_500"
+  label: string; // e.g. "Tutor credits ($5)"
   creditType: "tutor" | "ingestion";
   priceCents: number;
   currency: "usd";
@@ -96,7 +96,7 @@ Response `201`:
 ```ts
 {
   sessionId: string;
-  checkoutUrl: string;  // redirect learner here (Stripe hosted page)
+  checkoutUrl: string; // redirect learner here (Stripe hosted page)
   packId: string;
 }
 ```

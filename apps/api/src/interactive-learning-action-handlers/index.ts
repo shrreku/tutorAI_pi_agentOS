@@ -8,7 +8,10 @@ import { handleSourceReaderAnnotationCreated } from "./source-reader-annotation-
 import { handleSurfaceCompleted } from "./surface-completed.js";
 import { handleTutorHelpRequested } from "./tutor-help-requested.js";
 import type { ActionHandlersRegistry } from "./types.js";
-import { handleWorkedExampleStepAnswered, handleWorkedExampleStepRevealed } from "./worked-example.js";
+import {
+  handleWorkedExampleStepAnswered,
+  handleWorkedExampleStepRevealed,
+} from "./worked-example.js";
 
 export type {
   ActionContext,

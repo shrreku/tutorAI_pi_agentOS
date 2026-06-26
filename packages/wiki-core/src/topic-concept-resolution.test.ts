@@ -123,10 +123,16 @@ describe("loadTopicPagesForObjectiveConcepts", () => {
 
 describe("topicPageBelongsToSource", () => {
   it("matches legacy and normalized topic pages", () => {
-    expect(topicPageBelongsToSource({ pageKey: "topic:src_1", title: "Topic" }, "src_1")).toBe(true);
+    expect(topicPageBelongsToSource({ pageKey: "topic:src_1", title: "Topic" }, "src_1")).toBe(
+      true,
+    );
     expect(
       topicPageBelongsToSource(
-        { pageKey: "topic:heat_transfer", title: "Topic", structuredJson: { bootstrapSourceId: "src_1" } },
+        {
+          pageKey: "topic:heat_transfer",
+          title: "Topic",
+          structuredJson: { bootstrapSourceId: "src_1" },
+        },
         "src_1",
       ),
     ).toBe(true);

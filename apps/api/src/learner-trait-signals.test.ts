@@ -1,13 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
 
 const { recordLearnerTraitSignalMock, readLearnerTraitSignalsForTurnMock } = vi.hoisted(() => ({
-  recordLearnerTraitSignalMock: vi.fn(async (_db: unknown, _signal: unknown) => ({ signal: {}, eventId: "evt_1" })),
+  recordLearnerTraitSignalMock: vi.fn(async (_db: unknown, _signal: unknown) => ({
+    signal: {},
+    eventId: "evt_1",
+  })),
   readLearnerTraitSignalsForTurnMock: vi.fn(async (_db: unknown, _input: unknown) => []),
 }));
 
 vi.mock("./learner-trait-store.js", () => ({
   recordLearnerTraitSignal: recordLearnerTraitSignalMock,
-  readLearnerTraitSignalsForTurn: (db: unknown, input: unknown) => readLearnerTraitSignalsForTurnMock(db, input),
+  readLearnerTraitSignalsForTurn: (db: unknown, input: unknown) =>
+    readLearnerTraitSignalsForTurnMock(db, input),
 }));
 
 import {
@@ -28,17 +32,14 @@ describe("learner trait signal module", () => {
 
   it("records explicit signals through the trait store with turn, run, and self-report evidence refs", async () => {
     recordLearnerTraitSignalMock.mockClear();
-    await recordExplicitPreferenceSignalsFromMessage(
-      { db: {} } as never,
-      {
-        notebookId: "nb_1",
-        userId: "user_1",
-        sessionId: "sess_1",
-        turnId: "turn_1",
-        runId: "run_1",
-        message: "quiz me on this topic",
-      },
-    );
+    await recordExplicitPreferenceSignalsFromMessage({ db: {} } as never, {
+      notebookId: "nb_1",
+      userId: "user_1",
+      sessionId: "sess_1",
+      turnId: "turn_1",
+      runId: "run_1",
+      message: "quiz me on this topic",
+    });
     expect(recordLearnerTraitSignalMock).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
@@ -57,29 +58,30 @@ describe("learner trait signal module", () => {
 
   it("suppresses reflective inferred signals for one-off example requests", () => {
     expect(extractReflectiveBehaviorSignals({ userMessage: "give me an example" })).toEqual([]);
-    expect(extractReflectiveBehaviorSignals({ userMessage: "Can you give me an example?" })).toEqual([]);
+    expect(
+      extractReflectiveBehaviorSignals({ userMessage: "Can you give me an example?" }),
+    ).toEqual([]);
   });
 
   it("extracts reflective behavior signals at lower-confidence lanes with turn evidence", () => {
-    expect(extractReflectiveBehaviorSignals({ userMessage: "I'm stuck and don't understand this step." })).toEqual([
-      expect.objectContaining({ trait: "helpSeekingStyle", value: "asks_early" }),
-    ]);
+    expect(
+      extractReflectiveBehaviorSignals({
+        userMessage: "I'm stuck and don't understand this step.",
+      }),
+    ).toEqual([expect.objectContaining({ trait: "helpSeekingStyle", value: "asks_early" })]);
   });
 
   it("processes completed tutor turns through explicit and reflective lanes", async () => {
     recordLearnerTraitSignalMock.mockClear();
-    const result = await processCompletedTutorTurnLearnerTraitSignals(
-      { db: {} } as never,
-      {
-        notebookId: "nb_1",
-        userId: "user_1",
-        sessionId: "sess_1",
-        turnId: "turn_1",
-        runId: "run_1",
-        userMessage: "Please go slower. I'm stuck on this part.",
-        assistantMessage: "Let's break it down.",
-      },
-    );
+    const result = await processCompletedTutorTurnLearnerTraitSignals({ db: {} } as never, {
+      notebookId: "nb_1",
+      userId: "user_1",
+      sessionId: "sess_1",
+      turnId: "turn_1",
+      runId: "run_1",
+      userMessage: "Please go slower. I'm stuck on this part.",
+      assistantMessage: "Let's break it down.",
+    });
 
     expect(result.explicitCount).toBe(1);
     expect(result.inferredCount).toBe(1);
@@ -117,17 +119,14 @@ describe("learner trait signal module", () => {
     ]);
     recordLearnerTraitSignalMock.mockClear();
 
-    const explicitCount = await recordExplicitPreferenceSignalsFromMessage(
-      { db: {} } as never,
-      {
-        notebookId: "nb_1",
-        userId: "user_1",
-        sessionId: "sess_1",
-        turnId: "turn_1",
-        runId: "run_1",
-        message: "Please go slower",
-      },
-    );
+    const explicitCount = await recordExplicitPreferenceSignalsFromMessage({ db: {} } as never, {
+      notebookId: "nb_1",
+      userId: "user_1",
+      sessionId: "sess_1",
+      turnId: "turn_1",
+      runId: "run_1",
+      message: "Please go slower",
+    });
 
     expect(explicitCount).toBe(0);
     expect(recordLearnerTraitSignalMock).not.toHaveBeenCalled();
@@ -135,18 +134,15 @@ describe("learner trait signal module", () => {
 
   it("skips signal processing for empty completed-turn messages", async () => {
     recordLearnerTraitSignalMock.mockClear();
-    const result = await processCompletedTutorTurnLearnerTraitSignals(
-      { db: {} } as never,
-      {
-        notebookId: "nb_1",
-        userId: "user_1",
-        sessionId: "sess_1",
-        turnId: "turn_1",
-        runId: "run_1",
-        userMessage: "   ",
-        assistantMessage: "   ",
-      },
-    );
+    const result = await processCompletedTutorTurnLearnerTraitSignals({ db: {} } as never, {
+      notebookId: "nb_1",
+      userId: "user_1",
+      sessionId: "sess_1",
+      turnId: "turn_1",
+      runId: "run_1",
+      userMessage: "   ",
+      assistantMessage: "   ",
+    });
 
     expect(result).toEqual({ explicitCount: 0, inferredCount: 0 });
     expect(recordLearnerTraitSignalMock).not.toHaveBeenCalled();
@@ -171,18 +167,15 @@ describe("learner trait signal module", () => {
     ]);
     recordLearnerTraitSignalMock.mockClear();
 
-    const inferredCount = await recordReflectiveBehaviorSignalsFromTurn(
-      { db: {} } as never,
-      {
-        notebookId: "nb_1",
-        userId: "user_1",
-        sessionId: "sess_1",
-        turnId: "turn_1",
-        runId: "run_1",
-        userMessage: "I'm stuck and don't understand this step.",
-        assistantMessage: "Let's break it down.",
-      },
-    );
+    const inferredCount = await recordReflectiveBehaviorSignalsFromTurn({ db: {} } as never, {
+      notebookId: "nb_1",
+      userId: "user_1",
+      sessionId: "sess_1",
+      turnId: "turn_1",
+      runId: "run_1",
+      userMessage: "I'm stuck and don't understand this step.",
+      assistantMessage: "Let's break it down.",
+    });
 
     expect(inferredCount).toBe(0);
     expect(recordLearnerTraitSignalMock).not.toHaveBeenCalled();

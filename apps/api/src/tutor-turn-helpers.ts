@@ -10,7 +10,10 @@ export type DigestDraftShape = {
   artifactProposalIds: string[];
 };
 
-export function shouldEmitDigestDraftUpdate(previous: DigestDraftShape | null, next: DigestDraftShape): boolean {
+export function shouldEmitDigestDraftUpdate(
+  previous: DigestDraftShape | null,
+  next: DigestDraftShape,
+): boolean {
   if (!previous) return true;
   const previousCitationIds = [...new Set(previous.citationIds)].sort();
   const nextCitationIds = [...new Set(next.citationIds)].sort();
@@ -50,16 +53,24 @@ export function shouldCompactTutorContext(input: {
   const lastCompaction = isJsonRecord(input.previousRuntimeContext.lastCompaction)
     ? input.previousRuntimeContext.lastCompaction
     : null;
-  const previousTurnIndex = typeof lastCompaction?.turnIndex === "number" ? lastCompaction.turnIndex : null;
-  const previousEstimatedChars = typeof lastCompaction?.estimatedChars === "number" ? lastCompaction.estimatedChars : 0;
+  const previousTurnIndex =
+    typeof lastCompaction?.turnIndex === "number" ? lastCompaction.turnIndex : null;
+  const previousEstimatedChars =
+    typeof lastCompaction?.estimatedChars === "number" ? lastCompaction.estimatedChars : 0;
   const estimatedChars = estimateTutorContextChars(input);
 
-  if (previousTurnIndex !== null && input.turnIndex - previousTurnIndex >= COMPACTION_TURN_INTERVAL) {
+  if (
+    previousTurnIndex !== null &&
+    input.turnIndex - previousTurnIndex >= COMPACTION_TURN_INTERVAL
+  ) {
     reasons.push("turn_interval");
   }
   if (estimatedChars >= COMPACTION_CONTEXT_CHAR_THRESHOLD) {
     reasons.push("context_size");
-  } else if (previousEstimatedChars > 0 && estimatedChars - previousEstimatedChars >= COMPACTION_CONTEXT_GROWTH_THRESHOLD) {
+  } else if (
+    previousEstimatedChars > 0 &&
+    estimatedChars - previousEstimatedChars >= COMPACTION_CONTEXT_GROWTH_THRESHOLD
+  ) {
     reasons.push("context_growth");
   }
   if (
@@ -79,11 +90,16 @@ export function shouldCompactTutorContext(input: {
   if (
     previousTurnIndex !== null &&
     input.turnIndex > 0 &&
-    openArtifactFingerprint(input.previousRuntimeContext.openArtifact) !== openArtifactFingerprint(input.openArtifact)
+    openArtifactFingerprint(input.previousRuntimeContext.openArtifact) !==
+      openArtifactFingerprint(input.openArtifact)
   ) {
     reasons.push("open_artifact_changed");
   }
-  if (previousTurnIndex !== null && input.turnIndex - previousTurnIndex >= 2 && isLearnerConfirmation(input.message)) {
+  if (
+    previousTurnIndex !== null &&
+    input.turnIndex - previousTurnIndex >= 2 &&
+    isLearnerConfirmation(input.message)
+  ) {
     reasons.push("learner_progression");
   }
   if (
@@ -93,7 +109,11 @@ export function shouldCompactTutorContext(input: {
   ) {
     reasons.push("durable_tool_change");
   }
-  if (previousTurnIndex !== null && input.turnIndex > 0 && hasNewRuntimeItems(input.previousRuntimeContext.sourceIds, input.sourceIds)) {
+  if (
+    previousTurnIndex !== null &&
+    input.turnIndex > 0 &&
+    hasNewRuntimeItems(input.previousRuntimeContext.sourceIds, input.sourceIds)
+  ) {
     reasons.push("source_context_changed");
   }
   if (
@@ -128,7 +148,9 @@ function isJsonRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isLearnerConfirmation(message: string): boolean {
-  return /\b(understood|got it|i got this|clear|yes|continue|next|easy|done|makes sense)\b/i.test(message);
+  return /\b(understood|got it|i got this|clear|yes|continue|next|easy|done|makes sense)\b/i.test(
+    message,
+  );
 }
 
 function estimateTutorContextChars(input: {
@@ -175,7 +197,11 @@ function stringOrNull(value: unknown): string | null {
 }
 
 function hasNewRuntimeItems(previous: unknown, next: string[]): boolean {
-  const previousSet = new Set(Array.isArray(previous) ? previous.filter((value): value is string => typeof value === "string") : []);
+  const previousSet = new Set(
+    Array.isArray(previous)
+      ? previous.filter((value): value is string => typeof value === "string")
+      : [],
+  );
   return next.some((value) => !previousSet.has(value));
 }
 

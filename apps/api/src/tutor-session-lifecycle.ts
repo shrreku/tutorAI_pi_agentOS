@@ -114,7 +114,10 @@ export async function resumeTutorSessionLifecycle(
       activeMode: input.mode,
       modelConfig: { model: input.model },
     });
-    await (input.replaceRuntime ?? replaceStudyAgentTutorRuntime)({ previousSessionId: input.sessionId, nextRun: resumeRun });
+    await (input.replaceRuntime ?? replaceStudyAgentTutorRuntime)({
+      previousSessionId: input.sessionId,
+      nextRun: resumeRun,
+    });
   } catch (error) {
     await appendEvent(dbClient, {
       notebookId: input.notebookId,
@@ -202,7 +205,8 @@ export async function completeTutorSessionLifecycle(
   const sourceIds = stringArray(runtimeCtx.sourceIds);
   const citationIds = stringArray(runtimeCtx.citationIds);
   const artifactProposalIds = stringArray(runtimeCtx.artifactProposalIds);
-  const currentObjective = typeof runtimeCtx.currentObjective === "string" ? runtimeCtx.currentObjective : undefined;
+  const currentObjective =
+    typeof runtimeCtx.currentObjective === "string" ? runtimeCtx.currentObjective : undefined;
   const estimationBoundaryComplete = runtimeCtx.estimationBoundaryComplete === true;
 
   if (phase !== "crystallization" && !estimationBoundaryComplete) {
@@ -281,7 +285,9 @@ export async function completeTutorSessionLifecycleForRequest(
 }
 
 function stringArray(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
 }
 
 function isJsonRecord(value: unknown): value is Record<string, unknown> {
@@ -297,7 +303,13 @@ function parseNodeRefs(value: unknown): NodeRef[] {
 }
 
 function normalizeSessionMode(value: string): StudyAgentPromptContext["activeMode"] {
-  if (value === "learn" || value === "practice" || value === "revise" || value === "explore" || value === "wiki_maintenance") {
+  if (
+    value === "learn" ||
+    value === "practice" ||
+    value === "revise" ||
+    value === "explore" ||
+    value === "wiki_maintenance"
+  ) {
     return value;
   }
   return "learn";

@@ -8,9 +8,24 @@ describe("composeTeachingArc", () => {
       objectiveTitle: "Differentiate polynomial functions",
       targetConceptNames: ["derivative", "power rule"],
       mustCoverItems: [
-        { id: "cov_def", title: "Derivative as instantaneous rate", itemFamily: "definition", sourceRefs: [{ sourceId: "src_1" }] },
-        { id: "cov_formula", title: "Power rule d/dx x^n = n x^(n-1)", itemFamily: "formula", sourceRefs: [{ sourceId: "src_1" }] },
-        { id: "cov_trap", title: "Do not subtract one from coefficients", itemFamily: "misconception", sourceRefs: [{ sourceId: "src_1" }] },
+        {
+          id: "cov_def",
+          title: "Derivative as instantaneous rate",
+          itemFamily: "definition",
+          sourceRefs: [{ sourceId: "src_1" }],
+        },
+        {
+          id: "cov_formula",
+          title: "Power rule d/dx x^n = n x^(n-1)",
+          itemFamily: "formula",
+          sourceRefs: [{ sourceId: "src_1" }],
+        },
+        {
+          id: "cov_trap",
+          title: "Do not subtract one from coefficients",
+          itemFamily: "misconception",
+          sourceRefs: [{ sourceId: "src_1" }],
+        },
       ],
       studentProfile: {
         pacePreference: "slow",
@@ -70,8 +85,18 @@ describe("composeTeachingArc", () => {
       objectiveId: "obj_chain",
       objectiveTitle: "Apply chain rule in context",
       mustCoverItems: [
-        { id: "cov_proc", title: "Differentiate outer then inner", itemFamily: "procedure", sourceRefs: [{ sourceId: "src_1" }] },
-        { id: "cov_app", title: "Rate-of-change application", itemFamily: "application", sourceRefs: [{ sourceId: "src_1" }] },
+        {
+          id: "cov_proc",
+          title: "Differentiate outer then inner",
+          itemFamily: "procedure",
+          sourceRefs: [{ sourceId: "src_1" }],
+        },
+        {
+          id: "cov_app",
+          title: "Rate-of-change application",
+          itemFamily: "application",
+          sourceRefs: [{ sourceId: "src_1" }],
+        },
       ],
     });
     expect(arc.blocks.some((block) => block.type === "derivation_mechanism")).toBe(true);
@@ -82,7 +107,13 @@ describe("composeTeachingArc", () => {
     const arc = composeTeachingArc({
       objectiveId: "obj_limits",
       objectiveTitle: "Reason about limits",
-      mustCoverItems: [{ id: "cov_trap", title: "Limit value is not always function value", itemFamily: "misconception" }],
+      mustCoverItems: [
+        {
+          id: "cov_trap",
+          title: "Limit value is not always function value",
+          itemFamily: "misconception",
+        },
+      ],
     });
     const adapted = adaptTeachingArcForRuntime(arc, { recentMistakeConceptIds: ["concept_limit"] });
 

@@ -11,16 +11,28 @@ import {
   type PageQualityIssue,
   type PageReadiness,
 } from "@studyagent/schemas";
-import { extractHumanBlocks, mergeAgentMarkdownWithHumanBlocks, resolvePageReadinessFromWikiPage } from "@studyagent/wiki-core";
+import {
+  extractHumanBlocks,
+  mergeAgentMarkdownWithHumanBlocks,
+  resolvePageReadinessFromWikiPage,
+} from "@studyagent/wiki-core";
 import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { recordGenerationMetric } from "./generation-metrics.js";
-import { fetchOpenRouterJsonCompletion, type OpenRouterJsonClientConfig } from "@studyagent/llm-client";
+import {
+  fetchOpenRouterJsonCompletion,
+  type OpenRouterJsonClientConfig,
+} from "@studyagent/llm-client";
 import { polishWikiPage } from "./wiki-page-polish.js";
 
 const polishResponseSchema = z.object({
   markdown: z.string().min(1),
-  pageReadiness: z.enum(["still_improving", "ready_to_study", "needs_more_source_support", "needs_refresh"]),
+  pageReadiness: z.enum([
+    "still_improving",
+    "ready_to_study",
+    "needs_more_source_support",
+    "needs_refresh",
+  ]),
   sections: z.record(z.string(), z.string()).optional(),
 });
 
@@ -111,7 +123,11 @@ export function evaluatePagePolishQuality(input: {
   const issues: PageQualityIssue[] = [];
   const markdown = input.markdown.trim();
   if (markdown.length < 80) {
-    issues.push({ code: "markdown_too_short", message: "Polished markdown is too short.", severity: "error" });
+    issues.push({
+      code: "markdown_too_short",
+      message: "Polished markdown is too short.",
+      severity: "error",
+    });
   }
 
   const lowered = markdown.toLowerCase();
@@ -275,7 +291,9 @@ async function persistPolishUpdate(
         lastGenerationTargetKey: input.idempotencyKey,
         lastPolishedAt: now.toISOString(),
         qualityIssues: input.qualityIssues.filter((issue) => issue.severity === "warning"),
-        ...(input.interactiveBlockPlans ? { interactiveBlockPlans: input.interactiveBlockPlans } : {}),
+        ...(input.interactiveBlockPlans
+          ? { interactiveBlockPlans: input.interactiveBlockPlans }
+          : {}),
         ...(input.deepBuilt !== undefined ? { deepBuilt: input.deepBuilt } : {}),
         backgroundPolishStatus: "completed",
       },
@@ -292,7 +310,11 @@ async function executeStructuredWikiPagePolish(
   idempotencyKey: string,
 ): Promise<WikiPolishExecutorResult> {
   const pageType = target.pageType as "concept" | "topic";
-  const sourceExcerpt = await loadSourceContext(dbClient, target.notebookId, page.sourceClaimIds ?? []);
+  const sourceExcerpt = await loadSourceContext(
+    dbClient,
+    target.notebookId,
+    page.sourceClaimIds ?? [],
+  );
   const humanBlocks = extractHumanBlocks(page.markdown);
   let polished: Awaited<ReturnType<typeof polishWikiPage>>;
   try {
@@ -384,7 +406,10 @@ async function executeStructuredWikiPagePolish(
     return supersededTouchResult(pageForPersist, target);
   }
 
-  const nextMarkdown = mergeAgentMarkdownWithHumanBlocks(polished.output.markdown ?? page.markdown, humanBlocks);
+  const nextMarkdown = mergeAgentMarkdownWithHumanBlocks(
+    polished.output.markdown ?? page.markdown,
+    humanBlocks,
+  );
   const interactiveBlockPlans = polished.output.blocks.filter(
     (block) => block.kind === "interactive_learning_block",
   );
@@ -506,8 +531,16 @@ export async function executeWikiPagePolish(
   });
 
   if (target.pageType === "concept" || target.pageType === "topic") {
-    const result = await executeStructuredWikiPagePolish(env, dbClient, target, page, idempotencyKey);
-    const eventType = result.ok ? "generation.page.polish.completed" : "generation.page.polish.failed";
+    const result = await executeStructuredWikiPagePolish(
+      env,
+      dbClient,
+      target,
+      page,
+      idempotencyKey,
+    );
+    const eventType = result.ok
+      ? "generation.page.polish.completed"
+      : "generation.page.polish.failed";
     await appendEvent(dbClient, {
       notebookId: target.notebookId,
       eventType,
@@ -542,7 +575,11 @@ export async function executeWikiPagePolish(
   }
 
   const humanBlocks = extractHumanBlocks(page.markdown);
-  const sourceContext = await loadSourceContext(dbClient, target.notebookId, page.sourceClaimIds ?? []);
+  const sourceContext = await loadSourceContext(
+    dbClient,
+    target.notebookId,
+    page.sourceClaimIds ?? [],
+  );
   let polish = await requestMarkdownPolishFromLlm(env, target, page.markdown, sourceContext);
   let qualityIssues: PageQualityIssue[] = polish
     ? evaluatePagePolishQuality({
@@ -622,7 +659,9 @@ export async function executeWikiPagePolish(
     });
   }
 
-  const eventType = fallbackUsed ? "generation.page.polish.failed" : "generation.page.polish.completed";
+  const eventType = fallbackUsed
+    ? "generation.page.polish.failed"
+    : "generation.page.polish.completed";
   await appendEvent(dbClient, {
     notebookId: target.notebookId,
     eventType,

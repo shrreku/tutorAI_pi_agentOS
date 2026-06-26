@@ -64,7 +64,14 @@ describe("personalized note rendering and quality", () => {
       payload: {
         markdown: "Short overview.",
         personalization: {
-          sections: [{ id: "s1", title: "For your mistakes", kind: "for_mistakes", body: "Review sign errors." }],
+          sections: [
+            {
+              id: "s1",
+              title: "For your mistakes",
+              kind: "for_mistakes",
+              body: "Review sign errors.",
+            },
+          ],
         },
       },
       sourceRefs: [{ refType: "chunk", refId: "chk_1" }],

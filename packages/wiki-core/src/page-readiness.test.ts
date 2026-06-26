@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { interactiveLearningBlockPlanSchema } from "@studyagent/schemas";
-import { buildIdempotencyKey, compileBlockPlanToInteractiveBlock } from "./page-generation-contracts.js";
+import {
+  buildIdempotencyKey,
+  compileBlockPlanToInteractiveBlock,
+} from "./page-generation-contracts.js";
 import { derivePageReadiness, learnerPageReadinessLabel } from "./page-readiness.js";
 
 describe("derivePageReadiness", () => {

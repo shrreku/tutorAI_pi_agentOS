@@ -16,7 +16,12 @@ import {
 import "@xyflow/react/dist/style.css";
 import type { GraphCanvasNode, GraphQueryResponse } from "@studyagent/schemas";
 import { learnerFacingNodeTypeLabel, learnerFacingPipelineStatus } from "@studyagent/schemas";
-import { buildIntentAwareLayout, getLearnerNodeTitle, learnerMasteryMetaFromNode, learnerPageReadinessFromNode } from "./whiteboard-utils.js";
+import {
+  buildIntentAwareLayout,
+  getLearnerNodeTitle,
+  learnerMasteryMetaFromNode,
+  learnerPageReadinessFromNode,
+} from "./whiteboard-utils.js";
 
 interface GraphCanvasProps {
   graphData: GraphQueryResponse | null;
@@ -88,7 +93,15 @@ const StudyAgentNode: React.FC<{ data: CustomNodeData }> = ({ data }) => {
           opacity,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, marginBottom: 8 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 6,
+            marginBottom: 8,
+          }}
+        >
           <span
             style={{
               maxWidth: 92,
@@ -194,14 +207,18 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
 }) => {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
-  const [savedPositions, setSavedPositions] = React.useState<Record<string, { x: number; y: number }>>({});
+  const [savedPositions, setSavedPositions] = React.useState<
+    Record<string, { x: number; y: number }>
+  >({});
 
   // Load saved layout positions from API — re-runs when layoutVersion increments (Clear Layout)
   useEffect(() => {
     if (!notebookId) return;
     fetch(`/api/v1/notebooks/${notebookId}/graph/layout`)
       .then((r) => (r.ok ? r.json() : { positions: {} }))
-      .then((d: { positions: Record<string, { x: number; y: number }> }) => setSavedPositions(d.positions ?? {}))
+      .then((d: { positions: Record<string, { x: number; y: number }> }) =>
+        setSavedPositions(d.positions ?? {}),
+      )
       .catch(() => setSavedPositions({}));
   }, [notebookId, layoutVersion]);
 
@@ -269,7 +286,12 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     (changes: NodeChange[]) => {
       onNodesChange(changes);
       changes.forEach((change) => {
-        if (change.type === "position" && "position" in change && change.position && !change.dragging) {
+        if (
+          change.type === "position" &&
+          "position" in change &&
+          change.position &&
+          !change.dragging
+        ) {
           if (onLayoutChange) {
             const node = graphData?.nodes.find((n) => n.id === change.id);
             onLayoutChange(change.id, change.position, node?.nodeType);
@@ -326,15 +348,23 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
           >
             ⌘
           </div>
-          <div style={{ color: "var(--text-strong)", fontWeight: 850, marginBottom: 5 }}>Build the first study map</div>
-          <div style={{ lineHeight: 1.45 }}>Add a source from the top bar. Sources, wiki pages, objectives, and artifacts will appear here as connected nodes.</div>
+          <div style={{ color: "var(--text-strong)", fontWeight: 850, marginBottom: 5 }}>
+            Build the first study map
+          </div>
+          <div style={{ lineHeight: 1.45 }}>
+            Add a source from the top bar. Sources, wiki pages, objectives, and artifacts will
+            appear here as connected nodes.
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="graph-canvas-surface" style={{ width: "100%", height: "100%", background: "var(--panel-strong)" }}>
+    <div
+      className="graph-canvas-surface"
+      style={{ width: "100%", height: "100%", background: "var(--panel-strong)" }}
+    >
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -357,7 +387,11 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         <Controls />
         <MiniMap
           nodeColor={miniMapNodeColor}
-          style={{ backgroundColor: "var(--panel-muted)", border: "1px solid var(--line)", borderRadius: 8 }}
+          style={{
+            backgroundColor: "var(--panel-muted)",
+            border: "1px solid var(--line)",
+            borderRadius: 8,
+          }}
         />
       </ReactFlow>
     </div>
@@ -366,7 +400,8 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
 
 function getCompactSummary(node: GraphCanvasNode): string | null {
   const properties = node.properties;
-  const value = properties.summary ?? properties.description ?? properties.sessionGoal ?? properties.preview;
+  const value =
+    properties.summary ?? properties.description ?? properties.sessionGoal ?? properties.preview;
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   if (/^bootstrap module generated from\b/i.test(trimmed)) return null;
@@ -376,7 +411,8 @@ function getCompactSummary(node: GraphCanvasNode): string | null {
 function getCompactMeta(node: GraphCanvasNode): string | null {
   const properties = node.properties;
   if (node.nodeType === "study_plan") {
-    const current = typeof properties.currentObjectiveId === "string" ? "current set" : "needs objective";
+    const current =
+      typeof properties.currentObjectiveId === "string" ? "current set" : "needs objective";
     return `Live Plan: ${current}`;
   }
   if (node.nodeType === "session_plan" && typeof properties.sessionGoal === "string") {
@@ -390,11 +426,14 @@ function getCompactMeta(node: GraphCanvasNode): string | null {
     return "ordered path";
   }
   if (node.nodeType === "objective") {
-    const order = typeof properties.orderIndex === "number" ? `#${properties.orderIndex + 1}` : null;
+    const order =
+      typeof properties.orderIndex === "number" ? `#${properties.orderIndex + 1}` : null;
     return order;
   }
   if (node.nodeType === "artifact") {
-    return typeof properties.artifactType === "string" ? properties.artifactType.replace(/_/g, " ") : "reference";
+    return typeof properties.artifactType === "string"
+      ? properties.artifactType.replace(/_/g, " ")
+      : "reference";
   }
   if (node.nodeType === "source") {
     return typeof properties.sourceType === "string" ? properties.sourceType : null;

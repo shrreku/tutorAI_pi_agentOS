@@ -1,15 +1,27 @@
 import { appendEventWithTutorCacheInvalidation as appendEvent } from "../agentic-cache-invalidation.js";
-import { loadInteractiveBlockState, mergeInteractiveBlockState } from "../interactive-learning-state.js";
+import {
+  loadInteractiveBlockState,
+  mergeInteractiveBlockState,
+} from "../interactive-learning-state.js";
 import type { ActionContext, ActionHandlerOutcome } from "./types.js";
 
-export async function handleSourceReaderAnnotationCreated(actionCtx: ActionContext): Promise<ActionHandlerOutcome> {
+export async function handleSourceReaderAnnotationCreated(
+  actionCtx: ActionContext,
+): Promise<ActionHandlerOutcome> {
   const { ctx, notebookId, envelope, payload } = actionCtx;
-  const annotationPayload = payload as { spanId?: string; annotation?: string; confusing?: boolean };
+  const annotationPayload = payload as {
+    spanId?: string;
+    annotation?: string;
+    confusing?: boolean;
+  };
 
   if (!annotationPayload.spanId || !annotationPayload.annotation) {
     return {
       ok: false,
-      error: { code: "bad_request", message: "Source reader annotations require spanId and annotation." },
+      error: {
+        code: "bad_request",
+        message: "Source reader annotations require spanId and annotation.",
+      },
     };
   }
 

@@ -1,4 +1,8 @@
-import type { InteractiveLearningBlock as SchemaInteractiveBlock, ReferenceBlock, ReferenceSurface } from "@studyagent/schemas";
+import type {
+  InteractiveLearningBlock as SchemaInteractiveBlock,
+  ReferenceBlock,
+  ReferenceSurface,
+} from "@studyagent/schemas";
 
 export type InteractiveLearningBlock = SchemaInteractiveBlock & {
   simulationTemplateId?: string;
@@ -55,7 +59,9 @@ function simulationTemplateIdFromContent(content: unknown): string | undefined {
   return undefined;
 }
 
-export function toRenderableInteractiveBlock(block: SchemaInteractiveBlock): InteractiveLearningBlock {
+export function toRenderableInteractiveBlock(
+  block: SchemaInteractiveBlock,
+): InteractiveLearningBlock {
   const templateId = simulationTemplateIdFromContent(block.content);
   if (templateId) {
     return { ...block, simulationTemplateId: templateId };
@@ -83,7 +89,11 @@ function readInteractiveRecord(content: unknown): Record<string, unknown> | null
   if (typeof content !== "object" || content === null) return null;
   const record = content as Record<string, unknown>;
   if (typeof record.kind === "string" && isInteractiveBlockKind(record.kind)) return record;
-  if (record.interactiveBlock && typeof record.interactiveBlock === "object" && record.interactiveBlock !== null) {
+  if (
+    record.interactiveBlock &&
+    typeof record.interactiveBlock === "object" &&
+    record.interactiveBlock !== null
+  ) {
     const nested = record.interactiveBlock as Record<string, unknown>;
     if (typeof nested.kind === "string" && isInteractiveBlockKind(nested.kind)) return nested;
   }
@@ -100,16 +110,24 @@ export function parseInteractiveLearningBlock(
     const parsed = toRenderableInteractiveBlock({
       id: block.id,
       kind: fromContent.kind as SchemaInteractiveBlock["kind"],
-      title: block.title ?? (typeof fromContent.title === "string" ? fromContent.title : "Interactive block"),
-      learningPurpose: typeof fromContent.learningPurpose === "string" ? fromContent.learningPurpose : "Interactive practice",
+      title:
+        block.title ??
+        (typeof fromContent.title === "string" ? fromContent.title : "Interactive block"),
+      learningPurpose:
+        typeof fromContent.learningPurpose === "string"
+          ? fromContent.learningPurpose
+          : "Interactive practice",
       content: fromContent.content ?? fromContent,
       canonicalState: fromContent.canonicalState ?? {},
-      allowedActions: Array.isArray(fromContent.allowedActions) ? (fromContent.allowedActions as SchemaInteractiveBlock["allowedActions"]) : [],
+      allowedActions: Array.isArray(fromContent.allowedActions)
+        ? (fromContent.allowedActions as SchemaInteractiveBlock["allowedActions"])
+        : [],
       rendererPreference:
         fromContent.rendererPreference === "native" || fromContent.rendererPreference === "mcp_app"
           ? fromContent.rendererPreference
           : "mcp_app",
-      fallbackSummary: typeof fromContent.fallbackSummary === "string" ? fromContent.fallbackSummary : null,
+      fallbackSummary:
+        typeof fromContent.fallbackSummary === "string" ? fromContent.fallbackSummary : null,
       surfaceRole: "primary",
       objectiveRefs: [],
       conceptRefs: [],

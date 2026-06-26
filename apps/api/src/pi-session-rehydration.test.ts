@@ -27,20 +27,24 @@ class FakeDb {
 describe("loadRehydrationTranscript", () => {
   it("returns the last turns oldest-first with compact tool summaries", async () => {
     const transcript = await loadRehydrationTranscript(
-      { db: new FakeDb([
-        {
-          turnIndex: 2,
-          userMessage: "Can you quiz me?",
-          assistantMessage: "Sure, let me prepare one.",
-          toolSummaryJson: { tools: [{ toolName: "artifact.create_quiz", status: "completed", latencyMs: 44 }] },
-        },
-        {
-          turnIndex: 1,
-          userMessage: "Explain gradients",
-          assistantMessage: "Gradients point in the direction of steepest ascent.",
-          toolSummaryJson: { tools: [] },
-        },
-      ]) } as never,
+      {
+        db: new FakeDb([
+          {
+            turnIndex: 2,
+            userMessage: "Can you quiz me?",
+            assistantMessage: "Sure, let me prepare one.",
+            toolSummaryJson: {
+              tools: [{ toolName: "artifact.create_quiz", status: "completed", latencyMs: 44 }],
+            },
+          },
+          {
+            turnIndex: 1,
+            userMessage: "Explain gradients",
+            assistantMessage: "Gradients point in the direction of steepest ascent.",
+            toolSummaryJson: { tools: [] },
+          },
+        ]),
+      } as never,
       "sess_1",
       5,
     );
@@ -51,14 +55,19 @@ describe("loadRehydrationTranscript", () => {
       { role: "user", content: "Can you quiz me?" },
       {
         role: "assistant",
-        content: "Sure, let me prepare one.\n\n[Tool summary]\n- artifact.create_quiz (completed, 44ms)",
+        content:
+          "Sure, let me prepare one.\n\n[Tool summary]\n- artifact.create_quiz (completed, 44ms)",
       },
     ]);
   });
 
   it("skips empty messages cleanly", async () => {
     const transcript = await loadRehydrationTranscript(
-      { db: new FakeDb([{ turnIndex: 0, userMessage: null, assistantMessage: "  ", toolSummaryJson: null }]) } as never,
+      {
+        db: new FakeDb([
+          { turnIndex: 0, userMessage: null, assistantMessage: "  ", toolSummaryJson: null },
+        ]),
+      } as never,
       "sess_2",
       5,
     );

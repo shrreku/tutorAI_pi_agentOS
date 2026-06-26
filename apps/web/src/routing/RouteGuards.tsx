@@ -1,8 +1,22 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { identifyPostHogUser, initPostHog } from "../analytics/posthog.js";
 import { api, fetchMe, fetchReplayPolicy, rootApi, type MeResponse } from "./api.js";
-import { isAdminRoute, isEvalRunsRoute, isProtectedRoute, matchRoute, requiresConsent } from "./routes.js";
+import {
+  isAdminRoute,
+  isEvalRunsRoute,
+  isProtectedRoute,
+  matchRoute,
+  requiresConsent,
+} from "./routes.js";
 
 type NavigateFn = (path: string) => void;
 

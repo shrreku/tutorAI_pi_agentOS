@@ -6,12 +6,31 @@ import {
   promoteCurrentPathConcepts,
 } from "./whiteboard-utils.js";
 
-function shouldShowNodeByDefault(viewMode: "curriculum" | "study_map" | "source_wiki_map", nodeType: string, isDeveloperMode: boolean): boolean {
+function shouldShowNodeByDefault(
+  viewMode: "curriculum" | "study_map" | "source_wiki_map",
+  nodeType: string,
+  isDeveloperMode: boolean,
+): boolean {
   if (isDeveloperMode) return true;
-  if (viewMode === "study_map" && ["claim", "source_section", "coverage_item", "coverage_record", "objective_list"].includes(nodeType)) {
+  if (
+    viewMode === "study_map" &&
+    ["claim", "source_section", "coverage_item", "coverage_record", "objective_list"].includes(
+      nodeType,
+    )
+  ) {
     return false;
   }
-  if (viewMode === "source_wiki_map" && ["claim", "coverage_item", "coverage_record", "weak_concept", "objective_list", "session_plan"].includes(nodeType)) {
+  if (
+    viewMode === "source_wiki_map" &&
+    [
+      "claim",
+      "coverage_item",
+      "coverage_record",
+      "weak_concept",
+      "objective_list",
+      "session_plan",
+    ].includes(nodeType)
+  ) {
     return false;
   }
   return true;
@@ -23,9 +42,13 @@ function applyDefaultViewVisibility(
   isDeveloperMode: boolean,
 ): GraphQueryResponse {
   if (isDeveloperMode) return graphData;
-  const nodes = graphData.nodes.filter((node) => shouldShowNodeByDefault(viewMode, node.nodeType, isDeveloperMode));
+  const nodes = graphData.nodes.filter((node) =>
+    shouldShowNodeByDefault(viewMode, node.nodeType, isDeveloperMode),
+  );
   const visibleIds = new Set(nodes.map((node) => node.id));
-  const edges = graphData.edges.filter((edge) => visibleIds.has(edge.source) && visibleIds.has(edge.target));
+  const edges = graphData.edges.filter(
+    (edge) => visibleIds.has(edge.source) && visibleIds.has(edge.target),
+  );
   return { ...graphData, nodes, edges };
 }
 
@@ -45,7 +68,15 @@ describe("workspace verification", () => {
           { id: "claim_1", nodeType: "claim", labels: [], properties: {} },
           { id: "concept_1", nodeType: "concept", labels: [], properties: {} },
         ],
-        edges: [{ id: "edge_1", source: "claim_1", target: "concept_1", relationType: "supports", properties: {} }],
+        edges: [
+          {
+            id: "edge_1",
+            source: "claim_1",
+            target: "concept_1",
+            relationType: "supports",
+            properties: {},
+          },
+        ],
       } as any,
       "study_map",
       false,
@@ -80,11 +111,28 @@ describe("workspace verification", () => {
           { id: "src_a", nodeType: "source", labels: [], properties: { headingPath: ["A"] } },
           { id: "topic_a", nodeType: "topic", labels: [], properties: { headingPath: ["A"] } },
           { id: "concept_a", nodeType: "concept", labels: [], properties: { headingPath: ["A"] } },
-          { id: "page_b", nodeType: "wiki_page", labels: [], properties: { headingPath: ["B"], pageType: "topic" } },
+          {
+            id: "page_b",
+            nodeType: "wiki_page",
+            labels: [],
+            properties: { headingPath: ["B"], pageType: "topic" },
+          },
         ],
         edges: [
-          { id: "e1", source: "src_a", target: "topic_a", relationType: "HAS_TOPIC", properties: {} },
-          { id: "e2", source: "topic_a", target: "concept_a", relationType: "CONTAINS_CONCEPT", properties: {} },
+          {
+            id: "e1",
+            source: "src_a",
+            target: "topic_a",
+            relationType: "HAS_TOPIC",
+            properties: {},
+          },
+          {
+            id: "e2",
+            source: "topic_a",
+            target: "concept_a",
+            relationType: "CONTAINS_CONCEPT",
+            properties: {},
+          },
         ],
       } as any,
       savedPositions: {},

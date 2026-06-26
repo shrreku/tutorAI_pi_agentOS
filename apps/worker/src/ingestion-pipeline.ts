@@ -1,7 +1,19 @@
 import { GetObjectCommand, type S3Client } from "@aws-sdk/client-s3";
 import type { loadEnv } from "@studyagent/config";
-import { appendEvent, chunks, notebooks, sourceVersions, sources, trackProductEvent, type DbClient } from "@studyagent/db";
-import { documentTreeToChunks, parserForSourceType, type ParserSelectionOptions } from "@studyagent/ingestion";
+import {
+  appendEvent,
+  chunks,
+  notebooks,
+  sourceVersions,
+  sources,
+  trackProductEvent,
+  type DbClient,
+} from "@studyagent/db";
+import {
+  documentTreeToChunks,
+  parserForSourceType,
+  type ParserSelectionOptions,
+} from "@studyagent/ingestion";
 import { embedTextsOpenRouter } from "@studyagent/search";
 import { startActiveObservation } from "@studyagent/observability";
 import { createHash } from "node:crypto";
@@ -62,10 +74,16 @@ export async function processIngestionPipelineJob(input: {
         });
 
         if (!s3) {
-          throw new Error("OBJECT_STORAGE_* is not configured; cannot read uploaded bytes for ingestion");
+          throw new Error(
+            "OBJECT_STORAGE_* is not configured; cannot read uploaded bytes for ingestion",
+          );
         }
 
-        const [source] = await dbClient.db.select().from(sources).where(eq(sources.id, sourceId)).limit(1);
+        const [source] = await dbClient.db
+          .select()
+          .from(sources)
+          .where(eq(sources.id, sourceId))
+          .limit(1);
         if (!source || source.notebookId !== notebookId) {
           throw new Error(`Source ${sourceId} missing or notebook mismatch`);
         }
@@ -79,7 +97,10 @@ export async function processIngestionPipelineJob(input: {
           throw new Error(`Source version ${sourceVersionId} missing or source mismatch`);
         }
 
-        await dbClient.db.update(sources).set({ status: "parsing", updatedAt: new Date() }).where(eq(sources.id, sourceId));
+        await dbClient.db
+          .update(sources)
+          .set({ status: "parsing", updatedAt: new Date() })
+          .where(eq(sources.id, sourceId));
 
         await appendEvent(dbClient, {
           notebookId,
@@ -136,7 +157,10 @@ export async function processIngestionPipelineJob(input: {
           },
         });
 
-        await dbClient.db.update(sources).set({ status: "chunking", updatedAt: new Date() }).where(eq(sources.id, sourceId));
+        await dbClient.db
+          .update(sources)
+          .set({ status: "chunking", updatedAt: new Date() })
+          .where(eq(sources.id, sourceId));
 
         const chunkRows = documentTreeToChunks(parsed, { sourceVersionId }).filter(
           (chunk) => chunk.chunkType !== "retrieval" || isHighSignalRetrievalChunk(chunk.text),
@@ -173,9 +197,14 @@ export async function processIngestionPipelineJob(input: {
           },
         });
 
-        await dbClient.db.update(sources).set({ status: "indexing", updatedAt: new Date() }).where(eq(sources.id, sourceId));
+        await dbClient.db
+          .update(sources)
+          .set({ status: "indexing", updatedAt: new Date() })
+          .where(eq(sources.id, sourceId));
 
-        const retrievalChunks = chunkRows.filter((c) => c.chunkType === "retrieval" && c.text.trim().length > 0);
+        const retrievalChunks = chunkRows.filter(
+          (c) => c.chunkType === "retrieval" && c.text.trim().length > 0,
+        );
         await dbClient.db.execute(
           sql`update chunks set fts_vector = to_tsvector('english', text)::text where source_version_id = ${sourceVersionId}`,
         );
@@ -184,7 +213,10 @@ export async function processIngestionPipelineJob(input: {
         let embeddingError: string | null = null;
 
         if (retrievalChunks.length && env.OPENROUTER_API_KEY) {
-          const embedBase = (env.EMBEDDING_API_BASE_URL?.trim() || env.OPENROUTER_BASE_URL).replace(/\/+$/, "");
+          const embedBase = (env.EMBEDDING_API_BASE_URL?.trim() || env.OPENROUTER_BASE_URL).replace(
+            /\/+$/,
+            "",
+          );
           try {
             const texts = retrievalChunks.map((c) => c.text);
             const { embeddings, model } = await embedTextsOpenRouter(texts, {
@@ -194,7 +226,9 @@ export async function processIngestionPipelineJob(input: {
               dimensions: env.EMBEDDING_DIMENSIONS,
             });
             if (embeddings.length !== retrievalChunks.length) {
-              throw new Error(`embedding count mismatch: ${embeddings.length} vs ${retrievalChunks.length}`);
+              throw new Error(
+                `embedding count mismatch: ${embeddings.length} vs ${retrievalChunks.length}`,
+              );
             }
             vectorEmbeddings = true;
             embeddingModel = model;
@@ -236,7 +270,8 @@ export async function processIngestionPipelineJob(input: {
           },
         });
 
-        const usedLlamaParsePdf = source.sourceType === "pdf" && Boolean(env.LLAMAPARSE_API_KEY?.length);
+        const usedLlamaParsePdf =
+          source.sourceType === "pdf" && Boolean(env.LLAMAPARSE_API_KEY?.length);
         const pdfNeedsReview = source.sourceType === "pdf" && !usedLlamaParsePdf;
 
         let enrichmentOk = false;
@@ -246,7 +281,10 @@ export async function processIngestionPipelineJob(input: {
           if (!retrievalChunks.length) {
             enrichmentReason = "no_retrieval_chunks";
           } else {
-            await dbClient.db.update(sources).set({ status: "enriching", updatedAt: new Date() }).where(eq(sources.id, sourceId));
+            await dbClient.db
+              .update(sources)
+              .set({ status: "enriching", updatedAt: new Date() })
+              .where(eq(sources.id, sourceId));
 
             const enrich = await runPostIngestEnrichment(env, dbClient, {
               notebookId,
@@ -272,7 +310,8 @@ export async function processIngestionPipelineJob(input: {
         }
 
         const lexicalReady = true;
-        const embeddingGate = retrievalChunks.length === 0 || vectorEmbeddings || Boolean(embeddingError);
+        const embeddingGate =
+          retrievalChunks.length === 0 || vectorEmbeddings || Boolean(embeddingError);
         const tutoringGate =
           !pdfNeedsReview &&
           enrichmentOk &&
@@ -294,7 +333,11 @@ export async function processIngestionPipelineJob(input: {
           });
         }
 
-        const terminalStatus = pdfNeedsReview ? "needs_review" : tutoringGate ? "tutoring_ready" : "indexed";
+        const terminalStatus = pdfNeedsReview
+          ? "needs_review"
+          : tutoringGate
+            ? "tutoring_ready"
+            : "indexed";
 
         const { inferSourceLevelFromSignals } = await import("@studyagent/schemas");
         const inferred = inferSourceLevelFromSignals({
@@ -390,7 +433,11 @@ export async function processIngestionPipelineJob(input: {
       ingestionReservationId: job.data.ingestionReservationId ?? null,
     });
 
-    const [failedSource] = await dbClient.db.select().from(sources).where(eq(sources.id, sourceId)).limit(1);
+    const [failedSource] = await dbClient.db
+      .select()
+      .from(sources)
+      .where(eq(sources.id, sourceId))
+      .limit(1);
     const metadata = failedSource?.metadataJson ?? {};
     const learnerRetryCount =
       typeof metadata.learnerRetryCount === "number" && Number.isInteger(metadata.learnerRetryCount)

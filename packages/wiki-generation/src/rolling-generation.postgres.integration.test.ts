@@ -16,7 +16,11 @@ import { buildGenerationIdempotencyKey } from "@studyagent/schemas";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { beginGenerationJob } from "./generation-job-lifecycle.js";
-import { resetGenerationTargetCacheForTests, runInitialBuild, runRollingModuleBuild } from "./rolling-generation.js";
+import {
+  resetGenerationTargetCacheForTests,
+  runInitialBuild,
+  runRollingModuleBuild,
+} from "./rolling-generation.js";
 import type { WikiPolishExecutorResult } from "./wiki-polish-executor.js";
 
 const DATABASE_URL =
@@ -211,7 +215,9 @@ describe("rolling generation postgres integration", () => {
       fallbackUsed: true,
       pageReadiness: "still_improving",
       learnerStatusLabel: "Still improving",
-      qualityIssues: [{ code: "llm_unavailable", message: "LLM polish unavailable.", severity: "error" }],
+      qualityIssues: [
+        { code: "llm_unavailable", message: "LLM polish unavailable.", severity: "error" },
+      ],
       reason: "llm_unavailable:wiki_polish timed out after 8000ms",
     });
 
@@ -259,7 +265,9 @@ describe("rolling generation postgres integration", () => {
       .select({ eventType: events.eventType, payloadJson: events.payloadJson })
       .from(events)
       .where(eq(events.notebookId, notebookId));
-    const completed = buildEvents.find((event) => event.eventType === "generation.initial_build.completed");
+    const completed = buildEvents.find(
+      (event) => event.eventType === "generation.initial_build.completed",
+    );
     expect(completed?.payloadJson?.degraded).toBe(true);
     expect(completed?.payloadJson?.polishFailureCount).toBe(1);
   });

@@ -82,10 +82,30 @@ export async function loadPersistedEvalNotebookState(
     curriculumRows,
     curriculumModuleRows,
   ] = await Promise.all([
-    ctx.db.db.select().from(masteryEvidence).where(eq(masteryEvidence.notebookId, notebookId)).orderBy(desc(masteryEvidence.createdAt)).limit(limit),
-    ctx.db.db.select().from(artifacts).where(eq(artifacts.notebookId, notebookId)).orderBy(desc(artifacts.updatedAt)).limit(limit),
-    ctx.db.db.select().from(quizAttempts).where(eq(quizAttempts.notebookId, notebookId)).orderBy(desc(quizAttempts.createdAt)).limit(limit),
-    ctx.db.db.select().from(events).where(eq(events.notebookId, notebookId)).orderBy(desc(events.createdAt)).limit(limit),
+    ctx.db.db
+      .select()
+      .from(masteryEvidence)
+      .where(eq(masteryEvidence.notebookId, notebookId))
+      .orderBy(desc(masteryEvidence.createdAt))
+      .limit(limit),
+    ctx.db.db
+      .select()
+      .from(artifacts)
+      .where(eq(artifacts.notebookId, notebookId))
+      .orderBy(desc(artifacts.updatedAt))
+      .limit(limit),
+    ctx.db.db
+      .select()
+      .from(quizAttempts)
+      .where(eq(quizAttempts.notebookId, notebookId))
+      .orderBy(desc(quizAttempts.createdAt))
+      .limit(limit),
+    ctx.db.db
+      .select()
+      .from(events)
+      .where(eq(events.notebookId, notebookId))
+      .orderBy(desc(events.createdAt))
+      .limit(limit),
     ctx.db.db
       .select({
         id: tutorTurns.id,
@@ -109,16 +129,70 @@ export async function loadPersistedEvalNotebookState(
       .where(eq(tutorSessions.notebookId, notebookId))
       .orderBy(desc(toolCalls.createdAt))
       .limit(limit),
-    ctx.db.db.select().from(learnerTraitSignals).where(and(eq(learnerTraitSignals.notebookId, notebookId), eq(learnerTraitSignals.userId, userId))).orderBy(desc(learnerTraitSignals.createdAt)).limit(limit),
-    ctx.db.db.select().from(learnerTraitEstimates).where(and(eq(learnerTraitEstimates.notebookId, notebookId), eq(learnerTraitEstimates.userId, userId))).orderBy(desc(learnerTraitEstimates.updatedAt)).limit(limit),
-    ctx.db.db.select().from(sources).where(eq(sources.notebookId, notebookId)).orderBy(desc(sources.updatedAt)).limit(limit),
-    ctx.db.db.select().from(wikiPages).where(eq(wikiPages.notebookId, notebookId)).orderBy(desc(wikiPages.updatedAt)).limit(limit),
-    ctx.db.db.select().from(objectives).where(eq(objectives.notebookId, notebookId)).orderBy(desc(objectives.updatedAt)).limit(limit),
-    ctx.db.db.select().from(studyPlans).where(and(eq(studyPlans.notebookId, notebookId), eq(studyPlans.userId, userId))).limit(limit),
-    ctx.db.db.select().from(studentProfiles).where(and(eq(studentProfiles.notebookId, notebookId), eq(studentProfiles.userId, userId))).limit(limit),
-    ctx.db.db.select().from(learningState).where(and(eq(learningState.notebookId, notebookId), eq(learningState.userId, userId))).limit(limit),
-    ctx.db.db.select().from(curricula).where(eq(curricula.notebookId, notebookId)).orderBy(desc(curricula.updatedAt)).limit(limit),
-    ctx.db.db.select().from(curriculumModules).where(eq(curriculumModules.notebookId, notebookId)).orderBy(desc(curriculumModules.updatedAt)).limit(limit),
+    ctx.db.db
+      .select()
+      .from(learnerTraitSignals)
+      .where(
+        and(eq(learnerTraitSignals.notebookId, notebookId), eq(learnerTraitSignals.userId, userId)),
+      )
+      .orderBy(desc(learnerTraitSignals.createdAt))
+      .limit(limit),
+    ctx.db.db
+      .select()
+      .from(learnerTraitEstimates)
+      .where(
+        and(
+          eq(learnerTraitEstimates.notebookId, notebookId),
+          eq(learnerTraitEstimates.userId, userId),
+        ),
+      )
+      .orderBy(desc(learnerTraitEstimates.updatedAt))
+      .limit(limit),
+    ctx.db.db
+      .select()
+      .from(sources)
+      .where(eq(sources.notebookId, notebookId))
+      .orderBy(desc(sources.updatedAt))
+      .limit(limit),
+    ctx.db.db
+      .select()
+      .from(wikiPages)
+      .where(eq(wikiPages.notebookId, notebookId))
+      .orderBy(desc(wikiPages.updatedAt))
+      .limit(limit),
+    ctx.db.db
+      .select()
+      .from(objectives)
+      .where(eq(objectives.notebookId, notebookId))
+      .orderBy(desc(objectives.updatedAt))
+      .limit(limit),
+    ctx.db.db
+      .select()
+      .from(studyPlans)
+      .where(and(eq(studyPlans.notebookId, notebookId), eq(studyPlans.userId, userId)))
+      .limit(limit),
+    ctx.db.db
+      .select()
+      .from(studentProfiles)
+      .where(and(eq(studentProfiles.notebookId, notebookId), eq(studentProfiles.userId, userId)))
+      .limit(limit),
+    ctx.db.db
+      .select()
+      .from(learningState)
+      .where(and(eq(learningState.notebookId, notebookId), eq(learningState.userId, userId)))
+      .limit(limit),
+    ctx.db.db
+      .select()
+      .from(curricula)
+      .where(eq(curricula.notebookId, notebookId))
+      .orderBy(desc(curricula.updatedAt))
+      .limit(limit),
+    ctx.db.db
+      .select()
+      .from(curriculumModules)
+      .where(eq(curriculumModules.notebookId, notebookId))
+      .orderBy(desc(curriculumModules.updatedAt))
+      .limit(limit),
   ]);
 
   return {
@@ -129,10 +203,16 @@ export async function loadPersistedEvalNotebookState(
         id: row.id,
         ...(row.turnId ? { turnId: row.turnId } : {}),
         ...(row.sessionId ? { sessionId: row.sessionId } : {}),
-        ...(typeof evidence.correctnessLabel === "string" ? { correctnessLabel: evidence.correctnessLabel } : {}),
-        ...(typeof evidence.overallScore === "number" ? { overallScore: evidence.overallScore } : {}),
+        ...(typeof evidence.correctnessLabel === "string"
+          ? { correctnessLabel: evidence.correctnessLabel }
+          : {}),
+        ...(typeof evidence.overallScore === "number"
+          ? { overallScore: evidence.overallScore }
+          : {}),
         ...(typeof evidence.confidence === "number" ? { confidence: evidence.confidence } : {}),
-        ...(typeof evidence.triggerSource === "string" ? { triggerSource: evidence.triggerSource } : {}),
+        ...(typeof evidence.triggerSource === "string"
+          ? { triggerSource: evidence.triggerSource }
+          : {}),
       };
     }),
     artifacts: artifactRows.map((row) => ({ id: row.id, status: row.status })),
@@ -141,7 +221,9 @@ export async function loadPersistedEvalNotebookState(
       ...(row.artifactId ? { artifactId: row.artifactId } : {}),
     })),
     sessionEvents: eventRows
-      .filter((row) => row.eventType.startsWith("session.") || row.eventType.startsWith("learner_trait."))
+      .filter(
+        (row) => row.eventType.startsWith("session.") || row.eventType.startsWith("learner_trait."),
+      )
       .map((row) => ({
         ...(row.id ? { id: row.id } : {}),
         eventType: row.eventType,
@@ -174,9 +256,10 @@ export async function loadPersistedEvalNotebookState(
     })),
     sources: sourceRows.map((row) => {
       const metadata = row.metadataJson ?? {};
-      const readiness = metadata.readiness && typeof metadata.readiness === "object"
-        ? metadata.readiness as Record<string, unknown>
-        : {};
+      const readiness =
+        metadata.readiness && typeof metadata.readiness === "object"
+          ? (metadata.readiness as Record<string, unknown>)
+          : {};
       return {
         id: row.id,
         status: row.status,
@@ -201,7 +284,10 @@ export async function loadPersistedEvalNotebookState(
     weakConceptIds: [...new Set(studyPlanRows.flatMap((row) => row.weakConceptIds ?? []))],
     curricula: curriculumRows.map((row) => ({ id: row.id, status: row.status })),
     curriculumModules: curriculumModuleRows.map((row) => ({ id: row.id, status: row.status })),
-    personalizationRecommendations: traitEstimateRows.map((row) => ({ id: `ltr_${row.trait}`, trait: row.trait })),
+    personalizationRecommendations: traitEstimateRows.map((row) => ({
+      id: `ltr_${row.trait}`,
+      trait: row.trait,
+    })),
   };
 }
 

@@ -44,8 +44,13 @@ export const noteArtifactPayloadSchema = z
   })
   .refine(
     (payload) => {
-      const sectionBodies = (payload.personalization?.sections ?? []).filter((section) => section.body.trim().length > 0);
-      if (sectionBodies.length > 0) return payload.markdown.trim().length >= 1 || sectionBodies.some((s) => s.body.length >= 20);
+      const sectionBodies = (payload.personalization?.sections ?? []).filter(
+        (section) => section.body.trim().length > 0,
+      );
+      if (sectionBodies.length > 0)
+        return (
+          payload.markdown.trim().length >= 1 || sectionBodies.some((s) => s.body.length >= 20)
+        );
       return payload.markdown.trim().length >= 40;
     },
     { message: "Note needs substantive markdown or personalized sections." },

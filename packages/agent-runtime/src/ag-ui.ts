@@ -15,9 +15,10 @@ export function createAgUiEventMapper(run: StudyAgentRuntimeRun) {
   return {
     map(event: PiAgentSessionEvent): AgUiEvent[] {
       const timestamp = Date.now();
-      const model = event.data && "model" in event.data && typeof event.data.model === "string"
-        ? event.data.model
-        : run.modelConfig.model;
+      const model =
+        event.data && "model" in event.data && typeof event.data.model === "string"
+          ? event.data.model
+          : run.modelConfig.model;
 
       switch (event.type) {
         case "message_start":
@@ -73,26 +74,27 @@ export function createAgUiEventMapper(run: StudyAgentRuntimeRun) {
               timestamp,
             },
           ];
-        case "thinking_complete":
-          {
-            const events = [
-              ...(thinkingStarted
-                ? [
-                    {
-                      type: "THINKING_END",
-                      thinkingId,
-                      content: event.data.text,
-                      ...(typeof event.data.durationMs === "number" ? { durationMs: event.data.durationMs } : {}),
-                      model,
-                      timestamp,
-                    },
-                  ]
-                : []),
-            ];
-            thinkingStarted = false;
-            thinkingId = createRuntimeId("thinking");
-            return events;
-          }
+        case "thinking_complete": {
+          const events = [
+            ...(thinkingStarted
+              ? [
+                  {
+                    type: "THINKING_END",
+                    thinkingId,
+                    content: event.data.text,
+                    ...(typeof event.data.durationMs === "number"
+                      ? { durationMs: event.data.durationMs }
+                      : {}),
+                    model,
+                    timestamp,
+                  },
+                ]
+              : []),
+          ];
+          thinkingStarted = false;
+          thinkingId = createRuntimeId("thinking");
+          return events;
+        }
         case "narration_delta":
           if (!narrationStarted) {
             narrationStarted = true;
@@ -126,43 +128,44 @@ export function createAgUiEventMapper(run: StudyAgentRuntimeRun) {
               timestamp,
             },
           ];
-        case "narration_complete":
-          {
-            const events = [
-              ...(narrationStarted
-                ? []
-                : [
-                    {
-                      type: "RUNTIME_NARRATION_START",
-                      narrationId,
-                      runId: run.runId,
-                      model,
-                      timestamp,
-                    },
-                  ]),
-              {
-                type: "RUNTIME_NARRATION_CONTENT",
-                narrationId,
-                delta: event.data.text,
-                content: event.data.text,
-                messageIndex: event.data.messageIndex,
-                model,
-                timestamp,
-              },
-              {
-                type: "RUNTIME_NARRATION_END",
-                narrationId,
-                content: event.data.text,
-                messageIndex: event.data.messageIndex,
-                ...(typeof event.data.durationMs === "number" ? { durationMs: event.data.durationMs } : {}),
-                model,
-                timestamp,
-              },
-            ];
-            narrationStarted = false;
-            narrationId = createRuntimeId("narration");
-            return events;
-          }
+        case "narration_complete": {
+          const events = [
+            ...(narrationStarted
+              ? []
+              : [
+                  {
+                    type: "RUNTIME_NARRATION_START",
+                    narrationId,
+                    runId: run.runId,
+                    model,
+                    timestamp,
+                  },
+                ]),
+            {
+              type: "RUNTIME_NARRATION_CONTENT",
+              narrationId,
+              delta: event.data.text,
+              content: event.data.text,
+              messageIndex: event.data.messageIndex,
+              model,
+              timestamp,
+            },
+            {
+              type: "RUNTIME_NARRATION_END",
+              narrationId,
+              content: event.data.text,
+              messageIndex: event.data.messageIndex,
+              ...(typeof event.data.durationMs === "number"
+                ? { durationMs: event.data.durationMs }
+                : {}),
+              model,
+              timestamp,
+            },
+          ];
+          narrationStarted = false;
+          narrationId = createRuntimeId("narration");
+          return events;
+        }
         case "message_delta":
           if (!messageStarted) {
             messageStarted = true;

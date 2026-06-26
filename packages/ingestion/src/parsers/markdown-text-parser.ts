@@ -2,7 +2,13 @@ import type { SourceSpan } from "@studyagent/schemas";
 import type { NormalizedDocumentNode, ParseResult, ParserAdapter } from "../document-model.js";
 import { newNodeId } from "../ids.js";
 
-function span(sourceId: string, sourceVersionId: string, start: number, end: number, headingPath: string[]): SourceSpan {
+function span(
+  sourceId: string,
+  sourceVersionId: string,
+  start: number,
+  end: number,
+  headingPath: string[],
+): SourceSpan {
   return {
     sourceId,
     sourceVersionId,
@@ -91,7 +97,13 @@ export function parseMarkdownLikeText(
         type: "heading",
         parentId,
         text: title,
-        sourceSpan: span(sourceId, sourceVersionId, start, end, headingStack.slice(0, -1).map((h) => h.title)),
+        sourceSpan: span(
+          sourceId,
+          sourceVersionId,
+          start,
+          end,
+          headingStack.slice(0, -1).map((h) => h.title),
+        ),
         metadata: { level },
       });
       i += 1;
@@ -134,7 +146,8 @@ export function parseMarkdownLikeText(
     assets: [],
     warnings,
     parser: {
-      name: label === "markdown" ? "markdown_text" : label === "html" ? "html_to_text" : "plain_text",
+      name:
+        label === "markdown" ? "markdown_text" : label === "html" ? "html_to_text" : "plain_text",
       version: "1",
       confidence: label === "markdown" ? 0.85 : 0.7,
     },

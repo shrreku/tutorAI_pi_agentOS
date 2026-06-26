@@ -94,14 +94,60 @@ export type PiAgentSessionEvent =
   | { type: "message_start"; data: { runId: string } }
   | { type: "thinking_start"; data: { runId: string; model?: string; provider?: string } }
   | { type: "thinking_delta"; data: { text: string; model?: string; provider?: string } }
-  | { type: "thinking_complete"; data: { text: string; durationMs?: number; model?: string; provider?: string } }
-  | { type: "narration_delta"; data: { text: string; messageIndex: number; model?: string; provider?: string } }
-  | { type: "narration_complete"; data: { text: string; messageIndex: number; durationMs?: number; model?: string; provider?: string } }
+  | {
+      type: "thinking_complete";
+      data: { text: string; durationMs?: number; model?: string; provider?: string };
+    }
+  | {
+      type: "narration_delta";
+      data: { text: string; messageIndex: number; model?: string; provider?: string };
+    }
+  | {
+      type: "narration_complete";
+      data: {
+        text: string;
+        messageIndex: number;
+        durationMs?: number;
+        model?: string;
+        provider?: string;
+      };
+    }
   | { type: "message_delta"; data: { text: string; model?: string; provider?: string } }
-  | { type: "message_complete"; data: { text: string; stopReason: string; model?: string; provider?: string } }
-  | { type: "tool_call_start"; data: { toolName: string; toolCallId: string; args?: unknown; model?: string; provider?: string } }
-  | { type: "tool_call_complete"; data: { toolName: string; toolCallId: string; args?: unknown; result: unknown; model?: string; provider?: string } }
-  | { type: "run_complete"; data: { runId: string; usage?: unknown; model?: string; provider?: string; promptTemplateVersion?: string } }
+  | {
+      type: "message_complete";
+      data: { text: string; stopReason: string; model?: string; provider?: string };
+    }
+  | {
+      type: "tool_call_start";
+      data: {
+        toolName: string;
+        toolCallId: string;
+        args?: unknown;
+        model?: string;
+        provider?: string;
+      };
+    }
+  | {
+      type: "tool_call_complete";
+      data: {
+        toolName: string;
+        toolCallId: string;
+        args?: unknown;
+        result: unknown;
+        model?: string;
+        provider?: string;
+      };
+    }
+  | {
+      type: "run_complete";
+      data: {
+        runId: string;
+        usage?: unknown;
+        model?: string;
+        provider?: string;
+        promptTemplateVersion?: string;
+      };
+    }
   | {
       type: "run_error";
       data: {
@@ -126,7 +172,9 @@ function buildRuntimeToolContext(run: StudyAgentRuntimeRun, turnId?: string) {
   } as const;
 }
 
-export async function* runStudyAgentTutorSession(input: PiAgentSessionInput): AsyncGenerator<PiAgentSessionEvent> {
+export async function* runStudyAgentTutorSession(
+  input: PiAgentSessionInput,
+): AsyncGenerator<PiAgentSessionEvent> {
   if (input.config?.useMock) {
     yield* runMockStudyAgentTutorSession(input);
     return;
@@ -180,121 +228,127 @@ export async function* runStudyAgentTutorSession(input: PiAgentSessionInput): As
   const model = input.config?.baseUrl ? { ...baseModel, baseUrl: input.config.baseUrl } : baseModel;
   const thinkingLevel = resolveThinkingLevel(baseModel);
   const catalogNames = new Set<string>(TOOL_CONTRACT_CATALOG.map((contract) => contract.name));
-  const customTools = toolRegistry.list().filter((tool) => catalogNames.has(tool.name)).map((tool) => {
-    const metadata = getPiToolMetadata(tool.name);
-    return defineTool({
-      name: metadata.name,
-      label: metadata.label,
-      description: metadata.description,
-      parameters: metadata.parameters,
-      execute: async (toolCallId, params) => {
-        const startedAt = new Date();
-        const lifecycleInput = normalizeToolInputAliases(params);
-        try {
-          toolCallCount = reserveRuntimeToolCallBudget(toolCallCount, run.budgets.maxToolCalls);
-        } catch (error) {
-          const failure = classifyRuntimeError(error);
-          const resumableDraft = await createResumableQuizDraftForBudgetExhaustion(
-            toolRegistry,
-            tool.name,
-            lifecycleInput,
-            toolContext,
-          );
-          if (resumableDraft) {
+  const customTools = toolRegistry
+    .list()
+    .filter((tool) => catalogNames.has(tool.name))
+    .map((tool) => {
+      const metadata = getPiToolMetadata(tool.name);
+      return defineTool({
+        name: metadata.name,
+        label: metadata.label,
+        description: metadata.description,
+        parameters: metadata.parameters,
+        execute: async (toolCallId, params) => {
+          const startedAt = new Date();
+          const lifecycleInput = normalizeToolInputAliases(params);
+          try {
+            toolCallCount = reserveRuntimeToolCallBudget(toolCallCount, run.budgets.maxToolCalls);
+          } catch (error) {
+            const failure = classifyRuntimeError(error);
+            const resumableDraft = await createResumableQuizDraftForBudgetExhaustion(
+              toolRegistry,
+              tool.name,
+              lifecycleInput,
+              toolContext,
+            );
+            if (resumableDraft) {
+              await input.onToolLifecycleEvent?.({
+                phase: "started",
+                toolCallId,
+                toolName: tool.name,
+                sideEffectClass: tool.sideEffectClass,
+                input: { ...asRecord(lifecycleInput), deferGeneration: true },
+                startedAt: startedAt.toISOString(),
+              });
+              await input.onToolLifecycleEvent?.({
+                phase: "completed",
+                toolCallId,
+                toolName: tool.name,
+                sideEffectClass: tool.sideEffectClass,
+                input: { ...asRecord(lifecycleInput), deferGeneration: true },
+                output: resumableDraft,
+                startedAt: startedAt.toISOString(),
+                latencyMs: Date.now() - startedAt.getTime(),
+              });
+              return resumableDraft as never;
+            }
             await input.onToolLifecycleEvent?.({
-              phase: "started",
+              phase: "failed",
               toolCallId,
               toolName: tool.name,
               sideEffectClass: tool.sideEffectClass,
-              input: { ...asRecord(lifecycleInput), deferGeneration: true },
+              input: lifecycleInput,
               startedAt: startedAt.toISOString(),
+              latencyMs: Date.now() - startedAt.getTime(),
+              code: failure.code,
+              error: failure.safeMessage,
+              ...(error instanceof ToolValidationError ? { details: error.cause } : {}),
             });
+            throw new Error(failure.safeMessage);
+          }
+          await input.onToolLifecycleEvent?.({
+            phase: "started",
+            toolCallId,
+            toolName: tool.name,
+            sideEffectClass: tool.sideEffectClass,
+            input: lifecycleInput,
+            startedAt: startedAt.toISOString(),
+          });
+
+          try {
+            const result = await executeTool(toolRegistry, tool.name, lifecycleInput, toolContext);
+            const latencyMs = Date.now() - startedAt.getTime();
             await input.onToolLifecycleEvent?.({
               phase: "completed",
               toolCallId,
               toolName: tool.name,
               sideEffectClass: tool.sideEffectClass,
-              input: { ...asRecord(lifecycleInput), deferGeneration: true },
-              output: resumableDraft,
+              input: lifecycleInput,
+              output: result,
+              startedAt: startedAt.toISOString(),
+              latencyMs,
+            });
+
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify(truncateToolResult(result)),
+                },
+              ],
+              details: result,
+            };
+          } catch (error) {
+            const failure = classifyRuntimeError(error);
+            await input.onToolLifecycleEvent?.({
+              phase: "failed",
+              toolCallId,
+              toolName: tool.name,
+              sideEffectClass: tool.sideEffectClass,
+              input: lifecycleInput,
               startedAt: startedAt.toISOString(),
               latencyMs: Date.now() - startedAt.getTime(),
-            });
-            return resumableDraft as never;
-          }
-          await input.onToolLifecycleEvent?.({
-            phase: "failed",
-            toolCallId,
-            toolName: tool.name,
-            sideEffectClass: tool.sideEffectClass,
-            input: lifecycleInput,
-            startedAt: startedAt.toISOString(),
-            latencyMs: Date.now() - startedAt.getTime(),
-            code: failure.code,
-            error: failure.safeMessage,
-            ...(error instanceof ToolValidationError ? { details: error.cause } : {}),
-          });
-          throw new Error(failure.safeMessage);
-        }
-        await input.onToolLifecycleEvent?.({
-          phase: "started",
-          toolCallId,
-          toolName: tool.name,
-          sideEffectClass: tool.sideEffectClass,
-          input: lifecycleInput,
-          startedAt: startedAt.toISOString(),
-        });
-
-        try {
-          const result = await executeTool(toolRegistry, tool.name, lifecycleInput, toolContext);
-          const latencyMs = Date.now() - startedAt.getTime();
-          await input.onToolLifecycleEvent?.({
-            phase: "completed",
-            toolCallId,
-            toolName: tool.name,
-            sideEffectClass: tool.sideEffectClass,
-            input: lifecycleInput,
-            output: result,
-            startedAt: startedAt.toISOString(),
-            latencyMs,
-          });
-
-          return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify(truncateToolResult(result)),
+              code: failure.code,
+              error: failure.safeMessage,
+              details: {
+                ...(error instanceof ToolValidationError &&
+                error.cause &&
+                typeof error.cause === "object"
+                  ? (error.cause as Record<string, unknown>)
+                  : {}),
+                ...(failure.originalMessage ? { originalMessage: failure.originalMessage } : {}),
               },
-            ],
-            details: result,
-          };
-        } catch (error) {
-          const failure = classifyRuntimeError(error);
-          await input.onToolLifecycleEvent?.({
-            phase: "failed",
-            toolCallId,
-            toolName: tool.name,
-            sideEffectClass: tool.sideEffectClass,
-            input: lifecycleInput,
-            startedAt: startedAt.toISOString(),
-            latencyMs: Date.now() - startedAt.getTime(),
-            code: failure.code,
-            error: failure.safeMessage,
-            details: {
-              ...(error instanceof ToolValidationError && error.cause && typeof error.cause === "object"
-                ? (error.cause as Record<string, unknown>)
-                : {}),
-              ...(failure.originalMessage ? { originalMessage: failure.originalMessage } : {}),
-            },
-          });
-          throw new Error(failure.safeMessage);
-        }
-      },
+            });
+            throw new Error(failure.safeMessage);
+          }
+        },
+      });
     });
-  });
 
   const cachedSession = run.sessionId ? getLivePiSessions().get(run.sessionId) : undefined;
-  const session = cachedSession?.session
-    ?? (
+  const session =
+    cachedSession?.session ??
+    (
       await createAgentSession({
         cwd: process.cwd(),
         model,
@@ -306,7 +360,10 @@ export async function* runStudyAgentTutorSession(input: PiAgentSessionInput): As
         resourceLoader: loader,
         sessionManager: SessionManager.inMemory(),
         settingsManager: SettingsManager.inMemory({
-          compaction: { enabled: true, reserveTokens: Math.max(1000, Math.floor(run.budgets.maxContextTokens * 0.1)) },
+          compaction: {
+            enabled: true,
+            reserveTokens: Math.max(1000, Math.floor(run.budgets.maxContextTokens * 0.1)),
+          },
           retry: { enabled: false, maxRetries: 0 },
         }),
       })
@@ -408,18 +465,23 @@ export async function* runStudyAgentTutorSession(input: PiAgentSessionInput): As
   }
 
   const dispatch =
-    action === "steer" && typeof (session as { steer?: (message: string) => Promise<void> }).steer === "function"
+    action === "steer" &&
+    typeof (session as { steer?: (message: string) => Promise<void> }).steer === "function"
       ? (session as { steer: (message: string) => Promise<void> }).steer.bind(session)
-      : action === "followUp" && typeof (session as { followUp?: (message: string) => Promise<void> }).followUp === "function"
+      : action === "followUp" &&
+          typeof (session as { followUp?: (message: string) => Promise<void> }).followUp ===
+            "function"
         ? (session as { followUp: (message: string) => Promise<void> }).followUp.bind(session)
         : session.prompt.bind(session);
 
   const modelTimeoutMs = input.config?.modelTimeoutMs;
   const dispatchStartedAt = Date.now();
   const dispatchWork = dispatch(userMessage);
-  void (modelTimeoutMs != null
-    ? withTimeout(dispatchWork, modelTimeoutMs, "model dispatch timed out")
-    : dispatchWork)
+  void (
+    modelTimeoutMs != null
+      ? withTimeout(dispatchWork, modelTimeoutMs, "model dispatch timed out")
+      : dispatchWork
+  )
     .then(async () => {
       if (action !== "prompt" && assistantText.trim().length === 0) {
         await session.prompt(userMessage);
@@ -482,7 +544,11 @@ export async function* runStudyAgentTutorSession(input: PiAgentSessionInput): As
       completed = true;
     })
     .catch(async (error) => {
-      if (!sawToolActivity && error instanceof Error && error.message === "model dispatch timed out") {
+      if (
+        !sawToolActivity &&
+        error instanceof Error &&
+        error.message === "model dispatch timed out"
+      ) {
         for await (const fallbackEvent of runMockStudyAgentTutorSession({
           ...input,
           config: { ...input.config, useMock: true },
@@ -547,14 +613,8 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: s
   }
 }
 
-function fingerprintSelectedNodeRefs(
-  refs: Array<{ refType: string; refId: string }>,
-): string {
-  return JSON.stringify(
-    refs
-      .map((ref) => `${ref.refType}:${ref.refId}`)
-      .sort(),
-  );
+function fingerprintSelectedNodeRefs(refs: Array<{ refType: string; refId: string }>): string {
+  return JSON.stringify(refs.map((ref) => `${ref.refType}:${ref.refId}`).sort());
 }
 
 function reserveRuntimeToolCallBudget(currentCount: number, maxToolCalls: number): number {
@@ -574,26 +634,41 @@ async function createResumableQuizDraftForBudgetExhaustion(
   toolContext: Parameters<typeof executeTool>[3],
 ): Promise<unknown | null> {
   if (toolName !== "artifact.create_quiz") return null;
-  return executeTool(toolRegistry, toolName, { ...asRecord(args), deferGeneration: true }, toolContext);
+  return executeTool(
+    toolRegistry,
+    toolName,
+    { ...asRecord(args), deferGeneration: true },
+    toolContext,
+  );
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
 }
 
-export function promptStudyAgentTutorSession(input: PiAgentSessionInput): AsyncGenerator<PiAgentSessionEvent> {
+export function promptStudyAgentTutorSession(
+  input: PiAgentSessionInput,
+): AsyncGenerator<PiAgentSessionEvent> {
   return runStudyAgentTutorSession({ ...input, action: "prompt" });
 }
 
-export function steerStudyAgentTutorSession(input: PiAgentSessionInput): AsyncGenerator<PiAgentSessionEvent> {
+export function steerStudyAgentTutorSession(
+  input: PiAgentSessionInput,
+): AsyncGenerator<PiAgentSessionEvent> {
   return runStudyAgentTutorSession({ ...input, action: "steer" });
 }
 
-export function followUpStudyAgentTutorSession(input: PiAgentSessionInput): AsyncGenerator<PiAgentSessionEvent> {
+export function followUpStudyAgentTutorSession(
+  input: PiAgentSessionInput,
+): AsyncGenerator<PiAgentSessionEvent> {
   return runStudyAgentTutorSession({ ...input, action: "followUp" });
 }
 
-async function* runMockStudyAgentTutorSession(input: PiAgentSessionInput): AsyncGenerator<PiAgentSessionEvent> {
+async function* runMockStudyAgentTutorSession(
+  input: PiAgentSessionInput,
+): AsyncGenerator<PiAgentSessionEvent> {
   const { run, promptContext, userMessage, toolRegistry, onToolLifecycleEvent } = input;
   const action = input.action ?? "prompt";
   let toolCallCount = 0;
@@ -630,9 +705,15 @@ async function* runMockStudyAgentTutorSession(input: PiAgentSessionInput): Async
   const textChunks: string[] = [];
 
   if (action === "steer") {
-    yield { type: "narration_complete", data: { text: "[steered]", messageIndex: 0, ...fallbackRuntime } };
+    yield {
+      type: "narration_complete",
+      data: { text: "[steered]", messageIndex: 0, ...fallbackRuntime },
+    };
   } else if (action === "followUp") {
-    yield { type: "narration_complete", data: { text: "[follow-up]", messageIndex: 0, ...fallbackRuntime } };
+    yield {
+      type: "narration_complete",
+      data: { text: "[follow-up]", messageIndex: 0, ...fallbackRuntime },
+    };
   }
 
   for (const step of plan.steps) {
@@ -673,7 +754,12 @@ async function* runMockStudyAgentTutorSession(input: PiAgentSessionInput): Async
         });
         yield {
           type: "tool_call_start",
-          data: { toolName: step.toolName, toolCallId: step.toolCallId, args: resumableArgs, ...fallbackRuntime },
+          data: {
+            toolName: step.toolName,
+            toolCallId: step.toolCallId,
+            args: resumableArgs,
+            ...fallbackRuntime,
+          },
         };
         await onToolLifecycleEvent?.({
           phase: "completed",
@@ -687,12 +773,21 @@ async function* runMockStudyAgentTutorSession(input: PiAgentSessionInput): Async
         });
         yield {
           type: "tool_call_complete",
-          data: { toolName: step.toolName, toolCallId: step.toolCallId, args: resumableArgs, result: resumableDraft, ...fallbackRuntime },
+          data: {
+            toolName: step.toolName,
+            toolCallId: step.toolCallId,
+            args: resumableArgs,
+            result: resumableDraft,
+            ...fallbackRuntime,
+          },
         };
         const followup = renderToolResultText(step.toolName, resumableDraft, promptContext);
         if (followup) {
           textChunks.push(followup);
-          yield { type: "narration_complete", data: { text: followup.trim(), messageIndex: 0, ...fallbackRuntime } };
+          yield {
+            type: "narration_complete",
+            data: { text: followup.trim(), messageIndex: 0, ...fallbackRuntime },
+          };
         }
         continue;
       }
@@ -721,7 +816,12 @@ async function* runMockStudyAgentTutorSession(input: PiAgentSessionInput): Async
 
     yield {
       type: "tool_call_start",
-      data: { toolName: step.toolName, toolCallId: step.toolCallId, args: step.args, ...fallbackRuntime },
+      data: {
+        toolName: step.toolName,
+        toolCallId: step.toolCallId,
+        args: step.args,
+        ...fallbackRuntime,
+      },
     };
 
     try {
@@ -745,13 +845,22 @@ async function* runMockStudyAgentTutorSession(input: PiAgentSessionInput): Async
 
       yield {
         type: "tool_call_complete",
-        data: { toolName: step.toolName, toolCallId: step.toolCallId, args: step.args, result, ...fallbackRuntime },
+        data: {
+          toolName: step.toolName,
+          toolCallId: step.toolCallId,
+          args: step.args,
+          result,
+          ...fallbackRuntime,
+        },
       };
 
       const followup = renderToolResultText(step.toolName, result, promptContext);
       if (followup) {
         textChunks.push(followup);
-        yield { type: "narration_complete", data: { text: followup.trim(), messageIndex: 0, ...fallbackRuntime } };
+        yield {
+          type: "narration_complete",
+          data: { text: followup.trim(), messageIndex: 0, ...fallbackRuntime },
+        };
       }
     } catch (error) {
       const failure = classifyRuntimeError(error);
@@ -771,7 +880,10 @@ async function* runMockStudyAgentTutorSession(input: PiAgentSessionInput): Async
     }
   }
 
-  yield { type: "message_complete", data: { text: textChunks.join(""), stopReason: "end_turn", ...fallbackRuntime } };
+  yield {
+    type: "message_complete",
+    data: { text: textChunks.join(""), stopReason: "end_turn", ...fallbackRuntime },
+  };
   yield { type: "run_complete", data: { runId: run.runId, ...fallbackRuntime } };
 }
 
@@ -785,27 +897,36 @@ function renderToolResultText(
   }
 
   if (toolName === "wiki.search" && Array.isArray((result as { results?: unknown[] }).results)) {
-    const rows = ((result as { results: Array<{ title: string; snippet: string }> }).results ?? []).slice(0, 3);
-    const boundarySignals = (result as { boundarySignals?: Array<{ summary?: string }> }).boundarySignals ?? [];
+    const rows = (
+      (result as { results: Array<{ title: string; snippet: string }> }).results ?? []
+    ).slice(0, 3);
+    const boundarySignals =
+      (result as { boundarySignals?: Array<{ summary?: string }> }).boundarySignals ?? [];
     if (!rows.length) {
       if (boundarySignals.length && boundarySignals[0]?.summary) {
         return `${boundarySignals[0].summary} We can review, practice, upload more source material, or continue with an outside-source extension if you want. `;
       }
       return "I didn't find strong notebook-grounded matches yet, so I may need a narrower question or a more specific selected source. ";
     }
-    const summary = rows.map((row, index) => `${index + 1}. ${row.title}: ${row.snippet}`).join(" ");
+    const summary = rows
+      .map((row, index) => `${index + 1}. ${row.title}: ${row.snippet}`)
+      .join(" ");
     return `Here are the strongest grounded matches I found: ${summary} `;
   }
 
   if (toolName === "notebook.get_context") {
-    const notebook = (result as { notebook?: { title?: string }; recentEvents?: unknown[] }).notebook;
+    const notebook = (result as { notebook?: { title?: string }; recentEvents?: unknown[] })
+      .notebook;
     const recentEvents = (result as { recentEvents?: unknown[] }).recentEvents ?? [];
     return `I’m using notebook context from "${notebook?.title ?? context.notebookTitle}" with ${recentEvents.length} recent activity events available. `;
   }
 
   if (toolName === "study_plan.get_current") {
-    const plan = (result as { studyPlan?: { title?: string; currentObjectiveId?: string | null } | null }).studyPlan;
-    const boundarySignals = (result as { boundarySignals?: Array<{ summary?: string }> }).boundarySignals ?? [];
+    const plan = (
+      result as { studyPlan?: { title?: string; currentObjectiveId?: string | null } | null }
+    ).studyPlan;
+    const boundarySignals =
+      (result as { boundarySignals?: Array<{ summary?: string }> }).boundarySignals ?? [];
     if (!plan) {
       return "There isn't an active study plan yet, so I’ll stay grounded in the current notebook context. ";
     }
@@ -814,7 +935,9 @@ function renderToolResultText(
 
   if (toolName === "curriculum.get") {
     const curriculum = (result as { curriculum?: { title?: string } | null }).curriculum;
-    return curriculum ? `The active curriculum is "${curriculum.title ?? "Curriculum"}". ` : "I couldn't find an active curriculum yet. ";
+    return curriculum
+      ? `The active curriculum is "${curriculum.title ?? "Curriculum"}". `
+      : "I couldn't find an active curriculum yet. ";
   }
 
   if (toolName === "artifact.create_note") {
@@ -825,7 +948,11 @@ function renderToolResultText(
   if (toolName === "artifact.create_quiz") {
     const artifactId = (result as { artifactId?: string }).artifactId;
     const warnings = (result as { warnings?: Array<{ code?: string }> }).warnings ?? [];
-    const isResumable = warnings.some((warning) => warning.code === "quiz_generation_deferred" || warning.code === "quiz_generation_resume_pending");
+    const isResumable = warnings.some(
+      (warning) =>
+        warning.code === "quiz_generation_deferred" ||
+        warning.code === "quiz_generation_resume_pending",
+    );
     return artifactId
       ? isResumable
         ? "I saved a resumable quiz draft so it can be finished from the saved artifact. "
@@ -843,7 +970,11 @@ function renderToolResultText(
     return claimId ? "I proposed a candidate claim with notebook-scoped evidence. " : undefined;
   }
 
-  if (toolName === "graph.get_study_map" || toolName === "graph.get_source_wiki_map" || toolName === "graph.get_subgraph") {
+  if (
+    toolName === "graph.get_study_map" ||
+    toolName === "graph.get_source_wiki_map" ||
+    toolName === "graph.get_subgraph"
+  ) {
     const nodes = (result as { nodes?: unknown[] }).nodes ?? [];
     const edges = (result as { edges?: unknown[] }).edges ?? [];
     return `I loaded a graph view with ${nodes.length} nodes and ${edges.length} edges. `;
@@ -865,7 +996,8 @@ function handlePiSdkEvent(
 ): void {
   const runtime = extractRuntimeMetadata(event);
   if (event.type === "message_update") {
-    const assistantEvent = (event as { assistantMessageEvent?: { type?: string; delta?: string } }).assistantMessageEvent;
+    const assistantEvent = (event as { assistantMessageEvent?: { type?: string; delta?: string } })
+      .assistantMessageEvent;
     if (assistantEvent?.type === "thinking_start") {
       handlers.onThinkingStart(runtime);
       return;
@@ -895,11 +1027,18 @@ function handlePiSdkEvent(
   }
 
   if (event.type === "tool_execution_end" && !event.isError) {
-    handlers.onToolComplete(event.toolName, event.toolCallId, undefined, extractToolResult(event.result));
+    handlers.onToolComplete(
+      event.toolName,
+      event.toolCallId,
+      undefined,
+      extractToolResult(event.result),
+    );
   }
 }
 
-function resolveThinkingLevel(model: Parameters<typeof getSupportedThinkingLevels>[0]): "off" | "medium" {
+function resolveThinkingLevel(
+  model: Parameters<typeof getSupportedThinkingLevels>[0],
+): "off" | "medium" {
   try {
     return getSupportedThinkingLevels(model).includes("medium") ? "medium" : "off";
   } catch {
@@ -940,7 +1079,9 @@ function extractAssistantTextFromMessages(messages: unknown[]): string {
   return "";
 }
 
-function extractLastAssistantMessage(messages: unknown[]): { model?: string; usage?: unknown } | null {
+function extractLastAssistantMessage(
+  messages: unknown[],
+): { model?: string; usage?: unknown } | null {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const candidate = messages[index];
     if (!candidate || typeof candidate !== "object") {
@@ -950,7 +1091,9 @@ function extractLastAssistantMessage(messages: unknown[]): { model?: string; usa
       continue;
     }
 
-    const result: { model?: string; usage?: unknown } = { usage: (candidate as { usage?: unknown }).usage };
+    const result: { model?: string; usage?: unknown } = {
+      usage: (candidate as { usage?: unknown }).usage,
+    };
     if (typeof (candidate as { model?: unknown }).model === "string") {
       result.model = (candidate as { model: string }).model;
     }

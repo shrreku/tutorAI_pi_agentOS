@@ -116,7 +116,9 @@ export function scrubEvent<T extends SentryScrubbableEvent>(event: T): T {
 async function importSentryClient(runtime: "node" | "browser"): Promise<SentryClientModule | null> {
   try {
     const specifier = runtime === "browser" ? "@sentry/react" : "@sentry/node";
-    const importer = new Function("s", "return import(s)") as (s: string) => Promise<SentryClientModule>;
+    const importer = new Function("s", "return import(s)") as (
+      s: string,
+    ) => Promise<SentryClientModule>;
     return await importer(specifier);
   } catch {
     return null;
@@ -124,7 +126,9 @@ async function importSentryClient(runtime: "node" | "browser"): Promise<SentryCl
 }
 
 function detectRuntime(): "node" | "browser" {
-  return typeof window !== "undefined" && typeof window.document !== "undefined" ? "browser" : "node";
+  return typeof window !== "undefined" && typeof window.document !== "undefined"
+    ? "browser"
+    : "node";
 }
 
 export function initSentry(

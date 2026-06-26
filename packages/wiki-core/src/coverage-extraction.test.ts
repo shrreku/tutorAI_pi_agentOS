@@ -88,4 +88,3 @@ Derivative = instantaneous rate of change.
     expect(rows[0]?.notebookId).toBe("nb_1");
   });
 });
-

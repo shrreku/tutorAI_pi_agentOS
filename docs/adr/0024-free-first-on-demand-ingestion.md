@@ -34,4 +34,3 @@ Multiple uploads may be queued. Launch Usage Guardrails are: five Personal Learn
 - `apps/api/src/routes/sources.ts`
 - `apps/worker/src/index.ts`
 - `apps/worker/src/ingestion-pipeline.ts`
-

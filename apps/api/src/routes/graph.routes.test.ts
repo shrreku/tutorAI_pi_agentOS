@@ -43,13 +43,15 @@ vi.mock("@studyagent/graph", async () => {
       ...healthyProjection,
       developerDetail: devMode ? "mock notebook projection" : null,
     })),
-    loadSourceProjectionHealth: vi.fn(async (_db, notebookId: string, sourceId: string, devMode: boolean) => ({
-      scope: "source" as const,
-      notebookId,
-      sourceId,
-      ...healthyProjection,
-      developerDetail: devMode ? "mock source projection" : null,
-    })),
+    loadSourceProjectionHealth: vi.fn(
+      async (_db, notebookId: string, sourceId: string, devMode: boolean) => ({
+        scope: "source" as const,
+        notebookId,
+        sourceId,
+        ...healthyProjection,
+        developerDetail: devMode ? "mock source projection" : null,
+      }),
+    ),
   };
 });
 
@@ -63,16 +65,18 @@ class FakeDb {
           },
           limit(limitCount: number) {
             if (table === notebooks) {
-              return Promise.resolve([
-                {
-                  id: "nb_1",
-                  ownerId: "user_1",
-                  title: "Notebook",
-                  disabledAt: null,
-                  settingsJson: {},
-                  workspaceType: "personal_learner",
-                },
-              ].slice(0, limitCount));
+              return Promise.resolve(
+                [
+                  {
+                    id: "nb_1",
+                    ownerId: "user_1",
+                    title: "Notebook",
+                    disabledAt: null,
+                    settingsJson: {},
+                    workspaceType: "personal_learner",
+                  },
+                ].slice(0, limitCount),
+              );
             }
             return Promise.resolve([]);
           },
@@ -89,13 +93,30 @@ describe("graph routes", () => {
     querySourceWikiMapSimpleMock.mockResolvedValue({
       nodes: [
         { id: "src_1", labels: ["Source"], props: { title: "Source One" } },
-        { id: "topic_src_1_kinematics", labels: ["Topic"], props: { title: "Kinematics", sourceId: "src_1" } },
-        { id: "concept_1", labels: ["Concept"], props: { title: "Concept A", headingPath: ["Kinematics"] } },
-        { id: "page_1", labels: ["Wiki_Page"], props: { title: "Page A", headingPath: ["Kinematics"] } },
+        {
+          id: "topic_src_1_kinematics",
+          labels: ["Topic"],
+          props: { title: "Kinematics", sourceId: "src_1" },
+        },
+        {
+          id: "concept_1",
+          labels: ["Concept"],
+          props: { title: "Concept A", headingPath: ["Kinematics"] },
+        },
+        {
+          id: "page_1",
+          labels: ["Wiki_Page"],
+          props: { title: "Page A", headingPath: ["Kinematics"] },
+        },
       ],
       edges: [
         { type: "HAS_TOPIC", startId: "src_1", endId: "topic_src_1_kinematics", props: {} },
-        { type: "CONTAINS_CONCEPT", startId: "topic_src_1_kinematics", endId: "concept_1", props: {} },
+        {
+          type: "CONTAINS_CONCEPT",
+          startId: "topic_src_1_kinematics",
+          endId: "concept_1",
+          props: {},
+        },
         { type: "CONTAINS_PAGE", startId: "topic_src_1_kinematics", endId: "page_1", props: {} },
         { type: "EXPLAINS", startId: "concept_1", endId: "page_1", props: {} },
       ],

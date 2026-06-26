@@ -4,43 +4,68 @@
    (Lora), Inter body/UI, a single warm-paper canvas with a quiet blue accent.
    The chat sidebar is LIGHT (white) — every dark chat internal is overridden.
    ============================================================================ */
-@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@400;450;500;600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@400;450;500;600;700&display=swap");
 
 body[data-theme="focus"] {
   /* surfaces */
-  --bg: #f9f7f2; --bg-soft: #f1eee6; --bg-tint: #ebe7dc;
-  --surface: #ffffff; --surface-2: #fbfaf6;
-  --sidebar: #ffffff; --sidebar-soft: #f6f4ef; --sidebar-line: #eceae2;
+  --bg: #f9f7f2;
+  --bg-soft: #f1eee6;
+  --bg-tint: #ebe7dc;
+  --surface: #ffffff;
+  --surface-2: #fbfaf6;
+  --sidebar: #ffffff;
+  --sidebar-soft: #f6f4ef;
+  --sidebar-line: #eceae2;
 
   /* text */
-  --text: #1f2530; --text-muted: #6a7384; --text-faint: #9aa1ae;
-  --on-sidebar: #1f2530; --on-sidebar-muted: #6a7384;
+  --text: #1f2530;
+  --text-muted: #6a7384;
+  --text-faint: #9aa1ae;
+  --on-sidebar: #1f2530;
+  --on-sidebar-muted: #6a7384;
 
   /* lines */
-  --border: #e4e2da; --border-soft: #eeece5; --border-strong: #d4d1c7;
+  --border: #e4e2da;
+  --border-soft: #eeece5;
+  --border-strong: #d4d1c7;
 
   /* accent ramp */
-  --accent: #2d5bff; --accent-2: #5a7eff; --accent-soft: #e8eefc; --accent-soft-2: #f0f4fe;
-  --accent-deep: #1f47e0; --on-accent: #ffffff;
+  --accent: #2d5bff;
+  --accent-2: #5a7eff;
+  --accent-soft: #e8eefc;
+  --accent-soft-2: #f0f4fe;
+  --accent-deep: #1f47e0;
+  --on-accent: #ffffff;
 
   /* semantic */
-  --purple: #5b54d6; --purple-soft: #ecebfa;
-  --green: #1a8a4f; --green-soft: #e4f4ec; --green-deep: #147040;
-  --orange: #c2682a; --orange-soft: #f8ebdf;
-  --red: #d93025; --red-soft: #fbe6e4;
-  --yellow: #b8861f; --yellow-soft: #f6eed6;
-  --blue: #2d5bff; --blue-soft: #e8eefc;
-  --teal: #18867e; --teal-soft: #e0f1ef;
+  --purple: #5b54d6;
+  --purple-soft: #ecebfa;
+  --green: #1a8a4f;
+  --green-soft: #e4f4ec;
+  --green-deep: #147040;
+  --orange: #c2682a;
+  --orange-soft: #f8ebdf;
+  --red: #d93025;
+  --red-soft: #fbe6e4;
+  --yellow: #b8861f;
+  --yellow-soft: #f6eed6;
+  --blue: #2d5bff;
+  --blue-soft: #e8eefc;
+  --teal: #18867e;
+  --teal-soft: #e0f1ef;
 
   /* effects */
-  --shadow-xs: 0 1px 2px rgba(31,37,48,0.04);
-  --shadow-sm: 0 2px 8px rgba(31,37,48,0.05);
-  --shadow: 0 10px 34px rgba(31,37,48,0.07);
-  --shadow-lg: 0 24px 64px rgba(31,37,48,0.13);
+  --shadow-xs: 0 1px 2px rgba(31, 37, 48, 0.04);
+  --shadow-sm: 0 2px 8px rgba(31, 37, 48, 0.05);
+  --shadow: 0 10px 34px rgba(31, 37, 48, 0.07);
+  --shadow-lg: 0 24px 64px rgba(31, 37, 48, 0.13);
   --ring: 0 0 0 3px var(--accent-soft);
 
   /* geometry */
-  --radius: 10px; --radius-sm: 8px; --radius-lg: 14px; --radius-pill: 999px;
+  --radius: 10px;
+  --radius-sm: 8px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
 
   /* type */
   --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -51,296 +76,764 @@ body[data-theme="focus"] {
   --canvas-wash: radial-gradient(1000px 560px at 96% -8%, #eaf0ff 0%, transparent 58%);
 
   /* floating nav */
-  --nav-bg: rgba(255,255,255,0.82); --nav-border: rgba(31,37,48,0.08);
-  --nav-fg: #6a7384; --nav-active: var(--accent); --nav-active-fg: #ffffff;
+  --nav-bg: rgba(255, 255, 255, 0.82);
+  --nav-border: rgba(31, 37, 48, 0.08);
+  --nav-fg: #6a7384;
+  --nav-active: var(--accent);
+  --nav-active-fg: #ffffff;
 }
 
 /* serif headings, everywhere */
-body[data-theme="focus"] h1, body[data-theme="focus"] h2,
-body[data-theme="focus"] h3, body[data-theme="focus"] h4 { font-family: var(--font-head); letter-spacing: -0.01em; }
+body[data-theme="focus"] h1,
+body[data-theme="focus"] h2,
+body[data-theme="focus"] h3,
+body[data-theme="focus"] h4 {
+  font-family: var(--font-head);
+  letter-spacing: -0.01em;
+}
 
 /* ---- topbar ---- */
-body[data-theme="focus"] .topbar { padding: 13px 28px; background: var(--surface); }
-body[data-theme="focus"] .topbar .logo { background: var(--accent); border-radius: 9px; }
-body[data-theme="focus"] .topbar .brand .title { font-family: var(--font-head); font-weight: 600; font-size: 16px; }
-body[data-theme="focus"] .topbar .search { background: var(--bg-soft); border-radius: var(--radius-pill); }
-body[data-theme="focus"] .avatar { background: var(--accent); }
+body[data-theme="focus"] .topbar {
+  padding: 13px 28px;
+  background: var(--surface);
+}
+body[data-theme="focus"] .topbar .logo {
+  background: var(--accent);
+  border-radius: 9px;
+}
+body[data-theme="focus"] .topbar .brand .title {
+  font-family: var(--font-head);
+  font-weight: 600;
+  font-size: 16px;
+}
+body[data-theme="focus"] .topbar .search {
+  background: var(--bg-soft);
+  border-radius: var(--radius-pill);
+}
+body[data-theme="focus"] .avatar {
+  background: var(--accent);
+}
 
 /* badges — quiet */
-body[data-theme="focus"] .badge { font-weight: 600; }
-body[data-theme="focus"] .badge.purple { background: var(--accent-soft); color: var(--accent-deep); border-color: #d4def9; }
+body[data-theme="focus"] .badge {
+  font-weight: 600;
+}
+body[data-theme="focus"] .badge.purple {
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+  border-color: #d4def9;
+}
 
 /* buttons */
-body[data-theme="focus"] .btn.primary { box-shadow: none; }
-body[data-theme="focus"] .credits { background: var(--accent-soft); color: var(--accent-deep); }
-body[data-theme="focus"] .credits .meter { background: #cdd9f8; }
+body[data-theme="focus"] .btn.primary {
+  box-shadow: none;
+}
+body[data-theme="focus"] .credits {
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+}
+body[data-theme="focus"] .credits .meter {
+  background: #cdd9f8;
+}
 
 /* ============================================================================
    TUTOR / CHAT — LIGHT. Override every dark internal to light.
    ============================================================================ */
 body[data-theme="focus"] .tutor {
-  background: var(--sidebar); color: var(--text);
-  border-right: 1px solid var(--border); width: 376px;
+  background: var(--sidebar);
+  color: var(--text);
+  border-right: 1px solid var(--border);
+  width: 376px;
 }
-body[data-theme="focus"] .tutor-header { border-bottom: 1px solid var(--border); padding: 15px 18px; }
-body[data-theme="focus"] .tutor-header .h-title { font-family: var(--font-head); font-size: 16px; font-weight: 600; }
-body[data-theme="focus"] .tutor-header .cap-ico { background: var(--accent); border-radius: 8px; }
-body[data-theme="focus"] .tutor-tabs { border-bottom: 1px solid var(--border); }
-body[data-theme="focus"] .tutor-tabs button { color: var(--text-muted); }
-body[data-theme="focus"] .tutor-tabs button:hover { background: var(--bg-soft); color: var(--text); }
-body[data-theme="focus"] .tutor-tabs button.active { background: var(--accent-soft); color: var(--accent-deep); }
-body[data-theme="focus"] .tutor-body { background: var(--sidebar); }
-body[data-theme="focus"] .tutor-body::-webkit-scrollbar-thumb { background: var(--border-strong); }
+body[data-theme="focus"] .tutor-header {
+  border-bottom: 1px solid var(--border);
+  padding: 15px 18px;
+}
+body[data-theme="focus"] .tutor-header .h-title {
+  font-family: var(--font-head);
+  font-size: 16px;
+  font-weight: 600;
+}
+body[data-theme="focus"] .tutor-header .cap-ico {
+  background: var(--accent);
+  border-radius: 8px;
+}
+body[data-theme="focus"] .tutor-tabs {
+  border-bottom: 1px solid var(--border);
+}
+body[data-theme="focus"] .tutor-tabs button {
+  color: var(--text-muted);
+}
+body[data-theme="focus"] .tutor-tabs button:hover {
+  background: var(--bg-soft);
+  color: var(--text);
+}
+body[data-theme="focus"] .tutor-tabs button.active {
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+}
+body[data-theme="focus"] .tutor-body {
+  background: var(--sidebar);
+}
+body[data-theme="focus"] .tutor-body::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+}
 
 /* icon buttons that were dark in the header */
-body[data-theme="focus"] .icon-btn.dark { background: var(--surface); color: var(--text); border-color: var(--border); }
-body[data-theme="focus"] .icon-btn.dark:hover { background: var(--bg-soft); }
+body[data-theme="focus"] .icon-btn.dark {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border);
+}
+body[data-theme="focus"] .icon-btn.dark:hover {
+  background: var(--bg-soft);
+}
 
-body[data-theme="focus"] .focus-row { color: var(--text-muted); }
-body[data-theme="focus"] .focus-row .badge.purple { color: var(--accent-deep); background: var(--accent-soft); border-color: #d4def9; }
-body[data-theme="focus"] .agent-avatar-line { color: var(--text-muted); }
-body[data-theme="focus"] .agent-avatar-line .av { background: var(--accent); }
+body[data-theme="focus"] .focus-row {
+  color: var(--text-muted);
+}
+body[data-theme="focus"] .focus-row .badge.purple {
+  color: var(--accent-deep);
+  background: var(--accent-soft);
+  border-color: #d4def9;
+}
+body[data-theme="focus"] .agent-avatar-line {
+  color: var(--text-muted);
+}
+body[data-theme="focus"] .agent-avatar-line .av {
+  background: var(--accent);
+}
 
 /* the serif "lead line" — first agent paragraph reads like a calm pull-quote */
-body[data-theme="focus"] .msg-agent p { font-family: var(--font-head); font-size: 14.5px; line-height: 1.62; color: var(--text); }
-body[data-theme="focus"] .msg-agent p.lead { font-size: 16px; font-weight: 500; color: #182030; line-height: 1.5; }
+body[data-theme="focus"] .msg-agent p {
+  font-family: var(--font-head);
+  font-size: 14.5px;
+  line-height: 1.62;
+  color: var(--text);
+}
+body[data-theme="focus"] .msg-agent p.lead {
+  font-size: 16px;
+  font-weight: 500;
+  color: #182030;
+  line-height: 1.5;
+}
 
 /* user bubble — light blue */
 body[data-theme="focus"] .msg-user {
-  background: var(--accent-soft); color: var(--accent-deep);
-  border: 1px solid #d4def9; box-shadow: none; font-family: var(--font-ui);
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+  border: 1px solid #d4def9;
+  box-shadow: none;
+  font-family: var(--font-ui);
   border-radius: 14px 14px 4px 14px;
 }
 
 /* collapse / thinking — light */
-body[data-theme="focus"] .collapse { border: 1px solid var(--border); background: var(--surface-2); }
-body[data-theme="focus"] .collapse-head { color: var(--text-muted); }
-body[data-theme="focus"] .collapse-head .timer { color: var(--text-faint); }
-body[data-theme="focus"] .collapse-body { color: var(--text-muted); }
+body[data-theme="focus"] .collapse {
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+body[data-theme="focus"] .collapse-head {
+  color: var(--text-muted);
+}
+body[data-theme="focus"] .collapse-head .timer {
+  color: var(--text-faint);
+}
+body[data-theme="focus"] .collapse-body {
+  color: var(--text-muted);
+}
 
 /* step dots — blue */
-body[data-theme="focus"] .step { color: var(--text); }
-body[data-theme="focus"] .step .dot { background: var(--accent); }
-body[data-theme="focus"] .step.active .dot { background: var(--accent); box-shadow: 0 0 0 4px rgba(45,91,255,0.16); }
-body[data-theme="focus"] .step.pending { color: var(--text-faint); }
-body[data-theme="focus"] .step.pending .dot { background: var(--border-strong); }
-body[data-theme="focus"] .step a { color: var(--accent-deep); }
+body[data-theme="focus"] .step {
+  color: var(--text);
+}
+body[data-theme="focus"] .step .dot {
+  background: var(--accent);
+}
+body[data-theme="focus"] .step.active .dot {
+  background: var(--accent);
+  box-shadow: 0 0 0 4px rgba(45, 91, 255, 0.16);
+}
+body[data-theme="focus"] .step.pending {
+  color: var(--text-faint);
+}
+body[data-theme="focus"] .step.pending .dot {
+  background: var(--border-strong);
+}
+body[data-theme="focus"] .step a {
+  color: var(--accent-deep);
+}
 
 /* tool call chip — light */
-body[data-theme="focus"] .toolcall { background: var(--bg-soft); border-color: var(--border); }
-body[data-theme="focus"] .toolcall .tc-ico { background: var(--accent-soft); color: var(--accent-deep); }
-body[data-theme="focus"] .toolcall .tc-name { color: var(--text); }
+body[data-theme="focus"] .toolcall {
+  background: var(--bg-soft);
+  border-color: var(--border);
+}
+body[data-theme="focus"] .toolcall .tc-ico {
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+}
+body[data-theme="focus"] .toolcall .tc-name {
+  color: var(--text);
+}
 
 /* thinking — quiet ruled note */
 body[data-theme="focus"] .thinking {
-  background: transparent; border: none; border-left: 2px solid var(--accent-soft);
-  border-radius: 0; padding: 4px 0 4px 14px; color: var(--text-muted);
-  font-family: var(--font-head); font-style: italic; font-size: 13.5px;
+  background: transparent;
+  border: none;
+  border-left: 2px solid var(--accent-soft);
+  border-radius: 0;
+  padding: 4px 0 4px 14px;
+  color: var(--text-muted);
+  font-family: var(--font-head);
+  font-style: italic;
+  font-size: 13.5px;
 }
 
-body[data-theme="focus"] .typing span { background: var(--text-faint); }
+body[data-theme="focus"] .typing span {
+  background: var(--text-faint);
+}
 
 /* citation — light blue link chip */
 body[data-theme="focus"] .citation {
-  background: var(--accent-soft); color: var(--accent-deep);
-  border: 1px solid #d4def9; font-family: var(--font-ui);
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+  border: 1px solid #d4def9;
+  font-family: var(--font-ui);
 }
-body[data-theme="focus"] .citation:hover { background: #dbe5fb; }
+body[data-theme="focus"] .citation:hover {
+  background: #dbe5fb;
+}
 
 /* artifact chip — light */
-body[data-theme="focus"] .artifact-chip { background: var(--surface-2); border-color: var(--border); }
-body[data-theme="focus"] .artifact-chip:hover { border-color: var(--accent); }
-body[data-theme="focus"] .artifact-chip .ac-ico { background: var(--accent); }
-body[data-theme="focus"] .artifact-chip .ac-t { color: var(--text); }
-body[data-theme="focus"] .artifact-chip .ac-s { color: var(--text-muted); }
+body[data-theme="focus"] .artifact-chip {
+  background: var(--surface-2);
+  border-color: var(--border);
+}
+body[data-theme="focus"] .artifact-chip:hover {
+  border-color: var(--accent);
+}
+body[data-theme="focus"] .artifact-chip .ac-ico {
+  background: var(--accent);
+}
+body[data-theme="focus"] .artifact-chip .ac-t {
+  color: var(--text);
+}
+body[data-theme="focus"] .artifact-chip .ac-s {
+  color: var(--text-muted);
+}
 
 /* composer — light */
-body[data-theme="focus"] .tutor-input { border-top: 1px solid var(--border); background: var(--sidebar); }
-body[data-theme="focus"] .context-chip { background: var(--accent-soft); color: var(--accent-deep); }
-body[data-theme="focus"] .composer { background: var(--bg-soft); border-color: var(--border); }
-body[data-theme="focus"] .composer:focus-within { border-color: var(--accent); }
-body[data-theme="focus"] .composer textarea { color: var(--text); }
-body[data-theme="focus"] .composer textarea::placeholder { color: var(--text-faint); }
-body[data-theme="focus"] .composer .send { background: var(--accent); }
-body[data-theme="focus"] .composer .send:hover { background: var(--accent-deep); }
-body[data-theme="focus"] .composer-tools button { color: var(--text-muted); }
-body[data-theme="focus"] .composer-tools button:hover { background: var(--bg-tint); color: var(--text); }
-body[data-theme="focus"] .composer-hint { color: var(--text-faint); }
-body[data-theme="focus"] .chat-fab { background: var(--accent); }
+body[data-theme="focus"] .tutor-input {
+  border-top: 1px solid var(--border);
+  background: var(--sidebar);
+}
+body[data-theme="focus"] .context-chip {
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+}
+body[data-theme="focus"] .composer {
+  background: var(--bg-soft);
+  border-color: var(--border);
+}
+body[data-theme="focus"] .composer:focus-within {
+  border-color: var(--accent);
+}
+body[data-theme="focus"] .composer textarea {
+  color: var(--text);
+}
+body[data-theme="focus"] .composer textarea::placeholder {
+  color: var(--text-faint);
+}
+body[data-theme="focus"] .composer .send {
+  background: var(--accent);
+}
+body[data-theme="focus"] .composer .send:hover {
+  background: var(--accent-deep);
+}
+body[data-theme="focus"] .composer-tools button {
+  color: var(--text-muted);
+}
+body[data-theme="focus"] .composer-tools button:hover {
+  background: var(--bg-tint);
+  color: var(--text);
+}
+body[data-theme="focus"] .composer-hint {
+  color: var(--text-faint);
+}
+body[data-theme="focus"] .chat-fab {
+  background: var(--accent);
+}
 
 /* history rows in the light sidebar */
-body[data-theme="focus"] .history-item:hover { background: var(--bg-soft); }
-body[data-theme="focus"] .history-item .s { color: var(--text-muted); }
-body[data-theme="focus"] .switch { background: var(--border-strong); }
-body[data-theme="focus"] .switch.on { background: var(--accent); }
+body[data-theme="focus"] .history-item:hover {
+  background: var(--bg-soft);
+}
+body[data-theme="focus"] .history-item .s {
+  color: var(--text-muted);
+}
+body[data-theme="focus"] .switch {
+  background: var(--border-strong);
+}
+body[data-theme="focus"] .switch.on {
+  background: var(--accent);
+}
 
 /* ---- surface switch: text-link style, underline active, no pills ---- */
 body[data-theme="focus"] .surface-switch {
-  background: transparent; border: none; box-shadow: none;
-  border-bottom: 1px solid var(--border); border-radius: 0;
-  padding: 0; gap: 18px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  padding: 0;
+  gap: 18px;
 }
-body[data-theme="focus"] .surface-switch a, body[data-theme="focus"] .surface-switch button {
-  background: transparent; border-radius: 0; padding: 8px 2px; color: var(--text-muted);
-  border-bottom: 2px solid transparent; margin-bottom: -1px;
+body[data-theme="focus"] .surface-switch a,
+body[data-theme="focus"] .surface-switch button {
+  background: transparent;
+  border-radius: 0;
+  padding: 8px 2px;
+  color: var(--text-muted);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
 }
-body[data-theme="focus"] .surface-switch a:hover, body[data-theme="focus"] .surface-switch button:hover { color: var(--text); }
-body[data-theme="focus"] .surface-switch a.active, body[data-theme="focus"] .surface-switch button.active {
-  background: transparent; color: var(--accent-deep); box-shadow: none; border-bottom-color: var(--accent);
+body[data-theme="focus"] .surface-switch a:hover,
+body[data-theme="focus"] .surface-switch button:hover {
+  color: var(--text);
+}
+body[data-theme="focus"] .surface-switch a.active,
+body[data-theme="focus"] .surface-switch button.active {
+  background: transparent;
+  color: var(--accent-deep);
+  box-shadow: none;
+  border-bottom-color: var(--accent);
 }
 
 /* ---- cards ---- */
-body[data-theme="focus"] .card { border-radius: var(--radius); box-shadow: var(--shadow-xs); }
-body[data-theme="focus"] .card h3 { font-size: 15px; font-weight: 600; }
+body[data-theme="focus"] .card {
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-xs);
+}
+body[data-theme="focus"] .card h3 {
+  font-size: 15px;
+  font-weight: 600;
+}
 
 /* ============================================================================
    EVIDENCE PANEL
    ============================================================================ */
-body[data-theme="focus"] .evidence-panel-head .h-title { color: var(--accent-deep); font-family: var(--font-head); font-size: 15px; font-weight: 600; }
-body[data-theme="focus"] .ev-tabs button.active { background: var(--accent); border-color: var(--accent); }
-body[data-theme="focus"] .ev-card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
-body[data-theme="focus"] .ev-card .ev-meta { color: var(--accent); letter-spacing: 0.07em; }
-body[data-theme="focus"] .ev-card .ev-title { font-family: var(--font-head); font-size: 15px; font-weight: 600; }
-body[data-theme="focus"] .ev-card .ev-quote { color: #2b303c; }
+body[data-theme="focus"] .evidence-panel-head .h-title {
+  color: var(--accent-deep);
+  font-family: var(--font-head);
+  font-size: 15px;
+  font-weight: 600;
+}
+body[data-theme="focus"] .ev-tabs button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+body[data-theme="focus"] .ev-card.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+body[data-theme="focus"] .ev-card .ev-meta {
+  color: var(--accent);
+  letter-spacing: 0.07em;
+}
+body[data-theme="focus"] .ev-card .ev-title {
+  font-family: var(--font-head);
+  font-size: 15px;
+  font-weight: 600;
+}
+body[data-theme="focus"] .ev-card .ev-quote {
+  color: #2b303c;
+}
 
 /* ============================================================================
    GRAPH / STUDY MAP
    ============================================================================ */
-body[data-theme="focus"] .node .title { font-family: var(--font-head); }
-body[data-theme="focus"] .node .type.concept { color: var(--accent); }
-body[data-theme="focus"] .node .type.plan { color: var(--blue); }
-body[data-theme="focus"] .node.selected { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow); }
-body[data-theme="focus"] .map-edges path.active { stroke: var(--accent); }
+body[data-theme="focus"] .node .title {
+  font-family: var(--font-head);
+}
+body[data-theme="focus"] .node .type.concept {
+  color: var(--accent);
+}
+body[data-theme="focus"] .node .type.plan {
+  color: var(--blue);
+}
+body[data-theme="focus"] .node.selected {
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 3px var(--accent-soft),
+    var(--shadow);
+}
+body[data-theme="focus"] .map-edges path.active {
+  stroke: var(--accent);
+}
 
 /* ============================================================================
    REFERENCE PAGES (prose)
    ============================================================================ */
-body[data-theme="focus"] .ref-header .kicker { color: var(--accent); }
-body[data-theme="focus"] .ref-header h1 { font-size: 30px; }
-body[data-theme="focus"] .section p, body[data-theme="focus"] .section li { font-family: var(--font-head); font-size: 15px; line-height: 1.7; color: #2b303c; }
-body[data-theme="focus"] .callout { background: var(--accent-soft-2); border-color: #dbe5fb; }
-body[data-theme="focus"] .callout .label { color: var(--accent-deep); }
+body[data-theme="focus"] .ref-header .kicker {
+  color: var(--accent);
+}
+body[data-theme="focus"] .ref-header h1 {
+  font-size: 30px;
+}
+body[data-theme="focus"] .section p,
+body[data-theme="focus"] .section li {
+  font-family: var(--font-head);
+  font-size: 15px;
+  line-height: 1.7;
+  color: #2b303c;
+}
+body[data-theme="focus"] .callout {
+  background: var(--accent-soft-2);
+  border-color: #dbe5fb;
+}
+body[data-theme="focus"] .callout .label {
+  color: var(--accent-deep);
+}
 
 /* quiz / flashcards */
-body[data-theme="focus"] .quiz-q .qtext { font-family: var(--font-head); font-size: 16px; }
-body[data-theme="focus"] .opt.selected { background: var(--accent-soft); border-color: var(--accent); }
-body[data-theme="focus"] .flashcard .q { font-family: var(--font-head); }
-body[data-theme="focus"] .flashcard .a { color: var(--accent-deep); }
+body[data-theme="focus"] .quiz-q .qtext {
+  font-family: var(--font-head);
+  font-size: 16px;
+}
+body[data-theme="focus"] .opt.selected {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+body[data-theme="focus"] .flashcard .q {
+  font-family: var(--font-head);
+}
+body[data-theme="focus"] .flashcard .a {
+  color: var(--accent-deep);
+}
 
 /* curriculum / live plan accents */
-body[data-theme="focus"] .module.active { box-shadow: 0 0 0 3px var(--accent-soft); }
-body[data-theme="focus"] .action-card.active { background: var(--accent-soft-2); }
+body[data-theme="focus"] .module.active {
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+body[data-theme="focus"] .action-card.active {
+  background: var(--accent-soft-2);
+}
 
 /* ---- gallery / hub ---- */
-body[data-theme="focus"] .index-hero h1 { font-size: 36px; }
-body[data-theme="focus"] .gallery .item .thumb { background: linear-gradient(135deg, var(--accent-soft), var(--surface)); color: var(--accent-deep); font-family: var(--font-head); border-bottom: 1px solid var(--border); }
+body[data-theme="focus"] .index-hero h1 {
+  font-size: 36px;
+}
+body[data-theme="focus"] .gallery .item .thumb {
+  background: linear-gradient(135deg, var(--accent-soft), var(--surface));
+  color: var(--accent-deep);
+  font-family: var(--font-head);
+  border-bottom: 1px solid var(--border);
+}
 
 /* ---- floating nav ---- */
-body[data-theme="focus"] .floatnav .brand-dot { background: var(--accent); }
-body[data-theme="focus"] .floatnav a.fn-item.active { background: var(--accent); color: var(--on-accent); }
+body[data-theme="focus"] .floatnav .brand-dot {
+  background: var(--accent);
+}
+body[data-theme="focus"] .floatnav a.fn-item.active {
+  background: var(--accent);
+  color: var(--on-accent);
+}
 
 /* ---- auth / marketing accents ---- */
-body[data-theme="focus"] .auth-card h1, body[data-theme="focus"] .hero h1, body[data-theme="focus"] .price-card .amt { font-family: var(--font-head); }
-body[data-theme="focus"] .feature p, body[data-theme="focus"] .hero p.lede { font-family: var(--font-head); }
+body[data-theme="focus"] .auth-card h1,
+body[data-theme="focus"] .hero h1,
+body[data-theme="focus"] .price-card .amt {
+  font-family: var(--font-head);
+}
+body[data-theme="focus"] .feature p,
+body[data-theme="focus"] .hero p.lede {
+  font-family: var(--font-head);
+}
 
 /* ============================================================================
    FOCUS DASHBOARD — a single calm, centered column. One big focus-dash-card
    holding a 2-column grid. Maximum whitespace, no pills, text-link switches.
    ============================================================================ */
-body[data-theme="focus"] .focus-wrap { max-width: 1080px; margin: 0 auto; padding: 40px 28px 64px; }
-
-body[data-theme="focus"] .focus-head { margin: 0 0 28px; }
-body[data-theme="focus"] .focus-eyebrow {
-  font-family: var(--font-ui); font-size: 11px; font-weight: 600;
-  letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-faint); margin: 0 0 8px;
+body[data-theme="focus"] .focus-wrap {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 40px 28px 64px;
 }
-body[data-theme="focus"] .focus-greeting { font-family: var(--font-head); font-weight: 600; font-size: 32px; color: #182030; margin: 0; letter-spacing: -0.02em; }
-body[data-theme="focus"] .focus-sub { font-size: 14px; color: var(--text-muted); margin: 10px 0 0; max-width: 62ch; line-height: 1.6; }
+
+body[data-theme="focus"] .focus-head {
+  margin: 0 0 28px;
+}
+body[data-theme="focus"] .focus-eyebrow {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin: 0 0 8px;
+}
+body[data-theme="focus"] .focus-greeting {
+  font-family: var(--font-head);
+  font-weight: 600;
+  font-size: 32px;
+  color: #182030;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+body[data-theme="focus"] .focus-sub {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin: 10px 0 0;
+  max-width: 62ch;
+  line-height: 1.6;
+}
 
 /* the one big rounded card */
 body[data-theme="focus"] .focus-dash-card {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius-lg); box-shadow: var(--shadow);
-  padding: 0; overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  padding: 0;
+  overflow: hidden;
 }
-body[data-theme="focus"] .focus-dash-grid { display: grid; grid-template-columns: 1fr 1fr; }
-@media (max-width: 880px) { body[data-theme="focus"] .focus-dash-grid { grid-template-columns: 1fr; } }
-body[data-theme="focus"] .focus-col { padding: 30px 32px; }
-body[data-theme="focus"] .focus-col + .focus-col { border-left: 1px solid var(--border-soft); }
-@media (max-width: 880px) { body[data-theme="focus"] .focus-col + .focus-col { border-left: none; border-top: 1px solid var(--border-soft); } }
+body[data-theme="focus"] .focus-dash-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+@media (max-width: 880px) {
+  body[data-theme="focus"] .focus-dash-grid {
+    grid-template-columns: 1fr;
+  }
+}
+body[data-theme="focus"] .focus-col {
+  padding: 30px 32px;
+}
+body[data-theme="focus"] .focus-col + .focus-col {
+  border-left: 1px solid var(--border-soft);
+}
+@media (max-width: 880px) {
+  body[data-theme="focus"] .focus-col + .focus-col {
+    border-left: none;
+    border-top: 1px solid var(--border-soft);
+  }
+}
 
-body[data-theme="focus"] .focus-sec + .focus-sec { margin-top: 30px; padding-top: 28px; border-top: 1px solid var(--border-soft); }
+body[data-theme="focus"] .focus-sec + .focus-sec {
+  margin-top: 30px;
+  padding-top: 28px;
+  border-top: 1px solid var(--border-soft);
+}
 body[data-theme="focus"] .focus-sec-head {
-  display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 16px;
 }
-body[data-theme="focus"] .focus-sec-title { font-family: var(--font-head); font-size: 16px; font-weight: 600; color: #182030; margin: 0; }
+body[data-theme="focus"] .focus-sec-title {
+  font-family: var(--font-head);
+  font-size: 16px;
+  font-weight: 600;
+  color: #182030;
+  margin: 0;
+}
 body[data-theme="focus"] .focus-link {
-  font-family: var(--font-ui); font-size: 12.5px; font-weight: 500; color: var(--accent-deep);
-  border-bottom: 1px solid transparent; transition: border-color 0.15s;
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--accent-deep);
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.15s;
 }
-body[data-theme="focus"] .focus-link:hover { border-bottom-color: var(--accent); }
+body[data-theme="focus"] .focus-link:hover {
+  border-bottom-color: var(--accent);
+}
 
 /* notebook list — airy, hover-shift */
 body[data-theme="focus"] .focus-nb {
-  display: block; padding: 14px 0; border-bottom: 1px solid var(--border-soft);
+  display: block;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border-soft);
   transition: padding-left 0.16s;
 }
-body[data-theme="focus"] .focus-nb:last-child { border-bottom: none; }
-body[data-theme="focus"] .focus-nb:hover { padding-left: 5px; }
-body[data-theme="focus"] .focus-nb .nb-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-body[data-theme="focus"] .focus-nb .nb-name { font-family: var(--font-head); font-weight: 600; font-size: 15px; color: #182030; }
-body[data-theme="focus"] .focus-nb .nb-pct { font-family: var(--font-ui); font-size: 12.5px; font-weight: 600; color: var(--accent-deep); }
-body[data-theme="focus"] .focus-nb .nb-meta { font-size: 12px; color: var(--text-muted); margin: 3px 0 9px; }
-body[data-theme="focus"] .focus-nb .progress { height: 5px; }
-body[data-theme="focus"] .focus-nb.math .progress > span { background: var(--purple); }
-body[data-theme="focus"] .focus-nb.bio .progress > span { background: var(--green); }
+body[data-theme="focus"] .focus-nb:last-child {
+  border-bottom: none;
+}
+body[data-theme="focus"] .focus-nb:hover {
+  padding-left: 5px;
+}
+body[data-theme="focus"] .focus-nb .nb-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+body[data-theme="focus"] .focus-nb .nb-name {
+  font-family: var(--font-head);
+  font-weight: 600;
+  font-size: 15px;
+  color: #182030;
+}
+body[data-theme="focus"] .focus-nb .nb-pct {
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--accent-deep);
+}
+body[data-theme="focus"] .focus-nb .nb-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 3px 0 9px;
+}
+body[data-theme="focus"] .focus-nb .progress {
+  height: 5px;
+}
+body[data-theme="focus"] .focus-nb.math .progress > span {
+  background: var(--purple);
+}
+body[data-theme="focus"] .focus-nb.bio .progress > span {
+  background: var(--green);
+}
 
 /* mastery rows */
-body[data-theme="focus"] .focus-mastery { margin-bottom: 15px; }
-body[data-theme="focus"] .focus-mastery:last-child { margin-bottom: 0; }
-body[data-theme="focus"] .focus-mastery .m-label { display: flex; align-items: center; justify-content: space-between; font-size: 13px; margin-bottom: 7px; }
-body[data-theme="focus"] .focus-mastery .m-pct { font-weight: 600; color: var(--accent-deep); }
-body[data-theme="focus"] .focus-mastery .progress { height: 6px; }
+body[data-theme="focus"] .focus-mastery {
+  margin-bottom: 15px;
+}
+body[data-theme="focus"] .focus-mastery:last-child {
+  margin-bottom: 0;
+}
+body[data-theme="focus"] .focus-mastery .m-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  margin-bottom: 7px;
+}
+body[data-theme="focus"] .focus-mastery .m-pct {
+  font-weight: 600;
+  color: var(--accent-deep);
+}
+body[data-theme="focus"] .focus-mastery .progress {
+  height: 6px;
+}
 
 /* recommended plan */
 body[data-theme="focus"] .focus-plan-note {
-  font-family: var(--font-head); font-style: italic; font-size: 13.5px;
-  color: var(--text-muted); line-height: 1.55; margin: 0 0 16px;
-  border-left: 2px solid var(--accent-soft); padding-left: 14px;
+  font-family: var(--font-head);
+  font-style: italic;
+  font-size: 13.5px;
+  color: var(--text-muted);
+  line-height: 1.55;
+  margin: 0 0 16px;
+  border-left: 2px solid var(--accent-soft);
+  padding-left: 14px;
 }
 body[data-theme="focus"] .focus-plan-item {
-  display: flex; align-items: center; gap: 13px; padding: 11px 0;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 11px 0;
   border-bottom: 1px solid var(--border-soft);
 }
-body[data-theme="focus"] .focus-plan-item:last-child { border-bottom: none; }
-body[data-theme="focus"] .focus-plan-item .mark {
-  width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;
-  display: grid; place-items: center; font-size: 11px; font-weight: 700;
+body[data-theme="focus"] .focus-plan-item:last-child {
+  border-bottom: none;
 }
-body[data-theme="focus"] .focus-plan-item .mark.done { background: var(--accent); color: #fff; }
-body[data-theme="focus"] .focus-plan-item .mark.next { background: var(--accent-soft); color: var(--accent-deep); box-shadow: inset 0 0 0 1px #cdd9f8; }
-body[data-theme="focus"] .focus-plan-item .mark.todo { border: 1px solid var(--border-strong); color: var(--text-muted); }
-body[data-theme="focus"] .focus-plan-item .p-label { flex: 1; font-size: 13.5px; color: var(--text); }
-body[data-theme="focus"] .focus-plan-item .p-time { font-size: 11.5px; color: var(--text-faint); }
+body[data-theme="focus"] .focus-plan-item .mark {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 700;
+}
+body[data-theme="focus"] .focus-plan-item .mark.done {
+  background: var(--accent);
+  color: #fff;
+}
+body[data-theme="focus"] .focus-plan-item .mark.next {
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+  box-shadow: inset 0 0 0 1px #cdd9f8;
+}
+body[data-theme="focus"] .focus-plan-item .mark.todo {
+  border: 1px solid var(--border-strong);
+  color: var(--text-muted);
+}
+body[data-theme="focus"] .focus-plan-item .p-label {
+  flex: 1;
+  font-size: 13.5px;
+  color: var(--text);
+}
+body[data-theme="focus"] .focus-plan-item .p-time {
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
 
 /* recent activity timeline */
-body[data-theme="focus"] .focus-act { display: flex; gap: 13px; padding: 11px 0; border-bottom: 1px solid var(--border-soft); }
-body[data-theme="focus"] .focus-act:last-child { border-bottom: none; }
-body[data-theme="focus"] .focus-act .a-ico {
-  width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0; display: grid; place-items: center;
-  background: var(--bg-soft); color: var(--text-muted);
+body[data-theme="focus"] .focus-act {
+  display: flex;
+  gap: 13px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--border-soft);
 }
-body[data-theme="focus"] .focus-act .a-ico.green { background: var(--green-soft); color: var(--green-deep); }
-body[data-theme="focus"] .focus-act .a-ico.blue { background: var(--accent-soft); color: var(--accent-deep); }
-body[data-theme="focus"] .focus-act .a-t { font-weight: 600; font-size: 13px; color: var(--text); }
-body[data-theme="focus"] .focus-act .a-s { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+body[data-theme="focus"] .focus-act:last-child {
+  border-bottom: none;
+}
+body[data-theme="focus"] .focus-act .a-ico {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  background: var(--bg-soft);
+  color: var(--text-muted);
+}
+body[data-theme="focus"] .focus-act .a-ico.green {
+  background: var(--green-soft);
+  color: var(--green-deep);
+}
+body[data-theme="focus"] .focus-act .a-ico.blue {
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+}
+body[data-theme="focus"] .focus-act .a-t {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text);
+}
+body[data-theme="focus"] .focus-act .a-s {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
 
 /* compact weekly activity log */
-body[data-theme="focus"] .focus-log .bars { height: 88px; gap: 7px; margin-top: 4px; }
-body[data-theme="focus"] .focus-log .bars .bar { background: var(--accent); opacity: 0.85; border-radius: 5px 5px 0 0; }
-body[data-theme="focus"] .focus-log .bars .bar.dim { background: var(--border-strong); opacity: 1; }
+body[data-theme="focus"] .focus-log .bars {
+  height: 88px;
+  gap: 7px;
+  margin-top: 4px;
+}
+body[data-theme="focus"] .focus-log .bars .bar {
+  background: var(--accent);
+  opacity: 0.85;
+  border-radius: 5px 5px 0 0;
+}
+body[data-theme="focus"] .focus-log .bars .bar.dim {
+  background: var(--border-strong);
+  opacity: 1;
+}
 body[data-theme="focus"] .focus-log .log-foot {
-  font-size: 12px; color: var(--text-muted); margin-top: 14px; padding-top: 14px;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 14px;
+  padding-top: 14px;
   border-top: 1px solid var(--border-soft);
 }
-body[data-theme="focus"] .focus-log .log-foot b { color: var(--accent-deep); font-weight: 600; }
+body[data-theme="focus"] .focus-log .log-foot b {
+  color: var(--accent-deep);
+  font-weight: 600;
+}

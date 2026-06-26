@@ -73,7 +73,9 @@ describe("product analytics unit", () => {
       expect(summary.activated).toBeGreaterThanOrEqual(1);
       expect(summary.templateStart).toBeGreaterThanOrEqual(1);
     } finally {
-      await dbClient.db.delete(productAnalyticsEvents).where(eq(productAnalyticsEvents.userId, userId));
+      await dbClient.db
+        .delete(productAnalyticsEvents)
+        .where(eq(productAnalyticsEvents.userId, userId));
       await dbClient.db.delete(users).where(eq(users.id, userId));
       await dbClient.sql.end();
     }

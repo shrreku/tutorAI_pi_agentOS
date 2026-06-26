@@ -37,14 +37,28 @@ const baseSurface: ReferenceSurface = {
 };
 
 function blockForScenario(blockKind: InteractiveLearningBlock["kind"]): InteractiveLearningBlock {
-  const allowedActionsByKind: Partial<Record<InteractiveLearningBlock["kind"], InteractiveLearningBlock["allowedActions"]>> = {
+  const allowedActionsByKind: Partial<
+    Record<InteractiveLearningBlock["kind"], InteractiveLearningBlock["allowedActions"]>
+  > = {
     quiz: ["quiz.answer_submitted", "tutor.help_requested"],
     flashcard_deck: ["flashcard.review_rated", "tutor.help_requested"],
-    worked_example: ["worked_example.step_answered", "worked_example.step_revealed", "tutor.help_requested"],
+    worked_example: [
+      "worked_example.step_answered",
+      "worked_example.step_revealed",
+      "tutor.help_requested",
+    ],
     evidence_explorer: ["evidence.source_span_opened", "tutor.help_requested"],
-    simulation: ["simulation.observation_submitted", "simulation.parameter_snapshot_submitted", "tutor.help_requested"],
+    simulation: [
+      "simulation.observation_submitted",
+      "simulation.parameter_snapshot_submitted",
+      "tutor.help_requested",
+    ],
     live_plan: ["live_plan.action_selected", "tutor.help_requested"],
-    source_reader: ["source_reader.annotation_created", "evidence.source_span_opened", "tutor.help_requested"],
+    source_reader: [
+      "source_reader.annotation_created",
+      "evidence.source_span_opened",
+      "tutor.help_requested",
+    ],
     personalization_controls: ["personalization.preference_updated", "tutor.help_requested"],
     dev_trace_dashboard: ["tutor.help_requested"],
     comparison: ["surface.completed", "evidence.source_span_opened", "tutor.help_requested"],
@@ -62,7 +76,9 @@ function blockForScenario(blockKind: InteractiveLearningBlock["kind"]): Interact
 
 describe("interactive learning synthetic browser regression", () => {
   it("renders sandboxed MCP app iframes for every interactive learning scenario block kind", () => {
-    const blockKinds = [...new Set(interactiveLearningSyntheticScenarios.map((scenario) => scenario.blockKind))];
+    const blockKinds = [
+      ...new Set(interactiveLearningSyntheticScenarios.map((scenario) => scenario.blockKind)),
+    ];
 
     for (const blockKind of blockKinds) {
       const block = blockForScenario(blockKind);
@@ -85,8 +101,12 @@ describe("interactive learning synthetic browser regression", () => {
 
   it("keeps bundle registry sandbox policies aligned with bridge rendering", () => {
     expect(validateBundleRegistry()).toEqual([]);
-    expect(MCP_APP_BUNDLE_REGISTRY.every((entry) => entry.sandboxPolicy.includes(MCP_APP_SANDBOX_ATTR))).toBe(true);
-    expect(MCP_APP_BUNDLE_REGISTRY.every((entry) => !entry.sandboxPolicy.includes("allow-same-origin"))).toBe(true);
+    expect(
+      MCP_APP_BUNDLE_REGISTRY.every((entry) => entry.sandboxPolicy.includes(MCP_APP_SANDBOX_ATTR)),
+    ).toBe(true);
+    expect(
+      MCP_APP_BUNDLE_REGISTRY.every((entry) => !entry.sandboxPolicy.includes("allow-same-origin")),
+    ).toBe(true);
   });
 
   it("builds action envelopes targeting the interactive-learning dispatcher URL", () => {
@@ -166,7 +186,8 @@ describe("interactive learning synthetic browser regression", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const { dispatchInteractiveLearningAction } = await import("./interactive-learning/mcp-app-bridge.js");
+    const { dispatchInteractiveLearningAction } =
+      await import("./interactive-learning/mcp-app-bridge.js");
     const quizBlock = blockForScenario("quiz");
     const manifest = resolveBundleForBlock(quizBlock)!;
     const result = await dispatchInteractiveLearningAction(

@@ -54,11 +54,17 @@ export function AccessCodePage() {
   return (
     <div className="tb-card">
       <h1>Access code</h1>
-      <p className="tb-lead">Redeem a code for additional study privileges, credits, or pilot access.</p>
+      <p className="tb-lead">
+        Redeem a code for additional study privileges, credits, or pilot access.
+      </p>
 
       <label className="tb-field">
         <span>Access code</span>
-        <input value={code} onChange={(event) => setCode(event.target.value)} placeholder="TB-XXXXXXXXXX" />
+        <input
+          value={code}
+          onChange={(event) => setCode(event.target.value)}
+          placeholder="TB-XXXXXXXXXX"
+        />
       </label>
 
       <div className="tb-actions">

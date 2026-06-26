@@ -1,6 +1,12 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { ChatTraceRun, ChatTraceStateChange, ChatTraceToolCall, ChatTraceTurn, TraceUsage } from "@studyagent/schemas";
+import type {
+  ChatTraceRun,
+  ChatTraceStateChange,
+  ChatTraceToolCall,
+  ChatTraceTurn,
+  TraceUsage,
+} from "@studyagent/schemas";
 
 export type LiveTraceTool = {
   id: string;
@@ -166,13 +172,16 @@ export function AgentTrace({
   const runs = traceView.data?.runs ?? [];
   const summary = traceView.data?.summary ?? buildTraceSummary(runs, runStatus);
   const workView = React.useMemo(
-    () => buildRuntimeWorkViewForDisplay(liveRun, runs, {
-      assistantMessage: assistantMessage ?? traceTurn?.assistantMessage ?? null,
-      stripFinalDuplicate: runStatus !== "running",
-    }),
+    () =>
+      buildRuntimeWorkViewForDisplay(liveRun, runs, {
+        assistantMessage: assistantMessage ?? traceTurn?.assistantMessage ?? null,
+        stripFinalDuplicate: runStatus !== "running",
+      }),
     [liveRun, runs, assistantMessage, traceTurn?.assistantMessage, runStatus],
   );
-  const [open, setOpen] = React.useState(() => showDiagnostics || summary.status === "running" || summary.status === "failed");
+  const [open, setOpen] = React.useState(
+    () => showDiagnostics || summary.status === "running" || summary.status === "failed",
+  );
   const [showRaw, setShowRaw] = React.useState(false);
 
   React.useEffect(() => {
@@ -190,7 +199,8 @@ export function AgentTrace({
   if (!summary.hasTrace) return null;
 
   if (!showDiagnostics) {
-    if (!hasRuntimeWorkContent(workView) && runStatus !== "running" && runStatus !== "failed") return null;
+    if (!hasRuntimeWorkContent(workView) && runStatus !== "running" && runStatus !== "failed")
+      return null;
     return (
       <CursorStyleWorkView
         model={workView}
@@ -210,11 +220,21 @@ export function AgentTrace({
   return (
     <div style={styles.shell}>
       <button type="button" onClick={() => setOpen((value) => !value)} style={styles.header}>
-        <span aria-hidden="true" style={{ ...styles.chevron, transform: open ? "rotate(90deg)" : "rotate(0deg)" }}>
+        <span
+          aria-hidden="true"
+          style={{ ...styles.chevron, transform: open ? "rotate(90deg)" : "rotate(0deg)" }}
+        >
           &gt;
         </span>
         <span style={styles.title}>{headerTitle}</span>
-        <span style={{ ...styles.statusPill, color: statusTone.text, background: statusTone.bg, borderColor: statusTone.border }}>
+        <span
+          style={{
+            ...styles.statusPill,
+            color: statusTone.text,
+            background: statusTone.bg,
+            borderColor: statusTone.border,
+          }}
+        >
           {statusLabel}
         </span>
         <span style={styles.headerDetails}>{detailParts.join(" · ")}</span>
@@ -225,7 +245,11 @@ export function AgentTrace({
         <div style={styles.body}>
           <TraceActivityList runs={runs} showRaw={showRaw} showDiagnostics />
           {runs.some((run) => run.rawEvents.length > 0) && (
-            <button type="button" onClick={() => setShowRaw((value) => !value)} style={styles.rawToggle}>
+            <button
+              type="button"
+              onClick={() => setShowRaw((value) => !value)}
+              style={styles.rawToggle}
+            >
               {showRaw ? "Hide raw events" : "Show raw events"}
             </button>
           )}
@@ -270,20 +294,25 @@ export function updateLiveTraceRun(
   if (type === "SESSION_STARTED") {
     const runId = typeof chunk.runId === "string" ? chunk.runId : current?.id;
     if (!runId) return current;
-    return current ?? {
-      id: runId,
-      status: "running",
-      runType: fallbackRunType,
-      startedAt: timestampFromChunk(chunk),
-      nextSequence: 0,
-      tools: [],
-      thinking: [],
-      narration: [],
-    };
+    return (
+      current ?? {
+        id: runId,
+        status: "running",
+        runType: fallbackRunType,
+        startedAt: timestampFromChunk(chunk),
+        nextSequence: 0,
+        tools: [],
+        thinking: [],
+        narration: [],
+      }
+    );
   }
 
   if (type === "RUN_STARTED") {
-    const runId = typeof chunk.runId === "string" ? chunk.runId : current?.id ?? `live_${timestampFromChunk(chunk)}`;
+    const runId =
+      typeof chunk.runId === "string"
+        ? chunk.runId
+        : (current?.id ?? `live_${timestampFromChunk(chunk)}`);
     return {
       id: runId,
       status: "running",
@@ -317,35 +346,58 @@ export function updateLiveTraceRun(
   }
 
   if (type === "THINKING_START") {
-    const thinkingId = typeof chunk.thinkingId === "string" ? chunk.thinkingId : `thinking_${timestampFromChunk(chunk)}`;
-    if (current.thinking.some((step) => step.id === thinkingId && step.status === "running")) return current;
+    const thinkingId =
+      typeof chunk.thinkingId === "string"
+        ? chunk.thinkingId
+        : `thinking_${timestampFromChunk(chunk)}`;
+    if (current.thinking.some((step) => step.id === thinkingId && step.status === "running"))
+      return current;
     const { sequence, nextSequence } = allocateSequence(current);
     return {
       ...current,
       nextSequence,
       thinking: [
         ...current.thinking,
-        { id: thinkingId, content: "", status: "running", startedAt: timestampFromChunk(chunk), sequence },
+        {
+          id: thinkingId,
+          content: "",
+          status: "running",
+          startedAt: timestampFromChunk(chunk),
+          sequence,
+        },
       ],
     };
   }
 
   if (type === "THINKING_CONTENT") {
-    const thinkingId = typeof chunk.thinkingId === "string"
-      ? chunk.thinkingId
-      : current.thinking.find((step) => step.status === "running")?.id;
-    const delta = typeof chunk.delta === "string" ? chunk.delta : typeof chunk.content === "string" ? chunk.content : "";
+    const thinkingId =
+      typeof chunk.thinkingId === "string"
+        ? chunk.thinkingId
+        : current.thinking.find((step) => step.status === "running")?.id;
+    const delta =
+      typeof chunk.delta === "string"
+        ? chunk.delta
+        : typeof chunk.content === "string"
+          ? chunk.content
+          : "";
     if (!thinkingId || !delta) return current;
     return {
       ...current,
-      thinking: appendLiveStepContent(current.thinking, thinkingId, delta, timestampFromChunk(chunk), current.nextSequence),
+      thinking: appendLiveStepContent(
+        current.thinking,
+        thinkingId,
+        delta,
+        timestampFromChunk(chunk),
+        current.nextSequence,
+      ),
     };
   }
 
   if (type === "THINKING_END") {
-    const thinkingId = typeof chunk.thinkingId === "string"
-      ? chunk.thinkingId
-      : current.thinking.find((step) => step.status === "running")?.id;
+    const thinkingId =
+      typeof chunk.thinkingId === "string"
+        ? chunk.thinkingId
+        : current.thinking.find((step) => step.status === "running")?.id;
     if (!thinkingId) return current;
     const content = typeof chunk.content === "string" ? chunk.content : "";
     return {
@@ -362,35 +414,58 @@ export function updateLiveTraceRun(
   }
 
   if (type === "RUNTIME_NARRATION_START") {
-    const narrationId = typeof chunk.narrationId === "string" ? chunk.narrationId : `narration_${timestampFromChunk(chunk)}`;
-    if (current.narration.some((step) => step.id === narrationId && step.status === "running")) return current;
+    const narrationId =
+      typeof chunk.narrationId === "string"
+        ? chunk.narrationId
+        : `narration_${timestampFromChunk(chunk)}`;
+    if (current.narration.some((step) => step.id === narrationId && step.status === "running"))
+      return current;
     const { sequence, nextSequence } = allocateSequence(current);
     return {
       ...current,
       nextSequence,
       narration: [
         ...current.narration,
-        { id: narrationId, content: "", status: "running", startedAt: timestampFromChunk(chunk), sequence },
+        {
+          id: narrationId,
+          content: "",
+          status: "running",
+          startedAt: timestampFromChunk(chunk),
+          sequence,
+        },
       ],
     };
   }
 
   if (type === "RUNTIME_NARRATION_CONTENT") {
-    const narrationId = typeof chunk.narrationId === "string"
-      ? chunk.narrationId
-      : current.narration.find((step) => step.status === "running")?.id;
-    const delta = typeof chunk.delta === "string" ? chunk.delta : typeof chunk.content === "string" ? chunk.content : "";
+    const narrationId =
+      typeof chunk.narrationId === "string"
+        ? chunk.narrationId
+        : current.narration.find((step) => step.status === "running")?.id;
+    const delta =
+      typeof chunk.delta === "string"
+        ? chunk.delta
+        : typeof chunk.content === "string"
+          ? chunk.content
+          : "";
     if (!narrationId || !delta) return current;
     return {
       ...current,
-      narration: appendLiveStepContent(current.narration, narrationId, delta, timestampFromChunk(chunk), current.nextSequence),
+      narration: appendLiveStepContent(
+        current.narration,
+        narrationId,
+        delta,
+        timestampFromChunk(chunk),
+        current.nextSequence,
+      ),
     };
   }
 
   if (type === "RUNTIME_NARRATION_END") {
-    const narrationId = typeof chunk.narrationId === "string"
-      ? chunk.narrationId
-      : current.narration.find((step) => step.status === "running")?.id;
+    const narrationId =
+      typeof chunk.narrationId === "string"
+        ? chunk.narrationId
+        : current.narration.find((step) => step.status === "running")?.id;
     if (!narrationId) return current;
     const content = typeof chunk.content === "string" ? chunk.content : "";
     return {
@@ -420,7 +495,9 @@ export function updateLiveTraceRun(
     const toolName = typeof chunk.toolName === "string" ? chunk.toolName : null;
     if (!toolCallId) return current;
     const existing = current.tools.find((tool) => tool.id === toolCallId);
-    const { sequence, nextSequence } = existing ? { sequence: existing.sequence, nextSequence: current.nextSequence } : allocateSequence(current);
+    const { sequence, nextSequence } = existing
+      ? { sequence: existing.sequence, nextSequence: current.nextSequence }
+      : allocateSequence(current);
     return upsertLiveTool(
       { ...current, nextSequence },
       {
@@ -453,7 +530,10 @@ export function buildTraceSummary(
   showDiagnostics = false,
 ): TraceSummary {
   const toolCount = runs.reduce((sum, run) => sum + run.tools.length, 0);
-  const failedToolCount = runs.reduce((sum, run) => sum + run.tools.filter((tool) => isFailureStatus(tool.status)).length, 0);
+  const failedToolCount = runs.reduce(
+    (sum, run) => sum + run.tools.filter((tool) => isFailureStatus(tool.status)).length,
+    0,
+  );
   const updateCount = runs.reduce((sum, run) => sum + run.stateChanges.length, 0);
   const latestRun = runs[runs.length - 1];
   const latestTool = findLatestTool(runs);
@@ -469,7 +549,9 @@ export function buildTraceSummary(
     toolCount,
     failedToolCount,
     updateCount,
-    latestToolLabel: latestTool ? `${displayToolName(latestTool.toolName)} · ${latestTool.status}` : undefined,
+    latestToolLabel: latestTool
+      ? `${displayToolName(latestTool.toolName)} · ${latestTool.status}`
+      : undefined,
   };
 }
 
@@ -532,12 +614,17 @@ export function mergeRuntimeWorkViews(
   );
   const narrationKeys = new Set(
     persistedModel.steps
-      .filter((step): step is Extract<RuntimeWorkStep, { kind: "narration" }> => step.kind === "narration")
+      .filter(
+        (step): step is Extract<RuntimeWorkStep, { kind: "narration" }> =>
+          step.kind === "narration",
+      )
       .map((step) => normalizeWorkText(step.content)),
   );
   const thoughtKeys = new Set(
     persistedModel.steps
-      .filter((step): step is Extract<RuntimeWorkStep, { kind: "thought" }> => step.kind === "thought")
+      .filter(
+        (step): step is Extract<RuntimeWorkStep, { kind: "thought" }> => step.kind === "thought",
+      )
       .map((step) => normalizeWorkText(step.content))
       .filter(Boolean),
   );
@@ -743,7 +830,13 @@ function CursorStyleWorkView({
   const activeRun = runStatus === "running" || model.runStatus === "running";
   const runSucceeded = runStatus === "completed" || (!activeRun && model.runStatus === "completed");
   const runFailed = runStatus === "failed" || (!activeRun && model.runStatus === "failed");
-  const displayStatus = activeRun ? "running" : runSucceeded ? "completed" : runFailed ? "failed" : model.runStatus;
+  const displayStatus = activeRun
+    ? "running"
+    : runSucceeded
+      ? "completed"
+      : runFailed
+        ? "failed"
+        : model.runStatus;
   const displaySteps = groupRuntimeSteps(model.steps);
   const focus = resolveStreamingWorkFocus(displaySteps, {
     activeRun,
@@ -754,12 +847,10 @@ function CursorStyleWorkView({
   const isOpen = activeRun || runFailed;
 
   return (
-    <details
-      className="tutor-runtime-work-shell"
-      data-status={displayStatus}
-      open={isOpen}
-    >
-      <summary className="tutor-runtime-work-shell-summary">{formatWorkShellSummary(model, activeRun)}</summary>
+    <details className="tutor-runtime-work-shell" data-status={displayStatus} open={isOpen}>
+      <summary className="tutor-runtime-work-shell-summary">
+        {formatWorkShellSummary(model, activeRun)}
+      </summary>
       <div className="tutor-runtime-work" data-status={displayStatus}>
         {displaySteps.map((step) => {
           if (step.kind === "narration") {
@@ -771,31 +862,39 @@ function CursorStyleWorkView({
           }
           if (step.kind !== "work-segment") return null;
           return (
-            <div key={step.id} className="tutor-runtime-work-beat" data-status={resolveWorkBeatStatus(step.items, runSucceeded)}>
-              {step.items.map((item: RuntimeWorkSegmentItem) => (
-                item.kind === "thought"
-                  ? (
-                    <details
-                      key={item.id}
-                      className="tutor-runtime-thought"
-                      open={shouldWorkItemBeOpen(item.id, activeRun, focus, step.id)}
-                    >
-                      <summary className="tutor-runtime-thought-summary">{formatThoughtSummary(item)}</summary>
-                      {item.content ? <div className="tutor-runtime-thought-body">{item.content}</div> : null}
-                    </details>
-                  )
-                  : (
-                    <details
-                      key={item.id}
-                      className="tutor-runtime-tool-line"
-                      data-status={item.status}
-                      open={shouldWorkItemBeOpen(item.id, activeRun, focus, step.id)}
-                    >
-                      <summary className="tutor-runtime-tool-line-summary">{item.lineTitle}</summary>
-                      {item.detail ? <div className="tutor-runtime-tool-line-detail">{item.detail}</div> : null}
-                    </details>
-                  )
-              ))}
+            <div
+              key={step.id}
+              className="tutor-runtime-work-beat"
+              data-status={resolveWorkBeatStatus(step.items, runSucceeded)}
+            >
+              {step.items.map((item: RuntimeWorkSegmentItem) =>
+                item.kind === "thought" ? (
+                  <details
+                    key={item.id}
+                    className="tutor-runtime-thought"
+                    open={shouldWorkItemBeOpen(item.id, activeRun, focus, step.id)}
+                  >
+                    <summary className="tutor-runtime-thought-summary">
+                      {formatThoughtSummary(item)}
+                    </summary>
+                    {item.content ? (
+                      <div className="tutor-runtime-thought-body">{item.content}</div>
+                    ) : null}
+                  </details>
+                ) : (
+                  <details
+                    key={item.id}
+                    className="tutor-runtime-tool-line"
+                    data-status={item.status}
+                    open={shouldWorkItemBeOpen(item.id, activeRun, focus, step.id)}
+                  >
+                    <summary className="tutor-runtime-tool-line-summary">{item.lineTitle}</summary>
+                    {item.detail ? (
+                      <div className="tutor-runtime-tool-line-detail">{item.detail}</div>
+                    ) : null}
+                  </details>
+                ),
+              )}
             </div>
           );
         })}
@@ -819,7 +918,8 @@ function CursorStyleWorkView({
 
 function resolveWorkBeatStatus(items: RuntimeWorkSegmentItem[], runSucceeded: boolean): string {
   if (items.some((item) => isStreamingWorkItem(item))) return "running";
-  if (!runSucceeded && items.some((item) => item.kind === "tool" && isFailureStatus(item.status))) return "failed";
+  if (!runSucceeded && items.some((item) => item.kind === "tool" && isFailureStatus(item.status)))
+    return "failed";
   return "completed";
 }
 
@@ -832,8 +932,13 @@ export function groupRuntimeSteps(steps: RuntimeWorkStep[]): RuntimeWorkDisplayS
     if (!pendingWork.length) return;
     const items = pendingWork;
     pendingWork = [];
-    const thoughts = items.filter((item): item is Extract<RuntimeWorkSegmentItem, { kind: "thought" }> => item.kind === "thought");
-    const tools = items.filter((item): item is Extract<RuntimeWorkSegmentItem, { kind: "tool" }> => item.kind === "tool");
+    const thoughts = items.filter(
+      (item): item is Extract<RuntimeWorkSegmentItem, { kind: "thought" }> =>
+        item.kind === "thought",
+    );
+    const tools = items.filter(
+      (item): item is Extract<RuntimeWorkSegmentItem, { kind: "tool" }> => item.kind === "tool",
+    );
     grouped.push({
       kind: "work-segment",
       id: `work-segment:${items.map((item) => item.id).join(":")}`,
@@ -868,8 +973,8 @@ function resolveGroupedWorkSegmentStatus(
   tools: Array<Extract<RuntimeWorkSegmentItem, { kind: "tool" }>>,
 ): string {
   if (
-    thoughts.some((thought) => thought.status === "running" || thought.status === "thinking")
-    || tools.some((tool) => tool.status === "started" || tool.status === "running")
+    thoughts.some((thought) => thought.status === "running" || thought.status === "thinking") ||
+    tools.some((tool) => tool.status === "started" || tool.status === "running")
   ) {
     return "running";
   }
@@ -937,7 +1042,9 @@ export function resolveStreamingWorkFocus(
 ): StreamingWorkFocus {
   const beats = listWorkBeats(displaySteps);
   const settledBeatIds = beats
-    .filter(({ index, beat }) => displaySteps.slice(index + 1).some((step) => step.kind === "narration"))
+    .filter(({ index, beat }) =>
+      displaySteps.slice(index + 1).some((step) => step.kind === "narration"),
+    )
     .map(({ beat }) => beat.id);
 
   if (!options.activeRun || isFinalResponseStreaming(options.assistantMessage, options.workSteps)) {
@@ -966,13 +1073,18 @@ export function resolveStreamingWorkFocus(
   return { activeItemId, settledBeatIds: settled };
 }
 
-function listWorkBeats(displaySteps: RuntimeWorkDisplayStep[]): Array<{ beat: RuntimeWorkSegmentStep; index: number }> {
-  return displaySteps.flatMap((step, index) => (
-    step.kind === "work-segment" ? [{ beat: step, index }] : []
-  ));
+function listWorkBeats(
+  displaySteps: RuntimeWorkDisplayStep[],
+): Array<{ beat: RuntimeWorkSegmentStep; index: number }> {
+  return displaySteps.flatMap((step, index) =>
+    step.kind === "work-segment" ? [{ beat: step, index }] : [],
+  );
 }
 
-function isFinalResponseStreaming(assistantMessage: string | null | undefined, workSteps: RuntimeWorkStep[]): boolean {
+function isFinalResponseStreaming(
+  assistantMessage: string | null | undefined,
+  workSteps: RuntimeWorkStep[],
+): boolean {
   if (!normalizeWorkText(assistantMessage ?? "")) return false;
   return !hasStreamingWorkActivity(workSteps);
 }
@@ -1012,7 +1124,8 @@ function computeLiveWorkDurationMs(run: LiveTraceRun): number | null {
 
 function formatThoughtSummary(step: RuntimeWorkThinkingStep): string {
   if (step.status === "running" || step.status === "thinking") return "Thinking";
-  const duration = typeof step.durationMs === "number" ? formatDuration(step.durationMs) : undefined;
+  const duration =
+    typeof step.durationMs === "number" ? formatDuration(step.durationMs) : undefined;
   return duration ? `Thought · ${duration}` : "Thought";
 }
 
@@ -1052,7 +1165,8 @@ function normalizeWorkText(value: string): string {
 
 function eventTextFromPayload(payload: unknown, summary?: string): string {
   if (typeof payload === "string") return normalizeWorkText(payload);
-  if (isJsonRecord(payload) && typeof payload.text === "string") return normalizeWorkText(payload.text);
+  if (isJsonRecord(payload) && typeof payload.text === "string")
+    return normalizeWorkText(payload.text);
   const extracted = extractEventText(payload);
   return extracted ? normalizeWorkText(extracted) : normalizeWorkText(summary ?? "");
 }
@@ -1113,27 +1227,43 @@ function describeToolWork(tool: {
   if (raw.includes("wiki.search") || (raw.includes("search") && !raw.includes("get_span"))) {
     const query = extractToolQuery(input);
     const results = Array.isArray(output.results) ? output.results : [];
-    const retrievalMode = typeof output.retrievalMode === "string" ? output.retrievalMode : undefined;
-    const fallbackReason = typeof output.fallbackReason === "string" ? output.fallbackReason : undefined;
+    const retrievalMode =
+      typeof output.retrievalMode === "string" ? output.retrievalMode : undefined;
+    const fallbackReason =
+      typeof output.fallbackReason === "string" ? output.fallbackReason : undefined;
     const verb = inProgress ? "Searching" : "Searched";
     const summary = query
       ? `${verb} · "${compactText(query, 72)}"${results.length ? ` · ${results.length} results` : ""}${latencySuffix}`
       : `${verb} notebook${results.length ? ` · ${results.length} results` : ""}${latencySuffix}`;
-    const lineTitle = query ? `${verb} · "${compactText(query, 72)}"${latencySuffix}` : `${verb} notebook${latencySuffix}`;
+    const lineTitle = query
+      ? `${verb} · "${compactText(query, 72)}"${latencySuffix}`
+      : `${verb} notebook${latencySuffix}`;
     const lines = results.slice(0, 6).map((row) => {
       const record = asRecord(row);
-      const title = typeof record.title === "string" ? record.title : typeof record.refId === "string" ? record.refId : "result";
+      const title =
+        typeof record.title === "string"
+          ? record.title
+          : typeof record.refId === "string"
+            ? record.refId
+            : "result";
       const snippet = typeof record.snippet === "string" ? compactText(record.snippet, 120) : "";
       return snippet ? `· ${title} — ${snippet}` : `· ${title}`;
     });
-    const meta = [retrievalMode, fallbackReason ? `fallback: ${fallbackReason}` : null].filter(Boolean).join(" · ");
+    const meta = [retrievalMode, fallbackReason ? `fallback: ${fallbackReason}` : null]
+      .filter(Boolean)
+      .join(" · ");
     const detail = [...(meta ? [meta] : []), ...lines].join("\n");
     return detail ? { summary, lineTitle, detail } : { summary, lineTitle };
   }
 
   if (raw.includes("wiki.get_page") || raw.includes("wiki.get")) {
     const page = asRecord(output.page);
-    const title = typeof page.title === "string" ? page.title : typeof input.pageId === "string" ? input.pageId : "wiki page";
+    const title =
+      typeof page.title === "string"
+        ? page.title
+        : typeof input.pageId === "string"
+          ? input.pageId
+          : "wiki page";
     const pageType = typeof page.pageType === "string" ? page.pageType.replace(/_/g, " ") : "wiki";
     const markdown = typeof page.markdown === "string" ? page.markdown.trim() : "";
     const lineTitle = `${title} · ${pageType}${latencySuffix}`;
@@ -1149,14 +1279,18 @@ function describeToolWork(tool: {
     const sessionPlan = asRecord(output.sessionPlan);
     const studyPlan = asRecord(output.studyPlan);
     const moduleTitle = typeof module.title === "string" ? module.title : undefined;
-    const sessionGoal = typeof sessionPlan.sessionGoal === "string" ? sessionPlan.sessionGoal : undefined;
-    const currentObjectiveId = typeof studyPlan.currentObjectiveId === "string" ? studyPlan.currentObjectiveId : undefined;
+    const sessionGoal =
+      typeof sessionPlan.sessionGoal === "string" ? sessionPlan.sessionGoal : undefined;
+    const currentObjectiveId =
+      typeof studyPlan.currentObjectiveId === "string" ? studyPlan.currentObjectiveId : undefined;
     const lineTitle = `Study plan${moduleTitle ? ` · ${moduleTitle}` : ""}${latencySuffix}`;
     const detail = [
       moduleTitle ? `Module: ${moduleTitle}` : null,
       sessionGoal ? `Session goal: ${compactText(sessionGoal, 180)}` : null,
       currentObjectiveId ? `Current objective: ${currentObjectiveId}` : null,
-    ].filter(Boolean).join("\n");
+    ]
+      .filter(Boolean)
+      .join("\n");
     return {
       summary: `${inProgress ? "Checking" : "Checked"} study plan${latencySuffix}`,
       lineTitle,
@@ -1167,13 +1301,18 @@ function describeToolWork(tool: {
   if (raw.includes("learning.get_state")) {
     const conceptStates = Array.isArray(output.conceptStates) ? output.conceptStates : [];
     const lineTitle = `Learning state · ${conceptStates.length} concept${conceptStates.length === 1 ? "" : "s"}${latencySuffix}`;
-    const detail = conceptStates.slice(0, 6).map((row) => {
-      const record = asRecord(row);
-      const conceptId = typeof record.conceptId === "string" ? record.conceptId : "concept";
-      const mastery = typeof record.masteryScore === "number" ? record.masteryScore.toFixed(2) : "?";
-      const confidence = typeof record.confidence === "number" ? record.confidence.toFixed(2) : "?";
-      return `· ${conceptId} · mastery ${mastery} · confidence ${confidence}`;
-    }).join("\n");
+    const detail = conceptStates
+      .slice(0, 6)
+      .map((row) => {
+        const record = asRecord(row);
+        const conceptId = typeof record.conceptId === "string" ? record.conceptId : "concept";
+        const mastery =
+          typeof record.masteryScore === "number" ? record.masteryScore.toFixed(2) : "?";
+        const confidence =
+          typeof record.confidence === "number" ? record.confidence.toFixed(2) : "?";
+        return `· ${conceptId} · mastery ${mastery} · confidence ${confidence}`;
+      })
+      .join("\n");
     return {
       summary: `${inProgress ? "Checking" : "Checked"} learning state · ${conceptStates.length} concepts${latencySuffix}`,
       lineTitle,
@@ -1185,14 +1324,18 @@ function describeToolWork(tool: {
     const notebook = asRecord(output.notebook);
     const title = typeof notebook.title === "string" ? notebook.title : "notebook";
     const goal = typeof notebook.goal === "string" ? notebook.goal : undefined;
-    const selectedRefs = Array.isArray(output.selectedNodeRefs) ? output.selectedNodeRefs.length : 0;
+    const selectedRefs = Array.isArray(output.selectedNodeRefs)
+      ? output.selectedNodeRefs.length
+      : 0;
     const recentEvents = Array.isArray(output.recentEvents) ? output.recentEvents.length : 0;
     const lineTitle = `${title} · notebook${latencySuffix}`;
     const detail = [
       goal ? `Goal: ${compactText(goal, 180)}` : null,
       selectedRefs ? `Selected refs: ${selectedRefs}` : null,
       recentEvents ? `Recent activity: ${recentEvents} events` : null,
-    ].filter(Boolean).join("\n");
+    ]
+      .filter(Boolean)
+      .join("\n");
     return {
       summary: `Loaded notebook · ${title}${latencySuffix}`,
       lineTitle,
@@ -1204,12 +1347,16 @@ function describeToolWork(tool: {
     const curriculum = asRecord(output.curriculum);
     const title = typeof curriculum.title === "string" ? curriculum.title : "curriculum";
     const status = typeof curriculum.status === "string" ? curriculum.status : undefined;
-    const objectives = Array.isArray(curriculum.objectiveIds) ? curriculum.objectiveIds.length : undefined;
+    const objectives = Array.isArray(curriculum.objectiveIds)
+      ? curriculum.objectiveIds.length
+      : undefined;
     const lineTitle = `${title} · curriculum${latencySuffix}`;
     const detail = [
       status ? `Status: ${status}` : null,
       objectives != null ? `Objectives: ${objectives}` : null,
-    ].filter(Boolean).join("\n");
+    ]
+      .filter(Boolean)
+      .join("\n");
     return {
       summary: `Loaded curriculum · ${title}${latencySuffix}`,
       lineTitle,
@@ -1222,10 +1369,9 @@ function describeToolWork(tool: {
     const goal = typeof profile.goalSummary === "string" ? profile.goalSummary : undefined;
     const pace = typeof profile.pacePreference === "string" ? profile.pacePreference : undefined;
     const lineTitle = `Learner profile${latencySuffix}`;
-    const detail = [
-      goal ? `Goal: ${compactText(goal, 180)}` : null,
-      pace ? `Pace: ${pace}` : null,
-    ].filter(Boolean).join("\n");
+    const detail = [goal ? `Goal: ${compactText(goal, 180)}` : null, pace ? `Pace: ${pace}` : null]
+      .filter(Boolean)
+      .join("\n");
     return {
       summary: `Loaded learner profile${latencySuffix}`,
       lineTitle,
@@ -1257,8 +1403,18 @@ function describeToolWork(tool: {
   }
 
   if (raw.includes("session_plan.update")) {
-    const title = typeof input.title === "string" ? input.title : typeof output.title === "string" ? output.title : "session plan";
-    const goal = typeof input.sessionGoal === "string" ? input.sessionGoal : typeof output.sessionGoal === "string" ? output.sessionGoal : undefined;
+    const title =
+      typeof input.title === "string"
+        ? input.title
+        : typeof output.title === "string"
+          ? output.title
+          : "session plan";
+    const goal =
+      typeof input.sessionGoal === "string"
+        ? input.sessionGoal
+        : typeof output.sessionGoal === "string"
+          ? output.sessionGoal
+          : undefined;
     const lineTitle = `Session plan · ${title}${latencySuffix}`;
     return {
       summary: `${inProgress ? "Updating" : "Updated"} session plan · ${title}${latencySuffix}`,
@@ -1267,7 +1423,12 @@ function describeToolWork(tool: {
     };
   }
 
-  if (raw.includes("objective.update") || raw.includes("module.update") || raw.includes("objective_list.") || raw.includes(".update")) {
+  if (
+    raw.includes("objective.update") ||
+    raw.includes("module.update") ||
+    raw.includes("objective_list.") ||
+    raw.includes(".update")
+  ) {
     const label = formatToolLabel(tool.toolName);
     const target =
       typeof input.title === "string"
@@ -1281,7 +1442,12 @@ function describeToolWork(tool: {
               : typeof input.sessionGoal === "string"
                 ? compactText(input.sessionGoal, 72)
                 : undefined;
-    const status = typeof input.status === "string" ? input.status : typeof output.status === "string" ? output.status : undefined;
+    const status =
+      typeof input.status === "string"
+        ? input.status
+        : typeof output.status === "string"
+          ? output.status
+          : undefined;
     const lineTitle = `${label}${target ? ` · ${target}` : ""}${latencySuffix}`;
     return {
       summary: `${inProgress ? "Updating" : "Updated"} ${label}${target ? ` · ${target}` : ""}${latencySuffix}`,
@@ -1291,26 +1457,49 @@ function describeToolWork(tool: {
   }
 
   if (raw.includes("create_quiz")) {
-    const title = typeof output.title === "string" ? output.title : typeof input.title === "string" ? input.title : "quiz";
+    const title =
+      typeof output.title === "string"
+        ? output.title
+        : typeof input.title === "string"
+          ? input.title
+          : "quiz";
     const artifactId = typeof output.artifactId === "string" ? output.artifactId : undefined;
     const verb = inProgress ? "Generating" : "Generated";
     const lineTitle = `Quiz · ${title}${latencySuffix}`;
     const detail = artifactId ? `artifact: ${artifactId}` : undefined;
-    return { summary: `${verb} quiz · ${title}${latencySuffix}`, lineTitle, ...(detail ? { detail } : {}) };
+    return {
+      summary: `${verb} quiz · ${title}${latencySuffix}`,
+      lineTitle,
+      ...(detail ? { detail } : {}),
+    };
   }
 
   if (raw.includes("create_flashcard")) {
     const cards = Array.isArray(output.cards) ? output.cards.length : undefined;
-    const title = typeof output.title === "string" ? output.title : typeof input.title === "string" ? input.title : "flashcards";
+    const title =
+      typeof output.title === "string"
+        ? output.title
+        : typeof input.title === "string"
+          ? input.title
+          : "flashcards";
     const artifactId = typeof output.artifactId === "string" ? output.artifactId : undefined;
     const verb = inProgress ? "Generating" : "Generated";
     const lineTitle = `${title}${cards != null ? ` · ${cards} cards` : ""}${latencySuffix}`;
     const detail = artifactId ? `artifact: ${artifactId}` : undefined;
-    return { summary: `${verb} flashcards${cards != null ? ` · ${cards} cards` : ""}${latencySuffix}`, lineTitle, ...(detail ? { detail } : {}) };
+    return {
+      summary: `${verb} flashcards${cards != null ? ` · ${cards} cards` : ""}${latencySuffix}`,
+      lineTitle,
+      ...(detail ? { detail } : {}),
+    };
   }
 
   if (raw.includes("create_note")) {
-    const title = typeof output.title === "string" ? output.title : typeof input.title === "string" ? input.title : "note";
+    const title =
+      typeof output.title === "string"
+        ? output.title
+        : typeof input.title === "string"
+          ? input.title
+          : "note";
     const markdown = typeof output.markdown === "string" ? output.markdown.trim() : "";
     const artifactId = typeof output.artifactId === "string" ? output.artifactId : undefined;
     const verb = inProgress ? "Generating" : "Generated";
@@ -1318,17 +1507,41 @@ function describeToolWork(tool: {
     return {
       summary: `${verb} note · ${title}${latencySuffix}`,
       lineTitle,
-      ...(markdown ? { detail: compactText(markdown, 900) } : artifactId ? { detail: `artifact: ${artifactId}` } : {}),
+      ...(markdown
+        ? { detail: compactText(markdown, 900) }
+        : artifactId
+          ? { detail: `artifact: ${artifactId}` }
+          : {}),
     };
   }
 
-  if (raw.includes("create_worked_example") || raw.includes("create_formula_sheet") || raw.includes("create_comparison_page") || raw.includes("create_concept_card")) {
-    const title = typeof output.title === "string" ? output.title : typeof input.title === "string" ? input.title : "artifact";
+  if (
+    raw.includes("create_worked_example") ||
+    raw.includes("create_formula_sheet") ||
+    raw.includes("create_comparison_page") ||
+    raw.includes("create_concept_card")
+  ) {
+    const title =
+      typeof output.title === "string"
+        ? output.title
+        : typeof input.title === "string"
+          ? input.title
+          : "artifact";
     const artifactId = typeof output.artifactId === "string" ? output.artifactId : undefined;
     const verb = inProgress ? "Generating" : "Generated";
-    const artifactType = raw.includes("worked_example") ? "worked example" : raw.includes("formula_sheet") ? "formula sheet" : raw.includes("comparison_page") ? "comparison" : "concept card";
+    const artifactType = raw.includes("worked_example")
+      ? "worked example"
+      : raw.includes("formula_sheet")
+        ? "formula sheet"
+        : raw.includes("comparison_page")
+          ? "comparison"
+          : "concept card";
     const lineTitle = `${verb} ${artifactType} · ${title}${latencySuffix}`;
-    return { summary: `${verb} ${artifactType} · ${title}${latencySuffix}`, lineTitle, ...(artifactId ? { detail: `artifact: ${artifactId}` } : {}) };
+    return {
+      summary: `${verb} ${artifactType} · ${title}${latencySuffix}`,
+      lineTitle,
+      ...(artifactId ? { detail: `artifact: ${artifactId}` } : {}),
+    };
   }
 
   if (raw.includes("artifact.insert_into_tutor_context")) {
@@ -1339,21 +1552,39 @@ function describeToolWork(tool: {
   }
 
   if (raw.includes("artifact")) {
-    const title = typeof output.title === "string" ? output.title : typeof input.title === "string" ? input.title : "artifact";
+    const title =
+      typeof output.title === "string"
+        ? output.title
+        : typeof input.title === "string"
+          ? input.title
+          : "artifact";
     const artifactId = typeof output.artifactId === "string" ? output.artifactId : undefined;
     const isCreate = raw.includes("create");
-    const verb = isCreate ? (inProgress ? "Generating" : "Generated") : (inProgress ? "Updating" : "Updated");
+    const verb = isCreate
+      ? inProgress
+        ? "Generating"
+        : "Generated"
+      : inProgress
+        ? "Updating"
+        : "Updated";
     const lineTitle = `${verb} artifact · ${title}${latencySuffix}`;
-    return { summary: `${verb} artifact · ${title}${latencySuffix}`, lineTitle, ...(artifactId ? { detail: `artifact: ${artifactId}` } : {}) };
+    return {
+      summary: `${verb} artifact · ${title}${latencySuffix}`,
+      lineTitle,
+      ...(artifactId ? { detail: `artifact: ${artifactId}` } : {}),
+    };
   }
 
   if (raw.includes("evaluate_response") || raw.includes("learning.evaluate")) {
     const objectiveId = typeof input.objectiveId === "string" ? input.objectiveId : undefined;
-    const correctnessLabel = typeof output.correctnessLabel === "string" ? output.correctnessLabel : undefined;
-    const intervention = typeof output.tutoringIntervention === "string" ? output.tutoringIntervention : undefined;
+    const correctnessLabel =
+      typeof output.correctnessLabel === "string" ? output.correctnessLabel : undefined;
+    const intervention =
+      typeof output.tutoringIntervention === "string" ? output.tutoringIntervention : undefined;
     const lineTitle = `Mastery evaluation${objectiveId ? ` · ${objectiveId}` : ""}${latencySuffix}`;
     const detail = correctnessLabel
-      ? [correctnessLabel, intervention].filter(Boolean).join(" → ") + (formatRecordPreview(output) ? `\n${formatRecordPreview(output)}` : "")
+      ? [correctnessLabel, intervention].filter(Boolean).join(" → ") +
+        (formatRecordPreview(output) ? `\n${formatRecordPreview(output)}` : "")
       : formatRecordPreview(output);
     return {
       summary: `Evaluated learner response${latencySuffix}`,
@@ -1363,8 +1594,15 @@ function describeToolWork(tool: {
   }
 
   if (raw.includes("coverage.mark_introduced") || raw.includes("coverage.mark_checked")) {
-    const coverageItemId = typeof input.coverageItemId === "string" ? input.coverageItemId : typeof input.itemId === "string" ? input.itemId : undefined;
-    const verb = raw.includes("mark_introduced") ? (inProgress ? "Marking" : "Marked") + " introduced" : (inProgress ? "Marking" : "Marked") + " checked";
+    const coverageItemId =
+      typeof input.coverageItemId === "string"
+        ? input.coverageItemId
+        : typeof input.itemId === "string"
+          ? input.itemId
+          : undefined;
+    const verb = raw.includes("mark_introduced")
+      ? (inProgress ? "Marking" : "Marked") + " introduced"
+      : (inProgress ? "Marking" : "Marked") + " checked";
     const lineTitle = `${verb}${coverageItemId ? ` · ${coverageItemId}` : ""}${latencySuffix}`;
     return { summary: `${verb}${latencySuffix}`, lineTitle };
   }
@@ -1381,25 +1619,40 @@ function describeToolWork(tool: {
   if (raw.includes("curriculum.activate")) {
     const curriculumId = typeof input.curriculumId === "string" ? input.curriculumId : undefined;
     const lineTitle = `Activate curriculum${curriculumId ? ` · ${curriculumId}` : ""}${latencySuffix}`;
-    return { summary: `${inProgress ? "Activating" : "Activated"} curriculum${latencySuffix}`, lineTitle };
+    return {
+      summary: `${inProgress ? "Activating" : "Activated"} curriculum${latencySuffix}`,
+      lineTitle,
+    };
   }
 
   if (raw.includes("learner_trait.record_signal")) {
     const trait = typeof input.trait === "string" ? input.trait : undefined;
-    const value = typeof input.value === "string" || typeof input.value === "number" ? String(input.value) : undefined;
+    const value =
+      typeof input.value === "string" || typeof input.value === "number"
+        ? String(input.value)
+        : undefined;
     const lineTitle = `Learner trait${trait ? ` · ${trait}` : ""}${value ? ` = ${value}` : ""}${latencySuffix}`;
-    return { summary: `${inProgress ? "Recording" : "Recorded"} learner trait${trait ? ` · ${trait}` : ""}${latencySuffix}`, lineTitle };
+    return {
+      summary: `${inProgress ? "Recording" : "Recorded"} learner trait${trait ? ` · ${trait}` : ""}${latencySuffix}`,
+      lineTitle,
+    };
   }
 
   if (raw.includes("student_profile.update_preferences")) {
     const lineTitle = `Update learner preferences${latencySuffix}`;
-    return { summary: `${inProgress ? "Updating" : "Updated"} learner preferences${latencySuffix}`, lineTitle };
+    return {
+      summary: `${inProgress ? "Updating" : "Updated"} learner preferences${latencySuffix}`,
+      lineTitle,
+    };
   }
 
   const label = displayToolName(tool.toolName);
-  const errorInfo = tool.status === "failed" && typeof output.error === "string" ? output.error : undefined;
+  const errorInfo =
+    tool.status === "failed" && typeof output.error === "string" ? output.error : undefined;
   const detail = errorInfo ?? formatRecordPreview(output) ?? formatRecordPreview(input);
-  const lineTitle = errorInfo ? `${label} · ${compactText(errorInfo, 120)}${latencySuffix}` : `${label}${latencySuffix}`;
+  const lineTitle = errorInfo
+    ? `${label} · ${compactText(errorInfo, 120)}${latencySuffix}`
+    : `${label}${latencySuffix}`;
   return detail
     ? { summary: `${label}${latencySuffix}`, lineTitle, detail }
     : { summary: `${label}${latencySuffix}`, lineTitle };
@@ -1428,10 +1681,14 @@ function extractToolQuery(input: Record<string, unknown>): string | undefined {
   return undefined;
 }
 
-function formatPageRange(input: Record<string, unknown>, output: Record<string, unknown>): string | undefined {
+function formatPageRange(
+  input: Record<string, unknown>,
+  output: Record<string, unknown>,
+): string | undefined {
   const pageStart = output.pageStart ?? input.pageStart;
   const pageEnd = output.pageEnd ?? input.pageEnd;
-  if (typeof pageStart === "number" && typeof pageEnd === "number") return `pp. ${pageStart}-${pageEnd}`;
+  if (typeof pageStart === "number" && typeof pageEnd === "number")
+    return `pp. ${pageStart}-${pageEnd}`;
   if (typeof pageStart === "number") return `p. ${pageStart}`;
   if (typeof pageEnd === "number") return `p. ${pageEnd}`;
   return undefined;
@@ -1443,7 +1700,9 @@ function formatGraphPreview(output: Record<string, unknown>): string | undefined
   return nodes
     .map((node) => {
       const record = asRecord(node);
-      const labels = Array.isArray(record.labels) ? record.labels.filter((label): label is string => typeof label === "string") : [];
+      const labels = Array.isArray(record.labels)
+        ? record.labels.filter((label): label is string => typeof label === "string")
+        : [];
       const id = typeof record.id === "string" ? record.id : "node";
       return `· ${labels[0] ?? "node"}:${id}`;
     })
@@ -1466,7 +1725,11 @@ function mergePhaseDetail(a: string | undefined, b: string | undefined): string 
   return b;
 }
 
-function buildTraceRuns(traceTurn: ChatTraceTurn | null, liveRun: LiveTraceRun | null, showDiagnostics = false): TraceRunView[] {
+function buildTraceRuns(
+  traceTurn: ChatTraceTurn | null,
+  liveRun: LiveTraceRun | null,
+  showDiagnostics = false,
+): TraceRunView[] {
   const persisted = (traceTurn?.runs ?? []).map((run) => mapPersistedRun(run, showDiagnostics));
   if (!liveRun) return persisted;
   const liveMapped = mapLiveRun(liveRun, showDiagnostics);
@@ -1498,7 +1761,9 @@ function mergeTraceRunViews(persisted: TraceRunView, live: TraceRunView): TraceR
     ...persisted,
     status: live.status === "running" ? live.status : persisted.status,
     tools: [...toolById.values()].sort(
-      (left, right) => timestampValue(left.createdAt ?? persisted.startedAt) - timestampValue(right.createdAt ?? persisted.startedAt),
+      (left, right) =>
+        timestampValue(left.createdAt ?? persisted.startedAt) -
+        timestampValue(right.createdAt ?? persisted.startedAt),
     ),
     thinking: dedupeTraceEventsById([...persisted.thinking, ...live.thinking]),
     stateChanges: dedupeTraceEventsById([...persisted.stateChanges, ...live.stateChanges]),
@@ -1531,13 +1796,17 @@ function mapPersistedRun(run: ChatTraceRun, showDiagnostics = false): TraceRunVi
       (event) => isNarrationTraceEvent(event.eventType),
     ),
   );
-  const thinkingEvents = (run.thinking ?? []).filter((event) => event.eventType === "agent.thinking.completed");
+  const thinkingEvents = (run.thinking ?? []).filter(
+    (event) => event.eventType === "agent.thinking.completed",
+  );
   return {
     id: run.id,
     status: run.status,
     runType: run.runType,
     ...(showDiagnostics && run.model !== undefined ? { model: run.model } : {}),
-    ...(showDiagnostics && run.promptVersion !== undefined ? { promptVersion: run.promptVersion } : {}),
+    ...(showDiagnostics && run.promptVersion !== undefined
+      ? { promptVersion: run.promptVersion }
+      : {}),
     ...(showDiagnostics && run.traceId !== undefined ? { traceId: run.traceId } : {}),
     startedAt: run.startedAt,
     ...(run.completedAt !== undefined ? { completedAt: run.completedAt } : {}),
@@ -1554,12 +1823,16 @@ function mapPersistedTool(tool: ChatTraceToolCall, showDiagnostics = false): Tra
   return {
     id: tool.id,
     toolName: tool.toolName,
-    ...(showDiagnostics && tool.sideEffectClass !== undefined ? { sideEffectClass: tool.sideEffectClass } : {}),
+    ...(showDiagnostics && tool.sideEffectClass !== undefined
+      ? { sideEffectClass: tool.sideEffectClass }
+      : {}),
     status: tool.status,
     ...(tool.latencyMs !== undefined ? { latencyMs: tool.latencyMs } : {}),
     ...(tool.input !== undefined ? { input: tool.input } : {}),
     ...(tool.output !== undefined ? { output: tool.output } : {}),
-    ...(showDiagnostics && tool.reducerResult !== undefined ? { reducerResult: tool.reducerResult } : {}),
+    ...(showDiagnostics && tool.reducerResult !== undefined
+      ? { reducerResult: tool.reducerResult }
+      : {}),
     nodeRefs: showDiagnostics ? tool.nodeRefs : [],
     ...(tool.createdAt !== undefined ? { createdAt: tool.createdAt } : {}),
   };
@@ -1567,8 +1840,12 @@ function mapPersistedTool(tool: ChatTraceToolCall, showDiagnostics = false): Tra
 
 function mapLiveRun(run: LiveTraceRun, showDiagnostics = false): TraceRunView {
   const rawEvents = showDiagnostics ? (run.rawEvents ?? []) : [];
-  const thinking = run.thinking.map((step) => mapLiveStepToTraceEvent(step, "agent.thinking.completed", "Thinking"));
-  const narration = run.narration.map((step) => mapLiveStepToTraceEvent(step, "agent.narration.completed", "Narration"));
+  const thinking = run.thinking.map((step) =>
+    mapLiveStepToTraceEvent(step, "agent.thinking.completed", "Thinking"),
+  );
+  const narration = run.narration.map((step) =>
+    mapLiveStepToTraceEvent(step, "agent.narration.completed", "Narration"),
+  );
   return {
     id: run.id,
     status: run.status,
@@ -1576,7 +1853,9 @@ function mapLiveRun(run: LiveTraceRun, showDiagnostics = false): TraceRunView {
     ...(showDiagnostics && run.model !== undefined ? { model: run.model } : {}),
     startedAt: run.startedAt,
     ...(run.completedAt !== undefined ? { completedAt: run.completedAt } : {}),
-    durationMs: run.completedAt ? Math.max(0, run.completedAt - run.startedAt) : Date.now() - run.startedAt,
+    durationMs: run.completedAt
+      ? Math.max(0, run.completedAt - run.startedAt)
+      : Date.now() - run.startedAt,
     thinking,
     tools: run.tools.map((tool) => ({
       id: tool.id,
@@ -1607,8 +1886,18 @@ type TraceActivity = {
   tool?: TraceToolView;
 };
 
-function TraceActivityList({ runs, showRaw, showDiagnostics = false }: { runs: TraceRunView[]; showRaw: boolean; showDiagnostics?: boolean }) {
-  const activities = runs.flatMap((run) => buildRunActivities(run, showRaw, showDiagnostics)).sort((a, b) => timestampValue(a.timestamp) - timestampValue(b.timestamp));
+function TraceActivityList({
+  runs,
+  showRaw,
+  showDiagnostics = false,
+}: {
+  runs: TraceRunView[];
+  showRaw: boolean;
+  showDiagnostics?: boolean;
+}) {
+  const activities = runs
+    .flatMap((run) => buildRunActivities(run, showRaw, showDiagnostics))
+    .sort((a, b) => timestampValue(a.timestamp) - timestampValue(b.timestamp));
   if (!activities.length) return <TraceEmpty>No trace activity recorded.</TraceEmpty>;
   return (
     <ol style={styles.timelineList}>
@@ -1619,7 +1908,11 @@ function TraceActivityList({ runs, showRaw, showDiagnostics = false }: { runs: T
   );
 }
 
-function buildRunActivities(run: TraceRunView, showRaw: boolean, showDiagnostics = false): TraceActivity[] {
+function buildRunActivities(
+  run: TraceRunView,
+  showRaw: boolean,
+  showDiagnostics = false,
+): TraceActivity[] {
   const runDetails = showDiagnostics
     ? [
         run.model,
@@ -1627,9 +1920,11 @@ function buildRunActivities(run: TraceRunView, showRaw: boolean, showDiagnostics
         run.traceId ? `trace ${run.traceId.slice(0, 10)}` : null,
         run.usage ? formatUsage(run.usage) : null,
         resolveDurationMs(run) != null ? formatDuration(resolveDurationMs(run)) : null,
-      ].filter(Boolean).join(" · ")
+      ]
+        .filter(Boolean)
+        .join(" · ")
     : resolveDurationMs(run) != null
-      ? formatDuration(resolveDurationMs(run)) ?? ""
+      ? (formatDuration(resolveDurationMs(run)) ?? "")
       : "";
   const reasoningActivities = showRaw ? [] : buildReasoningActivities(run);
   const eventActivities = (showRaw ? run.rawEvents : [...run.thinking, ...run.stateChanges])
@@ -1658,16 +1953,18 @@ function buildRunActivities(run: TraceRunView, showRaw: boolean, showDiagnostics
     },
     ...reasoningActivities,
     ...eventActivities,
-    ...run.tools.map((tool): TraceActivity => ({
-      id: `${run.id}:tool:${tool.id}`,
-      timestamp: tool.createdAt ?? run.startedAt,
-      type: "tool",
-      title: displayToolName(tool.toolName),
-      status: tool.status,
-      summary: previewTool(tool),
-      tool,
-      refs: tool.nodeRefs,
-    })),
+    ...run.tools.map(
+      (tool): TraceActivity => ({
+        id: `${run.id}:tool:${tool.id}`,
+        timestamp: tool.createdAt ?? run.startedAt,
+        type: "tool",
+        title: displayToolName(tool.toolName),
+        status: tool.status,
+        summary: previewTool(tool),
+        tool,
+        refs: tool.nodeRefs,
+      }),
+    ),
   ];
 }
 
@@ -1800,20 +2097,36 @@ function completeLiveStep(
   );
 }
 
-function TraceActivityRow({ activity, showDiagnostics = false }: { activity: TraceActivity; showDiagnostics?: boolean }) {
+function TraceActivityRow({
+  activity,
+  showDiagnostics = false,
+}: {
+  activity: TraceActivity;
+  showDiagnostics?: boolean;
+}) {
   const statusTone = getStatusTone(activity.status ?? activity.type);
   return (
     <li style={styles.timelineItem}>
-      <span style={styles.timelineMarker}>{activity.type === "tool" ? "T" : activity.type === "run" ? "#" : "E"}</span>
+      <span style={styles.timelineMarker}>
+        {activity.type === "tool" ? "T" : activity.type === "run" ? "#" : "E"}
+      </span>
       <div style={styles.timelineContent}>
         <div style={styles.timelineHeader}>
           <span style={styles.timelineTitle}>{activity.title}</span>
-          {activity.status && <span style={{ ...styles.inlineStatus, color: statusTone.text }}>{activity.status}</span>}
+          {activity.status && (
+            <span style={{ ...styles.inlineStatus, color: statusTone.text }}>
+              {activity.status}
+            </span>
+          )}
           <span style={styles.toolMeta}>{formatTraceTime(activity.timestamp)}</span>
           {activity.summary && <span style={styles.toolPreview}>{activity.summary}</span>}
         </div>
-        {activity.tool && <TraceToolDetails tool={activity.tool} showDiagnostics={showDiagnostics} />}
-        {!activity.tool && showDiagnostics && activity.refs && activity.refs.length > 0 && <TraceRefs refs={activity.refs} />}
+        {activity.tool && (
+          <TraceToolDetails tool={activity.tool} showDiagnostics={showDiagnostics} />
+        )}
+        {!activity.tool && showDiagnostics && activity.refs && activity.refs.length > 0 && (
+          <TraceRefs refs={activity.refs} />
+        )}
         {!activity.tool && showDiagnostics && hasVisiblePayload(activity.payload) && (
           <TraceJson title="Details" value={activity.payload} />
         )}
@@ -1822,25 +2135,41 @@ function TraceActivityRow({ activity, showDiagnostics = false }: { activity: Tra
   );
 }
 
-function TraceToolDetails({ tool, showDiagnostics = false }: { tool: TraceToolView; showDiagnostics?: boolean }) {
+function TraceToolDetails({
+  tool,
+  showDiagnostics = false,
+}: {
+  tool: TraceToolView;
+  showDiagnostics?: boolean;
+}) {
   const statusTone = getStatusTone(tool.status);
   const refs = tool.nodeRefs ?? [];
 
   return (
     <details open={tool.isLive && tool.status === "started"} style={styles.inlineDetails}>
       <summary style={styles.inlineDetailsSummary}>
-        {tool.latencyMs != null && <span style={styles.toolMeta}>{formatDuration(tool.latencyMs)}</span>}
-        {showDiagnostics && tool.sideEffectClass && <span style={styles.toolMeta}>{tool.sideEffectClass}</span>}
+        {tool.latencyMs != null && (
+          <span style={styles.toolMeta}>{formatDuration(tool.latencyMs)}</span>
+        )}
+        {showDiagnostics && tool.sideEffectClass && (
+          <span style={styles.toolMeta}>{tool.sideEffectClass}</span>
+        )}
         <span style={{ ...styles.inlineStatus, color: statusTone.text }}>{tool.status}</span>
       </summary>
       {showDiagnostics && (
         <div style={styles.toolBody}>
           {tool.sideEffectClass && <TraceMeta label="Class" value={tool.sideEffectClass} />}
-          {displayToolName(tool.toolName) !== tool.toolName && <TraceMeta label="Tool id" value={tool.toolName} />}
+          {displayToolName(tool.toolName) !== tool.toolName && (
+            <TraceMeta label="Tool id" value={tool.toolName} />
+          )}
           {refs.length > 0 && <TraceRefs refs={refs} />}
           {tool.input !== undefined && <TraceJson title="Input" value={tool.input} />}
-          {tool.output !== undefined && tool.output !== null && <TraceJson title="Output" value={tool.output} />}
-          {tool.reducerResult !== undefined && tool.reducerResult !== null && <TraceJson title="Reducer result" value={tool.reducerResult} />}
+          {tool.output !== undefined && tool.output !== null && (
+            <TraceJson title="Output" value={tool.output} />
+          )}
+          {tool.reducerResult !== undefined && tool.reducerResult !== null && (
+            <TraceJson title="Reducer result" value={tool.reducerResult} />
+          )}
         </div>
       )}
     </details>
@@ -1881,7 +2210,12 @@ function TraceEmpty({ children }: { children: React.ReactNode }) {
 }
 
 function ToolIcon({ toolName }: { toolName: string }) {
-  const icon = toolName.includes("search") || toolName.includes("context") ? "S" : toolName.includes("artifact") || toolName.includes("wiki") ? "F" : "T";
+  const icon =
+    toolName.includes("search") || toolName.includes("context")
+      ? "S"
+      : toolName.includes("artifact") || toolName.includes("wiki")
+        ? "F"
+        : "T";
   return <span style={styles.toolIcon}>{icon}</span>;
 }
 
@@ -1894,12 +2228,22 @@ function timestampValue(timestamp: string | number): number {
 function formatTraceTime(timestamp: string | number): string {
   const value = timestampValue(timestamp);
   if (!value) return "";
-  return new Date(value).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  return new Date(value).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
 }
 
 function displayEventTitle(event: ChatTraceStateChange): string {
   const base = event.title?.trim() || event.summary?.trim() || event.eventType || event.kind;
-  return compactText(base.replace(/^tutor\./, "").replace(/^agent\./, "").replace(/[._]/g, " "), 72);
+  return compactText(
+    base
+      .replace(/^tutor\./, "")
+      .replace(/^agent\./, "")
+      .replace(/[._]/g, " "),
+    72,
+  );
 }
 
 function hasVisiblePayload(payload: unknown): boolean {
@@ -1928,7 +2272,11 @@ function upsertLiveTool(run: LiveTraceRun, next: LiveTraceTool): LiveTraceRun {
   };
 }
 
-function mapLiveTools(run: LiveTraceRun, toolCallId: string, mapper: (tool: LiveTraceTool) => LiveTraceTool): LiveTraceRun {
+function mapLiveTools(
+  run: LiveTraceRun,
+  toolCallId: string,
+  mapper: (tool: LiveTraceTool) => LiveTraceTool,
+): LiveTraceRun {
   return {
     ...run,
     tools: run.tools.map((tool) => (tool.id === toolCallId ? mapper(tool) : tool)),
@@ -1962,7 +2310,16 @@ function previewTool(tool: TraceToolView): string {
   if (typeof target === "string") return compactText(target, 82);
   if (typeof target !== "object") return compactText(String(target), 82);
   const record = target as Record<string, unknown>;
-  const preferredKeys = ["title", "summary", "status", "artifactId", "pageKey", "objectiveId", "message", "error"];
+  const preferredKeys = [
+    "title",
+    "summary",
+    "status",
+    "artifactId",
+    "pageKey",
+    "objectiveId",
+    "message",
+    "error",
+  ];
   for (const key of preferredKeys) {
     const value = record[key];
     if (typeof value === "string" && value.trim()) return `${key}: ${compactText(value, 64)}`;
@@ -2021,7 +2378,8 @@ function resolveDurationMs(run: TraceRunView): number | null {
   const started = typeof run.startedAt === "number" ? run.startedAt : Date.parse(run.startedAt);
   if (!Number.isFinite(started)) return null;
   if (run.completedAt) {
-    const completed = typeof run.completedAt === "number" ? run.completedAt : Date.parse(run.completedAt);
+    const completed =
+      typeof run.completedAt === "number" ? run.completedAt : Date.parse(run.completedAt);
     return Number.isFinite(completed) ? Math.max(0, completed - started) : null;
   }
   return run.status === "running" ? Math.max(0, Date.now() - started) : null;
@@ -2052,13 +2410,25 @@ function isFailureStatus(status: string): boolean {
 
 function getStatusTone(status: string): { text: string; bg: string; border: string } {
   if (isFailureStatus(status)) {
-    return { text: "var(--danger)", bg: "color-mix(in oklch, var(--danger) 9%, var(--panel))", border: "color-mix(in oklch, var(--danger) 28%, var(--line))" };
+    return {
+      text: "var(--danger)",
+      bg: "color-mix(in oklch, var(--danger) 9%, var(--panel))",
+      border: "color-mix(in oklch, var(--danger) 28%, var(--line))",
+    };
   }
   if (status === "completed") {
-    return { text: "var(--success)", bg: "color-mix(in oklch, var(--success) 9%, var(--panel))", border: "color-mix(in oklch, var(--success) 28%, var(--line))" };
+    return {
+      text: "var(--success)",
+      bg: "color-mix(in oklch, var(--success) 9%, var(--panel))",
+      border: "color-mix(in oklch, var(--success) 28%, var(--line))",
+    };
   }
   if (status === "running" || status === "started") {
-    return { text: "var(--accent)", bg: "var(--accent-soft)", border: "color-mix(in oklch, var(--accent) 26%, var(--line))" };
+    return {
+      text: "var(--accent)",
+      bg: "var(--accent-soft)",
+      border: "color-mix(in oklch, var(--accent) 26%, var(--line))",
+    };
   }
   return { text: "var(--text-muted)", bg: "var(--panel-muted)", border: "var(--line)" };
 }

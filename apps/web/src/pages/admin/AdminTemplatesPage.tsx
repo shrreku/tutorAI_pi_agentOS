@@ -39,7 +39,8 @@ const EMPTY_FORM: TemplateCreateForm = {
 };
 
 export function AdminTemplatesPage() {
-  const { data, error, loading, reload } = useAdminFetch<TemplatesResponse>("/admin/study-templates");
+  const { data, error, loading, reload } =
+    useAdminFetch<TemplatesResponse>("/admin/study-templates");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [createForm, setCreateForm] = useState<TemplateCreateForm>(EMPTY_FORM);
@@ -104,7 +105,10 @@ export function AdminTemplatesPage() {
     }
   }
 
-  function updateCreateForm<K extends keyof TemplateCreateForm>(key: K, value: TemplateCreateForm[K]) {
+  function updateCreateForm<K extends keyof TemplateCreateForm>(
+    key: K,
+    value: TemplateCreateForm[K],
+  ) {
     setCreateForm((current) => ({ ...current, [key]: value }));
   }
 
@@ -124,41 +128,92 @@ export function AdminTemplatesPage() {
         <h2>Create template</h2>
         <label>
           Title
-          <input className="tb-input" value={createForm.title} onChange={(event) => updateCreateForm("title", event.target.value)} required />
+          <input
+            className="tb-input"
+            value={createForm.title}
+            onChange={(event) => updateCreateForm("title", event.target.value)}
+            required
+          />
         </label>
         <label>
           Slug
-          <input className="tb-input" value={createForm.slug} onChange={(event) => updateCreateForm("slug", event.target.value)} required />
+          <input
+            className="tb-input"
+            value={createForm.slug}
+            onChange={(event) => updateCreateForm("slug", event.target.value)}
+            required
+          />
         </label>
         <label>
           Topic
-          <input className="tb-input" value={createForm.topic} onChange={(event) => updateCreateForm("topic", event.target.value)} required />
+          <input
+            className="tb-input"
+            value={createForm.topic}
+            onChange={(event) => updateCreateForm("topic", event.target.value)}
+            required
+          />
         </label>
         <label>
           Source level
-          <input className="tb-input" value={createForm.sourceLevel} onChange={(event) => updateCreateForm("sourceLevel", event.target.value)} required />
+          <input
+            className="tb-input"
+            value={createForm.sourceLevel}
+            onChange={(event) => updateCreateForm("sourceLevel", event.target.value)}
+            required
+          />
         </label>
         <label>
           Estimated minutes
-          <input className="tb-input" type="number" min="1" value={createForm.estimatedMinutes} onChange={(event) => updateCreateForm("estimatedMinutes", event.target.value)} required />
+          <input
+            className="tb-input"
+            type="number"
+            min="1"
+            value={createForm.estimatedMinutes}
+            onChange={(event) => updateCreateForm("estimatedMinutes", event.target.value)}
+            required
+          />
         </label>
         <label>
           Study mode
-          <input className="tb-input" value={createForm.studyMode} onChange={(event) => updateCreateForm("studyMode", event.target.value)} required />
+          <input
+            className="tb-input"
+            value={createForm.studyMode}
+            onChange={(event) => updateCreateForm("studyMode", event.target.value)}
+            required
+          />
         </label>
         <label>
           Expected outcome
-          <input className="tb-input" value={createForm.expectedOutcome} onChange={(event) => updateCreateForm("expectedOutcome", event.target.value)} required />
+          <input
+            className="tb-input"
+            value={createForm.expectedOutcome}
+            onChange={(event) => updateCreateForm("expectedOutcome", event.target.value)}
+            required
+          />
         </label>
         <label>
           Source notebook ID
-          <input className="tb-input" value={createForm.notebookId} onChange={(event) => updateCreateForm("notebookId", event.target.value)} required />
+          <input
+            className="tb-input"
+            value={createForm.notebookId}
+            onChange={(event) => updateCreateForm("notebookId", event.target.value)}
+            required
+          />
         </label>
         <label>
           Sort order
-          <input className="tb-input" type="number" value={createForm.sortOrder} onChange={(event) => updateCreateForm("sortOrder", event.target.value)} />
+          <input
+            className="tb-input"
+            type="number"
+            value={createForm.sortOrder}
+            onChange={(event) => updateCreateForm("sortOrder", event.target.value)}
+          />
         </label>
-        <button type="submit" className="tb-button tb-button-primary" disabled={busyId === "create"}>
+        <button
+          type="submit"
+          className="tb-button tb-button-primary"
+          disabled={busyId === "create"}
+        >
           Create draft template
         </button>
       </form>
@@ -178,7 +233,9 @@ export function AdminTemplatesPage() {
           <tbody>
             {data.templates.map((template) => {
               const readinessStatus =
-                typeof template.readinessJson?.status === "string" ? template.readinessJson.status : "pending";
+                typeof template.readinessJson?.status === "string"
+                  ? template.readinessJson.status
+                  : "pending";
               const sourceRightsStatus =
                 typeof template.sourceRightsJson?.status === "string"
                   ? template.sourceRightsJson.status

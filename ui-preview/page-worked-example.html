@@ -1,166 +1,214 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Worked example — TutorBook</title>
-<link rel="stylesheet" href="styles.css" />
-<link rel="stylesheet" href="themes/folio.css" />
-<link rel="stylesheet" href="themes/focus.css" />
-<link rel="stylesheet" href="themes/sunrise.css" />
-<link rel="stylesheet" href="themes/nocturne.css" />
-<link rel="stylesheet" href="themes/carbon.css" />
-</head>
-<body data-theme="mist">
-<div class="app">
-  <div data-include="topbar"></div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Worked example — TutorBook</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="themes/folio.css" />
+    <link rel="stylesheet" href="themes/focus.css" />
+    <link rel="stylesheet" href="themes/sunrise.css" />
+    <link rel="stylesheet" href="themes/nocturne.css" />
+    <link rel="stylesheet" href="themes/carbon.css" />
+  </head>
+  <body data-theme="mist">
+    <div class="app">
+      <div data-include="topbar"></div>
 
-  <div class="ref-page">
-    <div class="ref-container">
-      <div class="ref-top">
-        <a class="back-link" href="page-module.html">← Module · SN2 Reactions</a>
-        <div class="ref-actions">
-          <button class="btn sm" data-evidence-open>🛡 Evidence</button>
-          <button class="btn sm" data-ask-tutor>💬 Ask tutor</button>
-          <a class="btn sm" href="page-quiz.html">Practice quiz</a>
-        </div>
-      </div>
-
-      <div class="ref-header">
-        <div class="badges">
-          <span class="badge purple">WORKED EXAMPLE</span>
-          <span class="badge green">Ready</span>
-        </div>
-        <div class="kicker">SN2 MECHANISM · CH. 7</div>
-        <h1>Predict the SN2 product</h1>
-        <p class="summary">Follow the reasoning step by step, then reveal the stereochemical outcome. Work each step yourself before expanding the next.</p>
-      </div>
-
-      <!-- Problem statement -->
-      <div class="section">
-        <h4>Problem</h4>
-        <div class="card pad-lg">
-          <p style="margin:0 0 12px"><strong>(S)-2-bromobutane</strong> reacts with sodium hydroxide (NaOH) in acetone. Predict the major organic product and assign its configuration.</p>
-          <div class="key-list">
-            <div class="item"><strong>Substrate</strong> · (S)-2-bromobutane — a secondary alkyl halide, chiral at C2</div>
-            <div class="item"><strong>Nucleophile</strong> · hydroxide (OH⁻), strong &amp; small</div>
-            <div class="item"><strong>Solvent</strong> · acetone, a polar aprotic solvent</div>
-          </div>
-          <div class="row gap-8 wrap mt-16">
-            <span class="badge blue">Polar aprotic → favours SN2</span>
-            <span class="badge purple">Strong Nu → favours SN2</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Steps -->
-      <div class="section">
-        <h4>Step-by-step solution</h4>
-
-        <div class="module open" data-module>
-          <div class="module-head">
-            <span class="chev">▸</span>
-            <span class="t">Step 1 · Identify the reaction class</span>
-            <span class="spacer"></span>
-            <span class="badge gray">Mechanism</span>
-          </div>
-          <div class="module-body">
-            <p>A strong, unhindered nucleophile (OH⁻) combined with a secondary substrate in a polar aprotic solvent points squarely at a <strong>bimolecular nucleophilic substitution (SN2)</strong>. Acetone does not stabilise carbocations, so the SN1 pathway is disfavoured.</p>
-            <ul class="bullets">
-              <li>Secondary carbon → SN2 is accessible (primary &gt; secondary ≫ tertiary)</li>
-              <li>Polar aprotic solvent → nucleophile stays reactive ("naked")</li>
-            </ul>
-            <span class="citation" style="color:var(--accent-deep)">📖 Ch. 7 · p. 150 · Solvent effects</span>
-          </div>
-        </div>
-
-        <div class="module open" data-module>
-          <div class="module-head">
-            <span class="chev">▸</span>
-            <span class="t">Step 2 · Locate the electrophilic carbon &amp; leaving group</span>
-            <span class="spacer"></span>
-            <span class="badge gray">Setup</span>
-          </div>
-          <div class="module-body">
-            <p>The C2 carbon bears the bromine. Bromide is an excellent leaving group (weak base, stable anion), so this carbon is the electrophilic centre that hydroxide will attack.</p>
-            <div class="callout blue">
-              <div class="label">KEY GEOMETRY</div>
-              <p style="margin:6px 0 0">The nucleophile must approach from the side <em>directly opposite</em> the leaving group — the backside trajectory.</p>
+      <div class="ref-page">
+        <div class="ref-container">
+          <div class="ref-top">
+            <a class="back-link" href="page-module.html">← Module · SN2 Reactions</a>
+            <div class="ref-actions">
+              <button class="btn sm" data-evidence-open>🛡 Evidence</button>
+              <button class="btn sm" data-ask-tutor>💬 Ask tutor</button>
+              <a class="btn sm" href="page-quiz.html">Practice quiz</a>
             </div>
           </div>
-        </div>
 
-        <div class="module" data-module>
-          <div class="module-head">
-            <span class="chev">▸</span>
-            <span class="t">Step 3 · Draw the backside attack &amp; transition state</span>
-            <span class="spacer"></span>
-            <span class="badge purple">Reveal</span>
-          </div>
-          <div class="module-body">
-            <p>Hydroxide attacks C2 opposite the C–Br bond. In the single concerted transition state the C–O bond is partially formed while the C–Br bond is partially broken, and the three remaining substituents flatten into a trigonal arrangement.</p>
-            <div class="worked-step">
-              <div class="step-label">TRANSITION STATE</div>
-              <p class="mono" style="margin:8px 0 0;font-size:13px">HO⁻ · · · C · · · Br⁻ &nbsp;(sp² at C, umbrella flips)</p>
+          <div class="ref-header">
+            <div class="badges">
+              <span class="badge purple">WORKED EXAMPLE</span>
+              <span class="badge green">Ready</span>
             </div>
-            <ul class="bullets">
-              <li>One step — no intermediate forms</li>
-              <li>Rate = <span class="mono">k[substrate][OH⁻]</span> (second order)</li>
-            </ul>
+            <div class="kicker">SN2 MECHANISM · CH. 7</div>
+            <h1>Predict the SN2 product</h1>
+            <p class="summary">
+              Follow the reasoning step by step, then reveal the stereochemical outcome. Work each
+              step yourself before expanding the next.
+            </p>
           </div>
-        </div>
 
-        <div class="module" data-module>
-          <div class="module-head">
-            <span class="chev">▸</span>
-            <span class="t">Step 4 · Apply Walden inversion to assign configuration</span>
-            <span class="spacer"></span>
-            <span class="badge purple">Reveal</span>
+          <!-- Problem statement -->
+          <div class="section">
+            <h4>Problem</h4>
+            <div class="card pad-lg">
+              <p style="margin: 0 0 12px">
+                <strong>(S)-2-bromobutane</strong> reacts with sodium hydroxide (NaOH) in acetone.
+                Predict the major organic product and assign its configuration.
+              </p>
+              <div class="key-list">
+                <div class="item">
+                  <strong>Substrate</strong> · (S)-2-bromobutane — a secondary alkyl halide, chiral
+                  at C2
+                </div>
+                <div class="item">
+                  <strong>Nucleophile</strong> · hydroxide (OH⁻), strong &amp; small
+                </div>
+                <div class="item"><strong>Solvent</strong> · acetone, a polar aprotic solvent</div>
+              </div>
+              <div class="row gap-8 wrap mt-16">
+                <span class="badge blue">Polar aprotic → favours SN2</span>
+                <span class="badge purple">Strong Nu → favours SN2</span>
+              </div>
+            </div>
           </div>
-          <div class="module-body">
-            <p>Because the nucleophile enters from the back, the stereocentre <strong>inverts</strong> like an umbrella in the wind (Walden inversion). The incoming OH replaces Br with the opposite spatial orientation.</p>
-            <p>Working through the CIP priorities for this substrate, the spatial inversion converts the <strong>(S)</strong> starting material into the <strong>(R)</strong> product.</p>
-            <span class="citation" style="color:var(--accent-deep)">📖 Ch. 7 · p. 145 · Walden inversion</span>
+
+          <!-- Steps -->
+          <div class="section">
+            <h4>Step-by-step solution</h4>
+
+            <div class="module open" data-module>
+              <div class="module-head">
+                <span class="chev">▸</span>
+                <span class="t">Step 1 · Identify the reaction class</span>
+                <span class="spacer"></span>
+                <span class="badge gray">Mechanism</span>
+              </div>
+              <div class="module-body">
+                <p>
+                  A strong, unhindered nucleophile (OH⁻) combined with a secondary substrate in a
+                  polar aprotic solvent points squarely at a
+                  <strong>bimolecular nucleophilic substitution (SN2)</strong>. Acetone does not
+                  stabilise carbocations, so the SN1 pathway is disfavoured.
+                </p>
+                <ul class="bullets">
+                  <li>Secondary carbon → SN2 is accessible (primary &gt; secondary ≫ tertiary)</li>
+                  <li>Polar aprotic solvent → nucleophile stays reactive ("naked")</li>
+                </ul>
+                <span class="citation" style="color: var(--accent-deep)"
+                  >📖 Ch. 7 · p. 150 · Solvent effects</span
+                >
+              </div>
+            </div>
+
+            <div class="module open" data-module>
+              <div class="module-head">
+                <span class="chev">▸</span>
+                <span class="t">Step 2 · Locate the electrophilic carbon &amp; leaving group</span>
+                <span class="spacer"></span>
+                <span class="badge gray">Setup</span>
+              </div>
+              <div class="module-body">
+                <p>
+                  The C2 carbon bears the bromine. Bromide is an excellent leaving group (weak base,
+                  stable anion), so this carbon is the electrophilic centre that hydroxide will
+                  attack.
+                </p>
+                <div class="callout blue">
+                  <div class="label">KEY GEOMETRY</div>
+                  <p style="margin: 6px 0 0">
+                    The nucleophile must approach from the side <em>directly opposite</em> the
+                    leaving group — the backside trajectory.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="module" data-module>
+              <div class="module-head">
+                <span class="chev">▸</span>
+                <span class="t">Step 3 · Draw the backside attack &amp; transition state</span>
+                <span class="spacer"></span>
+                <span class="badge purple">Reveal</span>
+              </div>
+              <div class="module-body">
+                <p>
+                  Hydroxide attacks C2 opposite the C–Br bond. In the single concerted transition
+                  state the C–O bond is partially formed while the C–Br bond is partially broken,
+                  and the three remaining substituents flatten into a trigonal arrangement.
+                </p>
+                <div class="worked-step">
+                  <div class="step-label">TRANSITION STATE</div>
+                  <p class="mono" style="margin: 8px 0 0; font-size: 13px">
+                    HO⁻ · · · C · · · Br⁻ &nbsp;(sp² at C, umbrella flips)
+                  </p>
+                </div>
+                <ul class="bullets">
+                  <li>One step — no intermediate forms</li>
+                  <li>Rate = <span class="mono">k[substrate][OH⁻]</span> (second order)</li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="module" data-module>
+              <div class="module-head">
+                <span class="chev">▸</span>
+                <span class="t">Step 4 · Apply Walden inversion to assign configuration</span>
+                <span class="spacer"></span>
+                <span class="badge purple">Reveal</span>
+              </div>
+              <div class="module-body">
+                <p>
+                  Because the nucleophile enters from the back, the stereocentre
+                  <strong>inverts</strong> like an umbrella in the wind (Walden inversion). The
+                  incoming OH replaces Br with the opposite spatial orientation.
+                </p>
+                <p>
+                  Working through the CIP priorities for this substrate, the spatial inversion
+                  converts the <strong>(S)</strong> starting material into the
+                  <strong>(R)</strong> product.
+                </p>
+                <span class="citation" style="color: var(--accent-deep)"
+                  >📖 Ch. 7 · p. 145 · Walden inversion</span
+                >
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
 
-      <!-- Final answer -->
-      <div class="section">
-        <h4>Answer</h4>
-        <div class="callout green">
-          <div class="label">FINAL ANSWER</div>
-          <p style="margin:8px 0 0;font-size:15px"><strong>(R)-butan-2-ol</strong> is the major product, formed with complete inversion of configuration at C2. Sodium bromide (NaBr) is the by-product.</p>
-        </div>
-        <div class="card mt-16">
-          <h3>Why it matters</h3>
-          <p class="muted" style="margin:0">SN2 reactions are stereospecific: a single enantiomer of substrate gives a single, inverted enantiomer of product. This is the diagnostic fingerprint that distinguishes SN2 from the racemising SN1 pathway.</p>
-        </div>
-      </div>
+          <!-- Final answer -->
+          <div class="section">
+            <h4>Answer</h4>
+            <div class="callout green">
+              <div class="label">FINAL ANSWER</div>
+              <p style="margin: 8px 0 0; font-size: 15px">
+                <strong>(R)-butan-2-ol</strong> is the major product, formed with complete inversion
+                of configuration at C2. Sodium bromide (NaBr) is the by-product.
+              </p>
+            </div>
+            <div class="card mt-16">
+              <h3>Why it matters</h3>
+              <p class="muted" style="margin: 0">
+                SN2 reactions are stereospecific: a single enantiomer of substrate gives a single,
+                inverted enantiomer of product. This is the diagnostic fingerprint that
+                distinguishes SN2 from the racemising SN1 pathway.
+              </p>
+            </div>
+          </div>
 
-      <!-- Continue -->
-      <div class="section">
-        <h4>Keep going</h4>
-        <div class="row gap-12 wrap">
-          <a class="btn primary" href="page-quiz.html">Try a practice question →</a>
-          <a class="btn" href="page-concept.html">Review the concept</a>
-          <a class="btn" href="page-comparison.html">SN1 vs SN2 comparison</a>
-          <a class="btn" href="page-flashcards.html">Flashcards · Ch. 7 deck</a>
+          <!-- Continue -->
+          <div class="section">
+            <h4>Keep going</h4>
+            <div class="row gap-12 wrap">
+              <a class="btn primary" href="page-quiz.html">Try a practice question →</a>
+              <a class="btn" href="page-concept.html">Review the concept</a>
+              <a class="btn" href="page-comparison.html">SN1 vs SN2 comparison</a>
+              <a class="btn" href="page-flashcards.html">Flashcards · Ch. 7 deck</a>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-</div>
 
-<div data-include="drawer"></div>
-<div class="scrim" data-scrim></div>
+    <div data-include="drawer"></div>
+    <div class="scrim" data-scrim></div>
 
-<script src="app.js"></script>
-<script src="themes/folio.js"></script>
-<script src="themes/focus.js"></script>
-<script src="themes/sunrise.js"></script>
-<script src="themes/nocturne.js"></script>
-<script src="themes/carbon.js"></script>
-<script src="partials.js"></script>
-</body>
+    <script src="app.js"></script>
+    <script src="themes/folio.js"></script>
+    <script src="themes/focus.js"></script>
+    <script src="themes/sunrise.js"></script>
+    <script src="themes/nocturne.js"></script>
+    <script src="themes/carbon.js"></script>
+    <script src="partials.js"></script>
+  </body>
 </html>

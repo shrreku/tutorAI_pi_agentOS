@@ -122,14 +122,33 @@ export type ProjectionOp =
   | { kind: "merge_topic"; sourceId: string; topicId: string; title: string }
   | { kind: "merge_concepts"; concepts: Array<{ id: string; name: string }> }
   | { kind: "link_topic_concept"; sourceId: string; topicId: string; conceptId: string }
-  | { kind: "merge_concept_relation"; fromId: string; toId: string; relationKind: IngestConceptRelationKind; confidence: number | null; sourceId?: string | undefined }
+  | {
+      kind: "merge_concept_relation";
+      fromId: string;
+      toId: string;
+      relationKind: IngestConceptRelationKind;
+      confidence: number | null;
+      sourceId?: string | undefined;
+    }
   | { kind: "merge_curriculum"; curriculumId: string; title: string }
   | { kind: "link_source_curriculum"; sourceId: string; curriculumId: string }
   | { kind: "merge_module"; module: CanonicalModule }
   | { kind: "merge_objective_list"; list: CanonicalObjectiveList }
   | { kind: "merge_session_plan"; plan: CanonicalSessionPlan }
-  | { kind: "merge_objective"; objective: CanonicalObjective; objectiveListId: string | null; sessionPlanId: string | null; orderIndex: number }
-  | { kind: "merge_study_plan"; planId: string; title: string; objectiveIds: string[]; currentObjectiveId: string | null }
+  | {
+      kind: "merge_objective";
+      objective: CanonicalObjective;
+      objectiveListId: string | null;
+      sessionPlanId: string | null;
+      orderIndex: number;
+    }
+  | {
+      kind: "merge_study_plan";
+      planId: string;
+      title: string;
+      objectiveIds: string[];
+      currentObjectiveId: string | null;
+    }
   | { kind: "merge_coverage_item"; item: CanonicalCoverageItem }
   | { kind: "merge_coverage_record"; record: CanonicalCoverageRecord }
   | { kind: "merge_claim"; claim: CanonicalClaim }

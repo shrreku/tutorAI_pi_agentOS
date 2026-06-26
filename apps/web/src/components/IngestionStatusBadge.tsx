@@ -27,7 +27,9 @@ function resolveLabel(status: IngestionStatusView): string {
   return status.status;
 }
 
-function resolveTone(status: IngestionStatusView): "neutral" | "progress" | "ready" | "danger" | "warning" {
+function resolveTone(
+  status: IngestionStatusView,
+): "neutral" | "progress" | "ready" | "danger" | "warning" {
   if (status.reviewNeeded) return "warning";
   if (status.retryNeeded || status.failed) return "danger";
   if (status.ready) return "ready";

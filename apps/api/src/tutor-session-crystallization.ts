@@ -30,8 +30,12 @@ export type TutorSessionDigestContext = {
   status: "draft" | "ready";
 };
 
-export function buildTutorSessionDigestPayload(input: TutorSessionDigestContext): Record<string, unknown> {
-  const nextStep = input.currentObjective ? `Continue with ${input.currentObjective}` : "Continue the current tutoring path";
+export function buildTutorSessionDigestPayload(
+  input: TutorSessionDigestContext,
+): Record<string, unknown> {
+  const nextStep = input.currentObjective
+    ? `Continue with ${input.currentObjective}`
+    : "Continue the current tutoring path";
 
   return {
     sessionId: input.sessionId,
@@ -81,7 +85,10 @@ export async function upsertTutorSessionDigestArtifact(
             : `Session digest draft · ${now.toLocaleDateString("en-US")}`,
         status: input.status,
         payloadJson,
-        sourceNodeRefsJson: input.sourceIds.map((sourceId) => ({ refType: "source", refId: sourceId })),
+        sourceNodeRefsJson: input.sourceIds.map((sourceId) => ({
+          refType: "source",
+          refId: sourceId,
+        })),
         sourceClaimIds: input.citationIds,
         sourceChunkIds: [],
         createdByRunId: input.runId,
@@ -162,7 +169,9 @@ export async function crystallizeTutorSession(
       status: "completed",
       endedAt: now,
       runtimeContextJson: {
-        ...(isJsonRecord(existingSession?.runtimeContextJson) ? existingSession.runtimeContextJson : {}),
+        ...(isJsonRecord(existingSession?.runtimeContextJson)
+          ? existingSession.runtimeContextJson
+          : {}),
         status: "completed",
         endedAt: now.toISOString(),
         sessionDigestDraft: null,

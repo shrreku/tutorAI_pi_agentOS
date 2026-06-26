@@ -1,9 +1,14 @@
 import { appendEventWithTutorCacheInvalidation as appendEvent } from "../agentic-cache-invalidation.js";
 import { persistPersonalizationPreference } from "../interactive-learning-personalization.js";
-import { loadInteractiveBlockState, mergeInteractiveBlockState } from "../interactive-learning-state.js";
+import {
+  loadInteractiveBlockState,
+  mergeInteractiveBlockState,
+} from "../interactive-learning-state.js";
 import type { ActionContext, ActionHandlerOutcome } from "./types.js";
 
-export async function handlePersonalizationPreferenceUpdated(actionCtx: ActionContext): Promise<ActionHandlerOutcome> {
+export async function handlePersonalizationPreferenceUpdated(
+  actionCtx: ActionContext,
+): Promise<ActionHandlerOutcome> {
   const { ctx, notebookId, userId, envelope, payload } = actionCtx;
   const preferencePayload = payload as {
     preference?: "pace" | "depth" | "examples" | "assessment" | "urgency";
@@ -13,7 +18,10 @@ export async function handlePersonalizationPreferenceUpdated(actionCtx: ActionCo
   if (!preferencePayload.preference || !preferencePayload.value) {
     return {
       ok: false,
-      error: { code: "bad_request", message: "Personalization updates require preference and value." },
+      error: {
+        code: "bad_request",
+        message: "Personalization updates require preference and value.",
+      },
     };
   }
 
@@ -27,7 +35,9 @@ export async function handlePersonalizationPreferenceUpdated(actionCtx: ActionCo
   });
 
   const existing = await loadInteractiveBlockState(ctx, notebookId, envelope.blockId);
-  const updatedPreferences = Array.isArray(existing.updatedPreferences) ? existing.updatedPreferences : [];
+  const updatedPreferences = Array.isArray(existing.updatedPreferences)
+    ? existing.updatedPreferences
+    : [];
   updatedPreferences.push({
     preference: preferencePayload.preference,
     value: preferencePayload.value,

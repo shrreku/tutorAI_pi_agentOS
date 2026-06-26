@@ -36,7 +36,9 @@ function findQuizBlock(surface: ReferenceSurface): InteractiveLearningBlock | nu
   };
 }
 
-export function quizAttemptsFromSurface(surface: ReferenceSurface | undefined): Record<string, { answer: string; isCorrect: boolean }> {
+export function quizAttemptsFromSurface(
+  surface: ReferenceSurface | undefined,
+): Record<string, { answer: string; isCorrect: boolean }> {
   if (!surface) return {};
   const quizBlock = findQuizBlock(surface);
   const attempts = quizBlock?.canonicalState;
@@ -85,7 +87,10 @@ export async function submitQuizAnswerAction(input: {
       id: input.surface.id,
       nodeRef: input.surface.nodeRef,
       ...(quizBlock.artifactRef ? { artifactRef: quizBlock.artifactRef } : {}),
-      interactiveBlocks: input.surface.interactiveBlocks?.map((block) => ({ id: block.id, kind: block.kind })),
+      interactiveBlocks: input.surface.interactiveBlocks?.map((block) => ({
+        id: block.id,
+        kind: block.kind,
+      })),
     },
     questionId: input.question.id,
     answer: input.answer,
@@ -96,11 +101,14 @@ export async function submitQuizAnswerAction(input: {
     ...(input.runId ? { runId: input.runId } : {}),
   });
 
-  const response = await fetch(`/api/v1/notebooks/${encodeURIComponent(input.notebookId)}/interactive-learning/actions`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(envelope),
-  });
+  const response = await fetch(
+    `/api/v1/notebooks/${encodeURIComponent(input.notebookId)}/interactive-learning/actions`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(envelope),
+    },
+  );
   if (!response.ok) {
     throw new Error(`Interactive learning action failed (${response.status})`);
   }

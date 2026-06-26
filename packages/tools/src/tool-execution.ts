@@ -13,7 +13,11 @@ import {
   type ToolExecutionEvent,
 } from "./tool-contracts.js";
 
-async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, toolName: string): Promise<T> {
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  toolName: string,
+): Promise<T> {
   let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
     timeoutHandle = setTimeout(() => {
@@ -42,7 +46,10 @@ export async function executeTool(
     throw new ToolNotFoundError(toolName);
   }
   const contract = getToolContract(toolName);
-  if (contract?.operationKind === "write" && (!context.sessionId || !context.runId || !context.turnId)) {
+  if (
+    contract?.operationKind === "write" &&
+    (!context.sessionId || !context.runId || !context.turnId)
+  ) {
     throw new ToolContextIdentityError(toolName);
   }
 

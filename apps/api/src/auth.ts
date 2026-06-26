@@ -73,7 +73,10 @@ function unsealPayload(token: string, secret: string): SessionPayload | null {
 
   const signatureBuffer = Buffer.from(signature);
   const expectedBuffer = Buffer.from(expected);
-  if (signatureBuffer.length !== expectedBuffer.length || !timingSafeEqual(signatureBuffer, expectedBuffer)) {
+  if (
+    signatureBuffer.length !== expectedBuffer.length ||
+    !timingSafeEqual(signatureBuffer, expectedBuffer)
+  ) {
     return null;
   }
 
@@ -135,28 +138,29 @@ export function createSession(
 }
 
 export function clearSession(reply: FastifyReply, ctx?: AppContext): void {
-  reply.header(
-    "Set-Cookie",
-    [
-      buildSetCookieHeader(SESSION_COOKIE_NAME, "", {
-        maxAge: 0,
-        httpOnly: true,
-        sameSite: "Lax",
-        path: "/",
-        secure: ctx ? isProductionRequest(ctx) : false,
-      }),
-      buildSetCookieHeader(WORKOS_SESSION_COOKIE_NAME, "", {
-        maxAge: 0,
-        httpOnly: true,
-        sameSite: "Lax",
-        path: "/",
-        secure: ctx ? isProductionRequest(ctx) : false,
-      }),
-    ],
-  );
+  reply.header("Set-Cookie", [
+    buildSetCookieHeader(SESSION_COOKIE_NAME, "", {
+      maxAge: 0,
+      httpOnly: true,
+      sameSite: "Lax",
+      path: "/",
+      secure: ctx ? isProductionRequest(ctx) : false,
+    }),
+    buildSetCookieHeader(WORKOS_SESSION_COOKIE_NAME, "", {
+      maxAge: 0,
+      httpOnly: true,
+      sameSite: "Lax",
+      path: "/",
+      secure: ctx ? isProductionRequest(ctx) : false,
+    }),
+  ]);
 }
 
-export function createWorkOSSession(reply: FastifyReply, ctx: AppContext, sealedSession: string): void {
+export function createWorkOSSession(
+  reply: FastifyReply,
+  ctx: AppContext,
+  sealedSession: string,
+): void {
   reply.header(
     "Set-Cookie",
     buildSetCookieHeader(WORKOS_SESSION_COOKIE_NAME, sealedSession, {
@@ -170,7 +174,9 @@ export function createWorkOSSession(reply: FastifyReply, ctx: AppContext, sealed
 }
 
 function isProductionRequest(ctx: AppContext): boolean {
-  return process.env.NODE_ENV === "production" || ctx.env.PUBLIC_WEB_BASE_URL.startsWith("https://");
+  return (
+    process.env.NODE_ENV === "production" || ctx.env.PUBLIC_WEB_BASE_URL.startsWith("https://")
+  );
 }
 
 function buildSetCookieHeader(
@@ -184,7 +190,11 @@ function buildSetCookieHeader(
     secure?: boolean;
   },
 ): string {
-  const parts = [`${name}=${encodeURIComponent(value)}`, `Path=${options.path}`, `Max-Age=${options.maxAge}`];
+  const parts = [
+    `${name}=${encodeURIComponent(value)}`,
+    `Path=${options.path}`,
+    `Max-Age=${options.maxAge}`,
+  ];
   if (options.httpOnly) {
     parts.push("HttpOnly");
   }
@@ -201,7 +211,8 @@ export function buildWorkOSAuthorizeUrl(ctx: AppContext): string {
   }
 
   const redirectUri =
-    ctx.env.WORKOS_REDIRECT_URI ?? `${ctx.env.PUBLIC_API_BASE_URL.replace(/\/$/, "")}/auth/callback`;
+    ctx.env.WORKOS_REDIRECT_URI ??
+    `${ctx.env.PUBLIC_API_BASE_URL.replace(/\/$/, "")}/auth/callback`;
   const params = new URLSearchParams({
     client_id: ctx.env.WORKOS_CLIENT_ID,
     redirect_uri: redirectUri,
@@ -212,7 +223,9 @@ export function buildWorkOSAuthorizeUrl(ctx: AppContext): string {
 }
 
 export function isWorkOSConfigured(ctx: AppContext): boolean {
-  return Boolean(ctx.env.WORKOS_API_KEY && ctx.env.WORKOS_CLIENT_ID && ctx.env.WORKOS_COOKIE_PASSWORD);
+  return Boolean(
+    ctx.env.WORKOS_API_KEY && ctx.env.WORKOS_CLIENT_ID && ctx.env.WORKOS_COOKIE_PASSWORD,
+  );
 }
 
 function getWorkOSClient(ctx: AppContext): WorkOS {
@@ -361,7 +374,11 @@ async function resolveHostedActor(ctx: AppContext, request: FastifyRequest): Pro
     throw new AuthError("unauthenticated", "Authentication required.", 401);
   }
   if (!ctx.env.WORKOS_COOKIE_PASSWORD) {
-    throw new AuthError("workos_unconfigured", "WORKOS_COOKIE_PASSWORD is required for hosted sessions.", 503);
+    throw new AuthError(
+      "workos_unconfigured",
+      "WORKOS_COOKIE_PASSWORD is required for hosted sessions.",
+      503,
+    );
   }
 
   const session = getWorkOSClient(ctx).userManagement.loadSealedSession({
@@ -374,7 +391,8 @@ async function resolveHostedActor(ctx: AppContext, request: FastifyRequest): Pro
   }
 
   const displayName =
-    auth.user.name ?? ([auth.user.firstName, auth.user.lastName].filter(Boolean).join(" ").trim() || null);
+    auth.user.name ??
+    ([auth.user.firstName, auth.user.lastName].filter(Boolean).join(" ").trim() || null);
   return upsertHostedUser(ctx, {
     email: auth.user.email,
     workosUserId: auth.user.id,
@@ -441,7 +459,11 @@ export async function exchangeWorkOSCode(ctx: AppContext, code: string): Promise
       },
     });
     if (!response.sealedSession) {
-      throw new AuthError("workos_auth_failed", "WorkOS response did not include a sealed session.", 401);
+      throw new AuthError(
+        "workos_auth_failed",
+        "WorkOS response did not include a sealed session.",
+        401,
+      );
     }
     const displayName =
       response.user.name ??

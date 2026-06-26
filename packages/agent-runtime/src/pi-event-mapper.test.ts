@@ -11,7 +11,9 @@ describe("pi event mapper telemetry", () => {
       activeMode: "learn",
     });
 
-    expect(mapPiSessionEventToAppendInput({ type: "message_delta", data: { text: "partial" } }, run)).toBeNull();
+    expect(
+      mapPiSessionEventToAppendInput({ type: "message_delta", data: { text: "partial" } }, run),
+    ).toBeNull();
   });
 
   it("maps thinking and narration completion into bounded durable events", () => {
@@ -36,13 +38,20 @@ describe("pi event mapper telemetry", () => {
 
     expect(
       mapPiSessionEventToAppendInput(
-        { type: "narration_complete", data: { text: "Checking the notebook", messageIndex: 0, durationMs: 25 } },
+        {
+          type: "narration_complete",
+          data: { text: "Checking the notebook", messageIndex: 0, durationMs: 25 },
+        },
         run,
       ),
     ).toEqual(
       expect.objectContaining({
         eventType: "agent.narration.completed",
-        payload: expect.objectContaining({ text: "Checking the notebook", messageIndex: 0, durationMs: 25 }),
+        payload: expect.objectContaining({
+          text: "Checking the notebook",
+          messageIndex: 0,
+          durationMs: 25,
+        }),
       }),
     );
   });

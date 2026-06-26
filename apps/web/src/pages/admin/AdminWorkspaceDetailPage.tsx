@@ -12,7 +12,13 @@ type WorkspaceDetailResponse = {
   };
   owner: { id: string; email: string } | null;
   sources: Array<{ id: string; title: string; status: string; updatedAt: string }>;
-  ingestionJobs: Array<{ id: string; status: string; attemptsStarted: number; maxAttempts: number; lastError: string | null }>;
+  ingestionJobs: Array<{
+    id: string;
+    status: string;
+    attemptsStarted: number;
+    maxAttempts: number;
+    lastError: string | null;
+  }>;
 };
 
 export function AdminWorkspaceDetailPage({

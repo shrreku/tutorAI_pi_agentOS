@@ -1,7 +1,11 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { Actor } from "../auth.js";
 import type { AppContext } from "../context.js";
-import { EntitlementError, requireAdminAccess, sendAuthOrEntitlementError } from "./entitlements.js";
+import {
+  EntitlementError,
+  requireAdminAccess,
+  sendAuthOrEntitlementError,
+} from "./entitlements.js";
 import { requireLearner } from "./learner-gate.js";
 import { requireOwnedNotebook, type OwnedNotebookContext } from "./notebook-context.js";
 

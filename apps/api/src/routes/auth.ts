@@ -39,30 +39,37 @@ export async function registerAuthRoutes(app: FastifyInstance, ctx: AppContext):
   });
 
   if (ctx.env.DISABLE_AUTH) {
-    app.post<{ Body: { userId?: string; email?: string } }>("/auth/dev-login", async (request, reply) => {
-      const body = request.body ?? {};
-      let actor;
+    app.post<{ Body: { userId?: string; email?: string } }>(
+      "/auth/dev-login",
+      async (request, reply) => {
+        const body = request.body ?? {};
+        let actor;
 
-      if (typeof body.userId === "string" && body.userId.length > 0) {
-        const [row] = await ctx.db.db.select().from(users).where(eq(users.id, body.userId)).limit(1);
-        if (!row) {
-          return reply.status(404).send({ code: "not_found", message: "User not found" });
+        if (typeof body.userId === "string" && body.userId.length > 0) {
+          const [row] = await ctx.db.db
+            .select()
+            .from(users)
+            .where(eq(users.id, body.userId))
+            .limit(1);
+          if (!row) {
+            return reply.status(404).send({ code: "not_found", message: "User not found" });
+          }
+          actor = { id: row.id, email: row.email };
+        } else if (typeof body.email === "string" && body.email.length > 0) {
+          actor = await upsertHostedUser(ctx, { email: body.email });
+        } else {
+          actor = await resolveActor(ctx, request);
         }
-        actor = { id: row.id, email: row.email };
-      } else if (typeof body.email === "string" && body.email.length > 0) {
-        actor = await upsertHostedUser(ctx, { email: body.email });
-      } else {
-        actor = await resolveActor(ctx, request);
-      }
 
-      createSession(reply, ctx, actor);
-      await recordProductAnalytics(ctx, {
-        userId: actor.id,
-        eventName: "login",
-        properties: { method: "dev" },
-      });
-      return reply.send({ authenticated: true, actor });
-    });
+        createSession(reply, ctx, actor);
+        await recordProductAnalytics(ctx, {
+          userId: actor.id,
+          eventName: "login",
+          properties: { method: "dev" },
+        });
+        return reply.send({ authenticated: true, actor });
+      },
+    );
   }
 
   app.post("/auth/logout", async (_request, reply) => {
@@ -80,7 +87,9 @@ export async function registerAuthRoutes(app: FastifyInstance, ctx: AppContext):
   app.get<{ Querystring: { code?: string } }>("/auth/callback", async (request, reply) => {
     const code = request.query.code;
     if (!code || code.trim().length === 0) {
-      return reply.status(400).send({ code: "bad_request", message: "code query parameter is required" });
+      return reply
+        .status(400)
+        .send({ code: "bad_request", message: "code query parameter is required" });
     }
 
     try {
@@ -88,7 +97,11 @@ export async function registerAuthRoutes(app: FastifyInstance, ctx: AppContext):
         ? await exchangeWorkOSCode(ctx, code)
         : process.env.NODE_ENV === "production"
           ? (() => {
-              throw new AuthError("workos_unconfigured", "WorkOS must be configured in production.", 503);
+              throw new AuthError(
+                "workos_unconfigured",
+                "WorkOS must be configured in production.",
+                503,
+              );
             })()
           : parseWorkOSCallbackCodeForDev(code);
 

@@ -8,7 +8,9 @@ import {
 import type { CanonicalProjectionSnapshot } from "./graph-projection/types.js";
 import { stableTopicId } from "./graph-projection/topic.js";
 
-function baseSnapshot(overrides: Partial<CanonicalProjectionSnapshot> = {}): CanonicalProjectionSnapshot {
+function baseSnapshot(
+  overrides: Partial<CanonicalProjectionSnapshot> = {},
+): CanonicalProjectionSnapshot {
   return {
     notebookId: "nb_test",
     scope: "notebook",
@@ -107,7 +109,9 @@ function baseSnapshot(overrides: Partial<CanonicalProjectionSnapshot> = {}): Can
         upcomingObjectiveIds: [],
       },
     ],
-    coverageItems: [{ id: "cov_1", sourceId: "src_a", title: "Definition", itemFamily: "definition" }],
+    coverageItems: [
+      { id: "cov_1", sourceId: "src_a", title: "Definition", itemFamily: "definition" },
+    ],
     coverageRecords: [{ id: "covrec_1", coverageItemId: "cov_1", status: "planned" }],
     ...overrides,
   };

@@ -1,4 +1,7 @@
-import type { InteractiveLearningActionName, InteractiveLearningBlockKind } from "./interactive-learning.js";
+import type {
+  InteractiveLearningActionName,
+  InteractiveLearningBlockKind,
+} from "./interactive-learning.js";
 import { syntheticLearnerEvalTracerBulletFixture } from "./synthetic-learner-evals.fixtures.js";
 
 export type InteractiveLearningSyntheticAssertionRef = {

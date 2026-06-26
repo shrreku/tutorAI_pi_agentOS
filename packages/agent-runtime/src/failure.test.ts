@@ -4,8 +4,12 @@ import { ToolTimeoutError, ToolValidationError } from "@studyagent/tools";
 
 describe("runtime failures", () => {
   it("classifies tool timeouts and validation errors", () => {
-    expect(classifyRuntimeError(new ToolTimeoutError("wiki.search", 1000)).kind).toBe("tool_timeout");
-    expect(classifyRuntimeError(new ToolValidationError("wiki.search", {})).kind).toBe("invalid_tool_args");
+    expect(classifyRuntimeError(new ToolTimeoutError("wiki.search", 1000)).kind).toBe(
+      "tool_timeout",
+    );
+    expect(classifyRuntimeError(new ToolValidationError("wiki.search", {})).kind).toBe(
+      "invalid_tool_args",
+    );
   });
 
   it("classifies stale session compaction crashes as retryable", () => {
@@ -24,7 +28,9 @@ describe("runtime failures", () => {
   });
 
   it("classifies tool budget exhaustion", () => {
-    const failure = classifyRuntimeError(new Error("Runtime tool budget exceeded: attempted more than 12 tool calls"));
+    const failure = classifyRuntimeError(
+      new Error("Runtime tool budget exceeded: attempted more than 12 tool calls"),
+    );
     expect(failure.code).toBe("tool_budget_exceeded");
     expect(failure.safeMessage).toContain("tool-call budget");
   });

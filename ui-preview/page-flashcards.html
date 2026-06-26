@@ -1,84 +1,96 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Ch. 7 deck — TutorBook</title>
-<link rel="stylesheet" href="styles.css" />
-<link rel="stylesheet" href="themes/folio.css" />
-<link rel="stylesheet" href="themes/focus.css" />
-<link rel="stylesheet" href="themes/sunrise.css" />
-<link rel="stylesheet" href="themes/nocturne.css" />
-<link rel="stylesheet" href="themes/carbon.css" />
-</head>
-<body data-theme="mist">
-<div class="app">
-  <div data-include="topbar"></div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ch. 7 deck — TutorBook</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="themes/folio.css" />
+    <link rel="stylesheet" href="themes/focus.css" />
+    <link rel="stylesheet" href="themes/sunrise.css" />
+    <link rel="stylesheet" href="themes/nocturne.css" />
+    <link rel="stylesheet" href="themes/carbon.css" />
+  </head>
+  <body data-theme="mist">
+    <div class="app">
+      <div data-include="topbar"></div>
 
-  <div class="ref-page">
-    <div class="ref-container">
-      <div class="ref-top">
-        <a class="back-link" href="study-map.html">← Back to Study Map</a>
-        <div class="ref-actions">
-          <button class="btn" data-ask-tutor>💬 Ask tutor</button>
-          <button class="btn" data-evidence-open>🛡 Evidence</button>
+      <div class="ref-page">
+        <div class="ref-container">
+          <div class="ref-top">
+            <a class="back-link" href="study-map.html">← Back to Study Map</a>
+            <div class="ref-actions">
+              <button class="btn" data-ask-tutor>💬 Ask tutor</button>
+              <button class="btn" data-evidence-open>🛡 Evidence</button>
+            </div>
+          </div>
+
+          <div class="ref-header">
+            <div class="badges">
+              <span class="kicker">FLASHCARDS</span>
+              <span class="badge purple">Organic Chemistry I</span>
+              <span class="badge red">Stereochemistry · needs review</span>
+            </div>
+            <h1>Ch. 7 deck</h1>
+            <div class="summary">Substitution &amp; elimination · spaced-repetition review</div>
+          </div>
+
+          <div class="section">
+            <div class="between" style="margin-bottom: 8px">
+              <h4 style="margin: 0">Card 3 of 24</h4>
+              <span class="muted" style="font-size: 12px">🔥 12 due today · 9 new</span>
+            </div>
+            <div class="progress lg"><span style="width: 12.5%"></span></div>
+          </div>
+
+          <div class="flashcard" data-flashcard>
+            <div class="face-label front">QUESTION</div>
+            <div class="q">
+              What stereochemical outcome defines an SN2 reaction at a chiral carbon?
+            </div>
+            <div class="face-label back">ANSWER</div>
+            <div class="a">
+              Inversion of configuration — the nucleophile attacks opposite the leaving group,
+              flipping the stereocenter (Walden inversion).
+            </div>
+            <div
+              class="muted"
+              style="position: absolute; bottom: 14px; left: 0; right: 0; font-size: 11px"
+            >
+              Tap card to flip
+            </div>
+          </div>
+
+          <div class="ratings">
+            <button class="rating-btn again" data-rating>Again</button>
+            <button class="rating-btn hard" data-rating>Hard</button>
+            <button class="rating-btn good" data-rating>Good</button>
+            <button class="rating-btn easy" data-rating>Easy</button>
+          </div>
+
+          <div class="center-text muted" style="font-size: 12px; margin-top: 4px">
+            Rate your recall to schedule the next review · &ldquo;Again&rdquo; resets the interval
+          </div>
+
+          <div class="row gap-10 wrap" style="margin-top: 22px; justify-content: center">
+            <a class="btn" href="page-quiz.html">📝 Quiz this chapter</a>
+            <a class="btn" href="page-concept.html">📖 Review concept</a>
+          </div>
         </div>
       </div>
 
-      <div class="ref-header">
-        <div class="badges">
-          <span class="kicker">FLASHCARDS</span>
-          <span class="badge purple">Organic Chemistry I</span>
-          <span class="badge red">Stereochemistry · needs review</span>
-        </div>
-        <h1>Ch. 7 deck</h1>
-        <div class="summary">Substitution &amp; elimination · spaced-repetition review</div>
-      </div>
-
-      <div class="section">
-        <div class="between" style="margin-bottom:8px">
-          <h4 style="margin:0">Card 3 of 24</h4>
-          <span class="muted" style="font-size:12px">🔥 12 due today · 9 new</span>
-        </div>
-        <div class="progress lg"><span style="width:12.5%"></span></div>
-      </div>
-
-      <div class="flashcard" data-flashcard>
-        <div class="face-label front">QUESTION</div>
-        <div class="q">What stereochemical outcome defines an SN2 reaction at a chiral carbon?</div>
-        <div class="face-label back">ANSWER</div>
-        <div class="a">Inversion of configuration — the nucleophile attacks opposite the leaving group, flipping the stereocenter (Walden inversion).</div>
-        <div class="muted" style="position:absolute;bottom:14px;left:0;right:0;font-size:11px">Tap card to flip</div>
-      </div>
-
-      <div class="ratings">
-        <button class="rating-btn again" data-rating>Again</button>
-        <button class="rating-btn hard" data-rating>Hard</button>
-        <button class="rating-btn good" data-rating>Good</button>
-        <button class="rating-btn easy" data-rating>Easy</button>
-      </div>
-
-      <div class="center-text muted" style="font-size:12px;margin-top:4px">Rate your recall to schedule the next review · &ldquo;Again&rdquo; resets the interval</div>
-
-      <div class="row gap-10 wrap" style="margin-top:22px;justify-content:center">
-        <a class="btn" href="page-quiz.html">📝 Quiz this chapter</a>
-        <a class="btn" href="page-concept.html">📖 Review concept</a>
-      </div>
+      <div data-include="statusbar"></div>
     </div>
-  </div>
 
-  <div data-include="statusbar"></div>
-</div>
+    <div data-include="drawer"></div>
+    <div class="scrim" data-scrim></div>
 
-<div data-include="drawer"></div>
-<div class="scrim" data-scrim></div>
-
-<script src="app.js"></script>
-<script src="themes/folio.js"></script>
-<script src="themes/focus.js"></script>
-<script src="themes/sunrise.js"></script>
-<script src="themes/nocturne.js"></script>
-<script src="themes/carbon.js"></script>
-<script src="partials.js"></script>
-</body>
+    <script src="app.js"></script>
+    <script src="themes/folio.js"></script>
+    <script src="themes/focus.js"></script>
+    <script src="themes/sunrise.js"></script>
+    <script src="themes/nocturne.js"></script>
+    <script src="themes/carbon.js"></script>
+    <script src="partials.js"></script>
+  </body>
 </html>

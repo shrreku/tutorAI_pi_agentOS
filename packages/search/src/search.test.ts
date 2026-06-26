@@ -6,9 +6,15 @@ import { applyRrfRerankFactors, reciprocalRankFusion, type UnifiedSearchResult }
 
 describe("@studyagent/search", () => {
   it("resolves short Gemini embedding names to OpenRouter model ids", () => {
-    expect(resolveOpenRouterEmbeddingModelId("gemini-embedding-2")).toBe("google/gemini-embedding-2");
-    expect(resolveOpenRouterEmbeddingModelId("gemini-embedding-2-preview")).toBe("google/gemini-embedding-2-preview");
-    expect(resolveOpenRouterEmbeddingModelId("google/gemini-embedding-001")).toBe("google/gemini-embedding-001");
+    expect(resolveOpenRouterEmbeddingModelId("gemini-embedding-2")).toBe(
+      "google/gemini-embedding-2",
+    );
+    expect(resolveOpenRouterEmbeddingModelId("gemini-embedding-2-preview")).toBe(
+      "google/gemini-embedding-2-preview",
+    );
+    expect(resolveOpenRouterEmbeddingModelId("google/gemini-embedding-001")).toBe(
+      "google/gemini-embedding-001",
+    );
   });
 
   it("builds an OR-style lexical fallback query from noisy learner wording", () => {

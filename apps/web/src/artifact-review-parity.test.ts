@@ -19,13 +19,15 @@ const quizSurface: ReferenceSurface = {
   surfaceType: "artifact",
   summary: null,
   status: "ready",
-  blocks: [{
-    id: "questions",
-    kind: "question_list",
-    title: "Questions",
-    content: [{ id: "q1", prompt: "What is x?", choices: ["x", "y"], answer: "x" }],
-    evidenceRefs: [],
-  }],
+  blocks: [
+    {
+      id: "questions",
+      kind: "question_list",
+      title: "Questions",
+      content: [{ id: "q1", prompt: "What is x?", choices: ["x", "y"], answer: "x" }],
+      evidenceRefs: [],
+    },
+  ],
   interactiveBlocks: [],
   scopeRefs: [],
   sourceRefs: [],
@@ -45,12 +47,14 @@ describe("artifact review parity", () => {
       view: { confidence: 0.9, quality: { sourceBacked: true, needsReview: false, issues: [] } },
     });
     expect(referenceSurfaceActionsForArtifactReview(review)).toEqual(["quiz", "ask_tutor"]);
-    expect(artifactSurfaceActionIds({
-      id: "artifact_quiz",
-      title: "Quiz",
-      artifactType: "quiz",
-      status: "ready",
-    })).toEqual(quizSurface.primaryActions);
+    expect(
+      artifactSurfaceActionIds({
+        id: "artifact_quiz",
+        title: "Quiz",
+        artifactType: "quiz",
+        status: "ready",
+      }),
+    ).toEqual(quizSurface.primaryActions);
   });
 
   it("matches API-authored primary actions for quiz and note artifacts", () => {
@@ -78,13 +82,16 @@ describe("artifact review parity", () => {
   });
 
   it("aligns TutorPanel review actions with FullPanelViewer primary actions", () => {
-    const tutorReview = buildTutorPanelArtifactReview({
-      id: "artifact_quiz",
-      title: "Quiz",
-      artifactType: "quiz",
-      status: "ready",
-      view: { confidence: 0.9, quality: { sourceBacked: true, needsReview: false, issues: [] } },
-    }, quizSurface);
+    const tutorReview = buildTutorPanelArtifactReview(
+      {
+        id: "artifact_quiz",
+        title: "Quiz",
+        artifactType: "quiz",
+        status: "ready",
+        view: { confidence: 0.9, quality: { sourceBacked: true, needsReview: false, issues: [] } },
+      },
+      quizSurface,
+    );
     const fullPanelActions = actionsForReferenceSurface({
       surface: quizSurface,
       canLaunchTutor: true,
@@ -93,6 +100,8 @@ describe("artifact review parity", () => {
     });
 
     expect(artifactReviewMatchesPrimaryActions(tutorReview, quizSurface.primaryActions)).toBe(true);
-    expect(fullPanelActions.map((action) => action.id)).toEqual(expect.arrayContaining(["quiz", "ask_tutor"]));
+    expect(fullPanelActions.map((action) => action.id)).toEqual(
+      expect.arrayContaining(["quiz", "ask_tutor"]),
+    );
   });
 });

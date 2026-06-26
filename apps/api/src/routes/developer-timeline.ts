@@ -33,7 +33,10 @@ import { sendAuthOrEntitlementError } from "../hosted-beta/entitlements.js";
 type EventLookup = Map<string, TraceUsage | undefined>;
 type TimelineNodeRef = DeveloperTimelineItem["nodeRefs"][number];
 
-export async function registerDeveloperTimelineRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
+export async function registerDeveloperTimelineRoutes(
+  app: FastifyInstance,
+  ctx: AppContext,
+): Promise<void> {
   app.get<{ Params: { notebookId: string }; Querystring: { limit?: string } }>(
     "/notebooks/:notebookId/developer/timeline",
     async (request, reply) => {
@@ -44,114 +47,143 @@ export async function registerDeveloperTimelineRoutes(app: FastifyInstance, ctx:
         void owned;
         const limit = clampLimit(request.query.limit ?? "120");
 
-      const [runRows, toolRows, eventRows, wikiRows, artifactRows, claimRows, sourceRows, turnRows, masteryEvidenceRows] =
-        await Promise.all([
-        ctx.db.db
-          .select({
-            id: agentRuns.id,
-            notebookId: tutorSessions.notebookId,
-            sessionId: agentRuns.sessionId,
-            turnId: agentRuns.turnId,
-            runType: agentRuns.runType,
-            status: agentRuns.status,
-            modelConfigJson: agentRuns.modelConfigJson,
-            budgetJson: agentRuns.budgetJson,
-            traceId: agentRuns.traceId,
-            startedAt: agentRuns.startedAt,
-            completedAt: agentRuns.completedAt,
-          })
-          .from(agentRuns)
-          .innerJoin(tutorSessions, eq(agentRuns.sessionId, tutorSessions.id))
-          .where(eq(tutorSessions.notebookId, notebookId))
-          .orderBy(desc(agentRuns.startedAt))
-          .limit(limit),
-        ctx.db.db
-          .select({
-            id: toolCalls.id,
-            notebookId: tutorSessions.notebookId,
-            runId: toolCalls.runId,
-            sessionId: toolCalls.sessionId,
-            turnId: toolCalls.turnId,
-            toolName: toolCalls.toolName,
-            sideEffectClass: toolCalls.sideEffectClass,
-            inputJson: toolCalls.inputJson,
-            outputJson: toolCalls.outputJson,
-            status: toolCalls.status,
-            latencyMs: toolCalls.latencyMs,
-            reducerResultJson: toolCalls.reducerResultJson,
-            createdAt: toolCalls.createdAt,
-          })
-          .from(toolCalls)
-          .innerJoin(tutorSessions, eq(toolCalls.sessionId, tutorSessions.id))
-          .where(eq(tutorSessions.notebookId, notebookId))
-          .orderBy(desc(toolCalls.createdAt))
-          .limit(limit),
-        ctx.db.db
-          .select()
-          .from(events)
-          .where(eq(events.notebookId, notebookId))
-          .orderBy(desc(events.createdAt))
-          .limit(limit),
-        ctx.db.db.select().from(wikiPages).where(eq(wikiPages.notebookId, notebookId)).orderBy(desc(wikiPages.updatedAt)).limit(limit),
-        ctx.db.db.select().from(artifacts).where(eq(artifacts.notebookId, notebookId)).orderBy(desc(artifacts.updatedAt)).limit(limit),
-        ctx.db.db.select().from(claims).where(eq(claims.notebookId, notebookId)).orderBy(desc(claims.updatedAt)).limit(limit),
-        ctx.db.db.select().from(sources).where(eq(sources.notebookId, notebookId)).orderBy(desc(sources.updatedAt)).limit(limit),
-        ctx.db.db
-          .select({
-            id: tutorTurns.id,
-            notebookId: tutorSessions.notebookId,
-            sessionId: tutorTurns.sessionId,
-            turnIndex: tutorTurns.turnIndex,
-            selectedNodeRefsJson: tutorTurns.selectedNodeRefsJson,
-            userMessage: tutorTurns.userMessage,
-            assistantMessage: tutorTurns.assistantMessage,
-            createdAt: tutorTurns.createdAt,
-          })
-          .from(tutorTurns)
-          .innerJoin(tutorSessions, eq(tutorTurns.sessionId, tutorSessions.id))
-          .where(eq(tutorSessions.notebookId, notebookId))
-          .orderBy(desc(tutorTurns.createdAt))
-          .limit(limit),
-        ctx.db.db
-          .select({
-            id: masteryEvidence.id,
-            notebookId: masteryEvidence.notebookId,
-            sessionId: masteryEvidence.sessionId,
-            turnId: masteryEvidence.turnId,
-            runId: masteryEvidence.runId,
-            evidenceJson: masteryEvidence.evidenceJson,
-            createdAt: masteryEvidence.createdAt,
-          })
-          .from(masteryEvidence)
-          .where(eq(masteryEvidence.notebookId, notebookId))
-          .orderBy(desc(masteryEvidence.createdAt))
-          .limit(limit),
-      ]);
+        const [
+          runRows,
+          toolRows,
+          eventRows,
+          wikiRows,
+          artifactRows,
+          claimRows,
+          sourceRows,
+          turnRows,
+          masteryEvidenceRows,
+        ] = await Promise.all([
+          ctx.db.db
+            .select({
+              id: agentRuns.id,
+              notebookId: tutorSessions.notebookId,
+              sessionId: agentRuns.sessionId,
+              turnId: agentRuns.turnId,
+              runType: agentRuns.runType,
+              status: agentRuns.status,
+              modelConfigJson: agentRuns.modelConfigJson,
+              budgetJson: agentRuns.budgetJson,
+              traceId: agentRuns.traceId,
+              startedAt: agentRuns.startedAt,
+              completedAt: agentRuns.completedAt,
+            })
+            .from(agentRuns)
+            .innerJoin(tutorSessions, eq(agentRuns.sessionId, tutorSessions.id))
+            .where(eq(tutorSessions.notebookId, notebookId))
+            .orderBy(desc(agentRuns.startedAt))
+            .limit(limit),
+          ctx.db.db
+            .select({
+              id: toolCalls.id,
+              notebookId: tutorSessions.notebookId,
+              runId: toolCalls.runId,
+              sessionId: toolCalls.sessionId,
+              turnId: toolCalls.turnId,
+              toolName: toolCalls.toolName,
+              sideEffectClass: toolCalls.sideEffectClass,
+              inputJson: toolCalls.inputJson,
+              outputJson: toolCalls.outputJson,
+              status: toolCalls.status,
+              latencyMs: toolCalls.latencyMs,
+              reducerResultJson: toolCalls.reducerResultJson,
+              createdAt: toolCalls.createdAt,
+            })
+            .from(toolCalls)
+            .innerJoin(tutorSessions, eq(toolCalls.sessionId, tutorSessions.id))
+            .where(eq(tutorSessions.notebookId, notebookId))
+            .orderBy(desc(toolCalls.createdAt))
+            .limit(limit),
+          ctx.db.db
+            .select()
+            .from(events)
+            .where(eq(events.notebookId, notebookId))
+            .orderBy(desc(events.createdAt))
+            .limit(limit),
+          ctx.db.db
+            .select()
+            .from(wikiPages)
+            .where(eq(wikiPages.notebookId, notebookId))
+            .orderBy(desc(wikiPages.updatedAt))
+            .limit(limit),
+          ctx.db.db
+            .select()
+            .from(artifacts)
+            .where(eq(artifacts.notebookId, notebookId))
+            .orderBy(desc(artifacts.updatedAt))
+            .limit(limit),
+          ctx.db.db
+            .select()
+            .from(claims)
+            .where(eq(claims.notebookId, notebookId))
+            .orderBy(desc(claims.updatedAt))
+            .limit(limit),
+          ctx.db.db
+            .select()
+            .from(sources)
+            .where(eq(sources.notebookId, notebookId))
+            .orderBy(desc(sources.updatedAt))
+            .limit(limit),
+          ctx.db.db
+            .select({
+              id: tutorTurns.id,
+              notebookId: tutorSessions.notebookId,
+              sessionId: tutorTurns.sessionId,
+              turnIndex: tutorTurns.turnIndex,
+              selectedNodeRefsJson: tutorTurns.selectedNodeRefsJson,
+              userMessage: tutorTurns.userMessage,
+              assistantMessage: tutorTurns.assistantMessage,
+              createdAt: tutorTurns.createdAt,
+            })
+            .from(tutorTurns)
+            .innerJoin(tutorSessions, eq(tutorTurns.sessionId, tutorSessions.id))
+            .where(eq(tutorSessions.notebookId, notebookId))
+            .orderBy(desc(tutorTurns.createdAt))
+            .limit(limit),
+          ctx.db.db
+            .select({
+              id: masteryEvidence.id,
+              notebookId: masteryEvidence.notebookId,
+              sessionId: masteryEvidence.sessionId,
+              turnId: masteryEvidence.turnId,
+              runId: masteryEvidence.runId,
+              evidenceJson: masteryEvidence.evidenceJson,
+              createdAt: masteryEvidence.createdAt,
+            })
+            .from(masteryEvidence)
+            .where(eq(masteryEvidence.notebookId, notebookId))
+            .orderBy(desc(masteryEvidence.createdAt))
+            .limit(limit),
+        ]);
 
-      const runUsageById = buildRunUsageLookup(eventRows);
-      const items: DeveloperTimelineItem[] = [
-        ...runRows.map((row) => mapRunRow(row, runUsageById.get(row.id))),
-        ...toolRows.map(mapToolRow),
-        ...eventRows.map(mapEventRow),
-        ...wikiRows.map(mapWikiRow),
-        ...artifactRows.map(mapArtifactRow),
-        ...claimRows.map(mapClaimRow),
-        ...sourceRows.map(mapSourceRow),
-        ...turnRows.map(mapTurnRow),
-        ...masteryEvidenceRows.map(mapMasteryEvidenceRow),
-      ]
-        .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
-        .slice(0, limit);
+        const runUsageById = buildRunUsageLookup(eventRows);
+        const items: DeveloperTimelineItem[] = [
+          ...runRows.map((row) => mapRunRow(row, runUsageById.get(row.id))),
+          ...toolRows.map(mapToolRow),
+          ...eventRows.map(mapEventRow),
+          ...wikiRows.map(mapWikiRow),
+          ...artifactRows.map(mapArtifactRow),
+          ...claimRows.map(mapClaimRow),
+          ...sourceRows.map(mapSourceRow),
+          ...turnRows.map(mapTurnRow),
+          ...masteryEvidenceRows.map(mapMasteryEvidenceRow),
+        ]
+          .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
+          .slice(0, limit);
 
-      const traceSummary = summarizeTrace(items);
-      const response: DeveloperTimelineResponse = {
-        notebookId,
-        generatedAt: new Date().toISOString(),
-        items,
-        traceSummary,
-      };
+        const traceSummary = summarizeTrace(items);
+        const response: DeveloperTimelineResponse = {
+          notebookId,
+          generatedAt: new Date().toISOString(),
+          items,
+          traceSummary,
+        };
 
-      return reply.send(developerTimelineResponseSchema.parse(response));
+        return reply.send(developerTimelineResponseSchema.parse(response));
       } catch (error) {
         return sendAuthOrEntitlementError(reply, error);
       }
@@ -167,189 +199,206 @@ export async function registerDeveloperTimelineRoutes(app: FastifyInstance, ctx:
         await requireOwnedNotebook(ctx, actor.id, notebookId);
         const limit = clampLimit(request.query.limit ?? "80");
 
-      const turnQuery = ctx.db.db
-        .select({
-          id: tutorTurns.id,
-          notebookId: tutorSessions.notebookId,
-          sessionId: tutorTurns.sessionId,
-          turnIndex: tutorTurns.turnIndex,
-          selectedNodeRefsJson: tutorTurns.selectedNodeRefsJson,
-          userMessage: tutorTurns.userMessage,
-          assistantMessage: tutorTurns.assistantMessage,
-          createdAt: tutorTurns.createdAt,
-        })
-        .from(tutorTurns)
-        .innerJoin(tutorSessions, eq(tutorTurns.sessionId, tutorSessions.id))
-        .where(
-          and(
-            eq(tutorSessions.notebookId, notebookId),
-            ...(request.query.sessionId ? [eq(tutorTurns.sessionId, request.query.sessionId)] : []),
-          ),
-        )
-        .orderBy(desc(tutorTurns.createdAt))
-        .limit(limit);
-
-      const runQuery = ctx.db.db
-        .select({
-          id: agentRuns.id,
-          notebookId: tutorSessions.notebookId,
-          sessionId: agentRuns.sessionId,
-          turnId: agentRuns.turnId,
-          runType: agentRuns.runType,
-          status: agentRuns.status,
-          modelConfigJson: agentRuns.modelConfigJson,
-          budgetJson: agentRuns.budgetJson,
-          traceId: agentRuns.traceId,
-          startedAt: agentRuns.startedAt,
-          completedAt: agentRuns.completedAt,
-        })
-        .from(agentRuns)
-        .innerJoin(tutorSessions, eq(agentRuns.sessionId, tutorSessions.id))
-        .where(
-          and(
-            eq(tutorSessions.notebookId, notebookId),
-            ...(request.query.sessionId ? [eq(agentRuns.sessionId, request.query.sessionId)] : []),
-          ),
-        )
-        .orderBy(desc(agentRuns.startedAt))
-        .limit(limit);
-
-      const [turnRows, runRows, toolRows, eventRows] = await Promise.all([
-        turnQuery,
-        runQuery,
-        ctx.db.db
+        const turnQuery = ctx.db.db
           .select({
-            id: toolCalls.id,
+            id: tutorTurns.id,
             notebookId: tutorSessions.notebookId,
-            runId: toolCalls.runId,
-            sessionId: toolCalls.sessionId,
-            turnId: toolCalls.turnId,
-            toolName: toolCalls.toolName,
-            sideEffectClass: toolCalls.sideEffectClass,
-            inputJson: toolCalls.inputJson,
-            outputJson: toolCalls.outputJson,
-            status: toolCalls.status,
-            latencyMs: toolCalls.latencyMs,
-            reducerResultJson: toolCalls.reducerResultJson,
-            createdAt: toolCalls.createdAt,
+            sessionId: tutorTurns.sessionId,
+            turnIndex: tutorTurns.turnIndex,
+            selectedNodeRefsJson: tutorTurns.selectedNodeRefsJson,
+            userMessage: tutorTurns.userMessage,
+            assistantMessage: tutorTurns.assistantMessage,
+            createdAt: tutorTurns.createdAt,
           })
-          .from(toolCalls)
-          .innerJoin(tutorSessions, eq(toolCalls.sessionId, tutorSessions.id))
+          .from(tutorTurns)
+          .innerJoin(tutorSessions, eq(tutorTurns.sessionId, tutorSessions.id))
           .where(
             and(
               eq(tutorSessions.notebookId, notebookId),
-              ...(request.query.sessionId ? [eq(toolCalls.sessionId, request.query.sessionId)] : []),
+              ...(request.query.sessionId
+                ? [eq(tutorTurns.sessionId, request.query.sessionId)]
+                : []),
             ),
           )
-          .orderBy(desc(toolCalls.createdAt))
-          .limit(limit * 4),
-        ctx.db.db
-          .select()
-          .from(events)
+          .orderBy(desc(tutorTurns.createdAt))
+          .limit(limit);
+
+        const runQuery = ctx.db.db
+          .select({
+            id: agentRuns.id,
+            notebookId: tutorSessions.notebookId,
+            sessionId: agentRuns.sessionId,
+            turnId: agentRuns.turnId,
+            runType: agentRuns.runType,
+            status: agentRuns.status,
+            modelConfigJson: agentRuns.modelConfigJson,
+            budgetJson: agentRuns.budgetJson,
+            traceId: agentRuns.traceId,
+            startedAt: agentRuns.startedAt,
+            completedAt: agentRuns.completedAt,
+          })
+          .from(agentRuns)
+          .innerJoin(tutorSessions, eq(agentRuns.sessionId, tutorSessions.id))
           .where(
             and(
-              eq(events.notebookId, notebookId),
-              ...(request.query.sessionId ? [eq(events.sessionId, request.query.sessionId)] : []),
+              eq(tutorSessions.notebookId, notebookId),
+              ...(request.query.sessionId
+                ? [eq(agentRuns.sessionId, request.query.sessionId)]
+                : []),
             ),
           )
-          .orderBy(desc(events.createdAt))
-          .limit(limit * 6),
-      ]);
+          .orderBy(desc(agentRuns.startedAt))
+          .limit(limit);
 
-      const usageByRunId = buildRunUsageLookup(eventRows);
-      const toolsByRunId = new Map<string, ChatTraceToolCall[]>();
-      for (const row of toolRows) {
-        const tool = mapChatTraceTool(row);
-        const tools = toolsByRunId.get(row.runId) ?? [];
-        tools.push(tool);
-        toolsByRunId.set(row.runId, tools);
-      }
+        const [turnRows, runRows, toolRows, eventRows] = await Promise.all([
+          turnQuery,
+          runQuery,
+          ctx.db.db
+            .select({
+              id: toolCalls.id,
+              notebookId: tutorSessions.notebookId,
+              runId: toolCalls.runId,
+              sessionId: toolCalls.sessionId,
+              turnId: toolCalls.turnId,
+              toolName: toolCalls.toolName,
+              sideEffectClass: toolCalls.sideEffectClass,
+              inputJson: toolCalls.inputJson,
+              outputJson: toolCalls.outputJson,
+              status: toolCalls.status,
+              latencyMs: toolCalls.latencyMs,
+              reducerResultJson: toolCalls.reducerResultJson,
+              createdAt: toolCalls.createdAt,
+            })
+            .from(toolCalls)
+            .innerJoin(tutorSessions, eq(toolCalls.sessionId, tutorSessions.id))
+            .where(
+              and(
+                eq(tutorSessions.notebookId, notebookId),
+                ...(request.query.sessionId
+                  ? [eq(toolCalls.sessionId, request.query.sessionId)]
+                  : []),
+              ),
+            )
+            .orderBy(desc(toolCalls.createdAt))
+            .limit(limit * 4),
+          ctx.db.db
+            .select()
+            .from(events)
+            .where(
+              and(
+                eq(events.notebookId, notebookId),
+                ...(request.query.sessionId ? [eq(events.sessionId, request.query.sessionId)] : []),
+              ),
+            )
+            .orderBy(desc(events.createdAt))
+            .limit(limit * 6),
+        ]);
 
-      const eventsByRunId = new Map<string, ChatTraceStateChange[]>();
-      const sessionEvents: ChatTraceStateChange[] = [];
-      for (const row of eventRows) {
-        const state = mapChatTraceStateChange(mapEventRow(row));
-        if (row.runId) {
-          const items = eventsByRunId.get(row.runId) ?? [];
-          items.push(state);
-          eventsByRunId.set(row.runId, items);
-        } else if (row.sessionId) {
-          sessionEvents.push(state);
+        const usageByRunId = buildRunUsageLookup(eventRows);
+        const toolsByRunId = new Map<string, ChatTraceToolCall[]>();
+        for (const row of toolRows) {
+          const tool = mapChatTraceTool(row);
+          const tools = toolsByRunId.get(row.runId) ?? [];
+          tools.push(tool);
+          toolsByRunId.set(row.runId, tools);
         }
-      }
 
-      const runsByTurnId = new Map<string, ChatTraceRun[]>();
-      for (const row of runRows) {
-        const runEvents = [...(eventsByRunId.get(row.id) ?? []), ...sessionEvents].sort(byTimestampAsc);
-        const run: ChatTraceRun = {
-          id: row.id,
-          sessionId: row.sessionId,
-          turnId: row.turnId ?? null,
-          status: row.status,
-          runType: row.runType,
-          model: typeof row.modelConfigJson.model === "string" ? row.modelConfigJson.model : undefined,
-          promptVersion:
-            typeof row.modelConfigJson.promptTemplateVersion === "string"
-              ? row.modelConfigJson.promptTemplateVersion
-              : undefined,
-          traceId: row.traceId,
-          startedAt: row.startedAt.toISOString(),
-          completedAt: row.completedAt?.toISOString() ?? null,
-          durationMs: row.completedAt ? Math.max(0, row.completedAt.getTime() - row.startedAt.getTime()) : null,
-          usage: usageByRunId.get(row.id),
-          thinking: runEvents.filter((item) => isThinkingEvent(item.eventType)),
-          tools: (toolsByRunId.get(row.id) ?? []).sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
-          stateChanges: runEvents.filter((item) => isStateChangeEvent(item.eventType)),
-          rawEvents: runEvents,
+        const eventsByRunId = new Map<string, ChatTraceStateChange[]>();
+        const sessionEvents: ChatTraceStateChange[] = [];
+        for (const row of eventRows) {
+          const state = mapChatTraceStateChange(mapEventRow(row));
+          if (row.runId) {
+            const items = eventsByRunId.get(row.runId) ?? [];
+            items.push(state);
+            eventsByRunId.set(row.runId, items);
+          } else if (row.sessionId) {
+            sessionEvents.push(state);
+          }
+        }
+
+        const runsByTurnId = new Map<string, ChatTraceRun[]>();
+        for (const row of runRows) {
+          const runEvents = [...(eventsByRunId.get(row.id) ?? []), ...sessionEvents].sort(
+            byTimestampAsc,
+          );
+          const run: ChatTraceRun = {
+            id: row.id,
+            sessionId: row.sessionId,
+            turnId: row.turnId ?? null,
+            status: row.status,
+            runType: row.runType,
+            model:
+              typeof row.modelConfigJson.model === "string" ? row.modelConfigJson.model : undefined,
+            promptVersion:
+              typeof row.modelConfigJson.promptTemplateVersion === "string"
+                ? row.modelConfigJson.promptTemplateVersion
+                : undefined,
+            traceId: row.traceId,
+            startedAt: row.startedAt.toISOString(),
+            completedAt: row.completedAt?.toISOString() ?? null,
+            durationMs: row.completedAt
+              ? Math.max(0, row.completedAt.getTime() - row.startedAt.getTime())
+              : null,
+            usage: usageByRunId.get(row.id),
+            thinking: runEvents.filter((item) => isThinkingEvent(item.eventType)),
+            tools: (toolsByRunId.get(row.id) ?? []).sort((a, b) =>
+              a.createdAt.localeCompare(b.createdAt),
+            ),
+            stateChanges: runEvents.filter((item) => isStateChangeEvent(item.eventType)),
+            rawEvents: runEvents,
+          };
+          if (!row.turnId) continue;
+          const runs = runsByTurnId.get(row.turnId) ?? [];
+          runs.push(run);
+          runsByTurnId.set(row.turnId, runs);
+        }
+
+        const response: ChatTraceResponse = {
+          notebookId,
+          generatedAt: new Date().toISOString(),
+          turns: turnRows
+            .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+            .map((turn) => ({
+              id: turn.id,
+              sessionId: turn.sessionId,
+              turnIndex: turn.turnIndex,
+              userMessage: turn.userMessage,
+              assistantMessage: turn.assistantMessage,
+              createdAt: turn.createdAt.toISOString(),
+              runs: (runsByTurnId.get(turn.id) ?? []).sort((a, b) =>
+                a.startedAt.localeCompare(b.startedAt),
+              ),
+            }))
+            .map((turn) => ({
+              ...turn,
+              runs:
+                turn.runs.length > 0
+                  ? turn.runs
+                  : sessionEvents.length
+                    ? [
+                        {
+                          id: `run_${turn.id}`,
+                          sessionId: turn.sessionId,
+                          turnId: turn.id,
+                          status: "no_run",
+                          runType: "session_activity",
+                          startedAt: turn.createdAt,
+                          completedAt: null,
+                          durationMs: null,
+                          traceId: null,
+                          thinking: [],
+                          tools: [],
+                          stateChanges: sessionEvents.filter((event) =>
+                            isStateChangeEvent(event.eventType),
+                          ),
+                          rawEvents: sessionEvents,
+                        },
+                      ]
+                    : [],
+            })),
         };
-        if (!row.turnId) continue;
-        const runs = runsByTurnId.get(row.turnId) ?? [];
-        runs.push(run);
-        runsByTurnId.set(row.turnId, runs);
-      }
 
-      const response: ChatTraceResponse = {
-        notebookId,
-        generatedAt: new Date().toISOString(),
-        turns: turnRows
-          .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
-          .map((turn) => ({
-            id: turn.id,
-            sessionId: turn.sessionId,
-            turnIndex: turn.turnIndex,
-            userMessage: turn.userMessage,
-            assistantMessage: turn.assistantMessage,
-            createdAt: turn.createdAt.toISOString(),
-            runs: (runsByTurnId.get(turn.id) ?? []).sort((a, b) => a.startedAt.localeCompare(b.startedAt)),
-          }))
-          .map((turn) => ({
-            ...turn,
-            runs:
-              turn.runs.length > 0
-                ? turn.runs
-                : sessionEvents.length
-                  ? [
-                      {
-                        id: `run_${turn.id}`,
-                        sessionId: turn.sessionId,
-                        turnId: turn.id,
-                        status: "no_run",
-                        runType: "session_activity",
-                        startedAt: turn.createdAt,
-                        completedAt: null,
-                        durationMs: null,
-                        traceId: null,
-                        thinking: [],
-                        tools: [],
-                        stateChanges: sessionEvents.filter((event) => isStateChangeEvent(event.eventType)),
-                        rawEvents: sessionEvents,
-                      },
-                    ]
-                  : [],
-          })),
-      };
-
-      return reply.send(chatTraceResponseSchema.parse(response));
+        return reply.send(chatTraceResponseSchema.parse(response));
       } catch (error) {
         return sendAuthOrEntitlementError(reply, error);
       }
@@ -363,7 +412,13 @@ function clampLimit(raw: string): number {
   return Math.min(250, Math.max(25, Math.trunc(parsed)));
 }
 
-function buildRunUsageLookup(eventRows: Array<{ runId: string | null; eventType: string; payloadJson: Record<string, unknown> }>): EventLookup {
+function buildRunUsageLookup(
+  eventRows: Array<{
+    runId: string | null;
+    eventType: string;
+    payloadJson: Record<string, unknown>;
+  }>,
+): EventLookup {
   const usageByRunId: EventLookup = new Map();
   for (const row of eventRows) {
     if (row.eventType !== "agent.run.completed" || !row.runId) {
@@ -420,13 +475,21 @@ function mapRunRow(
   },
   usage: TraceUsage | undefined,
 ): DeveloperTimelineItem {
-  const model = typeof row.modelConfigJson.model === "string" ? row.modelConfigJson.model : undefined;
-  const promptVersion = typeof row.modelConfigJson.promptTemplateVersion === "string" ? row.modelConfigJson.promptTemplateVersion : undefined;
+  const model =
+    typeof row.modelConfigJson.model === "string" ? row.modelConfigJson.model : undefined;
+  const promptVersion =
+    typeof row.modelConfigJson.promptTemplateVersion === "string"
+      ? row.modelConfigJson.promptTemplateVersion
+      : undefined;
   return {
     id: `run:${row.id}`,
     kind: "agent_run",
     title: `${row.runType.replace(/_/g, " ")} ${row.status}`,
-    summary: [model ? `model ${model}` : undefined, promptVersion ? `prompt ${promptVersion}` : undefined, usage ? formatTraceUsage(usage) : undefined]
+    summary: [
+      model ? `model ${model}` : undefined,
+      promptVersion ? `prompt ${promptVersion}` : undefined,
+      usage ? formatTraceUsage(usage) : undefined,
+    ]
       .filter(Boolean)
       .join(" · "),
     timestamp: (row.completedAt ?? row.startedAt).toISOString(),
@@ -462,7 +525,9 @@ function mapToolRow(row: {
     id: `tool:${row.id}`,
     kind: "tool_call",
     title: `${row.toolName} ${row.status}`,
-    summary: [row.sideEffectClass, row.latencyMs != null ? `${row.latencyMs}ms` : undefined].filter(Boolean).join(" · "),
+    summary: [row.sideEffectClass, row.latencyMs != null ? `${row.latencyMs}ms` : undefined]
+      .filter(Boolean)
+      .join(" · "),
     timestamp: row.createdAt.toISOString(),
     notebookId: row.notebookId,
     sessionId: row.sessionId,
@@ -470,8 +535,18 @@ function mapToolRow(row: {
     toolCallId: row.id,
     toolName: row.toolName,
     status: row.status,
-    nodeRefs: nodeRefsFromPayload(row.inputJson, row.outputJson ?? undefined, row.reducerResultJson ?? undefined),
-    payload: { turnId: row.turnId, sideEffectClass: row.sideEffectClass, input: row.inputJson, output: row.outputJson, reducerResult: row.reducerResultJson },
+    nodeRefs: nodeRefsFromPayload(
+      row.inputJson,
+      row.outputJson ?? undefined,
+      row.reducerResultJson ?? undefined,
+    ),
+    payload: {
+      turnId: row.turnId,
+      sideEffectClass: row.sideEffectClass,
+      input: row.inputJson,
+      output: row.outputJson,
+      reducerResult: row.reducerResultJson,
+    },
   };
 }
 
@@ -501,7 +576,11 @@ function mapChatTraceTool(row: {
     input: row.inputJson,
     output: row.outputJson,
     reducerResult: row.reducerResultJson,
-    nodeRefs: nodeRefsFromPayload(row.inputJson, row.outputJson ?? undefined, row.reducerResultJson ?? undefined),
+    nodeRefs: nodeRefsFromPayload(
+      row.inputJson,
+      row.outputJson ?? undefined,
+      row.reducerResultJson ?? undefined,
+    ),
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -551,7 +630,11 @@ function mapMasteryEvidenceRow(row: {
     ...(row.sessionId ? { sessionId: row.sessionId } : {}),
     ...(row.runId ? { runId: row.runId } : {}),
     eventType: "mastery.evidence.recorded",
-    nodeRefs: evidence?.conceptScores.map((entry) => ({ refType: "concept" as const, refId: entry.conceptId })) ?? [],
+    nodeRefs:
+      evidence?.conceptScores.map((entry) => ({
+        refType: "concept" as const,
+        refId: entry.conceptId,
+      })) ?? [],
     payload: {
       masteryEvidenceId: row.id,
       evidence: row.evidenceJson,
@@ -593,14 +676,28 @@ function mapEventRow(row: {
     status: typeof row.payloadJson.status === "string" ? row.payloadJson.status : undefined,
     usage: normalizeTraceUsage(row.payloadJson.usage as never),
     model: typeof row.payloadJson.model === "string" ? row.payloadJson.model : undefined,
-    promptVersion: typeof row.payloadJson.promptTemplateVersion === "string" ? row.payloadJson.promptTemplateVersion : undefined,
+    promptVersion:
+      typeof row.payloadJson.promptTemplateVersion === "string"
+        ? row.payloadJson.promptTemplateVersion
+        : undefined,
     traceId: typeof row.payloadJson.traceId === "string" ? row.payloadJson.traceId : undefined,
     nodeRefs: nodeRefsFromPayload(row.payloadJson),
     payload: { sequenceNo: row.sequenceNo, ...row.payloadJson },
   };
 }
 
-function mapWikiRow(row: { id: string; notebookId: string; pageType: string; pageKey: string; title: string; status: string; version: number; updatedAt: Date; sourceClaimIds: string[]; sourceChunkIds: string[] }): DeveloperTimelineItem {
+function mapWikiRow(row: {
+  id: string;
+  notebookId: string;
+  pageType: string;
+  pageKey: string;
+  title: string;
+  status: string;
+  version: number;
+  updatedAt: Date;
+  sourceClaimIds: string[];
+  sourceChunkIds: string[];
+}): DeveloperTimelineItem {
   return {
     id: `wiki:${row.id}`,
     kind: "wiki_change",
@@ -609,11 +706,26 @@ function mapWikiRow(row: { id: string; notebookId: string; pageType: string; pag
     timestamp: row.updatedAt.toISOString(),
     notebookId: row.notebookId,
     nodeRefs: [{ refType: "wiki_page", refId: row.id }],
-    payload: { pageKey: row.pageKey, status: row.status, sourceClaimIds: row.sourceClaimIds, sourceChunkIds: row.sourceChunkIds },
+    payload: {
+      pageKey: row.pageKey,
+      status: row.status,
+      sourceClaimIds: row.sourceClaimIds,
+      sourceChunkIds: row.sourceChunkIds,
+    },
   };
 }
 
-function mapArtifactRow(row: { id: string; notebookId: string; artifactType: string; title: string; status: string; updatedAt: Date; sourceNodeRefsJson: unknown[]; sourceClaimIds: string[]; sourceChunkIds: string[] }): DeveloperTimelineItem {
+function mapArtifactRow(row: {
+  id: string;
+  notebookId: string;
+  artifactType: string;
+  title: string;
+  status: string;
+  updatedAt: Date;
+  sourceNodeRefsJson: unknown[];
+  sourceClaimIds: string[];
+  sourceChunkIds: string[];
+}): DeveloperTimelineItem {
   return {
     id: `artifact:${row.id}`,
     kind: "artifact_change",
@@ -624,11 +736,25 @@ function mapArtifactRow(row: { id: string; notebookId: string; artifactType: str
     artifactId: row.id,
     status: row.status,
     nodeRefs: nodeRefsFromPayload({ sourceNodeRefs: row.sourceNodeRefsJson }),
-    payload: { artifactType: row.artifactType, sourceClaimIds: row.sourceClaimIds, sourceChunkIds: row.sourceChunkIds },
+    payload: {
+      artifactType: row.artifactType,
+      sourceClaimIds: row.sourceClaimIds,
+      sourceChunkIds: row.sourceChunkIds,
+    },
   };
 }
 
-function mapClaimRow(row: { id: string; notebookId: string; claimType: string; claimText: string; status: string; confidence: number; updatedAt: Date; sourceClaimIds?: string[]; sourceChunkIds?: string[] }): DeveloperTimelineItem {
+function mapClaimRow(row: {
+  id: string;
+  notebookId: string;
+  claimType: string;
+  claimText: string;
+  status: string;
+  confidence: number;
+  updatedAt: Date;
+  sourceClaimIds?: string[];
+  sourceChunkIds?: string[];
+}): DeveloperTimelineItem {
   return {
     id: `claim:${row.id}`,
     kind: "wiki_change",
@@ -639,11 +765,23 @@ function mapClaimRow(row: { id: string; notebookId: string; claimType: string; c
     claimId: row.id,
     status: row.status,
     nodeRefs: [{ refType: "claim", refId: row.id }],
-    payload: { confidence: row.confidence, sourceClaimIds: row.sourceClaimIds ?? [], sourceChunkIds: row.sourceChunkIds ?? [] },
+    payload: {
+      confidence: row.confidence,
+      sourceClaimIds: row.sourceClaimIds ?? [],
+      sourceChunkIds: row.sourceChunkIds ?? [],
+    },
   };
 }
 
-function mapSourceRow(row: { id: string; notebookId: string; title: string; sourceType: string; status: string; updatedAt: Date; metadataJson: Record<string, unknown> }): DeveloperTimelineItem {
+function mapSourceRow(row: {
+  id: string;
+  notebookId: string;
+  title: string;
+  sourceType: string;
+  status: string;
+  updatedAt: Date;
+  metadataJson: Record<string, unknown>;
+}): DeveloperTimelineItem {
   return {
     id: `source:${row.id}`,
     kind: "ingestion_job",
@@ -658,12 +796,26 @@ function mapSourceRow(row: { id: string; notebookId: string; title: string; sour
   };
 }
 
-function mapTurnRow(row: { id: string; notebookId: string; sessionId: string; turnIndex: number; selectedNodeRefsJson: unknown[]; userMessage: string | null; assistantMessage: string | null; createdAt: Date }): DeveloperTimelineItem {
+function mapTurnRow(row: {
+  id: string;
+  notebookId: string;
+  sessionId: string;
+  turnIndex: number;
+  selectedNodeRefsJson: unknown[];
+  userMessage: string | null;
+  assistantMessage: string | null;
+  createdAt: Date;
+}): DeveloperTimelineItem {
   return {
     id: `turn:${row.id}`,
     kind: "event",
     title: `Tutor turn #${row.turnIndex}`,
-    summary: [row.userMessage ?? undefined, row.assistantMessage ? `assistant: ${row.assistantMessage.slice(0, 140)}` : undefined].filter(Boolean).join(" · "),
+    summary: [
+      row.userMessage ?? undefined,
+      row.assistantMessage ? `assistant: ${row.assistantMessage.slice(0, 140)}` : undefined,
+    ]
+      .filter(Boolean)
+      .join(" · "),
     timestamp: row.createdAt.toISOString(),
     notebookId: row.notebookId,
     sessionId: row.sessionId,
@@ -672,31 +824,39 @@ function mapTurnRow(row: { id: string; notebookId: string; sessionId: string; tu
   };
 }
 
-function summarizeLearningEventSummary(eventType: string, payload: Record<string, unknown>): string {
+function summarizeLearningEventSummary(
+  eventType: string,
+  payload: Record<string, unknown>,
+): string {
   if (eventType.startsWith("generation.")) {
     const safeMessage = typeof payload.safeMessage === "string" ? payload.safeMessage : null;
     const readiness = typeof payload.readiness === "string" ? payload.readiness : null;
     const mode = typeof payload.generationMode === "string" ? payload.generationMode : null;
     const pageKey = typeof payload.pageKey === "string" ? payload.pageKey : null;
     const qualityCount = Array.isArray(payload.qualityIssues) ? payload.qualityIssues.length : null;
-    return [
-      safeMessage,
-      readiness ? `readiness ${readiness}` : undefined,
-      mode ? `mode ${mode}` : undefined,
-      pageKey ? `page ${pageKey}` : undefined,
-      qualityCount != null && qualityCount > 0 ? `${qualityCount} quality issue(s)` : undefined,
-    ]
-      .filter(Boolean)
-      .join(" · ") || summarizePayload(payload);
+    return (
+      [
+        safeMessage,
+        readiness ? `readiness ${readiness}` : undefined,
+        mode ? `mode ${mode}` : undefined,
+        pageKey ? `page ${pageKey}` : undefined,
+        qualityCount != null && qualityCount > 0 ? `${qualityCount} quality issue(s)` : undefined,
+      ]
+        .filter(Boolean)
+        .join(" · ") || summarizePayload(payload)
+    );
   }
   if (eventType === "learning.mastery.updated") {
-    const masteryScore = typeof payload.masteryScore === "number" ? payload.masteryScore.toFixed(2) : "?";
+    const masteryScore =
+      typeof payload.masteryScore === "number" ? payload.masteryScore.toFixed(2) : "?";
     const confidence = typeof payload.confidence === "number" ? payload.confidence.toFixed(2) : "?";
-    const evidenceId = typeof payload.masteryEvidenceId === "string" ? payload.masteryEvidenceId : "unknown";
+    const evidenceId =
+      typeof payload.masteryEvidenceId === "string" ? payload.masteryEvidenceId : "unknown";
     return `reducer applied · mastery ${masteryScore} · confidence ${confidence} · evidence ${evidenceId}`;
   }
   if (eventType === "session_plan.updated" && payload.adaptiveRegeneration) {
-    const evidenceId = typeof payload.masteryEvidenceId === "string" ? payload.masteryEvidenceId : null;
+    const evidenceId =
+      typeof payload.masteryEvidenceId === "string" ? payload.masteryEvidenceId : null;
     return evidenceId ? `adaptive plan from evidence ${evidenceId}` : "adaptive plan regeneration";
   }
   if (eventType === "agent.thinking.completed" || eventType === "agent.narration.completed") {
@@ -709,7 +869,8 @@ function summarizePayload(payload: Record<string, unknown>): string {
   const parts: string[] = [];
   if (typeof payload.safeMessage === "string") parts.push(payload.safeMessage);
   if (typeof payload.model === "string") parts.push(`model ${payload.model}`);
-  if (typeof payload.promptTemplateVersion === "string") parts.push(`prompt ${payload.promptTemplateVersion}`);
+  if (typeof payload.promptTemplateVersion === "string")
+    parts.push(`prompt ${payload.promptTemplateVersion}`);
   const usage = normalizeTraceUsage(payload.usage as never);
   if (usage) parts.push(formatTraceUsage(usage));
   if (typeof payload.message === "string") parts.push(payload.message);
@@ -720,7 +881,9 @@ function summarizePayload(payload: Record<string, unknown>): string {
   return parts.join(" · ");
 }
 
-function nodeRefsFromPayload(...payloads: Array<Record<string, unknown> | undefined>): TimelineNodeRef[] {
+function nodeRefsFromPayload(
+  ...payloads: Array<Record<string, unknown> | undefined>
+): TimelineNodeRef[] {
   const refs: TimelineNodeRef[] = [];
   const allowedRefTypes = new Set<TimelineNodeRef["refType"]>([
     "tool_call",
@@ -753,7 +916,11 @@ function nodeRefsFromPayload(...payloads: Array<Record<string, unknown> | undefi
       if (!ref || typeof ref !== "object") continue;
       const refType = (ref as { refType?: unknown }).refType;
       const refId = (ref as { refId?: unknown }).refId;
-      if (typeof refType === "string" && typeof refId === "string" && allowedRefTypes.has(refType as TimelineNodeRef["refType"])) {
+      if (
+        typeof refType === "string" &&
+        typeof refId === "string" &&
+        allowedRefTypes.has(refType as TimelineNodeRef["refType"])
+      ) {
         refs.push({ refType: refType as TimelineNodeRef["refType"], refId });
       }
     }
@@ -774,10 +941,12 @@ function dedupeRefs(refs: TimelineNodeRef[]): TimelineNodeRef[] {
 }
 
 function classifyEventKind(eventType: string): DeveloperTimelineItem["kind"] {
-  if (eventType.startsWith("mastery.") || eventType.startsWith("learning.mastery_evidence")) return "mastery_evaluator";
+  if (eventType.startsWith("mastery.") || eventType.startsWith("learning.mastery_evidence"))
+    return "mastery_evaluator";
   if (eventType.startsWith("agent.run") || eventType.startsWith("tutor.")) return "agent_run";
   if (eventType.startsWith("agent.tool")) return "tool_call";
-  if (eventType.startsWith("source.") || eventType.startsWith("ingestion.job.")) return "ingestion_job";
+  if (eventType.startsWith("source.") || eventType.startsWith("ingestion.job."))
+    return "ingestion_job";
   if (eventType.startsWith("wiki.")) return "wiki_change";
   if (eventType.startsWith("generation.")) return "wiki_change";
   if (eventType.startsWith("artifact.")) return "artifact_change";

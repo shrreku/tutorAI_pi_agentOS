@@ -66,7 +66,9 @@ describe("buildStudyAgentHostStateSignature", () => {
       currentObjective: "Objective A",
       sourceScopePolicy: "soft_source_scope" as const,
     };
-    expect(buildStudyAgentHostStateSignature(context)).toBe(buildStudyAgentHostStateSignature(context));
+    expect(buildStudyAgentHostStateSignature(context)).toBe(
+      buildStudyAgentHostStateSignature(context),
+    );
   });
 
   it("includes tool catalog identity in the signature", () => {
@@ -75,15 +77,23 @@ describe("buildStudyAgentHostStateSignature", () => {
   });
 
   it("changes when prompt template version changes", () => {
-    const first = buildStudyAgentHostStateSignature(baseContext, { promptTemplateVersion: "studyagent-tutor-v1" });
-    const second = buildStudyAgentHostStateSignature(baseContext, { promptTemplateVersion: "studyagent-tutor-v2" });
+    const first = buildStudyAgentHostStateSignature(baseContext, {
+      promptTemplateVersion: "studyagent-tutor-v1",
+    });
+    const second = buildStudyAgentHostStateSignature(baseContext, {
+      promptTemplateVersion: "studyagent-tutor-v2",
+    });
 
     expect(first).not.toBe(second);
   });
 
   it("changes when tool contract catalog fingerprint changes", () => {
-    const first = buildStudyAgentHostStateSignature(baseContext, { toolContractCatalogFingerprint: "catalog-a" });
-    const second = buildStudyAgentHostStateSignature(baseContext, { toolContractCatalogFingerprint: "catalog-b" });
+    const first = buildStudyAgentHostStateSignature(baseContext, {
+      toolContractCatalogFingerprint: "catalog-a",
+    });
+    const second = buildStudyAgentHostStateSignature(baseContext, {
+      toolContractCatalogFingerprint: "catalog-b",
+    });
 
     expect(first).not.toBe(second);
   });

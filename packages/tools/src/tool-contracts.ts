@@ -1,5 +1,10 @@
 import type { NodeRef, ReducerResult, SideEffectClass, ToolContext } from "@studyagent/schemas";
-import { nodeRefSchema, reducerResultSchema, wikiSearchResponsePayloadSchema, wikiSearchResultRowSchema } from "@studyagent/schemas";
+import {
+  nodeRefSchema,
+  reducerResultSchema,
+  wikiSearchResponsePayloadSchema,
+  wikiSearchResultRowSchema,
+} from "@studyagent/schemas";
 import { z } from "zod";
 import {
   WRITE_TOOL_CONTRACTS,
@@ -96,7 +101,10 @@ export class ToolReducerValidationError extends ToolError {
 
 export class ToolContextIdentityError extends ToolError {
   constructor(toolName: string) {
-    super("tool_context_identity_missing", `Write tool ${toolName} requires session, run, and turn identity`);
+    super(
+      "tool_context_identity_missing",
+      `Write tool ${toolName} requires session, run, and turn identity`,
+    );
     this.name = "ToolContextIdentityError";
   }
 }
@@ -155,9 +163,11 @@ function canonicalizeSourceSpanInput(value: unknown): unknown {
   if (sourceNodeRef && typeof sourceNodeRef === "object" && !Array.isArray(sourceNodeRef)) {
     const ref = sourceNodeRef as Record<string, unknown>;
     if (typeof ref.chunkId === "string" && !input.chunkId) input.chunkId = ref.chunkId;
-    if (typeof ref.refId === "string" && !input.chunkId && !input.sourceId) input[ref.refType === "source" ? "sourceId" : "chunkId"] = ref.refId;
+    if (typeof ref.refId === "string" && !input.chunkId && !input.sourceId)
+      input[ref.refType === "source" ? "sourceId" : "chunkId"] = ref.refId;
     if (typeof ref.sourceId === "string" && !input.sourceId) input.sourceId = ref.sourceId;
-    if (typeof ref.sourceVersionId === "string" && !input.sourceVersionId) input.sourceVersionId = ref.sourceVersionId;
+    if (typeof ref.sourceVersionId === "string" && !input.sourceVersionId)
+      input.sourceVersionId = ref.sourceVersionId;
   }
 
   // Handle flat string aliases: ref, refId, chunkRef, id
@@ -184,7 +194,10 @@ function canonicalizeLearningStateInput(value: unknown): unknown {
     input.conceptIds = input.requestedConceptIds;
   }
   // Also handle snake_case alias that may come from Pi after normalizeToolInputAliases has already run
-  if (!Array.isArray(input.conceptIds) && Array.isArray((input as Record<string, unknown>).concept_ids)) {
+  if (
+    !Array.isArray(input.conceptIds) &&
+    Array.isArray((input as Record<string, unknown>).concept_ids)
+  ) {
     input.conceptIds = (input as Record<string, unknown>).concept_ids;
   }
   return input;
@@ -299,15 +312,18 @@ const wikiGetPageOutputSchema = z.object({
     .nullable(),
 });
 
-const sourceGetSpanInputSchema = z.preprocess(canonicalizeSourceSpanInput, z.object({
-  chunkId: z.string().min(1).optional(),
-  sourceId: z.string().min(1).optional(),
-  sourceVersionId: z.string().min(1).optional(),
-  pageStart: positiveIntSchema.optional(),
-  pageEnd: positiveIntSchema.optional(),
-  charStart: nonNegativeIntSchema.optional(),
-  charEnd: nonNegativeIntSchema.optional(),
-}));
+const sourceGetSpanInputSchema = z.preprocess(
+  canonicalizeSourceSpanInput,
+  z.object({
+    chunkId: z.string().min(1).optional(),
+    sourceId: z.string().min(1).optional(),
+    sourceVersionId: z.string().min(1).optional(),
+    pageStart: positiveIntSchema.optional(),
+    pageEnd: positiveIntSchema.optional(),
+    charStart: nonNegativeIntSchema.optional(),
+    charEnd: nonNegativeIntSchema.optional(),
+  }),
+);
 
 const sourceGetSpanOutputSchema = z.object({
   text: z.string().default(""),
@@ -542,10 +558,13 @@ const studyPlanGetCurrentOutputSchema = z.object({
   boundarySignals: z.array(boundarySignalSchema).default([]),
 });
 
-const learningGetStateInputSchema = z.preprocess(canonicalizeLearningStateInput, z.object({
-  conceptIds: z.array(z.string().min(1)).default([]),
-  userId: z.string().min(1).optional(),
-}));
+const learningGetStateInputSchema = z.preprocess(
+  canonicalizeLearningStateInput,
+  z.object({
+    conceptIds: z.array(z.string().min(1)).default([]),
+    userId: z.string().min(1).optional(),
+  }),
+);
 
 const learningGetStateOutputSchema = z.object({
   conceptStates: z.array(
@@ -573,23 +592,50 @@ export type StudyPlanGetCurrentToolOutput = z.infer<typeof studyPlanGetCurrentOu
 export type LearningGetStateToolOutput = z.infer<typeof learningGetStateOutputSchema>;
 
 export type RuntimeReadToolProvider = {
-  notebookGetContext(input: z.infer<typeof notebookGetContextInputSchema>, ctx: ToolContext): Promise<NotebookContextToolOutput>;
-  wikiSearch(input: z.infer<typeof wikiSearchInputSchema>, ctx: ToolContext): Promise<WikiSearchToolOutput>;
-  wikiGetPage(input: z.infer<typeof wikiGetPageInputSchema>, ctx: ToolContext): Promise<WikiGetPageToolOutput>;
-  sourceGetSpan(input: z.infer<typeof sourceGetSpanInputSchema>, ctx: ToolContext): Promise<SourceGetSpanToolOutput>;
-  graphGetSubgraph(input: z.infer<typeof graphGetSubgraphInputSchema>, ctx: ToolContext): Promise<GraphPayloadToolOutput>;
-  graphGetStudyMap(input: z.infer<typeof graphGetStudyMapInputSchema>, ctx: ToolContext): Promise<GraphPayloadToolOutput>;
+  notebookGetContext(
+    input: z.infer<typeof notebookGetContextInputSchema>,
+    ctx: ToolContext,
+  ): Promise<NotebookContextToolOutput>;
+  wikiSearch(
+    input: z.infer<typeof wikiSearchInputSchema>,
+    ctx: ToolContext,
+  ): Promise<WikiSearchToolOutput>;
+  wikiGetPage(
+    input: z.infer<typeof wikiGetPageInputSchema>,
+    ctx: ToolContext,
+  ): Promise<WikiGetPageToolOutput>;
+  sourceGetSpan(
+    input: z.infer<typeof sourceGetSpanInputSchema>,
+    ctx: ToolContext,
+  ): Promise<SourceGetSpanToolOutput>;
+  graphGetSubgraph(
+    input: z.infer<typeof graphGetSubgraphInputSchema>,
+    ctx: ToolContext,
+  ): Promise<GraphPayloadToolOutput>;
+  graphGetStudyMap(
+    input: z.infer<typeof graphGetStudyMapInputSchema>,
+    ctx: ToolContext,
+  ): Promise<GraphPayloadToolOutput>;
   graphGetSourceWikiMap(
     input: z.infer<typeof graphGetSourceWikiMapInputSchema>,
     ctx: ToolContext,
   ): Promise<GraphPayloadToolOutput>;
-  curriculumGet(input: z.infer<typeof curriculumGetInputSchema>, ctx: ToolContext): Promise<CurriculumGetToolOutput>;
-  studentProfileGet(input: z.infer<typeof studentProfileGetInputSchema>, ctx: ToolContext): Promise<StudentProfileGetToolOutput>;
+  curriculumGet(
+    input: z.infer<typeof curriculumGetInputSchema>,
+    ctx: ToolContext,
+  ): Promise<CurriculumGetToolOutput>;
+  studentProfileGet(
+    input: z.infer<typeof studentProfileGetInputSchema>,
+    ctx: ToolContext,
+  ): Promise<StudentProfileGetToolOutput>;
   studyPlanGetCurrent(
     input: z.infer<typeof studyPlanGetCurrentInputSchema>,
     ctx: ToolContext,
   ): Promise<StudyPlanGetCurrentToolOutput>;
-  learningGetState(input: z.infer<typeof learningGetStateInputSchema>, ctx: ToolContext): Promise<LearningGetStateToolOutput>;
+  learningGetState(
+    input: z.infer<typeof learningGetStateInputSchema>,
+    ctx: ToolContext,
+  ): Promise<LearningGetStateToolOutput>;
 };
 
 export const READ_TOOL_CONTRACTS = [
@@ -631,7 +677,8 @@ export const READ_TOOL_CONTRACTS = [
   },
   {
     name: "source.get_span",
-    description: "Reads source text span and citation metadata from a source/chunk reference. Pass chunkId (chk_... prefix) to look up by chunk, or sourceId (src_... prefix) optionally with pageStart/pageEnd to look up by page range.",
+    description:
+      "Reads source text span and citation metadata from a source/chunk reference. Pass chunkId (chk_... prefix) to look up by chunk, or sourceId (src_... prefix) optionally with pageStart/pageEnd to look up by page range.",
     inputSchema: sourceGetSpanInputSchema,
     outputSchema: sourceGetSpanOutputSchema,
     sideEffectClass: "read_only",
@@ -715,7 +762,8 @@ export const READ_TOOL_CONTRACTS = [
   },
   {
     name: "learning.get_state",
-    description: "Returns mastery and weak-concept signals for requested concepts. Pass conceptIds as an array of concept ID strings (e.g. [\"con_abc\", \"con_xyz\"]). Leave empty to return all tracked concepts.",
+    description:
+      'Returns mastery and weak-concept signals for requested concepts. Pass conceptIds as an array of concept ID strings (e.g. ["con_abc", "con_xyz"]). Leave empty to return all tracked concepts.',
     inputSchema: learningGetStateInputSchema,
     outputSchema: learningGetStateOutputSchema,
     sideEffectClass: "read_only",
@@ -732,12 +780,17 @@ export const TOOL_CONTRACT_CATALOG = [
   ...WRITE_TOOL_CONTRACTS,
 ] as const satisfies readonly ToolContract[];
 
-export function getToolContract(toolName: string): (typeof TOOL_CONTRACT_CATALOG)[number] | undefined {
+export function getToolContract(
+  toolName: string,
+): (typeof TOOL_CONTRACT_CATALOG)[number] | undefined {
   return TOOL_CONTRACT_CATALOG.find((contract) => contract.name === toolName);
 }
 
 export function assertToolCatalogMatchesRegistry(registry: ToolRegistry): void {
-  const registered = registry.list().map((tool) => tool.name).sort();
+  const registered = registry
+    .list()
+    .map((tool) => tool.name)
+    .sort();
   const catalog = TOOL_CONTRACT_CATALOG.map((contract) => contract.name).sort();
 
   const catalogNames = catalog as string[];
@@ -784,14 +837,19 @@ function assertProviderMethod(
   }
 }
 
-export function validateToolReducerOutput(toolName: string, output: unknown): ReducerResult | undefined {
+export function validateToolReducerOutput(
+  toolName: string,
+  output: unknown,
+): ReducerResult | undefined {
   const contract = getToolContract(toolName);
   if (!contract?.reducerExpectation.required) {
     return undefined;
   }
 
   if (!output || typeof output !== "object") {
-    throw new ToolReducerValidationError(toolName, { message: "Write tool output must be an object" });
+    throw new ToolReducerValidationError(toolName, {
+      message: "Write tool output must be an object",
+    });
   }
 
   const reducerResult = (output as { reducerResult?: unknown }).reducerResult;
@@ -800,12 +858,13 @@ export function validateToolReducerOutput(toolName: string, output: unknown): Re
     throw new ToolReducerValidationError(toolName, parsed.error.flatten());
   }
 
-  const expectedMutationTypes = "mutationTypes" in contract.reducerExpectation
-    ? contract.reducerExpectation.mutationTypes
-    : undefined;
+  const expectedMutationTypes =
+    "mutationTypes" in contract.reducerExpectation
+      ? contract.reducerExpectation.mutationTypes
+      : undefined;
   if (
-    expectedMutationTypes?.length
-    && !(expectedMutationTypes as readonly string[]).includes(parsed.data.mutationType)
+    expectedMutationTypes?.length &&
+    !(expectedMutationTypes as readonly string[]).includes(parsed.data.mutationType)
   ) {
     throw new ToolReducerValidationError(toolName, {
       mutationType: `Expected one of: ${expectedMutationTypes.join(", ")}`,
@@ -816,7 +875,9 @@ export function validateToolReducerOutput(toolName: string, output: unknown): Re
   return parsed.data;
 }
 
-export function extractValidatedReducerResult(output: unknown): Record<string, unknown> | undefined {
+export function extractValidatedReducerResult(
+  output: unknown,
+): Record<string, unknown> | undefined {
   if (!output || typeof output !== "object") {
     return undefined;
   }
@@ -845,9 +906,15 @@ export function registerRuntimeToolsV1(
   registerWriteToolsV1(registry, provider.write);
 }
 
-export function registerReadToolsV1(registry: ToolRegistry, provider: RuntimeReadToolProvider): void {
+export function registerReadToolsV1(
+  registry: ToolRegistry,
+  provider: RuntimeReadToolProvider,
+): void {
   for (const contract of READ_TOOL_CONTRACTS) {
-    const execute = provider[contract.providerMethod] as (input: unknown, ctx: ToolContext) => Promise<unknown>;
+    const execute = provider[contract.providerMethod] as (
+      input: unknown,
+      ctx: ToolContext,
+    ) => Promise<unknown>;
     registry.register<unknown, unknown>({
       ...contract,
       execute,

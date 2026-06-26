@@ -16,7 +16,13 @@ describe("wiki change set compilation integration", () => {
       chunkIds: ["chk_1"],
       extraction: {
         concepts: [{ name: "Voltage" }],
-        claims: [{ claimText: "Voltage drives current.", conceptNames: ["Voltage"], evidenceChunkId: "chk_1" }],
+        claims: [
+          {
+            claimText: "Voltage drives current.",
+            conceptNames: ["Voltage"],
+            evidenceChunkId: "chk_1",
+          },
+        ],
         relations: [],
         sourceSummaryMarkdown: "## Summary",
       },
@@ -75,7 +81,9 @@ describe("rolling baseline heuristic pages", () => {
 
 describe("parseLlmJsonObject", () => {
   it("repairs common invalid markdown/math backslash escapes in LLM JSON", () => {
-    const parsed = parseLlmJsonObject('{"sourceSummaryMarkdown":"Use \\$q_x\\$ and \\k for conduction."}') as {
+    const parsed = parseLlmJsonObject(
+      '{"sourceSummaryMarkdown":"Use \\$q_x\\$ and \\k for conduction."}',
+    ) as {
       sourceSummaryMarkdown: string;
     };
 

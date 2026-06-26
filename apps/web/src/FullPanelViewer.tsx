@@ -1,7 +1,12 @@
 import React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import katex from "katex";
-import type { GraphCanvasNode, InteractiveLearningBlock, ReferenceBlock, ReferenceSurface } from "@studyagent/schemas";
+import type {
+  GraphCanvasNode,
+  InteractiveLearningBlock,
+  ReferenceBlock,
+  ReferenceSurface,
+} from "@studyagent/schemas";
 import { learnerFacingSurfaceStatus } from "@studyagent/schemas";
 import {
   actionsForReferenceSurface,
@@ -16,9 +21,16 @@ import {
 } from "./artifact-review.js";
 import { learnerSafeCopy } from "@studyagent/schemas";
 import { normalizeQuizQuestions, type QuizQuestion } from "./quiz-utils.js";
-import { quizAttemptsFromSurface, submitQuizAnswerAction } from "./interactive-learning/action-client.js";
+import {
+  quizAttemptsFromSurface,
+  submitQuizAnswerAction,
+} from "./interactive-learning/action-client.js";
 import { InteractiveBlockRenderer } from "./interactive-learning/interactive-block-renderer.js";
-import { createTestInteractiveBlock, parseInteractiveLearningBlock, toRenderableInteractiveBlock } from "./interactive-learning/mcp-app-types.js";
+import {
+  createTestInteractiveBlock,
+  parseInteractiveLearningBlock,
+  toRenderableInteractiveBlock,
+} from "./interactive-learning/mcp-app-types.js";
 import { useWorkspaceShell } from "./workspace-shell-context.js";
 
 const QUIZ_SELF_ASSESSMENT_LABELS = artifactQuizSelfAssessmentLabels();
@@ -53,17 +65,25 @@ export const FullPanelViewer: React.FC<FullPanelViewerProps> = ({
   const [regenInstruction, setRegenInstruction] = React.useState("");
   const [showRegenOptions, setShowRegenOptions] = React.useState(false);
   const [quizIndexBySurface, setQuizIndexBySurface] = React.useState<Record<string, number>>({});
-  const [quizAnswersBySurface, setQuizAnswersBySurface] = React.useState<Record<string, Record<string, QuizAttempt>>>({});
+  const [quizAnswersBySurface, setQuizAnswersBySurface] = React.useState<
+    Record<string, Record<string, QuizAttempt>>
+  >({});
   const [selectedQuizAnswers, setSelectedQuizAnswers] = React.useState<Record<string, string>>({});
   const sourceNodeId =
     node.nodeType === "weak_concept" && typeof node.properties.conceptId === "string"
       ? node.properties.conceptId
       : node.id;
 
-  const { data: referenceSurface, isLoading: isReferenceSurfaceLoading, isError: isReferenceSurfaceError } = useQuery({
+  const {
+    data: referenceSurface,
+    isLoading: isReferenceSurfaceLoading,
+    isError: isReferenceSurfaceError,
+  } = useQuery({
     queryKey: ["reference-surface", notebookId, sourceNodeId],
     queryFn: async (): Promise<ReferenceSurface> => {
-      const response = await fetch(`/api/v1/notebooks/${notebookId}/nodes/${sourceNodeId}/reference-surface`);
+      const response = await fetch(
+        `/api/v1/notebooks/${notebookId}/nodes/${sourceNodeId}/reference-surface`,
+      );
       if (!response.ok) {
         throw new Error(`Failed to load reference surface (${response.status})`);
       }
@@ -87,12 +107,14 @@ export const FullPanelViewer: React.FC<FullPanelViewerProps> = ({
       ? `/api/v1/notebooks/${encodeURIComponent(notebookId)}/sources/${encodeURIComponent(referenceSurface.nodeRef.refId)}/extracted`
       : null;
   const canRegenerate = referenceSurfaceSupportsRegeneration(referenceSurface);
-  const headerActions = referenceSurface ? actionsForReferenceSurface({
-    surface: referenceSurface,
-    canLaunchTutor: Boolean(onLaunchTutor),
-    canShowEvidence: Boolean(onShowProvenance),
-    canRegenerate,
-  }) : [];
+  const headerActions = referenceSurface
+    ? actionsForReferenceSurface({
+        surface: referenceSurface,
+        canLaunchTutor: Boolean(onLaunchTutor),
+        canShowEvidence: Boolean(onShowProvenance),
+        canRegenerate,
+      })
+    : [];
   const hasHeaderRegenerate = headerActions.some((action) => action.id === "regenerate");
   const savedQuizAttemptsByQuestion = React.useMemo(
     () => quizAttemptsFromSurface(referenceSurface),
@@ -100,14 +122,17 @@ export const FullPanelViewer: React.FC<FullPanelViewerProps> = ({
   );
   const regenerate = useMutation({
     mutationFn: async (instructionOverride?: string) => {
-      const response = await fetch(`/api/v1/notebooks/${encodeURIComponent(notebookId)}/nodes/${encodeURIComponent(sourceNodeId)}/regenerate-reference`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          target: referenceSurface?.surfaceType ?? node.nodeType,
-          instruction: instructionOverride?.trim() || regenInstruction.trim() || undefined,
-        }),
-      });
+      const response = await fetch(
+        `/api/v1/notebooks/${encodeURIComponent(notebookId)}/nodes/${encodeURIComponent(sourceNodeId)}/regenerate-reference`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            target: referenceSurface?.surfaceType ?? node.nodeType,
+            instruction: instructionOverride?.trim() || regenInstruction.trim() || undefined,
+          }),
+        },
+      );
       if (!response.ok) {
         throw new Error(`Failed to regenerate reference (${response.status})`);
       }
@@ -115,7 +140,9 @@ export const FullPanelViewer: React.FC<FullPanelViewerProps> = ({
     },
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["reference-surface", notebookId, sourceNodeId] }),
+        queryClient.invalidateQueries({
+          queryKey: ["reference-surface", notebookId, sourceNodeId],
+        }),
         queryClient.invalidateQueries({ queryKey: ["curriculum-outline", notebookId] }),
         queryClient.invalidateQueries({ queryKey: ["notebook-graph", notebookId] }),
       ]);
@@ -185,7 +212,9 @@ export const FullPanelViewer: React.FC<FullPanelViewerProps> = ({
         ...(tutorRuntime.runId ? { runId: tutorRuntime.runId } : {}),
       });
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["reference-surface", notebookId, sourceNodeId] }),
+        queryClient.invalidateQueries({
+          queryKey: ["reference-surface", notebookId, sourceNodeId],
+        }),
         queryClient.invalidateQueries({ queryKey: ["notebook-graph", notebookId] }),
       ]);
     } catch (error) {
@@ -193,35 +222,92 @@ export const FullPanelViewer: React.FC<FullPanelViewerProps> = ({
     }
   };
   const renderMarkdownBlock = (text: string) => <LearnerMarkdown text={text} />;
-  const renderList = (items: unknown, empty: string, variant: "default" | "quiz" | "flashcard" = "default") => {
-    if (!Array.isArray(items) || items.length === 0) return <div style={{ color: "#6b7280" }}>{empty}</div>;
+  const renderList = (
+    items: unknown,
+    empty: string,
+    variant: "default" | "quiz" | "flashcard" = "default",
+  ) => {
+    if (!Array.isArray(items) || items.length === 0)
+      return <div style={{ color: "#6b7280" }}>{empty}</div>;
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {items.map((item, index) => {
-          const record = typeof item === "object" && item !== null ? (item as Record<string, unknown>) : {};
-          const itemTitle = String(record.title ?? record.front ?? record.prompt ?? record.problem ?? record.term ?? item);
-          const body = record.body ?? record.back ?? record.answer ?? record.referenceAnswer ?? record.explanation ?? record.description;
-          const options = Array.isArray(record.options) ? record.options : Array.isArray(record.choices) ? record.choices : [];
+          const record =
+            typeof item === "object" && item !== null ? (item as Record<string, unknown>) : {};
+          const itemTitle = String(
+            record.title ?? record.front ?? record.prompt ?? record.problem ?? record.term ?? item,
+          );
+          const body =
+            record.body ??
+            record.back ??
+            record.answer ??
+            record.referenceAnswer ??
+            record.explanation ??
+            record.description;
+          const options = Array.isArray(record.options)
+            ? record.options
+            : Array.isArray(record.choices)
+              ? record.choices
+              : [];
           return (
-            <div key={`${itemTitle}-${index}`} style={{ border: "1px solid #e5e7eb", borderRadius: 8, padding: variant === "default" ? 10 : 14, background: "#fff" }}>
+            <div
+              key={`${itemTitle}-${index}`}
+              style={{
+                border: "1px solid #e5e7eb",
+                borderRadius: 8,
+                padding: variant === "default" ? 10 : 14,
+                background: "#fff",
+              }}
+            >
               <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
                 {variant !== "default" && (
-                  <div style={{ width: 26, height: 26, borderRadius: 999, background: variant === "quiz" ? "#eff6ff" : "#f0fdf4", color: variant === "quiz" ? "#1d4ed8" : "#15803d", display: "grid", placeItems: "center", flex: "0 0 auto", fontSize: 12, fontWeight: 800 }}>
+                  <div
+                    style={{
+                      width: 26,
+                      height: 26,
+                      borderRadius: 999,
+                      background: variant === "quiz" ? "#eff6ff" : "#f0fdf4",
+                      color: variant === "quiz" ? "#1d4ed8" : "#15803d",
+                      display: "grid",
+                      placeItems: "center",
+                      flex: "0 0 auto",
+                      fontSize: 12,
+                      fontWeight: 800,
+                    }}
+                  >
                     {index + 1}
                   </div>
                 )}
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ fontWeight: 750, color: "#111827" }}>{itemTitle}</div>
                   {options.length > 0 && (
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 6, marginTop: 8 }}>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+                        gap: 6,
+                        marginTop: 8,
+                      }}
+                    >
                       {options.map((option, optionIndex) => (
-                        <div key={optionIndex} style={{ border: "1px solid #e5e7eb", borderRadius: 6, padding: "6px 8px", color: "#374151", background: "#f9fafb" }}>
+                        <div
+                          key={optionIndex}
+                          style={{
+                            border: "1px solid #e5e7eb",
+                            borderRadius: 6,
+                            padding: "6px 8px",
+                            color: "#374151",
+                            background: "#f9fafb",
+                          }}
+                        >
                           {String(option)}
                         </div>
                       ))}
                     </div>
                   )}
-                  {body ? <div style={{ marginTop: 8, color: "#4b5563" }}>{String(body)}</div> : null}
+                  {body ? (
+                    <div style={{ marginTop: 8, color: "#4b5563" }}>{String(body)}</div>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -231,7 +317,9 @@ export const FullPanelViewer: React.FC<FullPanelViewerProps> = ({
     );
   };
   const invalidateInteractiveSurface = React.useCallback(() => {
-    void queryClient.invalidateQueries({ queryKey: ["reference-surface", notebookId, sourceNodeId] });
+    void queryClient.invalidateQueries({
+      queryKey: ["reference-surface", notebookId, sourceNodeId],
+    });
   }, [notebookId, queryClient, sourceNodeId]);
   const renderInteractiveBlock = (block: InteractiveLearningBlock, surface: ReferenceSurface) => (
     <InteractiveBlockRenderer
@@ -266,7 +354,11 @@ export const FullPanelViewer: React.FC<FullPanelViewerProps> = ({
       return renderMarkdownBlock(block.content);
     }
     if (block.kind === "summary" || block.kind === "definition") {
-      if (typeof block.content === "string" || typeof block.content === "number" || typeof block.content === "boolean") {
+      if (
+        typeof block.content === "string" ||
+        typeof block.content === "number" ||
+        typeof block.content === "boolean"
+      ) {
         return <div style={{ whiteSpace: "pre-wrap" }}>{String(block.content)}</div>;
       }
       return <StructuredValue value={block.content} />;
@@ -290,9 +382,18 @@ export const FullPanelViewer: React.FC<FullPanelViewerProps> = ({
           }}
           selectedAnswers={selectedQuizAnswers}
           isExtending={regenerate.isPending}
-          onSelectAnswer={(questionId, answer) => setSelectedQuizAnswers((current) => ({ ...current, [questionId]: answer }))}
-          onSubmit={(question, answer) => void submitQuizAttempt(referenceSurface?.id ?? sourceNodeId, question, answer)}
-          onMove={(index) => setQuizIndexBySurface((current) => ({ ...current, [referenceSurface?.id ?? sourceNodeId]: index }))}
+          onSelectAnswer={(questionId, answer) =>
+            setSelectedQuizAnswers((current) => ({ ...current, [questionId]: answer }))
+          }
+          onSubmit={(question, answer) =>
+            void submitQuizAttempt(referenceSurface?.id ?? sourceNodeId, question, answer)
+          }
+          onMove={(index) =>
+            setQuizIndexBySurface((current) => ({
+              ...current,
+              [referenceSurface?.id ?? sourceNodeId]: index,
+            }))
+          }
           onExtend={() => extendQuiz(referenceSurface?.title ?? title)}
           {...(onLaunchTutor ? { onLaunchTutor: () => onLaunchTutor(node) } : {})}
         />
@@ -306,7 +407,16 @@ export const FullPanelViewer: React.FC<FullPanelViewerProps> = ({
             <button
               type="button"
               onClick={() => onLaunchTutor(node)}
-              style={{ alignSelf: "flex-start", padding: "6px 10px", border: "1px solid #2563eb", background: "#eff6ff", color: "#1d4ed8", borderRadius: 6, fontWeight: 700, cursor: "pointer" }}
+              style={{
+                alignSelf: "flex-start",
+                padding: "6px 10px",
+                border: "1px solid #2563eb",
+                background: "#eff6ff",
+                color: "#1d4ed8",
+                borderRadius: 6,
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
             >
               Review in tutor chat
             </button>
@@ -333,93 +443,141 @@ export const FullPanelViewer: React.FC<FullPanelViewerProps> = ({
             </div>
           ) : null}
           <div style={{ flex: 1, minHeight: 0 }}>
-            <SourceDocumentViewer notebookId={notebookId} sourceId={surface.nodeRef.refId} title={surface.title} />
+            <SourceDocumentViewer
+              notebookId={notebookId}
+              sourceId={surface.nodeRef.refId}
+              title={surface.title}
+            />
           </div>
         </div>
       );
     }
     return (
-    <div style={{ maxWidth: 920, margin: "0 auto", color: "#111827", lineHeight: 1.55, fontSize: 14 }}>
-      <main style={{ minWidth: 0 }}>
-        <div style={{ marginBottom: 12, paddingBottom: 10, borderBottom: "1px solid #e5e7eb" }}>
-          <div style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-            <div style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 0 }}>
-              <span style={{ borderRadius: 999, background: surface.surfaceType === "artifact" ? "#fff7ed" : "#eff6ff", color: surface.surfaceType === "artifact" ? "#9a3412" : "#1d4ed8", padding: "2px 8px", fontSize: 11, fontWeight: 800, textTransform: "capitalize", flex: "0 0 auto" }}>
-                {learnerSafeCopy(surface.surfaceType.replace(/_/g, " "))}
-              </span>
-              {devMode && surface.generation && <GenerationBadge generation={surface.generation} />}
-              <div style={{ fontSize: 22, fontWeight: 850, letterSpacing: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{surface.title}</div>
-            </div>
-            {(() => {
-              const label = learnerFacingSurfaceStatus({
-                surfaceType: surface.surfaceType,
-                status: surface.status,
-                quality: surface.quality,
-              });
-              return label ? (
+      <div
+        style={{
+          maxWidth: 920,
+          margin: "0 auto",
+          color: "#111827",
+          lineHeight: 1.55,
+          fontSize: 14,
+        }}
+      >
+        <main style={{ minWidth: 0 }}>
+          <div style={{ marginBottom: 12, paddingBottom: 10, borderBottom: "1px solid #e5e7eb" }}>
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 8,
+              }}
+            >
+              <div style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 0 }}>
                 <span
                   style={{
                     borderRadius: 999,
-                    background: "#eef2ff",
-                    color: "#4338ca",
-                    border: "1px solid #c7d2fe",
+                    background: surface.surfaceType === "artifact" ? "#fff7ed" : "#eff6ff",
+                    color: surface.surfaceType === "artifact" ? "#9a3412" : "#1d4ed8",
                     padding: "2px 8px",
                     fontSize: 11,
-                    fontWeight: 750,
+                    fontWeight: 800,
+                    textTransform: "capitalize",
                     flex: "0 0 auto",
                   }}
                 >
-                  {label}
+                  {learnerSafeCopy(surface.surfaceType.replace(/_/g, " "))}
                 </span>
-              ) : null;
-            })()}
-          </div>
-          {canRegenerate && regeneratePrompt && (showRegenOptions || !hasHeaderRegenerate) && (
-            <RegenerateControls
-              isPending={regenerate.isPending}
-              instruction={regenInstruction}
-              showOptions={showRegenOptions || !hasHeaderRegenerate}
-              showPrimaryButton={!hasHeaderRegenerate}
-              onInstructionChange={setRegenInstruction}
-              onToggleOptions={() => setShowRegenOptions((value) => !value)}
-              onRegenerate={requestRegeneration}
-              errorMessage={regenerate.error instanceof Error ? regenerate.error.message : null}
-            />
-          )}
-        </div>
-        {surface.summary && !isQuizArtifactSurface(surface) && <ReferenceSection title="Summary">{surface.summary}</ReferenceSection>}
-        {(surface.interactiveBlocks ?? []).map((block) => (
-          <ReferenceSection key={block.id} title={block.title}>
-            {renderInteractiveBlock(block, surface)}
-          </ReferenceSection>
-        ))}
-        {devMode && (
-          <ReferenceSection title="Interactive learning diagnostics">
-            {renderInteractiveBlock(
-              createTestInteractiveBlock({
-                id: `interactive_dev_trace_${surface.id}`,
-                kind: "dev_trace_dashboard",
-                title: "Bridge diagnostics",
-                learningPurpose: "Inspect MCP app bridge lifecycle and action outcomes.",
-                content: { surfaceId: surface.id, nodeRef: surface.nodeRef },
-              }),
-              surface,
+                {devMode && surface.generation && (
+                  <GenerationBadge generation={surface.generation} />
+                )}
+                <div
+                  style={{
+                    fontSize: 22,
+                    fontWeight: 850,
+                    letterSpacing: 0,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {surface.title}
+                </div>
+              </div>
+              {(() => {
+                const label = learnerFacingSurfaceStatus({
+                  surfaceType: surface.surfaceType,
+                  status: surface.status,
+                  quality: surface.quality,
+                });
+                return label ? (
+                  <span
+                    style={{
+                      borderRadius: 999,
+                      background: "#eef2ff",
+                      color: "#4338ca",
+                      border: "1px solid #c7d2fe",
+                      padding: "2px 8px",
+                      fontSize: 11,
+                      fontWeight: 750,
+                      flex: "0 0 auto",
+                    }}
+                  >
+                    {label}
+                  </span>
+                ) : null;
+              })()}
+            </div>
+            {canRegenerate && regeneratePrompt && (showRegenOptions || !hasHeaderRegenerate) && (
+              <RegenerateControls
+                isPending={regenerate.isPending}
+                instruction={regenInstruction}
+                showOptions={showRegenOptions || !hasHeaderRegenerate}
+                showPrimaryButton={!hasHeaderRegenerate}
+                onInstructionChange={setRegenInstruction}
+                onToggleOptions={() => setShowRegenOptions((value) => !value)}
+                onRegenerate={requestRegeneration}
+                errorMessage={regenerate.error instanceof Error ? regenerate.error.message : null}
+              />
             )}
-          </ReferenceSection>
-        )}
-        {visibleReferenceBlocks(surface).length > 0 ? (
-          visibleReferenceBlocks(surface).map((block) => (
-            <ReferenceSection key={block.id} title={block.title ?? block.kind.replace(/_/g, " ")}>
-              {renderBlock(block, surface)}
+          </div>
+          {surface.summary && !isQuizArtifactSurface(surface) && (
+            <ReferenceSection title="Summary">{surface.summary}</ReferenceSection>
+          )}
+          {(surface.interactiveBlocks ?? []).map((block) => (
+            <ReferenceSection key={block.id} title={block.title}>
+              {renderInteractiveBlock(block, surface)}
             </ReferenceSection>
-          ))
-        ) : (surface.interactiveBlocks ?? []).length === 0 ? (
-          <ReferenceSection title="Reference">
-            <div style={{ color: "#6b7280" }}>No durable reference content has been generated for this node yet.</div>
-          </ReferenceSection>
-        ) : null}
-      </main>
-    </div>
+          ))}
+          {devMode && (
+            <ReferenceSection title="Interactive learning diagnostics">
+              {renderInteractiveBlock(
+                createTestInteractiveBlock({
+                  id: `interactive_dev_trace_${surface.id}`,
+                  kind: "dev_trace_dashboard",
+                  title: "Bridge diagnostics",
+                  learningPurpose: "Inspect MCP app bridge lifecycle and action outcomes.",
+                  content: { surfaceId: surface.id, nodeRef: surface.nodeRef },
+                }),
+                surface,
+              )}
+            </ReferenceSection>
+          )}
+          {visibleReferenceBlocks(surface).length > 0 ? (
+            visibleReferenceBlocks(surface).map((block) => (
+              <ReferenceSection key={block.id} title={block.title ?? block.kind.replace(/_/g, " ")}>
+                {renderBlock(block, surface)}
+              </ReferenceSection>
+            ))
+          ) : (surface.interactiveBlocks ?? []).length === 0 ? (
+            <ReferenceSection title="Reference">
+              <div style={{ color: "#6b7280" }}>
+                No durable reference content has been generated for this node yet.
+              </div>
+            </ReferenceSection>
+          ) : null}
+        </main>
+      </div>
     );
   };
   return (
@@ -455,15 +613,39 @@ export const FullPanelViewer: React.FC<FullPanelViewerProps> = ({
           >
             ← Back
           </button>
-          <span style={{ fontSize: 12, fontWeight: 750, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <span
+            style={{
+              fontSize: 12,
+              fontWeight: 750,
+              color: "#111827",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
             {title}
           </span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6, flex: "0 0 auto" }}>
           {sourceExtractedUrl && (
-              <a href={sourceExtractedUrl} target="_blank" rel="noreferrer" style={{ padding: "3px 8px", color: "#374151", border: "1px solid #d1d5db", background: "#f3f4f6", borderRadius: 5, fontSize: 11, fontWeight: 800, lineHeight: 1.4, textDecoration: "none" }}>
-                Extracted text
-              </a>
+            <a
+              href={sourceExtractedUrl}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                padding: "3px 8px",
+                color: "#374151",
+                border: "1px solid #d1d5db",
+                background: "#f3f4f6",
+                borderRadius: 5,
+                fontSize: 11,
+                fontWeight: 800,
+                lineHeight: 1.4,
+                textDecoration: "none",
+              }}
+            >
+              Extracted text
+            </a>
           )}
           {actionsForReferenceSurface({
             surface: referenceSurface,
@@ -477,8 +659,18 @@ export const FullPanelViewer: React.FC<FullPanelViewerProps> = ({
               onClick={() => executeReferenceAction(action.id)}
               style={{
                 padding: "3px 8px",
-                background: action.tone === "primary" ? "#2563eb" : action.id === "regenerate" ? "#eff6ff" : "#f3f4f6",
-                color: action.tone === "primary" ? "#fff" : action.id === "regenerate" ? "#1d4ed8" : "#374151",
+                background:
+                  action.tone === "primary"
+                    ? "#2563eb"
+                    : action.id === "regenerate"
+                      ? "#eff6ff"
+                      : "#f3f4f6",
+                color:
+                  action.tone === "primary"
+                    ? "#fff"
+                    : action.id === "regenerate"
+                      ? "#1d4ed8"
+                      : "#374151",
                 border: `1px solid ${action.tone === "primary" ? "#2563eb" : action.id === "regenerate" ? "#bfdbfe" : "#d1d5db"}`,
                 borderRadius: 5,
                 cursor: action.id === "regenerate" && regenerate.isPending ? "wait" : "pointer",
@@ -494,23 +686,50 @@ export const FullPanelViewer: React.FC<FullPanelViewerProps> = ({
         </div>
       </div>
 
-      <div style={{ flex: 1, overflow: "auto", padding: referenceSurface?.surfaceType === "source" ? 0 : 16 }}>
+      <div
+        style={{
+          flex: 1,
+          overflow: "auto",
+          padding: referenceSurface?.surfaceType === "source" ? 0 : 16,
+        }}
+      >
         {referenceSurface ? (
           renderReferenceSurface(referenceSurface)
         ) : isReferenceSurfaceLoading ? (
           <ReferenceSurfaceState title={title} message="Loading reference surface." />
         ) : isReferenceSurfaceError ? (
-          <ReferenceSurfaceState title={title} message="Reference surface is unavailable right now." />
+          <ReferenceSurfaceState
+            title={title}
+            message="Reference surface is unavailable right now."
+          />
         ) : (
-          <ReferenceSurfaceState title={title} message="No durable reference content has been generated for this node yet." />
+          <ReferenceSurfaceState
+            title={title}
+            message="No durable reference content has been generated for this node yet."
+          />
         )}
       </div>
 
-      <div style={{ padding: referenceSurface ? 0 : 12, borderTop: referenceSurface ? "none" : "1px solid #e5e7eb", display: "flex", gap: 8 }}>
+      <div
+        style={{
+          padding: referenceSurface ? 0 : 12,
+          borderTop: referenceSurface ? "none" : "1px solid #e5e7eb",
+          display: "flex",
+          gap: 8,
+        }}
+      >
         {!referenceSurface && onLaunchTutor && (
           <button
             onClick={() => onLaunchTutor(node)}
-            style={{ flex: 1, padding: "8px 12px", background: "#2563eb", color: "white", border: "none", borderRadius: 6, cursor: "pointer" }}
+            style={{
+              flex: 1,
+              padding: "8px 12px",
+              background: "#2563eb",
+              color: "white",
+              border: "none",
+              borderRadius: 6,
+              cursor: "pointer",
+            }}
           >
             Teach this
           </button>
@@ -522,14 +741,28 @@ export const FullPanelViewer: React.FC<FullPanelViewerProps> = ({
 
 function ReferenceSurfaceState({ title, message }: { title: string; message: string }) {
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto", color: "#111827", lineHeight: 1.6, display: "flex", flexDirection: "column", gap: 12 }}>
+    <div
+      style={{
+        maxWidth: 900,
+        margin: "0 auto",
+        color: "#111827",
+        lineHeight: 1.6,
+        display: "flex",
+        flexDirection: "column",
+        gap: 12,
+      }}
+    >
       <div style={{ fontSize: 28, fontWeight: 800, marginBottom: 4 }}>{title}</div>
       <div style={{ color: "#6b7280" }}>{message}</div>
     </div>
   );
 }
 
-function GenerationBadge({ generation }: { generation: NonNullable<ReferenceSurface["generation"]> }) {
+function GenerationBadge({
+  generation,
+}: {
+  generation: NonNullable<ReferenceSurface["generation"]>;
+}) {
   const isAi = generation.mode === "ai";
   return (
     <span
@@ -554,7 +787,18 @@ function GenerationBadge({ generation }: { generation: NonNullable<ReferenceSurf
 function ReferenceSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, marginTop: 12 }}>
-      <div style={{ fontSize: 11, fontWeight: 850, color: "#64748b", textTransform: "uppercase", marginBottom: 8, letterSpacing: 0 }}>{title}</div>
+      <div
+        style={{
+          fontSize: 11,
+          fontWeight: 850,
+          color: "#64748b",
+          textTransform: "uppercase",
+          marginBottom: 8,
+          letterSpacing: 0,
+        }}
+      >
+        {title}
+      </div>
       <div>{children}</div>
     </section>
   );
@@ -587,7 +831,17 @@ function RegenerateControls({
             type="button"
             disabled={isPending}
             onClick={onRegenerate}
-            style={{ padding: "5px 10px", border: "1px solid #2563eb", background: "#eff6ff", color: "#1d4ed8", borderRadius: 6, fontWeight: 850, cursor: isPending ? "wait" : "pointer", fontSize: 12, opacity: isPending ? 0.7 : 1 }}
+            style={{
+              padding: "5px 10px",
+              border: "1px solid #2563eb",
+              background: "#eff6ff",
+              color: "#1d4ed8",
+              borderRadius: 6,
+              fontWeight: 850,
+              cursor: isPending ? "wait" : "pointer",
+              fontSize: 12,
+              opacity: isPending ? 0.7 : 1,
+            }}
           >
             {isPending ? "Regenerating..." : "Regenerate"}
           </button>
@@ -595,7 +849,16 @@ function RegenerateControls({
         <button
           type="button"
           onClick={onToggleOptions}
-          style={{ padding: "5px 10px", border: "1px solid #d1d5db", background: "#fff", color: "#374151", borderRadius: 6, fontWeight: 800, cursor: "pointer", fontSize: 12 }}
+          style={{
+            padding: "5px 10px",
+            border: "1px solid #d1d5db",
+            background: "#fff",
+            color: "#374151",
+            borderRadius: 6,
+            fontWeight: 800,
+            cursor: "pointer",
+            fontSize: 12,
+          }}
         >
           {showOptions ? "Hide instructions" : "Add instruction"}
         </button>
@@ -605,10 +868,22 @@ function RegenerateControls({
           value={instruction}
           onChange={(event) => onInstructionChange(event.target.value)}
           placeholder="Optional: make it more visual, add harder examples, focus on exam prep, include formulas..."
-          style={{ width: "100%", minHeight: 58, resize: "vertical", border: "1px solid #cbd5e1", borderRadius: 8, padding: 8, font: "inherit", fontSize: 13, lineHeight: 1.4 }}
+          style={{
+            width: "100%",
+            minHeight: 58,
+            resize: "vertical",
+            border: "1px solid #cbd5e1",
+            borderRadius: 8,
+            padding: 8,
+            font: "inherit",
+            fontSize: 13,
+            lineHeight: 1.4,
+          }}
         />
       )}
-      {errorMessage && <div style={{ color: "#b91c1c", fontSize: 12, fontWeight: 750 }}>{errorMessage}</div>}
+      {errorMessage && (
+        <div style={{ color: "#b91c1c", fontSize: 12, fontWeight: 750 }}>{errorMessage}</div>
+      )}
     </div>
   );
 }
@@ -648,7 +923,9 @@ function QuizPractice({
   const active = questions[boundedIndex]!;
   const attempt = attempts[active.id] ?? null;
   const selected = selectedAnswers[active.id] ?? "";
-  const attemptedCount = Object.keys(attempts).filter((id) => questions.some((question) => question.id === id)).length;
+  const attemptedCount = Object.keys(attempts).filter((id) =>
+    questions.some((question) => question.id === id),
+  ).length;
   const correctCount = questions.filter((question) => attempts[question.id]?.isCorrect).length;
   const scorePct = attemptedCount > 0 ? Math.round((correctCount / questions.length) * 100) : 0;
   const isComplete = attemptedCount === questions.length;
@@ -657,56 +934,143 @@ function QuizPractice({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+          flexWrap: "wrap",
+        }}
+      >
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 12, fontWeight: 850, color: "#1d4ed8", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 999, padding: "2px 8px" }}>
+          <span
+            style={{
+              fontSize: 12,
+              fontWeight: 850,
+              color: "#1d4ed8",
+              background: "#eff6ff",
+              border: "1px solid #bfdbfe",
+              borderRadius: 999,
+              padding: "2px 8px",
+            }}
+          >
             {boundedIndex + 1} / {questions.length}
           </span>
           <span style={{ fontSize: 12, fontWeight: 800, color: "#475569" }}>
             {attemptedCount} attempted
           </span>
           {attemptedCount > 0 && (
-            <span style={{ fontSize: 12, fontWeight: 850, color: scorePct >= 70 ? "#166534" : "#9a3412", background: scorePct >= 70 ? "#f0fdf4" : "#fff7ed", border: `1px solid ${scorePct >= 70 ? "#bbf7d0" : "#fed7aa"}`, borderRadius: 999, padding: "2px 8px" }}>
+            <span
+              style={{
+                fontSize: 12,
+                fontWeight: 850,
+                color: scorePct >= 70 ? "#166534" : "#9a3412",
+                background: scorePct >= 70 ? "#f0fdf4" : "#fff7ed",
+                border: `1px solid ${scorePct >= 70 ? "#bbf7d0" : "#fed7aa"}`,
+                borderRadius: 999,
+                padding: "2px 8px",
+              }}
+            >
               Score {correctCount}/{questions.length}
             </span>
           )}
         </div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {onLaunchTutor && (
-            <button type="button" onClick={onLaunchTutor} style={smallButtonStyle("#f8fafc", "#334155", "#cbd5e1")}>
+            <button
+              type="button"
+              onClick={onLaunchTutor}
+              style={smallButtonStyle("#f8fafc", "#334155", "#cbd5e1")}
+            >
               Review with tutor
             </button>
           )}
-          <button type="button" disabled={isExtending} onClick={onExtend} style={smallButtonStyle("#eff6ff", "#1d4ed8", "#bfdbfe", isExtending)}>
+          <button
+            type="button"
+            disabled={isExtending}
+            onClick={onExtend}
+            style={smallButtonStyle("#eff6ff", "#1d4ed8", "#bfdbfe", isExtending)}
+          >
             {isExtending ? "Extending..." : "Extend quiz"}
           </button>
         </div>
       </div>
 
       {isComplete && (
-        <div style={{ border: "1px solid #dbeafe", borderRadius: 8, background: "#f8fafc", padding: 12, display: "grid", gap: 8 }}>
-          <div style={{ fontSize: 16, fontWeight: 850, color: "#0f172a" }}>{title} score: {correctCount}/{questions.length}</div>
+        <div
+          style={{
+            border: "1px solid #dbeafe",
+            borderRadius: 8,
+            background: "#f8fafc",
+            padding: 12,
+            display: "grid",
+            gap: 8,
+          }}
+        >
+          <div style={{ fontSize: 16, fontWeight: 850, color: "#0f172a" }}>
+            {title} score: {correctCount}/{questions.length}
+          </div>
           {reviewPoints.length > 0 ? (
             <div style={{ color: "#334155", lineHeight: 1.5 }}>
               Review: {reviewPoints.map((question) => question.prompt).join("; ")}
             </div>
           ) : (
-            <div style={{ color: "#166534", fontWeight: 750 }}>All questions are correct. Extend the quiz for a harder check.</div>
+            <div style={{ color: "#166534", fontWeight: 750 }}>
+              All questions are correct. Extend the quiz for a harder check.
+            </div>
           )}
         </div>
       )}
 
-      <article style={{ border: "1px solid #dbe3ef", borderRadius: 10, background: "#fff", padding: 16 }}>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10, color: "#64748b", fontSize: 12, fontWeight: 800 }}>
+      <article
+        style={{ border: "1px solid #dbe3ef", borderRadius: 10, background: "#fff", padding: 16 }}
+      >
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            alignItems: "center",
+            marginBottom: 10,
+            color: "#64748b",
+            fontSize: 12,
+            fontWeight: 800,
+          }}
+        >
           <span>Question {boundedIndex + 1}</span>
-          {active.difficulty && <span style={{ borderRadius: 999, background: "#f8fafc", border: "1px solid #e2e8f0", padding: "1px 7px" }}>{active.difficulty}</span>}
+          {active.difficulty && (
+            <span
+              style={{
+                borderRadius: 999,
+                background: "#f8fafc",
+                border: "1px solid #e2e8f0",
+                padding: "1px 7px",
+              }}
+            >
+              {active.difficulty}
+            </span>
+          )}
         </div>
-        <div style={{ fontSize: 20, lineHeight: 1.35, fontWeight: 850, color: "#0f172a", marginBottom: 14 }}>
+        <div
+          style={{
+            fontSize: 20,
+            lineHeight: 1.35,
+            fontWeight: 850,
+            color: "#0f172a",
+            marginBottom: 14,
+          }}
+        >
           {inlineMarkdown(active.prompt)}
         </div>
 
         {active.choices.length > 0 ? (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 8 }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+              gap: 8,
+            }}
+          >
             {active.choices.map((choice, index) => {
               const value = choice;
               const isSelected = selected === value || attempt?.answer === value;
@@ -722,7 +1086,13 @@ function QuizPractice({
                     textAlign: "left",
                     minHeight: 64,
                     border: `1px solid ${isCorrectChoice ? "#86efac" : isWrongChoice ? "#fca5a5" : isSelected ? "#93c5fd" : "#dbe3ef"}`,
-                    background: isCorrectChoice ? "#f0fdf4" : isWrongChoice ? "#fef2f2" : isSelected ? "#eff6ff" : "#f8fafc",
+                    background: isCorrectChoice
+                      ? "#f0fdf4"
+                      : isWrongChoice
+                        ? "#fef2f2"
+                        : isSelected
+                          ? "#eff6ff"
+                          : "#f8fafc",
                     color: "#1f2937",
                     borderRadius: 8,
                     padding: "10px 12px",
@@ -731,7 +1101,9 @@ function QuizPractice({
                     cursor: attempt ? "default" : "pointer",
                   }}
                 >
-                  <span style={{ fontWeight: 850, color: "#64748b", marginRight: 8 }}>{String.fromCharCode(65 + index)}.</span>
+                  <span style={{ fontWeight: 850, color: "#64748b", marginRight: 8 }}>
+                    {String.fromCharCode(65 + index)}.
+                  </span>
                   {inlineMarkdown(choice)}
                 </button>
               );
@@ -743,16 +1115,47 @@ function QuizPractice({
             disabled={Boolean(attempt)}
             onChange={(event) => onSelectAnswer(active.id, event.target.value)}
             placeholder="Type your answer..."
-            style={{ width: "100%", minHeight: 92, border: "1px solid #cbd5e1", borderRadius: 8, padding: 10, font: "inherit", resize: "vertical" }}
+            style={{
+              width: "100%",
+              minHeight: 92,
+              border: "1px solid #cbd5e1",
+              borderRadius: 8,
+              padding: 10,
+              font: "inherit",
+              resize: "vertical",
+            }}
           />
         )}
 
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            gap: 8,
+            marginTop: 14,
+            flexWrap: "wrap",
+          }}
+        >
           <div style={{ display: "flex", gap: 6 }}>
-            <button type="button" disabled={boundedIndex === 0} onClick={() => onMove(boundedIndex - 1)} style={smallButtonStyle("#fff", "#334155", "#cbd5e1", boundedIndex === 0)}>
+            <button
+              type="button"
+              disabled={boundedIndex === 0}
+              onClick={() => onMove(boundedIndex - 1)}
+              style={smallButtonStyle("#fff", "#334155", "#cbd5e1", boundedIndex === 0)}
+            >
               Previous
             </button>
-            <button type="button" disabled={boundedIndex === questions.length - 1} onClick={() => onMove(boundedIndex + 1)} style={smallButtonStyle("#fff", "#334155", "#cbd5e1", boundedIndex === questions.length - 1)}>
+            <button
+              type="button"
+              disabled={boundedIndex === questions.length - 1}
+              onClick={() => onMove(boundedIndex + 1)}
+              style={smallButtonStyle(
+                "#fff",
+                "#334155",
+                "#cbd5e1",
+                boundedIndex === questions.length - 1,
+              )}
+            >
               Next
             </button>
           </div>
@@ -769,12 +1172,34 @@ function QuizPractice({
         </div>
 
         {attempt && (
-          <div style={{ marginTop: 14, border: `1px solid ${attempt.isCorrect ? "#bbf7d0" : "#fed7aa"}`, background: attempt.isCorrect ? "#f0fdf4" : "#fff7ed", borderRadius: 8, padding: 12, color: "#1f2937", lineHeight: 1.5 }}>
-            <div style={{ fontWeight: 850, color: attempt.isCorrect ? "#166534" : "#9a3412", marginBottom: 4 }}>
+          <div
+            style={{
+              marginTop: 14,
+              border: `1px solid ${attempt.isCorrect ? "#bbf7d0" : "#fed7aa"}`,
+              background: attempt.isCorrect ? "#f0fdf4" : "#fff7ed",
+              borderRadius: 8,
+              padding: 12,
+              color: "#1f2937",
+              lineHeight: 1.5,
+            }}
+          >
+            <div
+              style={{
+                fontWeight: 850,
+                color: attempt.isCorrect ? "#166534" : "#9a3412",
+                marginBottom: 4,
+              }}
+            >
               {attempt.isCorrect ? "Correct" : QUIZ_SELF_ASSESSMENT_LABELS.needsReview}
             </div>
-            <div><strong>Answer:</strong> {inlineMarkdown(correctAnswer || "No answer key recorded.")}</div>
-            {active.explanation && <div style={{ marginTop: 6 }}><strong>Why:</strong> {inlineMarkdown(active.explanation)}</div>}
+            <div>
+              <strong>Answer:</strong> {inlineMarkdown(correctAnswer || "No answer key recorded.")}
+            </div>
+            {active.explanation && (
+              <div style={{ marginTop: 6 }}>
+                <strong>Why:</strong> {inlineMarkdown(active.explanation)}
+              </div>
+            )}
           </div>
         )}
       </article>
@@ -782,7 +1207,12 @@ function QuizPractice({
   );
 }
 
-function smallButtonStyle(background: string, color: string, border: string, disabled = false): React.CSSProperties {
+function smallButtonStyle(
+  background: string,
+  color: string,
+  border: string,
+  disabled = false,
+): React.CSSProperties {
   return {
     padding: "6px 10px",
     border: `1px solid ${border}`,
@@ -798,19 +1228,30 @@ function smallButtonStyle(background: string, color: string, border: string, dis
 }
 
 function normalizeAnswer(value: string): string {
-  return value.toLowerCase().replace(/^[a-d][.)]\s*/i, "").replace(/\s+/g, " ").trim();
+  return value
+    .toLowerCase()
+    .replace(/^[a-d][.)]\s*/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function isAnswerMatch(candidate: string, expected: string): boolean {
   const normalizedCandidate = normalizeAnswer(candidate);
   const normalizedExpected = normalizeAnswer(expected);
   if (!normalizedCandidate || !normalizedExpected) return false;
-  return normalizedCandidate === normalizedExpected || normalizedCandidate.startsWith(normalizedExpected) || normalizedExpected.startsWith(normalizedCandidate);
+  return (
+    normalizedCandidate === normalizedExpected ||
+    normalizedCandidate.startsWith(normalizedExpected) ||
+    normalizedExpected.startsWith(normalizedCandidate)
+  );
 }
 
 function correctAnswerText(question: QuizQuestion): string {
   const raw = question.answer ?? question.referenceAnswer ?? "";
-  const letter = raw.trim().match(/^([a-d])(?:[.)])?$/i)?.[1]?.toLowerCase();
+  const letter = raw
+    .trim()
+    .match(/^([a-d])(?:[.)])?$/i)?.[1]
+    ?.toLowerCase();
   if (letter && question.choices.length > 0) {
     const index = letter.charCodeAt(0) - "a".charCodeAt(0);
     return question.choices[index] ?? raw;
@@ -818,14 +1259,37 @@ function correctAnswerText(question: QuizQuestion): string {
   return raw;
 }
 
-function SourceDocumentViewer({ notebookId, sourceId, title }: { notebookId: string; sourceId: string; title: string }) {
+function SourceDocumentViewer({
+  notebookId,
+  sourceId,
+  title,
+}: {
+  notebookId: string;
+  sourceId: string;
+  title: string;
+}) {
   const fileUrl = `/api/v1/notebooks/${encodeURIComponent(notebookId)}/sources/${encodeURIComponent(sourceId)}/file`;
   return (
-    <section style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden", background: "#26384c" }}>
+    <section
+      style={{
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+        background: "#26384c",
+      }}
+    >
       <iframe
         title={`Original source: ${title}`}
         src={fileUrl}
-        style={{ display: "block", width: "100%", flex: 1, minHeight: 0, border: 0, background: "#26384c" }}
+        style={{
+          display: "block",
+          width: "100%",
+          flex: 1,
+          minHeight: 0,
+          border: 0,
+          background: "#26384c",
+        }}
       />
     </section>
   );
@@ -850,7 +1314,13 @@ function buildRegenerationPrompt(surface: ReferenceSurface): string | null {
       "Prefer precise source-backed claims and explicitly mark anything that still needs evidence.",
     ].join("\n");
   }
-  if (surface.surfaceType === "module" || surface.surfaceType === "curriculum" || surface.surfaceType === "objective" || surface.surfaceType === "objective_list" || surface.surfaceType === "session") {
+  if (
+    surface.surfaceType === "module" ||
+    surface.surfaceType === "curriculum" ||
+    surface.surfaceType === "objective" ||
+    surface.surfaceType === "objective_list" ||
+    surface.surfaceType === "session"
+  ) {
     return [
       `Regenerate the selected ${surface.surfaceType} page "${title}" using the AI tutor again.`,
       `Use ${ref} as the target planning surface.`,
@@ -867,13 +1337,24 @@ function CitationList({ value }: { value: unknown }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       {rows.map((row, index) => {
-        const record = typeof row === "object" && row !== null ? (row as Record<string, unknown>) : {};
+        const record =
+          typeof row === "object" && row !== null ? (row as Record<string, unknown>) : {};
         const label = record.label ?? record.title ?? record.sourceTitle ?? record.refId ?? row;
         const locator = record.locator ?? record.page ?? record.section ?? record.chunkId;
         return (
-          <div key={index} style={{ border: "1px solid #e5e7eb", borderRadius: 8, padding: 10, background: "#fff" }}>
+          <div
+            key={index}
+            style={{
+              border: "1px solid #e5e7eb",
+              borderRadius: 8,
+              padding: 10,
+              background: "#fff",
+            }}
+          >
             <div style={{ fontWeight: 750, color: "#111827" }}>{String(label)}</div>
-            {locator ? <div style={{ marginTop: 3, color: "#6b7280", fontSize: 13 }}>{String(locator)}</div> : null}
+            {locator ? (
+              <div style={{ marginTop: 3, color: "#6b7280", fontSize: 13 }}>{String(locator)}</div>
+            ) : null}
           </div>
         );
       })}
@@ -884,7 +1365,10 @@ function CitationList({ value }: { value: unknown }) {
 function StructuredTable({ value }: { value: unknown }) {
   const rows = Array.isArray(value) ? value : [];
   if (rows.length === 0) return <div style={{ color: "#6b7280" }}>No rows recorded.</div>;
-  const records = rows.filter((row): row is Record<string, unknown> => typeof row === "object" && row !== null && !Array.isArray(row));
+  const records = rows.filter(
+    (row): row is Record<string, unknown> =>
+      typeof row === "object" && row !== null && !Array.isArray(row),
+  );
   if (records.length === 0) return <StructuredValue value={rows} />;
   const headers = Array.from(new Set(records.flatMap((row) => Object.keys(row)))).slice(0, 8);
   return (
@@ -893,7 +1377,15 @@ function StructuredTable({ value }: { value: unknown }) {
         <thead>
           <tr>
             {headers.map((header) => (
-              <th key={header} style={{ textAlign: "left", borderBottom: "1px solid #e5e7eb", padding: "6px 8px", color: "#6b7280" }}>
+              <th
+                key={header}
+                style={{
+                  textAlign: "left",
+                  borderBottom: "1px solid #e5e7eb",
+                  padding: "6px 8px",
+                  color: "#6b7280",
+                }}
+              >
                 {header.replace(/_/g, " ")}
               </th>
             ))}
@@ -903,7 +1395,14 @@ function StructuredTable({ value }: { value: unknown }) {
           {records.map((row, index) => (
             <tr key={index}>
               {headers.map((header) => (
-                <td key={header} style={{ borderBottom: "1px solid #f3f4f6", padding: "6px 8px", verticalAlign: "top" }}>
+                <td
+                  key={header}
+                  style={{
+                    borderBottom: "1px solid #f3f4f6",
+                    padding: "6px 8px",
+                    verticalAlign: "top",
+                  }}
+                >
                   {String(row[header] ?? "")}
                 </td>
               ))}
@@ -923,14 +1422,34 @@ function LearnerMarkdown({ text }: { text: string }) {
         if (block.type === "heading") {
           const size = block.level === 1 ? 26 : block.level === 2 ? 19 : 16;
           return (
-            <div key={index} style={{ fontSize: size, fontWeight: 850, margin: index === 0 ? "0 0 10px" : "22px 0 8px", lineHeight: 1.25, color: "#0f2541" }}>
+            <div
+              key={index}
+              style={{
+                fontSize: size,
+                fontWeight: 850,
+                margin: index === 0 ? "0 0 10px" : "22px 0 8px",
+                lineHeight: 1.25,
+                color: "#0f2541",
+              }}
+            >
               {inlineMarkdown(block.text)}
             </div>
           );
         }
         if (block.type === "quote") {
           return (
-            <blockquote key={index} style={{ margin: "10px 0", padding: "8px 12px", border: "1px solid #c7d2fe", borderRadius: 8, background: "#eef2ff", color: "#27346b", fontWeight: 650 }}>
+            <blockquote
+              key={index}
+              style={{
+                margin: "10px 0",
+                padding: "8px 12px",
+                border: "1px solid #c7d2fe",
+                borderRadius: 8,
+                background: "#eef2ff",
+                color: "#27346b",
+                fontWeight: 650,
+              }}
+            >
               {inlineMarkdown(block.text)}
             </blockquote>
           );
@@ -939,7 +1458,9 @@ function LearnerMarkdown({ text }: { text: string }) {
           return (
             <ul key={index} style={{ margin: "8px 0 12px", paddingLeft: 22 }}>
               {block.items.map((item, itemIndex) => (
-                <li key={itemIndex} style={{ margin: "4px 0" }}>{inlineMarkdown(item)}</li>
+                <li key={itemIndex} style={{ margin: "4px 0" }}>
+                  {inlineMarkdown(item)}
+                </li>
               ))}
             </ul>
           );
@@ -948,7 +1469,9 @@ function LearnerMarkdown({ text }: { text: string }) {
           return (
             <ol key={index} style={{ margin: "8px 0 12px", paddingLeft: 22 }}>
               {block.items.map((item, itemIndex) => (
-                <li key={itemIndex} style={{ margin: "4px 0" }}>{inlineMarkdown(item)}</li>
+                <li key={itemIndex} style={{ margin: "4px 0" }}>
+                  {inlineMarkdown(item)}
+                </li>
               ))}
             </ol>
           );
@@ -1044,7 +1567,12 @@ function markdownBlocks(text: string): MarkdownBlock[] {
       flushParagraph();
       flushList();
       flushOrderedList();
-      table.push(line.split("|").map((cell) => cell.trim()).filter((cell, index, cells) => cell || index > 0 && index < cells.length - 1));
+      table.push(
+        line
+          .split("|")
+          .map((cell) => cell.trim())
+          .filter((cell, index, cells) => cell || (index > 0 && index < cells.length - 1)),
+      );
       continue;
     }
     flushTable();
@@ -1092,10 +1620,26 @@ function markdownBlocks(text: string): MarkdownBlock[] {
 function inlineMarkdown(text: string): React.ReactNode {
   const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`|\$[^$\n]+\$|\\\([^)]+\\\))/g).filter(Boolean);
   return parts.map((part, index) => {
-    if (part.startsWith("**") && part.endsWith("**")) return <strong key={index}>{part.slice(2, -2)}</strong>;
-    if (part.startsWith("`") && part.endsWith("`")) return <code key={index} style={{ background: "#f1f5f9", border: "1px solid #e2e8f0", borderRadius: 4, padding: "1px 4px" }}>{part.slice(1, -1)}</code>;
-    if (part.startsWith("$") && part.endsWith("$")) return <InlineFormula key={index} formula={part.slice(1, -1)} />;
-    if (part.startsWith("\\(") && part.endsWith("\\)")) return <InlineFormula key={index} formula={part.slice(2, -2)} />;
+    if (part.startsWith("**") && part.endsWith("**"))
+      return <strong key={index}>{part.slice(2, -2)}</strong>;
+    if (part.startsWith("`") && part.endsWith("`"))
+      return (
+        <code
+          key={index}
+          style={{
+            background: "#f1f5f9",
+            border: "1px solid #e2e8f0",
+            borderRadius: 4,
+            padding: "1px 4px",
+          }}
+        >
+          {part.slice(1, -1)}
+        </code>
+      );
+    if (part.startsWith("$") && part.endsWith("$"))
+      return <InlineFormula key={index} formula={part.slice(1, -1)} />;
+    if (part.startsWith("\\(") && part.endsWith("\\)"))
+      return <InlineFormula key={index} formula={part.slice(2, -2)} />;
     return <React.Fragment key={index}>{part}</React.Fragment>;
   });
 }
@@ -1110,7 +1654,17 @@ function InlineFormula({ formula }: { formula: string }) {
 
 function FormulaBlock({ formula }: { formula: string }) {
   return (
-    <div style={{ margin: "12px 0", padding: "10px 12px", border: "1px solid #dbeafe", borderRadius: 8, background: "#f8fafc", overflowX: "auto", color: "#0f172a" }}>
+    <div
+      style={{
+        margin: "12px 0",
+        padding: "10px 12px",
+        border: "1px solid #dbeafe",
+        borderRadius: 8,
+        background: "#f8fafc",
+        overflowX: "auto",
+        color: "#0f172a",
+      }}
+    >
       <MathFormula formula={formula} displayMode />
     </div>
   );
@@ -1131,7 +1685,19 @@ function MathFormula({ formula, displayMode }: { formula: string; displayMode: b
     }
   }, [displayMode, formula]);
   if (!html) {
-    return <code style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 5, padding: "0 4px", color: "#0f172a" }}>{formula}</code>;
+    return (
+      <code
+        style={{
+          background: "#f8fafc",
+          border: "1px solid #e2e8f0",
+          borderRadius: 5,
+          padding: "0 4px",
+          color: "#0f172a",
+        }}
+      >
+        {formula}
+      </code>
+    );
   }
   return (
     <span
@@ -1153,11 +1719,30 @@ function MarkdownTable({ rows }: { rows: string[][] }) {
   const [headers, ...body] = rows;
   return (
     <div style={{ overflowX: "auto", margin: "10px 0 14px" }}>
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8 }}>
+      <table
+        style={{
+          width: "100%",
+          borderCollapse: "collapse",
+          fontSize: 13,
+          background: "#fff",
+          border: "1px solid #e5e7eb",
+          borderRadius: 8,
+        }}
+      >
         <thead>
           <tr>
             {(headers ?? []).map((header, index) => (
-              <th key={index} style={{ textAlign: "left", borderBottom: "1px solid #e5e7eb", padding: "7px 8px", color: "#334155", background: "#f8fafc", fontWeight: 850 }}>
+              <th
+                key={index}
+                style={{
+                  textAlign: "left",
+                  borderBottom: "1px solid #e5e7eb",
+                  padding: "7px 8px",
+                  color: "#334155",
+                  background: "#f8fafc",
+                  fontWeight: 850,
+                }}
+              >
                 {inlineMarkdown(header)}
               </th>
             ))}
@@ -1167,7 +1752,14 @@ function MarkdownTable({ rows }: { rows: string[][] }) {
           {body.map((row, rowIndex) => (
             <tr key={rowIndex}>
               {(headers ?? row).map((_, cellIndex) => (
-                <td key={cellIndex} style={{ borderBottom: rowIndex === body.length - 1 ? 0 : "1px solid #f1f5f9", padding: "7px 8px", verticalAlign: "top" }}>
+                <td
+                  key={cellIndex}
+                  style={{
+                    borderBottom: rowIndex === body.length - 1 ? 0 : "1px solid #f1f5f9",
+                    padding: "7px 8px",
+                    verticalAlign: "top",
+                  }}
+                >
                   {inlineMarkdown(row[cellIndex] ?? "")}
                 </td>
               ))}
@@ -1190,7 +1782,15 @@ function StructuredValue({ value }: { value: unknown }) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {value.map((item, index) => (
-          <div key={index} style={{ border: "1px solid #e5e7eb", borderRadius: 8, padding: 10, background: "#fff" }}>
+          <div
+            key={index}
+            style={{
+              border: "1px solid #e5e7eb",
+              borderRadius: 8,
+              padding: 10,
+              background: "#fff",
+            }}
+          >
             <StructuredValue value={item} />
           </div>
         ))}
@@ -1199,7 +1799,14 @@ function StructuredValue({ value }: { value: unknown }) {
   }
   if (typeof value === "object") {
     return (
-      <dl style={{ display: "grid", gridTemplateColumns: "minmax(120px, 180px) minmax(0, 1fr)", gap: "6px 12px", margin: 0 }}>
+      <dl
+        style={{
+          display: "grid",
+          gridTemplateColumns: "minmax(120px, 180px) minmax(0, 1fr)",
+          gap: "6px 12px",
+          margin: 0,
+        }}
+      >
         {Object.entries(value as Record<string, unknown>).map(([key, entry]) => (
           <React.Fragment key={key}>
             <dt style={{ fontWeight: 750, color: "#6b7280" }}>{key}</dt>

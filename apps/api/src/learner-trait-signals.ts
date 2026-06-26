@@ -2,7 +2,11 @@ import type { AppContext } from "./context.js";
 import type { LearnerTraitKey } from "@studyagent/schemas";
 import { readLearnerTraitSignalsForTurn, recordLearnerTraitSignal } from "./learner-trait-store.js";
 
-const GOVERNED_EXPLICIT_SOURCES = new Set(["explicit_self_report", "tutor_recorded_preference", "onboarding_profile"]);
+const GOVERNED_EXPLICIT_SOURCES = new Set([
+  "explicit_self_report",
+  "tutor_recorded_preference",
+  "onboarding_profile",
+]);
 
 export type ExplicitTraitSignalCandidate = {
   trait: LearnerTraitKey;
@@ -21,24 +25,56 @@ export function extractExplicitPreferenceSignals(message: string): ExplicitTrait
   const candidates: ExplicitTraitSignalCandidate[] = [];
 
   if (/\b(go\s+)?slower\b|\bslow\s+(down|pace)\b|\bno rush\b/.test(text)) {
-    candidates.push({ trait: "pacePreference", value: "slow", notes: "Learner explicitly requested a slower pace." });
+    candidates.push({
+      trait: "pacePreference",
+      value: "slow",
+      notes: "Learner explicitly requested a slower pace.",
+    });
   } else if (/\bfaster\b|\bquickly\b|\bspeed up\b|\bbrief\b|\bconcise\b/.test(text)) {
-    candidates.push({ trait: "pacePreference", value: "fast", notes: "Learner explicitly requested a faster or more concise pace." });
+    candidates.push({
+      trait: "pacePreference",
+      value: "fast",
+      notes: "Learner explicitly requested a faster or more concise pace.",
+    });
   }
   if (/\bvisual\b|\bdiagram\b|\bgraph\b/.test(text)) {
-    candidates.push({ trait: "examplePreference", value: "visual", notes: "Learner explicitly requested visual examples." });
+    candidates.push({
+      trait: "examplePreference",
+      value: "visual",
+      notes: "Learner explicitly requested visual examples.",
+    });
   }
-  if (/\bconcrete example\b|\breal[- ]world example\b|\bworked example\b|\bexample preference\b/.test(text)) {
-    candidates.push({ trait: "examplePreference", value: "concrete", notes: "Learner explicitly requested concrete examples." });
+  if (
+    /\bconcrete example\b|\breal[- ]world example\b|\bworked example\b|\bexample preference\b/.test(
+      text,
+    )
+  ) {
+    candidates.push({
+      trait: "examplePreference",
+      value: "concrete",
+      notes: "Learner explicitly requested concrete examples.",
+    });
   }
   if (/\bquiz\b|\btest me\b|\bpractice questions?\b/.test(text)) {
-    candidates.push({ trait: "assessmentPreference", value: "quiz", notes: "Learner explicitly requested quiz-style practice." });
+    candidates.push({
+      trait: "assessmentPreference",
+      value: "quiz",
+      notes: "Learner explicitly requested quiz-style practice.",
+    });
   }
   if (/\bworked problem\b|\bworked example\b|\bstep[- ]by[- ]step problem\b/.test(text)) {
-    candidates.push({ trait: "assessmentPreference", value: "worked_problem", notes: "Learner explicitly requested worked-problem practice." });
+    candidates.push({
+      trait: "assessmentPreference",
+      value: "worked_problem",
+      notes: "Learner explicitly requested worked-problem practice.",
+    });
   }
   if (/\bexam\b|\btest tomorrow\b|\bdeadline\b|\btomorrow\b/.test(text)) {
-    candidates.push({ trait: "urgencyContext", value: "exam_prep", notes: "Learner explicitly described exam or deadline urgency." });
+    candidates.push({
+      trait: "urgencyContext",
+      value: "exam_prep",
+      notes: "Learner explicitly described exam or deadline urgency.",
+    });
   }
 
   const seen = new Set<string>();
@@ -64,7 +100,8 @@ export function extractReflectiveBehaviorSignals(input: {
     candidates.push({
       trait: "helpSeekingStyle",
       value: "asks_early",
-      notes: "Reflective extraction: learner expressed confusion or being stuck after a completed turn.",
+      notes:
+        "Reflective extraction: learner expressed confusion or being stuck after a completed turn.",
     });
   } else if (/\b(let me try|i'?ll try|give me a sec|on my own first)\b/.test(text)) {
     candidates.push({
@@ -72,17 +109,22 @@ export function extractReflectiveBehaviorSignals(input: {
       value: "tries_first",
       notes: "Reflective extraction: learner indicated they want to attempt the problem first.",
     });
-  } else if (/\b(i'?m ready|got this|easy|too easy)\b/.test(text) && /\b(correct|right|yes)\b/.test(text)) {
+  } else if (
+    /\b(i'?m ready|got this|easy|too easy)\b/.test(text) &&
+    /\b(correct|right|yes)\b/.test(text)
+  ) {
     candidates.push({
       trait: "confidenceStyle",
       value: "overconfident",
-      notes: "Reflective extraction: learner expressed high readiness alongside a short confirmation.",
+      notes:
+        "Reflective extraction: learner expressed high readiness alongside a short confirmation.",
     });
   } else if (/\b(not sure|probably wrong|might be wrong|low confidence)\b/.test(text)) {
     candidates.push({
       trait: "confidenceStyle",
       value: "underconfident",
-      notes: "Reflective extraction: learner expressed uncertainty in their completed-turn message.",
+      notes:
+        "Reflective extraction: learner expressed uncertainty in their completed-turn message.",
     });
   }
 
@@ -100,7 +142,14 @@ function isOneOffExampleRequest(text: string): boolean {
 
 export async function recordExplicitPreferenceSignalsFromMessage(
   ctx: AppContext,
-  input: { notebookId: string; userId: string; sessionId: string; turnId: string; runId: string; message: string },
+  input: {
+    notebookId: string;
+    userId: string;
+    sessionId: string;
+    turnId: string;
+    runId: string;
+    message: string;
+  },
 ): Promise<number> {
   const message = input.message.trim();
   if (!message) return 0;

@@ -84,8 +84,8 @@ export function classifyRuntimeError(error: unknown): RuntimeErrorClassification
     code: inferFailureCode(message),
     safeMessage: inferSafeMessage(message),
     retryable:
-      inferFailureKind(message) === "model_timeout"
-      || (lower.includes("langfuse") && lower.includes("timeout")),
+      inferFailureKind(message) === "model_timeout" ||
+      (lower.includes("langfuse") && lower.includes("timeout")),
     originalMessage: message,
   };
 }

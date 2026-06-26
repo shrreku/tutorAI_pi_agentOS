@@ -7,16 +7,29 @@ export function detectLearnerIntent(message: string): DetectedIntent {
   const lower = message.toLowerCase().trim();
 
   const keywords = [
-    { pattern: /teach\s+me|explain\s+(?:to\s+)?me|teach\s+(?:me\s+)?about/, type: "teach_me" as const, keyword: "teach me" },
+    {
+      pattern: /teach\s+me|explain\s+(?:to\s+)?me|teach\s+(?:me\s+)?about/,
+      type: "teach_me" as const,
+      keyword: "teach me",
+    },
     {
       pattern: /help\s+(?:me\s+)?with|stuck\s+(?:on\s+)?|i.*don[\'\"]?t.*understand|confused/,
       type: "help_me_with" as const,
       keyword: "help me with",
     },
-    { pattern: /continue|next|what[\'\"]?s\s+next|keep\s+going|next\s+step/, type: "continue" as const, keyword: "continue" },
-    { pattern: /resume|pick\s+up\s+where\s+we\s+left\s+off|carry\s+on/, type: "continue" as const, keyword: "continue" },
     {
-      pattern: /start\s+(?:studying|learning)|begin|let[\'\"]?s\s+start|ready\s+to\s+(?:learn|study)/,
+      pattern: /continue|next|what[\'\"]?s\s+next|keep\s+going|next\s+step/,
+      type: "continue" as const,
+      keyword: "continue",
+    },
+    {
+      pattern: /resume|pick\s+up\s+where\s+we\s+left\s+off|carry\s+on/,
+      type: "continue" as const,
+      keyword: "continue",
+    },
+    {
+      pattern:
+        /start\s+(?:studying|learning)|begin|let[\'\"]?s\s+start|ready\s+to\s+(?:learn|study)/,
       type: "start_studying" as const,
       keyword: "start studying",
     },
@@ -49,12 +62,12 @@ export function detectLearnerTurnGoal(message: string): LearnerTurnGoal {
     return "quiz_or_artifact";
   }
   if (
-    /\b(is that|was that|am i|are we)\b.*\b(right|correct)\b/.test(lower)
-    || /\bcorrection\b/.test(lower)
-    || /\btangent\b/.test(lower)
-    || /\bsecant\b/.test(lower)
-    || /\bslope\b/.test(lower)
-    || /\bmixing\b/.test(lower)
+    /\b(is that|was that|am i|are we)\b.*\b(right|correct)\b/.test(lower) ||
+    /\bcorrection\b/.test(lower) ||
+    /\btangent\b/.test(lower) ||
+    /\bsecant\b/.test(lower) ||
+    /\bslope\b/.test(lower) ||
+    /\bmixing\b/.test(lower)
   ) {
     return "mastery_answer";
   }
@@ -62,12 +75,12 @@ export function detectLearnerTurnGoal(message: string): LearnerTurnGoal {
     return "artifact_followup";
   }
   if (
-    /\bteach me\b/.test(lower)
-    || /\bmissing a key idea\b/.test(lower)
-    || /\bhelp me understand\b/.test(lower)
-    || /\bwhere i (went|go) wrong\b/.test(lower)
-    || /\bunsure about\b/.test(lower)
-    || /\bconfused\b/.test(lower)
+    /\bteach me\b/.test(lower) ||
+    /\bmissing a key idea\b/.test(lower) ||
+    /\bhelp me understand\b/.test(lower) ||
+    /\bwhere i (went|go) wrong\b/.test(lower) ||
+    /\bunsure about\b/.test(lower) ||
+    /\bconfused\b/.test(lower)
   ) {
     return "lesson_opening";
   }
@@ -94,7 +107,11 @@ export function buildLearnerTurnRoutingInstruction(
   }
 }
 
-export function buildIntentRoutingInstruction(intent: DetectedIntent, hasCurrentObjective: boolean, currentObjectiveTitle?: string): string | null {
+export function buildIntentRoutingInstruction(
+  intent: DetectedIntent,
+  hasCurrentObjective: boolean,
+  currentObjectiveTitle?: string,
+): string | null {
   if (intent.type === "none" || !hasCurrentObjective || !currentObjectiveTitle) {
     return null;
   }

@@ -55,7 +55,10 @@ export async function requireOwnedNotebook(
   };
 }
 
-export async function countPersonalLearnerWorkspaces(ctx: AppContext, actorId: string): Promise<number> {
+export async function countPersonalLearnerWorkspaces(
+  ctx: AppContext,
+  actorId: string,
+): Promise<number> {
   const [row] = await ctx.db.db
     .select({ count: sql<number>`count(*)::int` })
     .from(notebooks)

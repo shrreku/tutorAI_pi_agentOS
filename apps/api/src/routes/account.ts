@@ -82,26 +82,36 @@ export async function deleteOwnedPrivateSource(
 }
 
 export async function registerAccountRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
-  app.delete<{ Params: { notebookId: string } }>("/workspaces/:notebookId", async (request, reply) => {
-    try {
-      const actor = await resolveActor(ctx, request);
-      const outcome = await deleteOwnedPersonalWorkspace(ctx, actor.id, request.params.notebookId);
-      if (outcome === "not_found") {
-        return reply.status(404).send({ code: "not_found", message: "Workspace not found" });
+  app.delete<{ Params: { notebookId: string } }>(
+    "/workspaces/:notebookId",
+    async (request, reply) => {
+      try {
+        const actor = await resolveActor(ctx, request);
+        const outcome = await deleteOwnedPersonalWorkspace(
+          ctx,
+          actor.id,
+          request.params.notebookId,
+        );
+        if (outcome === "not_found") {
+          return reply.status(404).send({ code: "not_found", message: "Workspace not found" });
+        }
+        if (outcome === "forbidden") {
+          return reply.status(403).send({
+            code: "forbidden",
+            message: "Only personal learner workspaces can be deleted",
+          });
+        }
+        await recordProductAnalytics(ctx, {
+          userId: actor.id,
+          eventName: "workspace_deleted",
+          properties: { notebookId: request.params.notebookId, tombstone: true },
+        }).catch(() => undefined);
+        return reply.status(204).send();
+      } catch (error) {
+        return sendAuthOrEntitlementError(reply, error);
       }
-      if (outcome === "forbidden") {
-        return reply.status(403).send({ code: "forbidden", message: "Only personal learner workspaces can be deleted" });
-      }
-      await recordProductAnalytics(ctx, {
-        userId: actor.id,
-        eventName: "workspace_deleted",
-        properties: { notebookId: request.params.notebookId, tombstone: true },
-      }).catch(() => undefined);
-      return reply.status(204).send();
-    } catch (error) {
-      return sendAuthOrEntitlementError(reply, error);
-    }
-  });
+    },
+  );
 
   app.delete<{ Params: { sourceId: string } }>("/sources/:sourceId", async (request, reply) => {
     try {
@@ -214,14 +224,17 @@ export async function registerAccountRoutes(app: FastifyInstance, ctx: AppContex
         return reply.status(404).send({ code: "not_found", message: "Deletion request not found" });
       }
 
-      const nextStatus = typeof request.body?.status === "string" ? request.body.status.trim() : existing.status;
+      const nextStatus =
+        typeof request.body?.status === "string" ? request.body.status.trim() : existing.status;
       const allowedStatuses = new Set(["requested", "in_progress", "completed", "cancelled"]);
       if (!allowedStatuses.has(nextStatus)) {
         return reply.status(400).send({ code: "bad_request", message: "Invalid status" });
       }
 
       const nextNotes =
-        typeof request.body?.notes === "string" ? request.body.notes.trim() : (existing.notes ?? "");
+        typeof request.body?.notes === "string"
+          ? request.body.notes.trim()
+          : (existing.notes ?? "");
       const completedAt = nextStatus === "completed" ? new Date() : existing.completedAt;
 
       await ctx.db.db

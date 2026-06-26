@@ -6,13 +6,13 @@ The Working Brand is **TutorBook** on `tutorbook.me`. The study environment insi
 
 ## Two Shells
 
-| Shell | URL prefix | Purpose |
-|-------|------------|---------|
-| **Public shell** | `/`, `/demo`, `/contact`, `/privacy`, `/terms`, `/login`, `/auth/callback` | Marketing, legal, auth entry. No private data. `/demo` is copy-only for beta launch. |
-| **Learner app shell** | `/app/*` | Dashboard, consent, templates, credits, support, account. Sidebar nav via `AppShell`. |
-| **Notebook Workspace** | `/notebooks/:notebookId` | Core two-pane study UI (`NotebookWorkspacePage`). Intentional long-term URL — aligned with ADR-0001 and `/api/v1/notebooks/*`. |
-| **Admin console** | `/admin/*` | Operator surfaces via `AdminShell`. |
-| **Eval runs** (dev) | `/eval-runs` | Synthetic learner dashboard; admin-gated. |
+| Shell                  | URL prefix                                                                 | Purpose                                                                                                                        |
+| ---------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| **Public shell**       | `/`, `/demo`, `/contact`, `/privacy`, `/terms`, `/login`, `/auth/callback` | Marketing, legal, auth entry. No private data. `/demo` is copy-only for beta launch.                                           |
+| **Learner app shell**  | `/app/*`                                                                   | Dashboard, consent, templates, credits, support, account. Sidebar nav via `AppShell`.                                          |
+| **Notebook Workspace** | `/notebooks/:notebookId`                                                   | Core two-pane study UI (`NotebookWorkspacePage`). Intentional long-term URL — aligned with ADR-0001 and `/api/v1/notebooks/*`. |
+| **Admin console**      | `/admin/*`                                                                 | Operator surfaces via `AdminShell`.                                                                                            |
+| **Eval runs** (dev)    | `/eval-runs`                                                               | Synthetic learner dashboard; admin-gated.                                                                                      |
 
 Entry flow:
 
@@ -23,9 +23,9 @@ Entry flow:
 
 ## URL Model
 
-| Layer | Prefix | Role |
-|-------|--------|------|
-| App shell | `/app/*` | Start study, manage account, credits, support |
+| Layer       | Prefix                   | Role                                               |
+| ----------- | ------------------------ | -------------------------------------------------- |
+| App shell   | `/app/*`                 | Start study, manage account, credits, support      |
 | Study shell | `/notebooks/:notebookId` | Core study loop for one Personal Learner Workspace |
 
 `/notebooks/:notebookId` is the **intentional long-term** study URL, not a beta placeholder. It matches ADR-0001 notebook-scoped APIs (`/api/v1/notebooks/*`). `/app/workspaces/new` creates a workspace; the learner is then routed into `/notebooks/:notebookId` to study.
@@ -40,22 +40,22 @@ Landing secondary CTA `View demo` routes here. Primary CTA `Start studying` rout
 
 Implemented in `apps/web/src/routing/RouteGuards.tsx` and `routes.ts`.
 
-| Gate | Behavior |
-|------|----------|
-| Unauthenticated | Redirect to `/login` |
-| Disabled account | Block with message |
-| Missing Study Access | Redirect to `/login` |
+| Gate                 | Behavior                                                                     |
+| -------------------- | ---------------------------------------------------------------------------- |
+| Unauthenticated      | Redirect to `/login`                                                         |
+| Disabled account     | Block with message                                                           |
+| Missing Study Access | Redirect to `/login`                                                         |
 | Missing Beta Consent | Redirect to `/app/consent` (all `/app/*` except consent, and `/notebooks/*`) |
-| Missing admin access | Redirect to `/app` from `/admin/*` and `/eval-runs` |
+| Missing admin access | Redirect to `/app` from `/admin/*` and `/eval-runs`                          |
 
 Session state comes from `GET /api/v1/me` via `SessionProvider`. Credit percent appears in the app sidebar when available.
 
 ## Auth And API Proxying
 
-| Surface | Dev (Vite) | Production (nginx) |
-|---------|------------|-------------------|
-| API | `/api` → API server | `/api/` → API server |
-| Auth | `/auth` → API server | `/auth/` → API server |
+| Surface | Dev (Vite)           | Production (nginx)    |
+| ------- | -------------------- | --------------------- |
+| API     | `/api` → API server  | `/api/` → API server  |
+| Auth    | `/auth` → API server | `/auth/` → API server |
 
 Auth routes (`/auth/dev-login`, `/auth/callback`, `/auth/logout`, `/auth/session`) live **outside** `/api/v1`. The web dev server and nginx must proxy `/auth` — not only `/api`.
 
@@ -67,31 +67,31 @@ Auth routes (`/auth/dev-login`, `/auth/callback`, `/auth/logout`, `/auth/session
 
 ## Learner App Pages
 
-| Route | Component | Notes |
-|-------|-----------|-------|
-| `/app` | `DashboardPage` | Template gallery + optional onboarding prompt |
-| `/app/consent` | `ConsentPage` | Versioned Beta Consent; required before other app routes |
-| `/app/templates/:templateId` | `TemplateDetailPage` | Start from Published Study Template |
-| `/app/workspaces/new` | `WorkspaceCreatePage` | Create empty Personal Learner Workspace (no template) |
-| `/app/credits` | `CreditsPage` | Percent remaining; optional Stripe pack purchase when `PAID_CREDIT_CHECKOUT_ENABLED` |
-| `/app/access-code` | `AccessCodePage` | Redeem Access Code |
-| `/app/support` | `SupportPage` | Learning Feedback + Support Report forms |
-| `/app/account` | `AccountPage` | Workspace/source deletion + account deletion request |
+| Route                        | Component             | Notes                                                                                |
+| ---------------------------- | --------------------- | ------------------------------------------------------------------------------------ |
+| `/app`                       | `DashboardPage`       | Template gallery + optional onboarding prompt                                        |
+| `/app/consent`               | `ConsentPage`         | Versioned Beta Consent; required before other app routes                             |
+| `/app/templates/:templateId` | `TemplateDetailPage`  | Start from Published Study Template                                                  |
+| `/app/workspaces/new`        | `WorkspaceCreatePage` | Create empty Personal Learner Workspace (no template)                                |
+| `/app/credits`               | `CreditsPage`         | Percent remaining; optional Stripe pack purchase when `PAID_CREDIT_CHECKOUT_ENABLED` |
+| `/app/access-code`           | `AccessCodePage`      | Redeem Access Code                                                                   |
+| `/app/support`               | `SupportPage`         | Learning Feedback + Support Report forms                                             |
+| `/app/account`               | `AccountPage`         | Workspace/source deletion + account deletion request                                 |
 
 ## Admin Console Pages
 
-| Route | Component | Status |
-|-------|-----------|--------|
-| `/admin` | `AdminOverviewPage` | Live |
+| Route                                  | Component                               | Status                                                       |
+| -------------------------------------- | --------------------------------------- | ------------------------------------------------------------ |
+| `/admin`                               | `AdminOverviewPage`                     | Live                                                         |
 | `/admin/users`, `/admin/users/:userId` | `AdminUsersPage`, `AdminUserDetailPage` | Live; can grant/revoke Study Access, Ingestion Access, admin |
-| `/admin/workspaces` | `AdminWorkspacesPage` | Live |
-| `/admin/templates` | `AdminTemplatesPage` | Live |
-| `/admin/access-codes` | `AdminAccessCodesPage` | Live; grant bundle includes pilot tags + template IDs |
-| `/admin/credits` | `AdminCreditsPage` | Live |
-| `/admin/feedback` | `AdminFeedbackPage` | Live |
-| `/admin/ingestion` | `AdminIngestionPage` | Live |
-| `/admin/analytics` | `AdminAnalyticsPage` | Live |
-| `/admin/account-deletion` | `AdminAccountDeletionPage` | Live |
+| `/admin/workspaces`                    | `AdminWorkspacesPage`                   | Live                                                         |
+| `/admin/templates`                     | `AdminTemplatesPage`                    | Live                                                         |
+| `/admin/access-codes`                  | `AdminAccessCodesPage`                  | Live; grant bundle includes pilot tags + template IDs        |
+| `/admin/credits`                       | `AdminCreditsPage`                      | Live                                                         |
+| `/admin/feedback`                      | `AdminFeedbackPage`                     | Live                                                         |
+| `/admin/ingestion`                     | `AdminIngestionPage`                    | Live                                                         |
+| `/admin/analytics`                     | `AdminAnalyticsPage`                    | Live                                                         |
+| `/admin/account-deletion`              | `AdminAccountDeletionPage`              | Live                                                         |
 
 Admin UX is utilitarian: dense tables, minimal chrome.
 
@@ -113,20 +113,20 @@ Workspace creation from a template uses `POST /api/v1/workspaces/from-template` 
 
 Controlled by `PAID_CREDIT_CHECKOUT_ENABLED` (default `false`). Requires `STRIPE_SECRET_KEY` and webhook secret when on.
 
-| Step | API / UI |
-|------|----------|
-| List packs | `GET /api/v1/checkout/credits/packs` → `{ packs }` or `404 feature_disabled` |
-| Start checkout | `POST /api/v1/checkout/credits` `{ packId }` → `{ checkoutUrl }` |
-| Pay | Browser redirects to Stripe Checkout |
-| Return success | `/app/credits?checkout=success` — banner + invalidate credits |
-| Return cancel | `/app/credits?checkout=cancelled` — banner, no charge |
-| Grant credits | Stripe webhook → ledger (async; UI warns of brief delay) |
+| Step           | API / UI                                                                     |
+| -------------- | ---------------------------------------------------------------------------- |
+| List packs     | `GET /api/v1/checkout/credits/packs` → `{ packs }` or `404 feature_disabled` |
+| Start checkout | `POST /api/v1/checkout/credits` `{ packId }` → `{ checkoutUrl }`             |
+| Pay            | Browser redirects to Stripe Checkout                                         |
+| Return success | `/app/credits?checkout=success` — banner + invalidate credits                |
+| Return cancel  | `/app/credits?checkout=cancelled` — banner, no charge                        |
+| Grant credits  | Stripe webhook → ledger (async; UI warns of brief delay)                     |
 
 Current packs (API-defined):
 
-| Pack ID | Type | Price |
-|---------|------|-------|
-| `tutor_500` | Tutor credits | $5.00 |
+| Pack ID         | Type              | Price |
+| --------------- | ----------------- | ----- |
+| `tutor_500`     | Tutor credits     | $5.00 |
 | `ingestion_500` | Ingestion credits | $5.00 |
 
 When checkout is off, `/app/credits` shows access-code / support fallback instead of pack list.

@@ -1,13 +1,7 @@
 import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import type { FastifyInstance, FastifyReply } from "fastify";
-import {
-  chunks,
-  enqueueIngestionJob,
-  notebooks,
-  sourceVersions,
-  sources,
-} from "@studyagent/db";
+import { chunks, enqueueIngestionJob, notebooks, sourceVersions, sources } from "@studyagent/db";
 import { toSourceLearnerView } from "@studyagent/schemas";
 import type { AppContext } from "../context.js";
 import { appendEventWithTutorCacheInvalidation as appendEvent } from "../agentic-cache-invalidation.js";
@@ -60,7 +54,8 @@ export async function registerSourceRoutes(app: FastifyInstance, ctx: AppContext
               metadataJson: row.metadataJson,
             }),
             metadata: {
-              fromTemplate: row.notebookId === contentNotebookId && contentNotebookId !== learnerNotebookId,
+              fromTemplate:
+                row.notebookId === contentNotebookId && contentNotebookId !== learnerNotebookId,
             },
           })),
         });
@@ -90,7 +85,9 @@ export async function registerSourceRoutes(app: FastifyInstance, ctx: AppContext
 
         const file = await request.file();
         if (!file) {
-          return reply.status(400).send({ code: "bad_request", message: "multipart field file is required" });
+          return reply
+            .status(400)
+            .send({ code: "bad_request", message: "multipart field file is required" });
         }
 
         if (!isAllowedUploadFile(file.mimetype, file.filename)) {
@@ -214,9 +211,17 @@ export async function registerSourceRoutes(app: FastifyInstance, ctx: AppContext
           await appendEvent(ctx.db, {
             notebookId,
             eventType: "ingestion.job.queued",
-            payload: { sourceId, sourceVersionId: versionId, jobName: "ingest_source", ingestionReservationId },
+            payload: {
+              sourceId,
+              sourceVersionId: versionId,
+              jobName: "ingest_source",
+              ingestionReservationId,
+            },
           });
-          app.log.info({ notebookId, sourceId, sourceVersionId: versionId, jobName: "ingest_source" }, "ingestion job queued");
+          app.log.info(
+            { notebookId, sourceId, sourceVersionId: versionId, jobName: "ingest_source" },
+            "ingestion job queued",
+          );
         } else {
           const job = await enqueueIngestionJob(ctx.db, {
             notebookId,
@@ -229,9 +234,25 @@ export async function registerSourceRoutes(app: FastifyInstance, ctx: AppContext
           await appendEvent(ctx.db, {
             notebookId,
             eventType: "ingestion.job.queued",
-            payload: { sourceId, sourceVersionId: versionId, jobName: "ingest_source", jobId: job.id, queueBackend: "postgres", ingestionReservationId },
+            payload: {
+              sourceId,
+              sourceVersionId: versionId,
+              jobName: "ingest_source",
+              jobId: job.id,
+              queueBackend: "postgres",
+              ingestionReservationId,
+            },
           });
-          app.log.info({ notebookId, sourceId, sourceVersionId: versionId, jobName: "ingest_source", queueBackend: "postgres" }, "ingestion job queued");
+          app.log.info(
+            {
+              notebookId,
+              sourceId,
+              sourceVersionId: versionId,
+              jobName: "ingest_source",
+              queueBackend: "postgres",
+            },
+            "ingestion job queued",
+          );
         }
 
         await recordProductAnalytics(ctx, {
@@ -250,7 +271,11 @@ export async function registerSourceRoutes(app: FastifyInstance, ctx: AppContext
           app.log.warn({ err: error, sourceId }, "ingestion trigger failed after upload");
         });
 
-        const [row] = await ctx.db.db.select().from(sources).where(eq(sources.id, sourceId)).limit(1);
+        const [row] = await ctx.db.db
+          .select()
+          .from(sources)
+          .where(eq(sources.id, sourceId))
+          .limit(1);
 
         return reply.status(201).send({
           source: toSourceLearnerView({
@@ -266,7 +291,10 @@ export async function registerSourceRoutes(app: FastifyInstance, ctx: AppContext
           await releaseReservation(ctx.db, ingestionReservationId, {
             reason: "source_upload_failed_before_queue_completion",
           }).catch((releaseError) => {
-            app.log.warn({ err: releaseError, ingestionReservationId }, "failed to release ingestion reservation after upload error");
+            app.log.warn(
+              { err: releaseError, ingestionReservationId },
+              "failed to release ingestion reservation after upload error",
+            );
           });
         }
         if (actorIdForAnalytics && error instanceof InsufficientCreditsError) {
@@ -281,137 +309,149 @@ export async function registerSourceRoutes(app: FastifyInstance, ctx: AppContext
     },
   );
 
-  app.get<{ Params: { sourceId: string } }>("/sources/:sourceId/ingestion-status", async (request, reply) => {
-    return withLearner(ctx, request, reply, async (actor) => {
-      const source = await loadReadableSourceById(ctx, actor.id, request.params.sourceId);
-      if (source === "not_found") {
-        return reply.status(404).send({ code: "not_found", message: "Source not found" });
-      }
+  app.get<{ Params: { sourceId: string } }>(
+    "/sources/:sourceId/ingestion-status",
+    async (request, reply) => {
+      return withLearner(ctx, request, reply, async (actor) => {
+        const source = await loadReadableSourceById(ctx, actor.id, request.params.sourceId);
+        if (source === "not_found") {
+          return reply.status(404).send({ code: "not_found", message: "Source not found" });
+        }
 
-      return reply.send(resolveIngestionStatus({
-        status: source.status,
-        metadataJson: source.metadataJson,
-      }));
-    });
-  });
-
-  app.post<{ Params: { sourceId: string } }>("/sources/:sourceId/retry-ingestion", async (request, reply) => {
-    let ingestionReservationId: string | null = null;
-    let actorIdForAnalytics: string | null = null;
-    try {
-      const { actor } = await requireIngestionAccess(ctx, request);
-      actorIdForAnalytics = actor.id;
-      await requireBetaConsent(ctx, request);
-      const source = await loadOwnedSourceById(ctx, actor.id, request.params.sourceId);
-      if (source === "not_found") {
-        return reply.status(404).send({ code: "not_found", message: "Source not found" });
-      }
-
-      const ingestionStatus = resolveIngestionStatus({
-        status: source.status,
-        metadataJson: source.metadataJson,
+        return reply.send(
+          resolveIngestionStatus({
+            status: source.status,
+            metadataJson: source.metadataJson,
+          }),
+        );
       });
-      if (!ingestionStatus.retryNeeded) {
-        return reply.status(400).send({
-          code: "retry_not_allowed",
-          message: ingestionStatus.reviewNeeded
-            ? "This source is in ingestion review."
-            : "This source cannot be retried.",
+    },
+  );
+
+  app.post<{ Params: { sourceId: string } }>(
+    "/sources/:sourceId/retry-ingestion",
+    async (request, reply) => {
+      let ingestionReservationId: string | null = null;
+      let actorIdForAnalytics: string | null = null;
+      try {
+        const { actor } = await requireIngestionAccess(ctx, request);
+        actorIdForAnalytics = actor.id;
+        await requireBetaConsent(ctx, request);
+        const source = await loadOwnedSourceById(ctx, actor.id, request.params.sourceId);
+        if (source === "not_found") {
+          return reply.status(404).send({ code: "not_found", message: "Source not found" });
+        }
+
+        const ingestionStatus = resolveIngestionStatus({
+          status: source.status,
+          metadataJson: source.metadataJson,
         });
-      }
+        if (!ingestionStatus.retryNeeded) {
+          return reply.status(400).send({
+            code: "retry_not_allowed",
+            message: ingestionStatus.reviewNeeded
+              ? "This source is in ingestion review."
+              : "This source cannot be retried.",
+          });
+        }
 
-      const metadata = isJsonRecord(source.metadataJson) ? { ...source.metadataJson } : {};
-      const learnerRetryCount = typeof metadata.learnerRetryCount === "number" ? metadata.learnerRetryCount : 0;
-      metadata.learnerRetryCount = learnerRetryCount + 1;
+        const metadata = isJsonRecord(source.metadataJson) ? { ...source.metadataJson } : {};
+        const learnerRetryCount =
+          typeof metadata.learnerRetryCount === "number" ? metadata.learnerRetryCount : 0;
+        metadata.learnerRetryCount = learnerRetryCount + 1;
 
-      const [version] = await ctx.db.db
-        .select()
-        .from(sourceVersions)
-        .where(eq(sourceVersions.sourceId, source.id))
-        .orderBy(desc(sourceVersions.version))
-        .limit(1);
-      if (!version) {
-        return reply.status(400).send({ code: "bad_request", message: "Source version missing" });
-      }
+        const [version] = await ctx.db.db
+          .select()
+          .from(sourceVersions)
+          .where(eq(sourceVersions.sourceId, source.id))
+          .orderBy(desc(sourceVersions.version))
+          .limit(1);
+        if (!version) {
+          return reply.status(400).send({ code: "bad_request", message: "Source version missing" });
+        }
 
-      const reservation = await createReservation(
-        ctx.db,
-        actor.id,
-        "ingestion",
-        INGESTION_JOB_ESTIMATE_CENTS,
-        "source_ingestion_retry",
-        source.id,
-        ctx.env.CREDIT_RESERVATION_TTL_SECONDS,
-      );
-      ingestionReservationId = reservation.id;
+        const reservation = await createReservation(
+          ctx.db,
+          actor.id,
+          "ingestion",
+          INGESTION_JOB_ESTIMATE_CENTS,
+          "source_ingestion_retry",
+          source.id,
+          ctx.env.CREDIT_RESERVATION_TTL_SECONDS,
+        );
+        ingestionReservationId = reservation.id;
 
-      const now = new Date();
-      await ctx.db.db
-        .update(sources)
-        .set({ status: "uploaded", metadataJson: metadata, updatedAt: now })
-        .where(eq(sources.id, source.id));
+        const now = new Date();
+        await ctx.db.db
+          .update(sources)
+          .set({ status: "uploaded", metadataJson: metadata, updatedAt: now })
+          .where(eq(sources.id, source.id));
 
-      const job = await enqueueIngestionJob(ctx.db, {
-        notebookId: source.notebookId,
-        sourceId: source.id,
-        sourceVersionId: version.id,
-        ingestionReservationId,
-        jobName: "ingest_source",
-        maxAttempts: 3,
-      });
-
-      await appendEvent(ctx.db, {
-        notebookId: source.notebookId,
-        eventType: "ingestion.job.queued",
-        payload: {
-          sourceId: source.id,
-          sourceVersionId: version.id,
-          jobName: "ingest_source",
-          jobId: job.id,
-          queueBackend: "postgres",
-          learnerRetry: true,
-          ingestionReservationId,
-        },
-      });
-
-      await recordProductAnalytics(ctx, {
-        userId: actor.id,
-        eventName: "ingestion_retry_queued",
-        properties: {
-          sourceId: source.id,
-          sourceVersionId: version.id,
+        const job = await enqueueIngestionJob(ctx.db, {
           notebookId: source.notebookId,
-          retryCount: metadata.learnerRetryCount,
-        },
-      });
-
-      void triggerIngestionWorker(ctx, "retry", actor.id).catch((error) => {
-        app.log.warn({ err: error, sourceId: source.id }, "ingestion trigger failed after retry");
-      });
-
-      return reply.status(202).send({
-        ok: true,
-        sourceId: source.id,
-        ingestionStatus: resolveIngestionStatus({ status: "uploaded", metadataJson: metadata }),
-      });
-    } catch (error) {
-      if (ingestionReservationId) {
-        await releaseReservation(ctx.db, ingestionReservationId, {
-          reason: "source_retry_failed_before_queue_completion",
-        }).catch((releaseError) => {
-          app.log.warn({ err: releaseError, ingestionReservationId }, "failed to release ingestion reservation after retry error");
+          sourceId: source.id,
+          sourceVersionId: version.id,
+          ingestionReservationId,
+          jobName: "ingest_source",
+          maxAttempts: 3,
         });
-      }
-      if (actorIdForAnalytics && error instanceof InsufficientCreditsError) {
+
+        await appendEvent(ctx.db, {
+          notebookId: source.notebookId,
+          eventType: "ingestion.job.queued",
+          payload: {
+            sourceId: source.id,
+            sourceVersionId: version.id,
+            jobName: "ingest_source",
+            jobId: job.id,
+            queueBackend: "postgres",
+            learnerRetry: true,
+            ingestionReservationId,
+          },
+        });
+
         await recordProductAnalytics(ctx, {
-          userId: actorIdForAnalytics,
-          eventName: "credit_exhausted",
-          properties: { creditType: "ingestion", action: "ingestion_retry" },
-        }).catch(() => undefined);
+          userId: actor.id,
+          eventName: "ingestion_retry_queued",
+          properties: {
+            sourceId: source.id,
+            sourceVersionId: version.id,
+            notebookId: source.notebookId,
+            retryCount: metadata.learnerRetryCount,
+          },
+        });
+
+        void triggerIngestionWorker(ctx, "retry", actor.id).catch((error) => {
+          app.log.warn({ err: error, sourceId: source.id }, "ingestion trigger failed after retry");
+        });
+
+        return reply.status(202).send({
+          ok: true,
+          sourceId: source.id,
+          ingestionStatus: resolveIngestionStatus({ status: "uploaded", metadataJson: metadata }),
+        });
+      } catch (error) {
+        if (ingestionReservationId) {
+          await releaseReservation(ctx.db, ingestionReservationId, {
+            reason: "source_retry_failed_before_queue_completion",
+          }).catch((releaseError) => {
+            app.log.warn(
+              { err: releaseError, ingestionReservationId },
+              "failed to release ingestion reservation after retry error",
+            );
+          });
+        }
+        if (actorIdForAnalytics && error instanceof InsufficientCreditsError) {
+          await recordProductAnalytics(ctx, {
+            userId: actorIdForAnalytics,
+            eventName: "credit_exhausted",
+            properties: { creditType: "ingestion", action: "ingestion_retry" },
+          }).catch(() => undefined);
+        }
+        return sendSourceRouteError(reply, error);
       }
-      return sendSourceRouteError(reply, error);
-    }
-  });
+    },
+  );
 
   app.get<{ Params: { notebookId: string; sourceId: string } }>(
     "/notebooks/:notebookId/sources/:sourceId/file",
@@ -419,33 +459,38 @@ export async function registerSourceRoutes(app: FastifyInstance, ctx: AppContext
       const { notebookId, sourceId } = request.params;
       return withLearner(ctx, request, reply, async (actor) => {
         const source = await loadReadableSource(ctx, actor.id, notebookId, sourceId);
-      if (source === "notebook_missing") {
-        return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
-      }
-      if (!source) {
-        return reply.status(404).send({ code: "not_found", message: "Source not found" });
-      }
-      if (!ctx.s3) {
-        return reply.status(503).send({ code: "storage_unavailable", message: "Object storage is not configured." });
-      }
+        if (source === "notebook_missing") {
+          return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
+        }
+        if (!source) {
+          return reply.status(404).send({ code: "not_found", message: "Source not found" });
+        }
+        if (!ctx.s3) {
+          return reply
+            .status(503)
+            .send({ code: "storage_unavailable", message: "Object storage is not configured." });
+        }
 
-      const object = await ctx.s3.send(
-        new GetObjectCommand({
-          Bucket: ctx.env.OBJECT_STORAGE_BUCKET,
-          Key: source.originalObjectKey,
-        }),
-      );
-      const metadata = isJsonRecord(source.metadataJson) ? source.metadataJson : {};
-      const filename = typeof metadata.filename === "string" ? metadata.filename : source.title;
-      const mimeType = typeof metadata.mimeType === "string" ? metadata.mimeType : object.ContentType ?? "application/octet-stream";
-      reply.header("Content-Type", mimeType);
-      reply.header("Content-Disposition", `inline; filename="${filename.replace(/"/g, "")}"`);
-      await appendEvent(ctx.db, {
-        notebookId,
-        eventType: "source.viewer.opened",
-        payload: { sourceId, viewer: "original", mimeType },
-      });
-      return reply.send(object.Body);
+        const object = await ctx.s3.send(
+          new GetObjectCommand({
+            Bucket: ctx.env.OBJECT_STORAGE_BUCKET,
+            Key: source.originalObjectKey,
+          }),
+        );
+        const metadata = isJsonRecord(source.metadataJson) ? source.metadataJson : {};
+        const filename = typeof metadata.filename === "string" ? metadata.filename : source.title;
+        const mimeType =
+          typeof metadata.mimeType === "string"
+            ? metadata.mimeType
+            : (object.ContentType ?? "application/octet-stream");
+        reply.header("Content-Type", mimeType);
+        reply.header("Content-Disposition", `inline; filename="${filename.replace(/"/g, "")}"`);
+        await appendEvent(ctx.db, {
+          notebookId,
+          eventType: "source.viewer.opened",
+          payload: { sourceId, viewer: "original", mimeType },
+        });
+        return reply.send(object.Body);
       });
     },
   );
@@ -456,50 +501,55 @@ export async function registerSourceRoutes(app: FastifyInstance, ctx: AppContext
       const { notebookId, sourceId } = request.params;
       return withLearner(ctx, request, reply, async (actor) => {
         const source = await loadReadableSource(ctx, actor.id, notebookId, sourceId);
-      if (source === "notebook_missing") {
-        return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
-      }
-      if (!source) {
-        return reply.status(404).send({ code: "not_found", message: "Source not found" });
-      }
-      const [version] = await ctx.db.db
-        .select()
-        .from(sourceVersions)
-        .where(eq(sourceVersions.sourceId, sourceId))
-        .orderBy(desc(sourceVersions.version))
-        .limit(1);
-      const textChunks = version
-        ? await ctx.db.db
-            .select({
-              id: chunks.id,
-              text: chunks.text,
-              pageStart: chunks.pageStart,
-              pageEnd: chunks.pageEnd,
-              headingPath: chunks.headingPath,
-            })
-            .from(chunks)
-            .where(eq(chunks.sourceVersionId, version.id))
-            .orderBy(asc(chunks.pageStart), asc(chunks.id))
-        : [];
-      await appendEvent(ctx.db, {
-        notebookId,
-        eventType: "source.viewer.opened",
-        payload: { sourceId, sourceVersionId: version?.id ?? null, viewer: "extracted", chunkCount: textChunks.length },
-      });
-      return reply.send({
-        source: {
-          ...toSourceLearnerView({
-            id: source.id,
-            title: source.title,
-            status: source.status,
-            metadataJson: source.metadataJson,
-          }),
-          sourceType: source.sourceType,
-        },
-        sourceVersionId: version?.id ?? null,
-        chunks: textChunks,
-        text: textChunks.map((chunk) => chunk.text).join("\n\n"),
-      });
+        if (source === "notebook_missing") {
+          return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
+        }
+        if (!source) {
+          return reply.status(404).send({ code: "not_found", message: "Source not found" });
+        }
+        const [version] = await ctx.db.db
+          .select()
+          .from(sourceVersions)
+          .where(eq(sourceVersions.sourceId, sourceId))
+          .orderBy(desc(sourceVersions.version))
+          .limit(1);
+        const textChunks = version
+          ? await ctx.db.db
+              .select({
+                id: chunks.id,
+                text: chunks.text,
+                pageStart: chunks.pageStart,
+                pageEnd: chunks.pageEnd,
+                headingPath: chunks.headingPath,
+              })
+              .from(chunks)
+              .where(eq(chunks.sourceVersionId, version.id))
+              .orderBy(asc(chunks.pageStart), asc(chunks.id))
+          : [];
+        await appendEvent(ctx.db, {
+          notebookId,
+          eventType: "source.viewer.opened",
+          payload: {
+            sourceId,
+            sourceVersionId: version?.id ?? null,
+            viewer: "extracted",
+            chunkCount: textChunks.length,
+          },
+        });
+        return reply.send({
+          source: {
+            ...toSourceLearnerView({
+              id: source.id,
+              title: source.title,
+              status: source.status,
+              metadataJson: source.metadataJson,
+            }),
+            sourceType: source.sourceType,
+          },
+          sourceVersionId: version?.id ?? null,
+          chunks: textChunks,
+          text: textChunks.map((chunk) => chunk.text).join("\n\n"),
+        });
       });
     },
   );
@@ -518,10 +568,7 @@ async function countQueuedSourcesForLearner(ctx: AppContext, ownerId: string): P
     .from(sources)
     .innerJoin(notebooks, eq(notebooks.id, sources.notebookId))
     .where(
-      and(
-        eq(notebooks.ownerId, ownerId),
-        inArray(sources.status, [...QUEUED_SOURCE_STATUSES]),
-      ),
+      and(eq(notebooks.ownerId, ownerId), inArray(sources.status, [...QUEUED_SOURCE_STATUSES])),
     );
   return Number(row?.value ?? 0);
 }
@@ -568,7 +615,12 @@ async function loadReadableSourceById(ctx: AppContext, ownerId: string, sourceId
   return row.source;
 }
 
-async function loadReadableSource(ctx: AppContext, ownerId: string, notebookId: string, sourceId: string) {
+async function loadReadableSource(
+  ctx: AppContext,
+  ownerId: string,
+  notebookId: string,
+  sourceId: string,
+) {
   const [owned] = await ctx.db.db
     .select()
     .from(notebooks)
@@ -602,7 +654,8 @@ function inferSourceType(mime: string | undefined, filename: string | undefined)
   const m = (mime ?? "").toLowerCase();
   const name = filename?.toLowerCase() ?? "";
   if (m.includes("pdf") || name.endsWith(".pdf")) return "pdf";
-  if (m.includes("markdown") || name.endsWith(".md") || name.endsWith(".markdown")) return "markdown";
+  if (m.includes("markdown") || name.endsWith(".md") || name.endsWith(".markdown"))
+    return "markdown";
   if (m === "text/plain" || name.endsWith(".txt")) return "text";
   return "binary";
 }

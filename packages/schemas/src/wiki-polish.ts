@@ -1,7 +1,12 @@
 import { z } from "zod";
 import { idSchema, nodeRefSchema } from "./ids.js";
 
-export const wikiPolishCandidateStatusSchema = z.enum(["queued", "processing", "polished", "skipped"]);
+export const wikiPolishCandidateStatusSchema = z.enum([
+  "queued",
+  "processing",
+  "polished",
+  "skipped",
+]);
 
 export type WikiPolishCandidateStatus = z.infer<typeof wikiPolishCandidateStatusSchema>;
 

@@ -2,7 +2,7 @@
  * Coverage Item Extraction Module
  *
  * Extracts pedagogical coverage items from source material, claims, and structured content.
- * Supports all item families: definition, formula, notation, distinction, procedure, example, 
+ * Supports all item families: definition, formula, notation, distinction, procedure, example,
  * application, historical context, and misconception.
  */
 
@@ -205,7 +205,10 @@ export function extractProcedureItems(ctx: CoverageExtractionContext): Extracted
 
   if (steps.length > 0) {
     const procedureText = steps.join("\n");
-    if (ctx.headingPath?.some((h) => /procedure|algorithm|steps|how to/i.test(h)) || steps.length >= 3) {
+    if (
+      ctx.headingPath?.some((h) => /procedure|algorithm|steps|how to/i.test(h)) ||
+      steps.length >= 3
+    ) {
       items.push({
         id: `cov_${crypto.randomUUID().replaceAll("-", "")}`,
         notebookId: ctx.notebookId,
@@ -292,7 +295,11 @@ export function extractDistinctionItems(ctx: CoverageExtractionContext): Extract
         id: `cov_${crypto.randomUUID().replaceAll("-", "")}`,
         notebookId: ctx.notebookId,
         itemFamily: "distinction",
-        title: `Distinction: ${match[1]?.substring(0, 50)} vs ${match[2]?.substring(0, 50)}`.substring(0, 100),
+        title:
+          `Distinction: ${match[1]?.substring(0, 50)} vs ${match[2]?.substring(0, 50)}`.substring(
+            0,
+            100,
+          ),
         description: `${match[1]} differs from ${match[2]}`,
         conceptId: ctx.conceptId,
         claimId: ctx.claimId,
@@ -397,7 +404,9 @@ export function extractApplicationItems(ctx: CoverageExtractionContext): Extract
  * Extracts historical context items.
  * Looks for "history", "named after", "discovered by", "attributed to", dates, etc.
  */
-export function extractHistoricalContextItems(ctx: CoverageExtractionContext): ExtractedCoverageItem[] {
+export function extractHistoricalContextItems(
+  ctx: CoverageExtractionContext,
+): ExtractedCoverageItem[] {
   const items: ExtractedCoverageItem[] = [];
   const historicalPatterns = [
     /(?:Named\s+)?after\s+(.+?)(?=,|who|\.)/gi,
@@ -455,7 +464,10 @@ export function extractCoverageItems(ctx: CoverageExtractionContext): ExtractedC
   for (const item of allItems) {
     const key = `${item.itemFamily}:${item.title}`;
     const existing = deduplicated.get(key);
-    if (!existing || (item.metadataJson.confidence as number) > (existing.metadataJson.confidence as number)) {
+    if (
+      !existing ||
+      (item.metadataJson.confidence as number) > (existing.metadataJson.confidence as number)
+    ) {
       deduplicated.set(key, item);
     }
   }

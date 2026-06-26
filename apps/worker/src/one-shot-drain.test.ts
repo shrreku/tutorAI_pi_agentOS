@@ -1,9 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const {
-  claimNextIngestionJob,
-  completeIngestionJob,
-} = vi.hoisted(() => ({
+const { claimNextIngestionJob, completeIngestionJob } = vi.hoisted(() => ({
   claimNextIngestionJob: vi.fn(),
   completeIngestionJob: vi.fn(),
 }));

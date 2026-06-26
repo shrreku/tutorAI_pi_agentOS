@@ -30,7 +30,11 @@ import { appendEventWithTutorCacheInvalidation as appendEvent } from "./agentic-
 import type { AppContext } from "./context.js";
 import { scheduleRollingModuleBuild } from "./rolling-module-build-scheduler.js";
 
-async function activateCurriculumRecord(appCtx: AppContext, notebookId: string, input: CurriculumActivateInput) {
+async function activateCurriculumRecord(
+  appCtx: AppContext,
+  notebookId: string,
+  input: CurriculumActivateInput,
+) {
   const [existing] = await appCtx.db.db
     .select()
     .from(curricula)
@@ -67,18 +71,24 @@ async function activateCurriculumRecord(appCtx: AppContext, notebookId: string, 
     const [previousModule] = await appCtx.db.db
       .select({ orderIndex: curriculumModules.orderIndex })
       .from(curriculumModules)
-      .where(and(eq(curriculumModules.id, previousActiveModuleId), eq(curriculumModules.notebookId, notebookId)))
+      .where(
+        and(
+          eq(curriculumModules.id, previousActiveModuleId),
+          eq(curriculumModules.notebookId, notebookId),
+        ),
+      )
       .limit(1);
     const [nextModule] = await appCtx.db.db
       .select({ orderIndex: curriculumModules.orderIndex })
       .from(curriculumModules)
-      .where(and(eq(curriculumModules.id, nextActiveModuleId), eq(curriculumModules.notebookId, notebookId)))
+      .where(
+        and(
+          eq(curriculumModules.id, nextActiveModuleId),
+          eq(curriculumModules.notebookId, notebookId),
+        ),
+      )
       .limit(1);
-    if (
-      previousModule &&
-      nextModule &&
-      nextModule.orderIndex > previousModule.orderIndex
-    ) {
+    if (previousModule && nextModule && nextModule.orderIndex > previousModule.orderIndex) {
       scheduleRollingModuleBuild(appCtx.db, {
         notebookId,
         curriculumId: existing.id,
@@ -88,14 +98,26 @@ async function activateCurriculumRecord(appCtx: AppContext, notebookId: string, 
     }
   }
 
-  return { id: existing.id, notebookId: existing.notebookId, title: existing.title, status: "active", activeModuleId: nextActiveModuleId };
+  return {
+    id: existing.id,
+    notebookId: existing.notebookId,
+    title: existing.title,
+    status: "active",
+    activeModuleId: nextActiveModuleId,
+  };
 }
 
-async function updateModuleRecord(appCtx: AppContext, notebookId: string, input: ModuleUpdateInput) {
+async function updateModuleRecord(
+  appCtx: AppContext,
+  notebookId: string,
+  input: ModuleUpdateInput,
+) {
   const [existing] = await appCtx.db.db
     .select()
     .from(curriculumModules)
-    .where(and(eq(curriculumModules.id, input.moduleId), eq(curriculumModules.notebookId, notebookId)))
+    .where(
+      and(eq(curriculumModules.id, input.moduleId), eq(curriculumModules.notebookId, notebookId)),
+    )
     .limit(1);
   if (!existing) return null;
   const updatedAt = new Date();
@@ -111,7 +133,10 @@ async function updateModuleRecord(appCtx: AppContext, notebookId: string, input:
     masteryGateJson: input.masteryGateJson ?? existing.masteryGateJson,
     updatedAt,
   };
-  await appCtx.db.db.update(curriculumModules).set(next).where(eq(curriculumModules.id, existing.id));
+  await appCtx.db.db
+    .update(curriculumModules)
+    .set(next)
+    .where(eq(curriculumModules.id, existing.id));
 
   if (input.requestDeepBuild && next.status === "active") {
     const [previousModule] = await appCtx.db.db
@@ -135,19 +160,36 @@ async function updateModuleRecord(appCtx: AppContext, notebookId: string, input:
     }
   }
 
-  return { id: existing.id, notebookId: existing.notebookId, curriculumId: existing.curriculumId, title: next.title, summary: next.summary, status: next.status, orderIndex: next.orderIndex };
+  return {
+    id: existing.id,
+    notebookId: existing.notebookId,
+    curriculumId: existing.curriculumId,
+    title: next.title,
+    summary: next.summary,
+    status: next.status,
+    orderIndex: next.orderIndex,
+  };
 }
 
-async function updateObjectiveListRecord(appCtx: AppContext, notebookId: string, input: ObjectiveListUpdateInput) {
+async function updateObjectiveListRecord(
+  appCtx: AppContext,
+  notebookId: string,
+  input: ObjectiveListUpdateInput,
+) {
   const [existing] = await appCtx.db.db
     .select()
     .from(objectiveLists)
-    .where(and(eq(objectiveLists.id, input.objectiveListId), eq(objectiveLists.notebookId, notebookId)))
+    .where(
+      and(eq(objectiveLists.id, input.objectiveListId), eq(objectiveLists.notebookId, notebookId)),
+    )
     .limit(1);
   if (!existing) return null;
   const updatedAt = new Date();
   const objectiveIdsOrdered = input.objectiveIdsOrdered ?? existing.objectiveIdsOrdered;
-  const currentObjectiveId = input.currentObjectiveId === undefined ? existing.currentObjectiveId ?? null : input.currentObjectiveId;
+  const currentObjectiveId =
+    input.currentObjectiveId === undefined
+      ? (existing.currentObjectiveId ?? null)
+      : input.currentObjectiveId;
   if (currentObjectiveId && !objectiveIdsOrdered.includes(currentObjectiveId)) {
     return null;
   }
@@ -175,10 +217,23 @@ async function updateObjectiveListRecord(appCtx: AppContext, notebookId: string,
     updatedAt,
   };
   await appCtx.db.db.update(objectiveLists).set(next).where(eq(objectiveLists.id, existing.id));
-  return { id: existing.id, notebookId: existing.notebookId, curriculumId: existing.curriculumId, moduleId: existing.moduleId, title: next.title, status: next.status, currentObjectiveId: next.currentObjectiveId, objectiveIdsOrdered: next.objectiveIdsOrdered };
+  return {
+    id: existing.id,
+    notebookId: existing.notebookId,
+    curriculumId: existing.curriculumId,
+    moduleId: existing.moduleId,
+    title: next.title,
+    status: next.status,
+    currentObjectiveId: next.currentObjectiveId,
+    objectiveIdsOrdered: next.objectiveIdsOrdered,
+  };
 }
 
-async function updateObjectiveRecord(appCtx: AppContext, notebookId: string, input: ObjectiveUpdateInput) {
+async function updateObjectiveRecord(
+  appCtx: AppContext,
+  notebookId: string,
+  input: ObjectiveUpdateInput,
+) {
   const [existing] = await appCtx.db.db
     .select()
     .from(objectives)
@@ -194,38 +249,71 @@ async function updateObjectiveRecord(appCtx: AppContext, notebookId: string, inp
     successCriteriaJson: input.successCriteriaJson ?? existing.successCriteriaJson,
     sourceRefsJson: input.sourceRefsJson ?? existing.sourceRefsJson,
     suggestedMode: input.suggestedMode === undefined ? existing.suggestedMode : input.suggestedMode,
-    readinessScore: input.readinessScore === undefined ? existing.readinessScore : input.readinessScore,
+    readinessScore:
+      input.readinessScore === undefined ? existing.readinessScore : input.readinessScore,
     updatedAt,
   };
   await appCtx.db.db.update(objectives).set(next).where(eq(objectives.id, existing.id));
-  return { id: existing.id, notebookId: existing.notebookId, curriculumId: existing.curriculumId, title: next.title, status: next.status, orderIndex: existing.orderIndex };
+  return {
+    id: existing.id,
+    notebookId: existing.notebookId,
+    curriculumId: existing.curriculumId,
+    title: next.title,
+    status: next.status,
+    orderIndex: existing.orderIndex,
+  };
 }
 
-async function reorderObjectiveListRecord(appCtx: AppContext, notebookId: string, input: ObjectiveListReorderInput) {
+async function reorderObjectiveListRecord(
+  appCtx: AppContext,
+  notebookId: string,
+  input: ObjectiveListReorderInput,
+) {
   const [existing] = await appCtx.db.db
     .select()
     .from(objectiveLists)
-    .where(and(eq(objectiveLists.id, input.objectiveListId), eq(objectiveLists.notebookId, notebookId)))
+    .where(
+      and(eq(objectiveLists.id, input.objectiveListId), eq(objectiveLists.notebookId, notebookId)),
+    )
     .limit(1);
   if (!existing) return null;
   const currentSet = [...(existing.objectiveIdsOrdered ?? [])].sort();
   const incomingSet = [...input.objectiveIdsOrdered].sort();
   if (JSON.stringify(currentSet) !== JSON.stringify(incomingSet)) return null;
-  if (input.currentObjectiveId && !input.objectiveIdsOrdered.includes(input.currentObjectiveId)) return null;
-  const currentObjectiveId = input.currentObjectiveId === undefined ? existing.currentObjectiveId ?? null : input.currentObjectiveId;
+  if (input.currentObjectiveId && !input.objectiveIdsOrdered.includes(input.currentObjectiveId))
+    return null;
+  const currentObjectiveId =
+    input.currentObjectiveId === undefined
+      ? (existing.currentObjectiveId ?? null)
+      : input.currentObjectiveId;
   const updatedAt = new Date();
   await appCtx.db.db
     .update(objectiveLists)
     .set({ objectiveIdsOrdered: input.objectiveIdsOrdered, currentObjectiveId, updatedAt })
     .where(eq(objectiveLists.id, existing.id));
-  return { id: existing.id, notebookId: existing.notebookId, curriculumId: existing.curriculumId, moduleId: existing.moduleId, title: existing.title, status: existing.status, currentObjectiveId, objectiveIdsOrdered: input.objectiveIdsOrdered };
+  return {
+    id: existing.id,
+    notebookId: existing.notebookId,
+    curriculumId: existing.curriculumId,
+    moduleId: existing.moduleId,
+    title: existing.title,
+    status: existing.status,
+    currentObjectiveId,
+    objectiveIdsOrdered: input.objectiveIdsOrdered,
+  };
 }
 
-async function splitObjectiveRecord(appCtx: AppContext, notebookId: string, input: ObjectiveListSplitObjectiveInput) {
+async function splitObjectiveRecord(
+  appCtx: AppContext,
+  notebookId: string,
+  input: ObjectiveListSplitObjectiveInput,
+) {
   const [list] = await appCtx.db.db
     .select()
     .from(objectiveLists)
-    .where(and(eq(objectiveLists.id, input.objectiveListId), eq(objectiveLists.notebookId, notebookId)))
+    .where(
+      and(eq(objectiveLists.id, input.objectiveListId), eq(objectiveLists.notebookId, notebookId)),
+    )
     .limit(1);
   if (!list) return null;
   const splitIndex = list.objectiveIdsOrdered.indexOf(input.objectiveId);
@@ -250,7 +338,8 @@ async function splitObjectiveRecord(appCtx: AppContext, notebookId: string, inpu
       title: split.title,
       status: "not_started",
       orderIndex: sourceObjective.orderIndex + i,
-      prerequisiteConceptIds: split.prerequisiteConceptIds ?? sourceObjective.prerequisiteConceptIds,
+      prerequisiteConceptIds:
+        split.prerequisiteConceptIds ?? sourceObjective.prerequisiteConceptIds,
       targetConceptIds: split.targetConceptIds ?? sourceObjective.targetConceptIds,
       successCriteriaJson: sourceObjective.successCriteriaJson,
       sourceRefsJson: sourceObjective.sourceRefsJson,
@@ -259,25 +348,46 @@ async function splitObjectiveRecord(appCtx: AppContext, notebookId: string, inpu
     });
   }
 
-  await appCtx.db.db.update(objectives).set({ status: "superseded", updatedAt: new Date() }).where(eq(objectives.id, sourceObjective.id));
+  await appCtx.db.db
+    .update(objectives)
+    .set({ status: "superseded", updatedAt: new Date() })
+    .where(eq(objectives.id, sourceObjective.id));
   const objectiveIdsOrdered = [...list.objectiveIdsOrdered];
   objectiveIdsOrdered.splice(splitIndex, 1, ...createdObjectiveIds);
-  const currentObjectiveId = list.currentObjectiveId === input.objectiveId ? createdObjectiveIds[0] ?? null : list.currentObjectiveId ?? null;
+  const currentObjectiveId =
+    list.currentObjectiveId === input.objectiveId
+      ? (createdObjectiveIds[0] ?? null)
+      : (list.currentObjectiveId ?? null);
   await appCtx.db.db
     .update(objectiveLists)
     .set({ objectiveIdsOrdered, currentObjectiveId, updatedAt: new Date() })
     .where(eq(objectiveLists.id, list.id));
   return {
-    objectiveList: { id: list.id, notebookId: list.notebookId, curriculumId: list.curriculumId, moduleId: list.moduleId, title: list.title, status: list.status, currentObjectiveId, objectiveIdsOrdered },
+    objectiveList: {
+      id: list.id,
+      notebookId: list.notebookId,
+      curriculumId: list.curriculumId,
+      moduleId: list.moduleId,
+      title: list.title,
+      status: list.status,
+      currentObjectiveId,
+      objectiveIdsOrdered,
+    },
     createdObjectiveIds,
   };
 }
 
-async function mergeObjectivesRecord(appCtx: AppContext, notebookId: string, input: ObjectiveListMergeObjectivesInput) {
+async function mergeObjectivesRecord(
+  appCtx: AppContext,
+  notebookId: string,
+  input: ObjectiveListMergeObjectivesInput,
+) {
   const [list] = await appCtx.db.db
     .select()
     .from(objectiveLists)
-    .where(and(eq(objectiveLists.id, input.objectiveListId), eq(objectiveLists.notebookId, notebookId)))
+    .where(
+      and(eq(objectiveLists.id, input.objectiveListId), eq(objectiveLists.notebookId, notebookId)),
+    )
     .limit(1);
   if (!list) return null;
   if (!input.objectiveIds.every((id) => list.objectiveIdsOrdered.includes(id))) return null;
@@ -305,9 +415,14 @@ async function mergeObjectivesRecord(appCtx: AppContext, notebookId: string, inp
     readinessScore: first.readinessScore,
   });
 
-  await appCtx.db.db.update(objectives).set({ status: "merged", updatedAt: new Date() }).where(inArray(objectives.id, input.objectiveIds));
+  await appCtx.db.db
+    .update(objectives)
+    .set({ status: "merged", updatedAt: new Date() })
+    .where(inArray(objectives.id, input.objectiveIds));
 
-  const objectiveIdsOrdered = list.objectiveIdsOrdered.filter((id) => !input.objectiveIds.includes(id));
+  const objectiveIdsOrdered = list.objectiveIdsOrdered.filter(
+    (id) => !input.objectiveIds.includes(id),
+  );
   let insertAt = list.objectiveIdsOrdered.length;
   for (let i = 0; i < list.objectiveIdsOrdered.length; i += 1) {
     if (input.objectiveIds.includes(list.objectiveIdsOrdered[i]!)) {
@@ -316,13 +431,25 @@ async function mergeObjectivesRecord(appCtx: AppContext, notebookId: string, inp
     }
   }
   objectiveIdsOrdered.splice(insertAt, 0, mergedObjectiveId);
-  const currentObjectiveId = list.currentObjectiveId && input.objectiveIds.includes(list.currentObjectiveId) ? mergedObjectiveId : list.currentObjectiveId ?? null;
+  const currentObjectiveId =
+    list.currentObjectiveId && input.objectiveIds.includes(list.currentObjectiveId)
+      ? mergedObjectiveId
+      : (list.currentObjectiveId ?? null);
   await appCtx.db.db
     .update(objectiveLists)
     .set({ objectiveIdsOrdered, currentObjectiveId, updatedAt: new Date() })
     .where(eq(objectiveLists.id, list.id));
   return {
-    objectiveList: { id: list.id, notebookId: list.notebookId, curriculumId: list.curriculumId, moduleId: list.moduleId, title: list.title, status: list.status, currentObjectiveId, objectiveIdsOrdered },
+    objectiveList: {
+      id: list.id,
+      notebookId: list.notebookId,
+      curriculumId: list.curriculumId,
+      moduleId: list.moduleId,
+      title: list.title,
+      status: list.status,
+      currentObjectiveId,
+      objectiveIdsOrdered,
+    },
     mergedObjectiveId,
   };
 }
@@ -331,29 +458,26 @@ async function updateSessionPlanRecord(
   appCtx: AppContext,
   notebookId: string,
   input: SessionPlanUpdateInput,
-): Promise<
-  | {
-      id: string;
-      notebookId: string;
-      curriculumId: string;
-      moduleId: string;
-      objectiveListId: string;
-      title: string;
-      status: string;
-      sessionGoal: string | null;
-      plannedObjectiveIds: string[];
-      openerJson: Record<string, unknown>;
-      diagnosticQuestionIds: string[];
-      teachingArcIds: string[];
-      artifactRefsJson: unknown[];
-      exitCriteriaJson: Record<string, unknown>;
-      recommendationReasonJson: Record<string, unknown>;
-      createdByRunId: string | null;
-      createdAt: Date;
-      updatedAt: Date;
-    }
-  | null
-> {
+): Promise<{
+  id: string;
+  notebookId: string;
+  curriculumId: string;
+  moduleId: string;
+  objectiveListId: string;
+  title: string;
+  status: string;
+  sessionGoal: string | null;
+  plannedObjectiveIds: string[];
+  openerJson: Record<string, unknown>;
+  diagnosticQuestionIds: string[];
+  teachingArcIds: string[];
+  artifactRefsJson: unknown[];
+  exitCriteriaJson: Record<string, unknown>;
+  recommendationReasonJson: Record<string, unknown>;
+  createdByRunId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+} | null> {
   const [existing] = await appCtx.db.db
     .select()
     .from(sessionPlans)
@@ -364,7 +488,12 @@ async function updateSessionPlanRecord(
     const [objectiveList] = await appCtx.db.db
       .select({ objectiveIdsOrdered: objectiveLists.objectiveIdsOrdered })
       .from(objectiveLists)
-      .where(and(eq(objectiveLists.id, existing.objectiveListId), eq(objectiveLists.notebookId, notebookId)))
+      .where(
+        and(
+          eq(objectiveLists.id, existing.objectiveListId),
+          eq(objectiveLists.notebookId, notebookId),
+        ),
+      )
       .limit(1);
     if (!objectiveList) return null;
     const allowed = new Set(objectiveList.objectiveIdsOrdered ?? []);
@@ -392,7 +521,9 @@ async function updateSessionPlanRecord(
   return { ...existing, ...next };
 }
 
-export function createCurriculumWriteHandlers(appCtx: AppContext): Pick<
+export function createCurriculumWriteHandlers(
+  appCtx: AppContext,
+): Pick<
   RuntimeWriteToolProvider,
   | "updateSessionPlan"
   | "activateCurriculum"
@@ -448,7 +579,14 @@ export function createCurriculumWriteHandlers(appCtx: AppContext): Pick<
               updatedAt: result.updatedAt.toISOString(),
             }
           : null,
-        warnings: result ? [] : [{ code: "session_plan_missing", message: "Session plan was not found in this notebook." }],
+        warnings: result
+          ? []
+          : [
+              {
+                code: "session_plan_missing",
+                message: "Session plan was not found in this notebook.",
+              },
+            ],
         reducerResult: buildReducerResult(
           "session_plan.updated",
           {
@@ -478,13 +616,29 @@ export function createCurriculumWriteHandlers(appCtx: AppContext): Pick<
             runId: ctx.runId,
             ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}),
             eventType: "curriculum.activated",
-            payload: { curriculumId: result.id, activeModuleId: result.activeModuleId, reasonJson: input.reasonJson, traceId: ctx.traceId },
+            payload: {
+              curriculumId: result.id,
+              activeModuleId: result.activeModuleId,
+              reasonJson: input.reasonJson,
+              traceId: ctx.traceId,
+            },
           })
         : null;
       return {
         curriculum: result,
-        warnings: result ? [] : [{ code: "curriculum_missing", message: "Curriculum was not found in this notebook." }],
-        reducerResult: buildReducerResult("curriculum.activated", { notebookId: ctx.notebookId, curriculumId: input.curriculumId, activeModuleId: input.activeModuleId ?? null, reasonJson: input.reasonJson }, event ? [event.id] : []),
+        warnings: result
+          ? []
+          : [{ code: "curriculum_missing", message: "Curriculum was not found in this notebook." }],
+        reducerResult: buildReducerResult(
+          "curriculum.activated",
+          {
+            notebookId: ctx.notebookId,
+            curriculumId: input.curriculumId,
+            activeModuleId: input.activeModuleId ?? null,
+            reasonJson: input.reasonJson,
+          },
+          event ? [event.id] : [],
+        ),
       };
     },
 
@@ -496,13 +650,32 @@ export function createCurriculumWriteHandlers(appCtx: AppContext): Pick<
             runId: ctx.runId,
             ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}),
             eventType: "module.updated",
-            payload: { moduleId: result.id, curriculumId: result.curriculumId, title: result.title, status: result.status, orderIndex: result.orderIndex, traceId: ctx.traceId },
+            payload: {
+              moduleId: result.id,
+              curriculumId: result.curriculumId,
+              title: result.title,
+              status: result.status,
+              orderIndex: result.orderIndex,
+              traceId: ctx.traceId,
+            },
           })
         : null;
       return {
         module: result,
-        warnings: result ? [] : [{ code: "module_missing", message: "Module was not found in this notebook." }],
-        reducerResult: buildReducerResult("module.updated", { notebookId: ctx.notebookId, moduleId: input.moduleId, title: input.title ?? null, status: input.status ?? null, orderIndex: input.orderIndex ?? null }, event ? [event.id] : []),
+        warnings: result
+          ? []
+          : [{ code: "module_missing", message: "Module was not found in this notebook." }],
+        reducerResult: buildReducerResult(
+          "module.updated",
+          {
+            notebookId: ctx.notebookId,
+            moduleId: input.moduleId,
+            title: input.title ?? null,
+            status: input.status ?? null,
+            orderIndex: input.orderIndex ?? null,
+          },
+          event ? [event.id] : [],
+        ),
       };
     },
 
@@ -514,33 +687,57 @@ export function createCurriculumWriteHandlers(appCtx: AppContext): Pick<
             runId: ctx.runId,
             ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}),
             eventType: "objective_list.updated",
-            payload: { objectiveListId: result.id, currentObjectiveId: result.currentObjectiveId, objectiveIdsOrdered: result.objectiveIdsOrdered, traceId: ctx.traceId },
+            payload: {
+              objectiveListId: result.id,
+              currentObjectiveId: result.currentObjectiveId,
+              objectiveIdsOrdered: result.objectiveIdsOrdered,
+              traceId: ctx.traceId,
+            },
           })
         : null;
       return {
         objectiveList: result,
-        warnings: result ? [] : [{ code: "objective_list_missing", message: "Objective list was not found in this notebook." }],
-        reducerResult: buildReducerResult("objective_list.updated", { notebookId: ctx.notebookId, objectiveListId: input.objectiveListId, currentObjectiveId: input.currentObjectiveId ?? null, objectiveIdsOrdered: input.objectiveIdsOrdered ?? [] }, event ? [event.id] : []),
+        warnings: result
+          ? []
+          : [
+              {
+                code: "objective_list_missing",
+                message: "Objective list was not found in this notebook.",
+              },
+            ],
+        reducerResult: buildReducerResult(
+          "objective_list.updated",
+          {
+            notebookId: ctx.notebookId,
+            objectiveListId: input.objectiveListId,
+            currentObjectiveId: input.currentObjectiveId ?? null,
+            objectiveIdsOrdered: input.objectiveIdsOrdered ?? [],
+          },
+          event ? [event.id] : [],
+        ),
       };
     },
 
     async updateObjective(input, ctx): Promise<ObjectiveUpdateOutput> {
       const hasMutation =
-        input.title !== undefined
-        || input.status !== undefined
-        || input.targetConceptIds !== undefined
-        || input.prerequisiteConceptIds !== undefined
-        || input.successCriteriaJson !== undefined
-        || input.sourceRefsJson !== undefined
-        || input.suggestedMode !== undefined
-        || input.readinessScore !== undefined;
+        input.title !== undefined ||
+        input.status !== undefined ||
+        input.targetConceptIds !== undefined ||
+        input.prerequisiteConceptIds !== undefined ||
+        input.successCriteriaJson !== undefined ||
+        input.sourceRefsJson !== undefined ||
+        input.suggestedMode !== undefined ||
+        input.readinessScore !== undefined;
       if (!hasMutation) {
         return {
           objective: null,
-          warnings: [{
-            code: "objective_noop",
-            message: "objective.update requires at least one field to change, such as status, title, targetConceptIds, or readinessScore.",
-          }],
+          warnings: [
+            {
+              code: "objective_noop",
+              message:
+                "objective.update requires at least one field to change, such as status, title, targetConceptIds, or readinessScore.",
+            },
+          ],
           reducerResult: buildReducerResult("objective.updated", {
             notebookId: ctx.notebookId,
             objectiveId: input.objectiveId,
@@ -557,13 +754,30 @@ export function createCurriculumWriteHandlers(appCtx: AppContext): Pick<
             runId: ctx.runId,
             ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}),
             eventType: "objective.updated",
-            payload: { objectiveId: result.id, title: result.title, status: result.status, orderIndex: result.orderIndex, traceId: ctx.traceId },
+            payload: {
+              objectiveId: result.id,
+              title: result.title,
+              status: result.status,
+              orderIndex: result.orderIndex,
+              traceId: ctx.traceId,
+            },
           })
         : null;
       return {
         objective: result,
-        warnings: result ? [] : [{ code: "objective_missing", message: "Objective was not found in this notebook." }],
-        reducerResult: buildReducerResult("objective.updated", { notebookId: ctx.notebookId, objectiveId: input.objectiveId, title: input.title ?? null, status: input.status ?? null }, event ? [event.id] : []),
+        warnings: result
+          ? []
+          : [{ code: "objective_missing", message: "Objective was not found in this notebook." }],
+        reducerResult: buildReducerResult(
+          "objective.updated",
+          {
+            notebookId: ctx.notebookId,
+            objectiveId: input.objectiveId,
+            title: input.title ?? null,
+            status: input.status ?? null,
+          },
+          event ? [event.id] : [],
+        ),
       };
     },
 
@@ -575,13 +789,34 @@ export function createCurriculumWriteHandlers(appCtx: AppContext): Pick<
             runId: ctx.runId,
             ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}),
             eventType: "objective_list.reordered",
-            payload: { objectiveListId: result.id, currentObjectiveId: result.currentObjectiveId, objectiveIdsOrdered: result.objectiveIdsOrdered, traceId: ctx.traceId },
+            payload: {
+              objectiveListId: result.id,
+              currentObjectiveId: result.currentObjectiveId,
+              objectiveIdsOrdered: result.objectiveIdsOrdered,
+              traceId: ctx.traceId,
+            },
           })
         : null;
       return {
         objectiveList: result,
-        warnings: result ? [] : [{ code: "objective_list_reorder_rejected", message: "Objective list reorder failed due to scope or ordering mismatch." }],
-        reducerResult: buildReducerResult("objective_list.reordered", { notebookId: ctx.notebookId, objectiveListId: input.objectiveListId, objectiveIdsOrdered: input.objectiveIdsOrdered, currentObjectiveId: input.currentObjectiveId ?? null }, event ? [event.id] : []),
+        warnings: result
+          ? []
+          : [
+              {
+                code: "objective_list_reorder_rejected",
+                message: "Objective list reorder failed due to scope or ordering mismatch.",
+              },
+            ],
+        reducerResult: buildReducerResult(
+          "objective_list.reordered",
+          {
+            notebookId: ctx.notebookId,
+            objectiveListId: input.objectiveListId,
+            objectiveIdsOrdered: input.objectiveIdsOrdered,
+            currentObjectiveId: input.currentObjectiveId ?? null,
+          },
+          event ? [event.id] : [],
+        ),
       };
     },
 
@@ -593,14 +828,35 @@ export function createCurriculumWriteHandlers(appCtx: AppContext): Pick<
             runId: ctx.runId,
             ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}),
             eventType: "objective_list.objective_split",
-            payload: { objectiveListId: input.objectiveListId, objectiveId: input.objectiveId, createdObjectiveIds: result.createdObjectiveIds, traceId: ctx.traceId },
+            payload: {
+              objectiveListId: input.objectiveListId,
+              objectiveId: input.objectiveId,
+              createdObjectiveIds: result.createdObjectiveIds,
+              traceId: ctx.traceId,
+            },
           })
         : null;
       return {
         objectiveList: result?.objectiveList ?? null,
         createdObjectiveIds: result?.createdObjectiveIds ?? [],
-        warnings: result ? [] : [{ code: "objective_split_rejected", message: "Objective split failed due to scope or missing objective." }],
-        reducerResult: buildReducerResult("objective_list.objective_split", { notebookId: ctx.notebookId, objectiveListId: input.objectiveListId, objectiveId: input.objectiveId, splitObjectives: input.splitObjectives }, event ? [event.id] : []),
+        warnings: result
+          ? []
+          : [
+              {
+                code: "objective_split_rejected",
+                message: "Objective split failed due to scope or missing objective.",
+              },
+            ],
+        reducerResult: buildReducerResult(
+          "objective_list.objective_split",
+          {
+            notebookId: ctx.notebookId,
+            objectiveListId: input.objectiveListId,
+            objectiveId: input.objectiveId,
+            splitObjectives: input.splitObjectives,
+          },
+          event ? [event.id] : [],
+        ),
       };
     },
 
@@ -612,14 +868,35 @@ export function createCurriculumWriteHandlers(appCtx: AppContext): Pick<
             runId: ctx.runId,
             ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}),
             eventType: "objective_list.objectives_merged",
-            payload: { objectiveListId: input.objectiveListId, objectiveIds: input.objectiveIds, mergedObjectiveId: result.mergedObjectiveId, traceId: ctx.traceId },
+            payload: {
+              objectiveListId: input.objectiveListId,
+              objectiveIds: input.objectiveIds,
+              mergedObjectiveId: result.mergedObjectiveId,
+              traceId: ctx.traceId,
+            },
           })
         : null;
       return {
         objectiveList: result?.objectiveList ?? null,
         mergedObjectiveId: result?.mergedObjectiveId,
-        warnings: result ? [] : [{ code: "objective_merge_rejected", message: "Objective merge failed due to scope or missing objectives." }],
-        reducerResult: buildReducerResult("objective_list.objectives_merged", { notebookId: ctx.notebookId, objectiveListId: input.objectiveListId, objectiveIds: input.objectiveIds, mergedObjectiveTitle: input.mergedObjectiveTitle }, event ? [event.id] : []),
+        warnings: result
+          ? []
+          : [
+              {
+                code: "objective_merge_rejected",
+                message: "Objective merge failed due to scope or missing objectives.",
+              },
+            ],
+        reducerResult: buildReducerResult(
+          "objective_list.objectives_merged",
+          {
+            notebookId: ctx.notebookId,
+            objectiveListId: input.objectiveListId,
+            objectiveIds: input.objectiveIds,
+            mergedObjectiveTitle: input.mergedObjectiveTitle,
+          },
+          event ? [event.id] : [],
+        ),
       };
     },
   };

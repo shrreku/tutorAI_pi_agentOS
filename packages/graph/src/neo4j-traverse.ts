@@ -13,7 +13,9 @@ function plainProps(props: Record<string, unknown>): Record<string, unknown> {
   return out;
 }
 
-function nodeSummary(n: unknown): { id: string; labels: string[]; props: Record<string, unknown> } | null {
+function nodeSummary(
+  n: unknown,
+): { id: string; labels: string[]; props: Record<string, unknown> } | null {
   if (!(n instanceof Node)) return null;
   const props = plainProps(n.properties as Record<string, unknown>);
   const id = typeof props.id === "string" ? props.id : props.id != null ? String(props.id) : "";

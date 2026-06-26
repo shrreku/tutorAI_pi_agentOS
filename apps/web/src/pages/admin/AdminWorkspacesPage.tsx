@@ -53,7 +53,9 @@ export function AdminWorkspacesPage({ navigate }: { navigate: (path: string) => 
                   <button
                     type="button"
                     className="tb-inline-link"
-                    onClick={() => navigate(`/admin/workspaces/${encodeURIComponent(workspace.id)}`)}
+                    onClick={() =>
+                      navigate(`/admin/workspaces/${encodeURIComponent(workspace.id)}`)
+                    }
                   >
                     {workspace.title}
                   </button>

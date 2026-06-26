@@ -1,5 +1,12 @@
-export { resetGenerationTargetCacheForTests, markGenerationTargetComplete, isTargetAlreadyComplete } from "./generation-target-registry.js";
-export { gatherRollingLearnerSignals, conceptIdsFromMasteryEvidence } from "./learner-signal-reader.js";
+export {
+  resetGenerationTargetCacheForTests,
+  markGenerationTargetComplete,
+  isTargetAlreadyComplete,
+} from "./generation-target-registry.js";
+export {
+  gatherRollingLearnerSignals,
+  conceptIdsFromMasteryEvidence,
+} from "./learner-signal-reader.js";
 export {
   loadModulePage,
   loadTopicPagesForConcepts,

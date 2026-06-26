@@ -36,7 +36,11 @@
             };
             ctx.root.innerHTML =
               '<div class="sa-shell">' +
-              h.headerHtml("Bridge diagnostics", "Developer view of block payload and canonical state.", "Dev") +
+              h.headerHtml(
+                "Bridge diagnostics",
+                "Developer view of block payload and canonical state.",
+                "Dev",
+              ) +
               '<div class="sa-trace">' +
               h.escapeHtml(JSON.stringify(payload, null, 2)) +
               "</div></div>";

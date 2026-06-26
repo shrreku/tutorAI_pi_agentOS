@@ -53,7 +53,10 @@ describe("Source-to-LLM-Wiki compilation (ticket 9)", () => {
     expect(changeSet.concepts).toHaveLength(1);
     expect(changeSet.concepts[0]!.action).toBe("create");
     expect(changeSet.claims).toHaveLength(1);
-    expect(changeSet.claims[0]!.evidenceRefs[0]).toEqual({ kind: "source_chunk", chunkId: "chk_1" });
+    expect(changeSet.claims[0]!.evidenceRefs[0]).toEqual({
+      kind: "source_chunk",
+      chunkId: "chk_1",
+    });
     expect(changeSet.wikiPages.some((p) => p.pageType === "source_summary")).toBe(true);
     expect(changeSet.wikiPages.some((p) => p.pageType === "concept")).toBe(true);
     expect(changeSet.warnings).toBeDefined();
@@ -165,11 +168,7 @@ describe("human block preservation (ticket 10)", () => {
     if (!result.ok) return;
     expect(result.changeSet.deleteWikiPageKeys.length).toBeGreaterThanOrEqual(0);
     const humanOnly = extractHumanBlocks(
-      [
-        '<!-- studyagent:owner=human id="x" -->',
-        "kept",
-        "<!-- studyagent:end -->",
-      ].join("\n"),
+      ['<!-- studyagent:owner=human id="x" -->', "kept", "<!-- studyagent:end -->"].join("\n"),
     );
     expect(humanOnly).toHaveLength(1);
   });
@@ -222,8 +221,12 @@ describe("claim conflict and supersession (ticket 11)", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.changeSet.claims.some((c) => c.status === "contradicted")).toBe(true);
-    expect(result.changeSet.graphRelations.some((r) => r.relationType === "contradicts")).toBe(true);
-    expect(result.changeSet.warnings.some((w) => w.code === "claim.contradiction_resolved")).toBe(true);
+    expect(result.changeSet.graphRelations.some((r) => r.relationType === "contradicts")).toBe(
+      true,
+    );
+    expect(result.changeSet.warnings.some((w) => w.code === "claim.contradiction_resolved")).toBe(
+      true,
+    );
   });
 
   it("warns on duplicate normalized new claims", () => {
@@ -242,14 +245,18 @@ describe("claim conflict and supersession (ticket 11)", () => {
     );
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.changeSet.warnings.some((w) => w.code === "duplicate_normalized_claim")).toBe(true);
+    expect(result.changeSet.warnings.some((w) => w.code === "duplicate_normalized_claim")).toBe(
+      true,
+    );
   });
 
   it("flags low-confidence claims with resolution metadata", () => {
     const result = compileSourceToWikiChangeSet(baseFixture());
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    const lowConfidence = result.changeSet.claims.find((c) => c.resolution.kind === "low_confidence");
+    const lowConfidence = result.changeSet.claims.find(
+      (c) => c.resolution.kind === "low_confidence",
+    );
     if (lowConfidence) {
       expect(result.changeSet.warnings.some((w) => w.code === "claim.low_confidence")).toBe(true);
     }
@@ -270,7 +277,11 @@ describe("claim conflict and supersession (ticket 11)", () => {
 describe("learner-readable wiki pages (tickets 1-2)", () => {
   it("renders concept pages without claim ids or debug labels", () => {
     const markdown = buildConceptPageMarkdown("Entropy", [
-      { id: "clm_hidden", text: "Entropy measures disorder in isolated systems.", confidence: 0.82 },
+      {
+        id: "clm_hidden",
+        text: "Entropy measures disorder in isolated systems.",
+        confidence: 0.82,
+      },
     ]);
     expect(markdown).toContain("## Definition");
     expect(markdown).toContain("Entropy measures disorder");
@@ -286,9 +297,9 @@ describe("learner-readable wiki pages (tickets 1-2)", () => {
   });
 
   it("normalizes source summary markdown with readable headings", () => {
-    expect(normalizeSourceSummaryMarkdown("Entropy increases in closed systems.", "Thermo Notes")).toContain(
-      "## Overview",
-    );
+    expect(
+      normalizeSourceSummaryMarkdown("Entropy increases in closed systems.", "Thermo Notes"),
+    ).toContain("## Overview");
   });
 
   it("compiles a large source fixture with multiple concepts and topics", () => {
@@ -317,8 +328,11 @@ describe("learner-readable wiki pages (tickets 1-2)", () => {
               evidenceChunkId: "chk_1",
             },
           ],
-          relations: [{ fromConcept: "Entropy", toConcept: "Enthalpy", relationType: "depends_on" }],
-          sourceSummaryMarkdown: "Thermodynamics overview across entropy, enthalpy, and heat capacity.",
+          relations: [
+            { fromConcept: "Entropy", toConcept: "Enthalpy", relationType: "depends_on" },
+          ],
+          sourceSummaryMarkdown:
+            "Thermodynamics overview across entropy, enthalpy, and heat capacity.",
         },
       }),
     );
@@ -326,8 +340,12 @@ describe("learner-readable wiki pages (tickets 1-2)", () => {
     if (!result.ok) return;
     expect(result.changeSet.wikiPages[0]?.pageType).toBe("topic");
     expect(result.changeSet.wikiPages[0]?.title).toBe("Topic · Thermodynamics Intro");
-    expect(result.changeSet.wikiPages.filter((page) => page.pageType === "concept")).toHaveLength(3);
-    expect(result.changeSet.wikiPages.some((page) => page.pageType === "source_summary")).toBe(true);
+    expect(result.changeSet.wikiPages.filter((page) => page.pageType === "concept")).toHaveLength(
+      3,
+    );
+    expect(result.changeSet.wikiPages.some((page) => page.pageType === "source_summary")).toBe(
+      true,
+    );
     for (const page of result.changeSet.wikiPages) {
       expect(page.markdown).not.toMatch(/claim\s*`/i);
       expect(page.markdown).not.toMatch(/clm_/);
@@ -341,9 +359,21 @@ describe("learner-readable wiki pages (tickets 1-2)", () => {
         extraction: {
           concepts: [{ name: "Entropy" }, { name: "Enthalpy" }, { name: "Heat capacity" }],
           claims: [
-            { claimText: "Entropy increases in isolated systems.", conceptNames: ["Entropy"], evidenceChunkId: "chk_1" },
-            { claimText: "Entropy and enthalpy are linked.", conceptNames: ["Entropy", "Enthalpy"], evidenceChunkId: "chk_1" },
-            { claimText: "Enthalpy tracks heat at constant pressure.", conceptNames: ["Enthalpy"], evidenceChunkId: "chk_2" },
+            {
+              claimText: "Entropy increases in isolated systems.",
+              conceptNames: ["Entropy"],
+              evidenceChunkId: "chk_1",
+            },
+            {
+              claimText: "Entropy and enthalpy are linked.",
+              conceptNames: ["Entropy", "Enthalpy"],
+              evidenceChunkId: "chk_1",
+            },
+            {
+              claimText: "Enthalpy tracks heat at constant pressure.",
+              conceptNames: ["Enthalpy"],
+              evidenceChunkId: "chk_2",
+            },
           ],
           relations: [],
           sourceSummaryMarkdown: "Batch-limited summary.",
@@ -354,7 +384,12 @@ describe("learner-readable wiki pages (tickets 1-2)", () => {
     if (!result.ok) return;
     const conceptPages = result.changeSet.wikiPages.filter((page) => page.pageType === "concept");
     expect(conceptPages).toHaveLength(2);
-    expect(conceptPages.map((page) => page.title)).toEqual(["Concept · Entropy", "Concept · Enthalpy"]);
-    expect(result.changeSet.warnings.some((warning) => warning.code === "concept_page_batch_limited")).toBe(true);
+    expect(conceptPages.map((page) => page.title)).toEqual([
+      "Concept · Entropy",
+      "Concept · Enthalpy",
+    ]);
+    expect(
+      result.changeSet.warnings.some((warning) => warning.code === "concept_page_batch_limited"),
+    ).toBe(true);
   });
 });

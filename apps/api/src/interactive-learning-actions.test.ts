@@ -442,7 +442,10 @@ describe("interactive learning actions", () => {
       .mockResolvedValueOnce(surfaceWithBlocks([flashcardBlock]));
 
     const result = await dispatchInteractiveLearningAction({
-      ctx: { db: { db: new FakeDb(true, "art_flash") }, env: { DISABLE_AUTH: true } } as unknown as AppContext,
+      ctx: {
+        db: { db: new FakeDb(true, "art_flash") },
+        env: { DISABLE_AUTH: true },
+      } as unknown as AppContext,
       notebookId: "nb_1",
       userId: "user_1",
       envelope: {
@@ -482,7 +485,10 @@ describe("interactive learning actions", () => {
       .mockResolvedValueOnce(surfaceWithBlocks([workedBlock]));
 
     const result = await dispatchInteractiveLearningAction({
-      ctx: { db: { db: new FakeDb(true, "art_worked") }, env: { DISABLE_AUTH: true } } as unknown as AppContext,
+      ctx: {
+        db: { db: new FakeDb(true, "art_worked") },
+        env: { DISABLE_AUTH: true },
+      } as unknown as AppContext,
       notebookId: "nb_1",
       userId: "user_1",
       envelope: {

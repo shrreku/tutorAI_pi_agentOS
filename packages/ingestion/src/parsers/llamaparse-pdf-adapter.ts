@@ -12,7 +12,11 @@ export function createLlamaParsePdfAdapter(cfg: {
     name: "llamaparse_pdf",
     async parse(input, options) {
       const safeName = options.filename?.trim() || "document.pdf";
-      const { markdown, jobId, warnings: lw } = await llamaParsePdfToMarkdown(input, safeName, {
+      const {
+        markdown,
+        jobId,
+        warnings: lw,
+      } = await llamaParsePdfToMarkdown(input, safeName, {
         apiKey: cfg.apiKey,
         baseUrl: cfg.baseUrl,
         tier: cfg.tier,

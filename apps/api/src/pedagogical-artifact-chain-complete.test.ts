@@ -12,7 +12,12 @@ import {
   extractExampleItems,
   extractApplicationItems,
 } from "@studyagent/wiki-core";
-import { artifactTypeSchema, artifactSchema, nodeRefSchema, provenanceRefSchema } from "@studyagent/schemas";
+import {
+  artifactTypeSchema,
+  artifactSchema,
+  nodeRefSchema,
+  provenanceRefSchema,
+} from "@studyagent/schemas";
 
 describe("Pedagogical Artifact Chain - Complete Implementation", () => {
   describe("Ticket 1: Coverage Item Extraction ✅", () => {
@@ -137,7 +142,9 @@ describe("Pedagogical Artifact Chain - Complete Implementation", () => {
         status: "ready",
         payload: { problemStatement: "Find eigenvalues" },
         sourceNodeRefs: [{ refType: "concept" as const, refId: "concept_1" }],
-        provenance: [{ refType: "tool_call" as const, refId: "call_1", role: "generated_by" as const }],
+        provenance: [
+          { refType: "tool_call" as const, refId: "call_1", role: "generated_by" as const },
+        ],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -158,7 +165,9 @@ describe("Pedagogical Artifact Chain - Complete Implementation", () => {
         status: "ready",
         payload: { formulas: [{ symbol: "λ", definition: "Eigenvalue" }] },
         sourceNodeRefs: [{ refType: "wiki_page" as const, refId: "wp_1" }],
-        provenance: [{ refType: "tool_call" as const, refId: "call_2", role: "generated_by" as const }],
+        provenance: [
+          { refType: "tool_call" as const, refId: "call_2", role: "generated_by" as const },
+        ],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -183,7 +192,9 @@ describe("Pedagogical Artifact Chain - Complete Implementation", () => {
           comparisonRows: [{ attribute: "Type", left: "Scalar", right: "Vector" }],
         },
         sourceNodeRefs: [{ refType: "concept" as const, refId: "concept_1" }],
-        provenance: [{ refType: "tool_call" as const, refId: "call_3", role: "generated_by" as const }],
+        provenance: [
+          { refType: "tool_call" as const, refId: "call_3", role: "generated_by" as const },
+        ],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -271,7 +282,9 @@ describe("Pedagogical Artifact Chain - Complete Implementation", () => {
         status: "ready",
         payload: { problemStatement: "Test" },
         sourceNodeRefs: [{ refType: "concept" as const, refId: "c_1" }],
-        provenance: [{ refType: "tool_call" as const, refId: "call_1", role: "generated_by" as const }],
+        provenance: [
+          { refType: "tool_call" as const, refId: "call_1", role: "generated_by" as const },
+        ],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };

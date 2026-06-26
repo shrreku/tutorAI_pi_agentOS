@@ -68,7 +68,10 @@ export async function runRollingModuleBuild(
 ): Promise<{ ok: boolean; reason?: string; moduleId?: string }> {
   const generationJobId = input.generationJobId;
   const trigger = input.trigger ?? "module_milestone";
-  if (input.materialPathChange && requiresMaterialPathChangeConfirmation(input.materialPathChange)) {
+  if (
+    input.materialPathChange &&
+    requiresMaterialPathChangeConfirmation(input.materialPathChange)
+  ) {
     await appendEvent(dbClient, {
       notebookId: input.notebookId,
       eventType: "generation.module_deep_build.completed",
@@ -91,19 +94,34 @@ export async function runRollingModuleBuild(
   const [completedModule] = await dbClient.db
     .select()
     .from(curriculumModules)
-    .where(and(eq(curriculumModules.id, input.completedModuleId), eq(curriculumModules.notebookId, input.notebookId)))
+    .where(
+      and(
+        eq(curriculumModules.id, input.completedModuleId),
+        eq(curriculumModules.notebookId, input.notebookId),
+      ),
+    )
     .limit(1);
   if (!completedModule) {
-    await finalizeGenerationJob(dbClient, generationJobId, { ok: false, reason: "completed_module_missing" });
+    await finalizeGenerationJob(dbClient, generationJobId, {
+      ok: false,
+      reason: "completed_module_missing",
+    });
     return { ok: false, reason: "completed_module_missing" };
   }
 
   const nextModules = await dbClient.db
     .select()
     .from(curriculumModules)
-    .where(and(eq(curriculumModules.curriculumId, input.curriculumId), eq(curriculumModules.notebookId, input.notebookId)))
+    .where(
+      and(
+        eq(curriculumModules.curriculumId, input.curriculumId),
+        eq(curriculumModules.notebookId, input.notebookId),
+      ),
+    )
     .orderBy(asc(curriculumModules.orderIndex));
-  const nextModule = nextModules.find((module) => module.orderIndex === completedModule.orderIndex + 1);
+  const nextModule = nextModules.find(
+    (module) => module.orderIndex === completedModule.orderIndex + 1,
+  );
   if (!nextModule) {
     await finalizeGenerationJob(dbClient, generationJobId, { ok: false, reason: "no_next_module" });
     return { ok: false, reason: "no_next_module" };
@@ -182,11 +200,19 @@ export async function runRollingModuleBuild(
 
   const firstObjectiveId = objectiveIds[0];
   const [firstObjective] = firstObjectiveId
-    ? await dbClient.db.select().from(objectives).where(eq(objectives.id, firstObjectiveId)).limit(1)
+    ? await dbClient.db
+        .select()
+        .from(objectives)
+        .where(eq(objectives.id, firstObjectiveId))
+        .limit(1)
     : [];
-  const coreConceptIds = selectCoreConceptIdsForFirstObjective(firstObjective?.targetConceptIds ?? nextModule.targetConceptIds ?? []);
+  const coreConceptIds = selectCoreConceptIdsForFirstObjective(
+    firstObjective?.targetConceptIds ?? nextModule.targetConceptIds ?? [],
+  );
 
-  const topicPages = await loadTopicPagesForConcepts(dbClient, input.notebookId, coreConceptIds, [nextModule.title]);
+  const topicPages = await loadTopicPagesForConcepts(dbClient, input.notebookId, coreConceptIds, [
+    nextModule.title,
+  ]);
   for (const topicPage of topicPages) {
     polishResults.push(
       await runPolishJobTracked(env, dbClient, {
@@ -228,9 +254,15 @@ export async function runRollingModuleBuild(
   const objectiveList = await dbClient.db
     .select()
     .from(objectiveLists)
-    .where(and(eq(objectiveLists.notebookId, input.notebookId), eq(objectiveLists.moduleId, nextModule.id)))
+    .where(
+      and(
+        eq(objectiveLists.notebookId, input.notebookId),
+        eq(objectiveLists.moduleId, nextModule.id),
+      ),
+    )
     .limit(1);
-  const objectiveListId = objectiveList[0]?.id ?? `objlist_${crypto.randomUUID().replaceAll("-", "")}`;
+  const objectiveListId =
+    objectiveList[0]?.id ?? `objlist_${crypto.randomUUID().replaceAll("-", "")}`;
   const plannedObjectiveIds = objectiveIds.slice(0, 2);
   const objectiveTitleRows =
     plannedObjectiveIds.length > 0
@@ -255,7 +287,10 @@ export async function runRollingModuleBuild(
     objectiveListId,
     moduleTitle: nextModule.title,
     plannedObjectiveIds,
-    teachingArcDrafts: teachingArcDrafts.map((arc) => ({ id: arc.id, objectiveId: arc.objectiveId })),
+    teachingArcDrafts: teachingArcDrafts.map((arc) => ({
+      id: arc.id,
+      objectiveId: arc.objectiveId,
+    })),
   });
   await appendEvent(dbClient, {
     notebookId: input.notebookId,
@@ -270,7 +305,12 @@ export async function runRollingModuleBuild(
     },
   });
 
-  await syncStudyPlanForModule(dbClient, input.notebookId, objectiveIds, learnerSignals.weakConceptIds);
+  await syncStudyPlanForModule(
+    dbClient,
+    input.notebookId,
+    objectiveIds,
+    learnerSignals.weakConceptIds,
+  );
 
   const weakConceptNames =
     learnerSignals.weakConceptIds.length > 0
@@ -279,7 +319,10 @@ export async function runRollingModuleBuild(
             .select({ canonicalName: concepts.canonicalName })
             .from(concepts)
             .where(
-              and(eq(concepts.notebookId, input.notebookId), inArray(concepts.id, learnerSignals.weakConceptIds)),
+              and(
+                eq(concepts.notebookId, input.notebookId),
+                inArray(concepts.id, learnerSignals.weakConceptIds),
+              ),
             )
         ).map((row) => row.canonicalName)
       : [];

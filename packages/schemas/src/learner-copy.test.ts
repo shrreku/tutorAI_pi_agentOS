@@ -1,9 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { assertLearnerSafeCopy, learnerFacingNodeTypeLabel, learnerFacingPipelineStatus, learnerSafeCopy, learnerSafeValue } from "./learner-copy.js";
+import {
+  assertLearnerSafeCopy,
+  learnerFacingNodeTypeLabel,
+  learnerFacingPipelineStatus,
+  learnerSafeCopy,
+  learnerSafeValue,
+} from "./learner-copy.js";
 
 describe("learner copy guard", () => {
   it("maps raw pipeline vocabulary into product copy", () => {
-    const copy = learnerSafeCopy("source is tutoring_ready with objective_list and session_plan refs");
+    const copy = learnerSafeCopy(
+      "source is tutoring_ready with objective_list and session_plan refs",
+    );
     expect(copy).toContain("Ready to study");
     expect(copy).toContain("session objectives");
     expect(copy).not.toContain("tutoring_ready");

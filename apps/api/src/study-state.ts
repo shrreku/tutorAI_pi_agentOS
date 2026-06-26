@@ -16,7 +16,11 @@ import {
   tutorSessions,
   type DbClient,
 } from "@studyagent/db";
-import type { LearnerProgressSummary, LearnerReadiness, SourceLevelRecord } from "@studyagent/schemas";
+import type {
+  LearnerProgressSummary,
+  LearnerReadiness,
+  SourceLevelRecord,
+} from "@studyagent/schemas";
 import { deriveLearnerProgressSummary } from "./learner-progress.js";
 import {
   buildConceptLearnerReadiness,
@@ -129,7 +133,12 @@ export type NotebookStudyState = {
     active: TutorSessionSummary | null;
     last: TutorSessionSummary | null;
     canContinue: boolean;
-    suggestedAction: "upload_sources" | "build_curriculum" | "continue_session" | "start_session" | "review_completed";
+    suggestedAction:
+      | "upload_sources"
+      | "build_curriculum"
+      | "continue_session"
+      | "start_session"
+      | "review_completed";
   };
   coverage: CoverageSummary;
   sourceLevels: SourceLevelRecord[];
@@ -180,7 +189,9 @@ export async function loadNotebookStudyState(
       updatedAt: studentProfiles.updatedAt,
     })
     .from(studentProfiles)
-    .where(and(eq(studentProfiles.notebookId, learnerNotebookId), eq(studentProfiles.userId, userId)))
+    .where(
+      and(eq(studentProfiles.notebookId, learnerNotebookId), eq(studentProfiles.userId, userId)),
+    )
     .limit(1);
 
   const curriculumRows = await dbClient.db
@@ -223,7 +234,12 @@ export async function loadNotebookStudyState(
           updatedAt: objectiveLists.updatedAt,
         })
         .from(objectiveLists)
-        .where(and(eq(objectiveLists.notebookId, contentNotebookId), eq(objectiveLists.moduleId, moduleRow.id)))
+        .where(
+          and(
+            eq(objectiveLists.notebookId, contentNotebookId),
+            eq(objectiveLists.moduleId, moduleRow.id),
+          ),
+        )
         .orderBy(desc(objectiveLists.updatedAt))
         .limit(10)
     : [];
@@ -242,7 +258,12 @@ export async function loadNotebookStudyState(
           updatedAt: sessionPlans.updatedAt,
         })
         .from(sessionPlans)
-        .where(and(eq(sessionPlans.notebookId, contentNotebookId), eq(sessionPlans.objectiveListId, objectiveListRow.id)))
+        .where(
+          and(
+            eq(sessionPlans.notebookId, contentNotebookId),
+            eq(sessionPlans.objectiveListId, objectiveListRow.id),
+          ),
+        )
         .orderBy(desc(sessionPlans.updatedAt))
         .limit(10)
     : [];
@@ -253,7 +274,12 @@ export async function loadNotebookStudyState(
       ? await dbClient.db
           .select({ id: artifacts.id, title: artifacts.title, payloadJson: artifacts.payloadJson })
           .from(artifacts)
-          .where(and(eq(artifacts.notebookId, contentNotebookId), inArray(artifacts.id, sessionPlanRow.teachingArcIds ?? [])))
+          .where(
+            and(
+              eq(artifacts.notebookId, contentNotebookId),
+              inArray(artifacts.id, sessionPlanRow.teachingArcIds ?? []),
+            ),
+          )
       : [];
   const teachingArcTitleById = new Map(teachingArcRows.map((row) => [row.id, row.title]));
   const teachingArcBlockTypes = [
@@ -262,7 +288,11 @@ export async function loadNotebookStudyState(
         const blocks = row.payloadJson?.blocks;
         if (!Array.isArray(blocks)) return [];
         return blocks
-          .map((block) => (typeof block === "object" && block && "type" in block ? (block as { type?: unknown }).type : null))
+          .map((block) =>
+            typeof block === "object" && block && "type" in block
+              ? (block as { type?: unknown }).type
+              : null,
+          )
           .filter((type): type is string => typeof type === "string");
       }),
     ),
@@ -356,7 +386,13 @@ export async function loadNotebookStudyState(
           }
         : null,
       studyPlan: null,
-      tutorSession: await loadTutorSessionSummary(dbClient, learnerNotebookId, userId, null, Boolean(curriculum)),
+      tutorSession: await loadTutorSessionSummary(
+        dbClient,
+        learnerNotebookId,
+        userId,
+        null,
+        Boolean(curriculum),
+      ),
       coverage,
       ...levelSignals,
     });
@@ -376,7 +412,9 @@ export async function loadNotebookStudyState(
           status: objectives.status,
         })
         .from(objectives)
-        .where(and(eq(objectives.notebookId, contentNotebookId), inArray(objectives.id, objectiveIds)))
+        .where(
+          and(eq(objectives.notebookId, contentNotebookId), inArray(objectives.id, objectiveIds)),
+        )
     : [];
 
   const objectiveById = new Map(
@@ -398,10 +436,14 @@ export async function loadNotebookStudyState(
           name: concepts.canonicalName,
         })
         .from(concepts)
-        .where(and(eq(concepts.notebookId, contentNotebookId), inArray(concepts.id, weakConceptIds)))
+        .where(
+          and(eq(concepts.notebookId, contentNotebookId), inArray(concepts.id, weakConceptIds)),
+        )
     : [];
 
-  const weakConceptById = new Map(weakConceptRows.map((row) => [row.id, { id: row.id, name: row.name }]));
+  const weakConceptById = new Map(
+    weakConceptRows.map((row) => [row.id, { id: row.id, name: row.name }]),
+  );
 
   return withLearnerProgressSummary({
     studentProfile: studentProfile
@@ -462,7 +504,9 @@ export async function loadNotebookStudyState(
       title: studyPlan.title,
       status: studyPlan.status,
       activeSessionId: studyPlan.activeSessionId ?? null,
-      currentObjective: studyPlan.currentObjectiveId ? objectiveById.get(studyPlan.currentObjectiveId) ?? null : null,
+      currentObjective: studyPlan.currentObjectiveId
+        ? (objectiveById.get(studyPlan.currentObjectiveId) ?? null)
+        : null,
       upcomingObjectives: (studyPlan.upcomingObjectiveIds ?? [])
         .map((id) => objectiveById.get(id))
         .filter((value): value is StudyObjectiveSummary => Boolean(value)),
@@ -605,7 +649,9 @@ async function loadTutorSessionSummary(
   });
 
   const activeRow =
-    (preferredSessionId ? rows.find((row) => row.id === preferredSessionId && row.status !== "completed") : undefined) ??
+    (preferredSessionId
+      ? rows.find((row) => row.id === preferredSessionId && row.status !== "completed")
+      : undefined) ??
     rows.find((row) => row.status === "active" || row.status === "paused") ??
     null;
   const lastRow = rows[0] ?? null;
@@ -643,7 +689,10 @@ async function loadCoverageSummary(
     .from(coverageItems)
     .leftJoin(
       coverageRecords,
-      and(eq(coverageRecords.coverageItemId, coverageItems.id), eq(coverageRecords.notebookId, notebookId)),
+      and(
+        eq(coverageRecords.coverageItemId, coverageItems.id),
+        eq(coverageRecords.notebookId, notebookId),
+      ),
     )
     .where(eq(coverageItems.notebookId, notebookId));
 
@@ -668,7 +717,12 @@ async function loadCoverageSummary(
     else counts.planned += 1;
 
     if ((status === "planned" || status === "needs_review") && gaps.length < 6) {
-      gaps.push({ coverageItemId: row.coverageItemId, title: row.title, itemFamily: row.itemFamily, status });
+      gaps.push({
+        coverageItemId: row.coverageItemId,
+        title: row.title,
+        itemFamily: row.itemFamily,
+        status,
+      });
     }
   }
 
@@ -680,7 +734,12 @@ function normalizeScopeValue(value: string | null | undefined): string | null {
 }
 
 function isScopeCompatible(row: CoverageScopeTuple, scope: CoverageScopeTuple): boolean {
-  const dimensions: Array<keyof CoverageScopeTuple> = ["curriculumId", "moduleId", "objectiveListId", "sessionPlanId"];
+  const dimensions: Array<keyof CoverageScopeTuple> = [
+    "curriculumId",
+    "moduleId",
+    "objectiveListId",
+    "sessionPlanId",
+  ];
   return dimensions.every((dimension) => {
     const rowValue = normalizeScopeValue(row[dimension]);
     const scopeValue = normalizeScopeValue(scope[dimension]);
@@ -690,20 +749,39 @@ function isScopeCompatible(row: CoverageScopeTuple, scope: CoverageScopeTuple): 
 }
 
 function scopeSpecificityScore(row: CoverageScopeTuple, scope: CoverageScopeTuple): number {
-  if (normalizeScopeValue(scope.sessionPlanId) && normalizeScopeValue(row.sessionPlanId) === normalizeScopeValue(scope.sessionPlanId)) return 40;
-  if (normalizeScopeValue(scope.objectiveListId) && normalizeScopeValue(row.objectiveListId) === normalizeScopeValue(scope.objectiveListId))
+  if (
+    normalizeScopeValue(scope.sessionPlanId) &&
+    normalizeScopeValue(row.sessionPlanId) === normalizeScopeValue(scope.sessionPlanId)
+  )
+    return 40;
+  if (
+    normalizeScopeValue(scope.objectiveListId) &&
+    normalizeScopeValue(row.objectiveListId) === normalizeScopeValue(scope.objectiveListId)
+  )
     return 30;
-  if (normalizeScopeValue(scope.moduleId) && normalizeScopeValue(row.moduleId) === normalizeScopeValue(scope.moduleId)) return 20;
-  if (normalizeScopeValue(scope.curriculumId) && normalizeScopeValue(row.curriculumId) === normalizeScopeValue(scope.curriculumId)) return 10;
-  if (!normalizeScopeValue(row.curriculumId) && !normalizeScopeValue(row.moduleId) && !normalizeScopeValue(row.objectiveListId) && !normalizeScopeValue(row.sessionPlanId))
+  if (
+    normalizeScopeValue(scope.moduleId) &&
+    normalizeScopeValue(row.moduleId) === normalizeScopeValue(scope.moduleId)
+  )
+    return 20;
+  if (
+    normalizeScopeValue(scope.curriculumId) &&
+    normalizeScopeValue(row.curriculumId) === normalizeScopeValue(scope.curriculumId)
+  )
+    return 10;
+  if (
+    !normalizeScopeValue(row.curriculumId) &&
+    !normalizeScopeValue(row.moduleId) &&
+    !normalizeScopeValue(row.objectiveListId) &&
+    !normalizeScopeValue(row.sessionPlanId)
+  )
     return 1;
   return 0;
 }
 
-export function selectPreferredCoverageRow<T extends CoverageScopeTuple & { updatedAt: Date | null }>(
-  rows: T[],
-  scope: CoverageScopeTuple,
-): T | null {
+export function selectPreferredCoverageRow<
+  T extends CoverageScopeTuple & { updatedAt: Date | null },
+>(rows: T[], scope: CoverageScopeTuple): T | null {
   const compatible = rows.filter((row) => isScopeCompatible(row, scope));
   if (compatible.length === 0) return null;
   return compatible.sort((left, right) => {
@@ -714,7 +792,9 @@ export function selectPreferredCoverageRow<T extends CoverageScopeTuple & { upda
 }
 
 export function formatStudyPlanSummary(state: NotebookStudyState): string | undefined {
-  const curriculumBits = state.curriculum ? `${state.curriculum.title} (${state.curriculum.status})` : undefined;
+  const curriculumBits = state.curriculum
+    ? `${state.curriculum.title} (${state.curriculum.status})`
+    : undefined;
   const moduleBits = state.module ? `module: ${state.module.title}` : undefined;
   const sessionBits = state.sessionPlan ? `session: ${state.sessionPlan.title}` : undefined;
   const plan = state.studyPlan;
@@ -726,7 +806,12 @@ export function formatStudyPlanSummary(state: NotebookStudyState): string | unde
     sessionBits,
     `${plan.title} (${plan.status})`,
     plan.currentObjective ? `current: ${plan.currentObjective.title}` : undefined,
-    plan.upcomingObjectives.length ? `next: ${plan.upcomingObjectives.slice(0, 2).map((item) => item.title).join(" | ")}` : undefined,
+    plan.upcomingObjectives.length
+      ? `next: ${plan.upcomingObjectives
+          .slice(0, 2)
+          .map((item) => item.title)
+          .join(" | ")}`
+      : undefined,
     plan.completedObjectives.length ? `${plan.completedObjectives.length} completed` : undefined,
   ].filter(Boolean);
 
@@ -760,7 +845,10 @@ export function formatLearnerStateSummary(state: NotebookStudyState): string | u
     }
 
     // Include assessment preferences if available
-    if (profile.assessmentPreferenceJson && Object.keys(profile.assessmentPreferenceJson).length > 0) {
+    if (
+      profile.assessmentPreferenceJson &&
+      Object.keys(profile.assessmentPreferenceJson).length > 0
+    ) {
       const assessPrefs = Object.entries(profile.assessmentPreferenceJson)
         .filter(([_, v]) => v !== undefined && v !== null)
         .map(([k, v]) => `${k}: ${v}`)
@@ -784,10 +872,17 @@ export function formatLearnerStateSummary(state: NotebookStudyState): string | u
 
   const weakConcepts = state.studyPlan?.weakConcepts ?? [];
   if (weakConcepts.length) {
-    parts.push(`Weak concepts: ${weakConcepts.slice(0, 4).map((concept) => concept.name).join(", ")}`);
+    parts.push(
+      `Weak concepts: ${weakConcepts
+        .slice(0, 4)
+        .map((concept) => concept.name)
+        .join(", ")}`,
+    );
   }
 
-  const knownSourceLevels = (state.sourceLevels ?? []).filter((record) => record.level !== "unknown");
+  const knownSourceLevels = (state.sourceLevels ?? []).filter(
+    (record) => record.level !== "unknown",
+  );
   if (knownSourceLevels.length) {
     parts.push(
       `Source levels: ${knownSourceLevels

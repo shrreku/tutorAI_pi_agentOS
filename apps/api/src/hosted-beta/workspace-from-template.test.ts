@@ -1,6 +1,13 @@
 import Fastify from "fastify";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { betaConsents, notebooks, productAnalyticsEvents, studyTemplates, userProductState, users } from "@studyagent/db";
+import {
+  betaConsents,
+  notebooks,
+  productAnalyticsEvents,
+  studyTemplates,
+  userProductState,
+  users,
+} from "@studyagent/db";
 import type { AppContext } from "../context.js";
 import { resetCachedDevActorForTests } from "../auth.js";
 import {
@@ -12,7 +19,9 @@ import { recordProductAnalytics } from "./product-analytics.js";
 import { registerWorkspaceRoutes } from "../routes/workspaces.js";
 
 vi.mock("../agentic-cache-invalidation.js", () => ({
-  appendEventWithTutorCacheInvalidation: vi.fn().mockResolvedValue({ id: "evt_test", sequenceNo: 1 }),
+  appendEventWithTutorCacheInvalidation: vi
+    .fn()
+    .mockResolvedValue({ id: "evt_test", sequenceNo: 1 }),
 }));
 
 vi.mock("./product-analytics.js", () => ({
@@ -139,7 +148,8 @@ class WorkspaceFakeDb {
       "count" in (this.selectProjection as Record<string, unknown>);
 
     const buildResult = (condition?: unknown) => ({
-      orderBy: (_order: unknown) => this.execute(table, condition, isCountQuery, { orderDesc: true }),
+      orderBy: (_order: unknown) =>
+        this.execute(table, condition, isCountQuery, { orderDesc: true }),
       limit: (count: number) => this.execute(table, condition, isCountQuery, { limit: count }),
       then: (onFulfilled: (value: unknown) => unknown, onRejected?: (reason: unknown) => unknown) =>
         Promise.resolve(this.execute(table, condition, isCountQuery)).then(onFulfilled, onRejected),
@@ -177,7 +187,10 @@ class WorkspaceFakeDb {
 
     if (table === notebooks) {
       rows = this.notebookRows.filter(
-        (row) => row.ownerId === "usr_1" && row.workspaceType === "personal_learner" && row.disabledAt == null,
+        (row) =>
+          row.ownerId === "usr_1" &&
+          row.workspaceType === "personal_learner" &&
+          row.disabledAt == null,
       );
     } else if (table === studyTemplates) {
       rows = [...this.templateRows];
@@ -219,7 +232,9 @@ function createWorkspaceContext(options?: {
   templates?: StudyTemplateRow[];
   notebooks?: NotebookRow[];
 }) {
-  const userRows: UserRow[] = [{ id: "usr_1", email: "learner@studyagent.local", disabledAt: null }];
+  const userRows: UserRow[] = [
+    { id: "usr_1", email: "learner@studyagent.local", disabledAt: null },
+  ];
   const productStateRows: ProductStateRow[] = [
     {
       userId: "usr_1",
@@ -366,9 +381,7 @@ describe("workspace-from-template", () => {
 
     const { ctx, notebookRows } = createWorkspaceContext({ notebooks: existing });
 
-    await expect(
-      createWorkspaceFromTemplate(ctx, "usr_1", "st_template_1"),
-    ).rejects.toMatchObject({
+    await expect(createWorkspaceFromTemplate(ctx, "usr_1", "st_template_1")).rejects.toMatchObject({
       code: "workspace_limit_reached",
       statusCode: 409,
     });

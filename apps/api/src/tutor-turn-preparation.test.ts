@@ -2,10 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildStudyAgentHostStateSignature } from "@studyagent/agent-runtime";
 import { artifacts, tutorSessions } from "@studyagent/db";
 
-const {
-  loadNotebookStudyStateMock,
-  loadPersonalizationMock,
-} = vi.hoisted(() => ({
+const { loadNotebookStudyStateMock, loadPersonalizationMock } = vi.hoisted(() => ({
   loadNotebookStudyStateMock: vi.fn(),
   loadPersonalizationMock: vi.fn(async () => [] as Array<{ recommendation: string }>),
 }));
@@ -59,7 +56,13 @@ const baseStudyState = {
 };
 
 function createMockDb(options: {
-  artifact?: { id: string; artifactType: string; title: string; status: string; notebookId: string };
+  artifact?: {
+    id: string;
+    artifactType: string;
+    title: string;
+    status: string;
+    notebookId: string;
+  };
   existingSession?: {
     id: string;
     notebookId: string;
@@ -87,7 +90,8 @@ function createMockDb(options: {
               return Promise.resolve([]);
             },
             orderBy: () => ({
-              limit: () => Promise.resolve(options.existingSession ? [options.existingSession] : []),
+              limit: () =>
+                Promise.resolve(options.existingSession ? [options.existingSession] : []),
             }),
           }),
           orderBy: () => Promise.resolve([]),
@@ -155,18 +159,27 @@ describe("prepareTutorTurn", () => {
     expect(prepared.promptContext.userId).toBe("user_1");
     expect(prepared.promptContext.sessionId).toBe(prepared.sessionId);
     expect(prepared.promptContext.sourceScopePolicy).toBe("soft_source_scope");
-    expect(prepared.promptContext.personalizationRecommendations).toEqual(["Use more visual examples."]);
+    expect(prepared.promptContext.personalizationRecommendations).toEqual([
+      "Use more visual examples.",
+    ]);
     expect(prepared.contextSelection).toBeNull();
     expect(prepared.isNewSession).toBe(true);
-    expect(prepared.openArtifact).toEqual(expect.objectContaining({
-      id: "artifact_1",
-      artifactType: "quiz",
-      title: "Quiz 1",
-      status: "ready",
-    }));
+    expect(prepared.openArtifact).toEqual(
+      expect.objectContaining({
+        id: "artifact_1",
+        artifactType: "quiz",
+        title: "Quiz 1",
+        status: "ready",
+      }),
+    );
     expect(prepared.promptContext.openArtifact).toEqual(prepared.openArtifact);
     expect(prepared.promptContext.additionalInstructions).toEqual(
-      expect.arrayContaining(["[Turn Bootstrap]", "[Open Artifact Context]", "[Personalization Recommendations]", "[New session]"]),
+      expect.arrayContaining([
+        "[Turn Bootstrap]",
+        "[Open Artifact Context]",
+        "[Personalization Recommendations]",
+        "[New session]",
+      ]),
     );
 
     const signature = buildStudyAgentHostStateSignature(prepared.promptContext);
@@ -224,7 +237,12 @@ describe("prepareTutorTurn", () => {
   });
 
   it("keeps the thin prompt resilient when planning state is sparse", async () => {
-    loadNotebookStudyStateMock.mockResolvedValue({ ...baseStudyState, sessionPlan: null, objectiveList: null, studyPlan: null });
+    loadNotebookStudyStateMock.mockResolvedValue({
+      ...baseStudyState,
+      sessionPlan: null,
+      objectiveList: null,
+      studyPlan: null,
+    });
 
     const prepared = await prepareTutorTurn(
       {
@@ -238,6 +256,8 @@ describe("prepareTutorTurn", () => {
     expect(prepared.promptContext.additionalInstructions).toEqual(
       expect.arrayContaining(["[Turn Bootstrap]", "Selected refs: none", "[New session]"]),
     );
-    expect(prepared.studyState).toEqual(expect.objectContaining({ studyPlan: null, sessionPlan: null }));
+    expect(prepared.studyState).toEqual(
+      expect.objectContaining({ studyPlan: null, sessionPlan: null }),
+    );
   });
 });

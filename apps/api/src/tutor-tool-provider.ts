@@ -20,8 +20,18 @@ import {
   wikiPages,
   type DbClient,
 } from "@studyagent/db";
-import { createNeo4jDriver, queryConceptNeighborhood, querySourceWikiMapSimple, queryStudyMapSimple } from "@studyagent/graph";
-import type { EntityRefType, GraphRelationType, GraphNodeType, SourceScopePolicy } from "@studyagent/schemas";
+import {
+  createNeo4jDriver,
+  queryConceptNeighborhood,
+  querySourceWikiMapSimple,
+  queryStudyMapSimple,
+} from "@studyagent/graph";
+import type {
+  EntityRefType,
+  GraphRelationType,
+  GraphNodeType,
+  SourceScopePolicy,
+} from "@studyagent/schemas";
 import { parseSourceScopePolicy } from "@studyagent/schemas";
 import {
   expandRetrievalChunksWithParents,
@@ -31,9 +41,17 @@ import {
   type HybridSearchContext,
   type UnifiedSearchResult,
 } from "@studyagent/search";
-import { ToolError, type GraphPayloadToolOutput, type RuntimeReadToolProvider } from "@studyagent/tools";
+import {
+  ToolError,
+  type GraphPayloadToolOutput,
+  type RuntimeReadToolProvider,
+} from "@studyagent/tools";
 import type { ToolContext } from "@studyagent/schemas";
-import { recordAgenticCacheMetric, recordSearchRetrievalFallbackMetric, startMetricTimer } from "@studyagent/observability";
+import {
+  recordAgenticCacheMetric,
+  recordSearchRetrievalFallbackMetric,
+  startMetricTimer,
+} from "@studyagent/observability";
 import type { AppContext } from "./context.js";
 import { loadNotebookStudyState } from "./study-state.js";
 import {
@@ -103,7 +121,12 @@ const TUTOR_RETRIEVAL_ROWS_CACHE_NAMESPACE = "tutor_turn.retrieval_rows";
 const TUTOR_RETRIEVAL_ROWS_CACHE_TTL_MS = 10 * 60_000;
 const HYBRID_SEARCH_FALLBACK_TIMEOUT_MS = 4500;
 type RetrievalMode = TutorContextSelection["retrievalMode"];
-type RetrievalFallbackReason = "timeout" | "http_error" | "missing_api_key" | "dimension_mismatch" | "unknown";
+type RetrievalFallbackReason =
+  | "timeout"
+  | "http_error"
+  | "missing_api_key"
+  | "dimension_mismatch"
+  | "unknown";
 
 function readNotebookId(toolCtx: ToolContext): string {
   return toolCtx.contentNotebookId ?? toolCtx.notebookId;
@@ -142,7 +165,9 @@ function objectiveHandle(objective: {
     status: objective.status,
     ...(objective.orderIndex !== undefined ? { orderIndex: objective.orderIndex } : {}),
     targetConcepts: (objective.targetConceptIds ?? []).map((id) => conceptHandle({ id })),
-    prerequisiteConcepts: (objective.prerequisiteConceptIds ?? []).map((id) => conceptHandle({ id })),
+    prerequisiteConcepts: (objective.prerequisiteConceptIds ?? []).map((id) =>
+      conceptHandle({ id }),
+    ),
   };
 }
 
@@ -201,7 +226,12 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
       return {
         notebook: {
           id: notebook.id,
-          ref: { refType: "notebook", refId: notebook.id, handle: notebook.title, title: notebook.title },
+          ref: {
+            refType: "notebook",
+            refId: notebook.id,
+            handle: notebook.title,
+            title: notebook.title,
+          },
           handle: notebook.title,
           title: notebook.title,
           description: notebook.description,
@@ -275,7 +305,9 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
           sourceChunkIds: wikiPages.sourceChunkIds,
         })
         .from(wikiPages)
-        .where(and(eq(wikiPages.id, input.pageId), eq(wikiPages.notebookId, readNotebookId(toolCtx))))
+        .where(
+          and(eq(wikiPages.id, input.pageId), eq(wikiPages.notebookId, readNotebookId(toolCtx))),
+        )
         .limit(1);
 
       return {
@@ -355,18 +387,30 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
 
         for (const ref of input.nodeRefs) {
           if (ref.refType === "concept") {
-            const neighborhood = await queryConceptNeighborhood(session, readNotebookId(toolCtx), ref.refId, input.maxNodes);
+            const neighborhood = await queryConceptNeighborhood(
+              session,
+              readNotebookId(toolCtx),
+              ref.refId,
+              input.maxNodes,
+            );
             payloads.push(conceptNeighborhoodToPayload(readNotebookId(toolCtx), neighborhood));
             continue;
           }
 
           if (ref.refType === "source") {
-            const map = await querySourceWikiMapSimple(session, readNotebookId(toolCtx), ref.refId, input.maxNodes);
+            const map = await querySourceWikiMapSimple(
+              session,
+              readNotebookId(toolCtx),
+              ref.refId,
+              input.maxNodes,
+            );
             payloads.push(simpleGraphToPayload(readNotebookId(toolCtx), map));
             continue;
           }
 
-          payloads.push(emptyGraph([`Subgraph lookup is not implemented yet for refType "${ref.refType}"`]));
+          payloads.push(
+            emptyGraph([`Subgraph lookup is not implemented yet for refType "${ref.refType}"`]),
+          );
         }
 
         const merged = mergeGraphPayloads(payloads);
@@ -400,11 +444,15 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
         }
 
         const maps = await Promise.all(
-          sourceIds.map((sourceId: string) => querySourceWikiMapSimple(session, readNotebookId(toolCtx), sourceId, 80)),
+          sourceIds.map((sourceId: string) =>
+            querySourceWikiMapSimple(session, readNotebookId(toolCtx), sourceId, 80),
+          ),
         );
 
         return mergeGraphPayloads(
-          maps.map((map: Awaited<ReturnType<typeof querySourceWikiMapSimple>>) => simpleGraphToPayload(readNotebookId(toolCtx), map)),
+          maps.map((map: Awaited<ReturnType<typeof querySourceWikiMapSimple>>) =>
+            simpleGraphToPayload(readNotebookId(toolCtx), map),
+          ),
         );
       });
     },
@@ -443,7 +491,12 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
           prerequisiteConceptIds: objectives.prerequisiteConceptIds,
         })
         .from(objectives)
-        .where(and(eq(objectives.notebookId, readNotebookId(toolCtx)), eq(objectives.curriculumId, curriculum.id)))
+        .where(
+          and(
+            eq(objectives.notebookId, readNotebookId(toolCtx)),
+            eq(objectives.curriculumId, curriculum.id),
+          ),
+        )
         .orderBy(asc(objectives.orderIndex));
 
       return {
@@ -454,18 +507,18 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
           curriculumType: curriculum.curriculumType,
           status: curriculum.status,
           sourceIds: curriculum.sourceIds ?? [],
-              objectiveIds: objectiveRows.map((row) => row.id),
-              objectives: objectiveRows.map((row) =>
-                objectiveHandle({
-                  id: row.id,
-                  title: row.title,
-                  status: row.status,
-                  orderIndex: row.orderIndex,
-                  targetConceptIds: row.targetConceptIds,
-                  prerequisiteConceptIds: row.prerequisiteConceptIds,
-                }),
-              ),
-            },
+          objectiveIds: objectiveRows.map((row) => row.id),
+          objectives: objectiveRows.map((row) =>
+            objectiveHandle({
+              id: row.id,
+              title: row.title,
+              status: row.status,
+              orderIndex: row.orderIndex,
+              targetConceptIds: row.targetConceptIds,
+              prerequisiteConceptIds: row.prerequisiteConceptIds,
+            }),
+          ),
+        },
       };
     },
 
@@ -487,7 +540,12 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
           updatedAt: studentProfiles.updatedAt,
         })
         .from(studentProfiles)
-        .where(and(eq(studentProfiles.notebookId, readNotebookId(toolCtx)), eq(studentProfiles.userId, userId)))
+        .where(
+          and(
+            eq(studentProfiles.notebookId, readNotebookId(toolCtx)),
+            eq(studentProfiles.userId, userId),
+          ),
+        )
         .limit(1);
 
       return {
@@ -511,49 +569,77 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
     },
 
     async studyPlanGetCurrent(input, toolCtx) {
-      const studyState = await loadNotebookStudyState(appCtx.db, readNotebookId(toolCtx), input.userId ?? toolCtx.userId);
+      const studyState = await loadNotebookStudyState(
+        appCtx.db,
+        readNotebookId(toolCtx),
+        input.userId ?? toolCtx.userId,
+      );
       const boundarySignals = [
         ...buildStandingBoundarySignals(studyState),
-        ...(await buildModuleMilestoneSignals(appCtx.db, { notebookId: readNotebookId(toolCtx), state: studyState })),
+        ...(await buildModuleMilestoneSignals(appCtx.db, {
+          notebookId: readNotebookId(toolCtx),
+          state: studyState,
+        })),
       ];
       const studyPlan = studyState.studyPlan;
-      const [curriculumRow] =
-        studyState.curriculum
-          ? await appCtx.db.db
-              .select()
-              .from(curricula)
-              .where(and(eq(curricula.id, studyState.curriculum.id), eq(curricula.notebookId, readNotebookId(toolCtx))))
-              .limit(1)
-          : [null];
-      const [moduleRow] =
-        studyState.module
-          ? await appCtx.db.db
-              .select()
-              .from(curriculumModules)
-              .where(and(eq(curriculumModules.id, studyState.module.id), eq(curriculumModules.notebookId, readNotebookId(toolCtx))))
-              .limit(1)
-          : [null];
-      const [objectiveListRow] =
-        studyState.objectiveList
-          ? await appCtx.db.db
-              .select()
-              .from(objectiveLists)
-              .where(and(eq(objectiveLists.id, studyState.objectiveList.id), eq(objectiveLists.notebookId, readNotebookId(toolCtx))))
-              .limit(1)
-          : [null];
-      const [sessionPlanRow] =
-        studyState.sessionPlan
-          ? await appCtx.db.db
-              .select()
-              .from(sessionPlans)
-              .where(and(eq(sessionPlans.id, studyState.sessionPlan.id), eq(sessionPlans.notebookId, readNotebookId(toolCtx))))
-              .limit(1)
-          : [null];
+      const [curriculumRow] = studyState.curriculum
+        ? await appCtx.db.db
+            .select()
+            .from(curricula)
+            .where(
+              and(
+                eq(curricula.id, studyState.curriculum.id),
+                eq(curricula.notebookId, readNotebookId(toolCtx)),
+              ),
+            )
+            .limit(1)
+        : [null];
+      const [moduleRow] = studyState.module
+        ? await appCtx.db.db
+            .select()
+            .from(curriculumModules)
+            .where(
+              and(
+                eq(curriculumModules.id, studyState.module.id),
+                eq(curriculumModules.notebookId, readNotebookId(toolCtx)),
+              ),
+            )
+            .limit(1)
+        : [null];
+      const [objectiveListRow] = studyState.objectiveList
+        ? await appCtx.db.db
+            .select()
+            .from(objectiveLists)
+            .where(
+              and(
+                eq(objectiveLists.id, studyState.objectiveList.id),
+                eq(objectiveLists.notebookId, readNotebookId(toolCtx)),
+              ),
+            )
+            .limit(1)
+        : [null];
+      const [sessionPlanRow] = studyState.sessionPlan
+        ? await appCtx.db.db
+            .select()
+            .from(sessionPlans)
+            .where(
+              and(
+                eq(sessionPlans.id, studyState.sessionPlan.id),
+                eq(sessionPlans.notebookId, readNotebookId(toolCtx)),
+              ),
+            )
+            .limit(1)
+        : [null];
       return {
         studentProfile: studyState.studentProfile
           ? {
               id: studyState.studentProfile.id,
-              ref: { refType: "user", refId: input.userId ?? toolCtx.userId, handle: "learner_profile", label: "Learner profile" },
+              ref: {
+                refType: "user",
+                refId: input.userId ?? toolCtx.userId,
+                handle: "learner_profile",
+                label: "Learner profile",
+              },
               handle: "learner_profile",
               notebookId: readNotebookId(toolCtx),
               userId: input.userId ?? toolCtx.userId,
@@ -571,7 +657,12 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
         curriculum: studyState.curriculum
           ? {
               id: studyState.curriculum.id,
-              ref: { refType: "curriculum", refId: studyState.curriculum.id, handle: studyState.curriculum.title, title: studyState.curriculum.title },
+              ref: {
+                refType: "curriculum",
+                refId: studyState.curriculum.id,
+                handle: studyState.curriculum.title,
+                title: studyState.curriculum.title,
+              },
               handle: studyState.curriculum.title,
               notebookId: readNotebookId(toolCtx),
               title: studyState.curriculum.title,
@@ -585,7 +676,12 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
         module: studyState.module
           ? {
               id: studyState.module.id,
-              ref: { refType: "curriculum_module", refId: studyState.module.id, handle: studyState.module.title, title: studyState.module.title },
+              ref: {
+                refType: "curriculum_module",
+                refId: studyState.module.id,
+                handle: studyState.module.title,
+                title: studyState.module.title,
+              },
               handle: studyState.module.title,
               notebookId: readNotebookId(toolCtx),
               curriculumId: studyState.curriculum?.id ?? "",
@@ -606,7 +702,12 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
         objectiveList: studyState.objectiveList
           ? {
               id: studyState.objectiveList.id,
-              ref: { refType: "objective_list", refId: studyState.objectiveList.id, handle: studyState.objectiveList.title, title: studyState.objectiveList.title },
+              ref: {
+                refType: "objective_list",
+                refId: studyState.objectiveList.id,
+                handle: studyState.objectiveList.title,
+                title: studyState.objectiveList.title,
+              },
               handle: studyState.objectiveList.title,
               notebookId: readNotebookId(toolCtx),
               curriculumId: studyState.curriculum?.id ?? "",
@@ -632,7 +733,12 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
         sessionPlan: studyState.sessionPlan
           ? {
               id: studyState.sessionPlan.id,
-              ref: { refType: "session_plan", refId: studyState.sessionPlan.id, handle: studyState.sessionPlan.title, title: studyState.sessionPlan.title },
+              ref: {
+                refType: "session_plan",
+                refId: studyState.sessionPlan.id,
+                handle: studyState.sessionPlan.title,
+                title: studyState.sessionPlan.title,
+              },
               handle: studyState.sessionPlan.title,
               notebookId: readNotebookId(toolCtx),
               curriculumId: studyState.curriculum?.id ?? "",
@@ -647,7 +753,9 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
                     ...(studyPlan.currentObjective ? [studyPlan.currentObjective] : []),
                     ...studyPlan.upcomingObjectives,
                     ...studyPlan.completedObjectives,
-                  ].filter((objective) => studyState.sessionPlan?.plannedObjectiveIds.includes(objective.id))
+                  ].filter((objective) =>
+                    studyState.sessionPlan?.plannedObjectiveIds.includes(objective.id),
+                  )
                 : []
               ).map(objectiveHandle),
               openerJson: sessionPlanRow?.openerJson ?? {},
@@ -664,7 +772,12 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
         studyPlan: studyPlan
           ? {
               id: studyPlan.id,
-              ref: { refType: "study_plan", refId: studyPlan.id, handle: studyPlan.title, title: studyPlan.title },
+              ref: {
+                refType: "study_plan",
+                refId: studyPlan.id,
+                handle: studyPlan.title,
+                title: studyPlan.title,
+              },
               handle: studyPlan.title,
               notebookId: readNotebookId(toolCtx),
               userId: input.userId ?? toolCtx.userId,
@@ -674,7 +787,9 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
               upcomingObjectiveIds: studyPlan.upcomingObjectives.map((objective) => objective.id),
               completedObjectiveIds: studyPlan.completedObjectives.map((objective) => objective.id),
               weakConceptIds: studyPlan.weakConcepts.map((concept) => concept.id),
-              currentObjective: studyPlan.currentObjective ? objectiveHandle(studyPlan.currentObjective) : null,
+              currentObjective: studyPlan.currentObjective
+                ? objectiveHandle(studyPlan.currentObjective)
+                : null,
               upcomingObjectives: studyPlan.upcomingObjectives.map(objectiveHandle),
               completedObjectives: studyPlan.completedObjectives.map(objectiveHandle),
               weakConcepts: studyPlan.weakConcepts.map(conceptHandle),
@@ -686,7 +801,10 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
 
     async learningGetState(input, toolCtx) {
       const userId = input.userId ?? toolCtx.userId;
-      const conditions = [eq(learningState.notebookId, readNotebookId(toolCtx)), eq(learningState.userId, userId)];
+      const conditions = [
+        eq(learningState.notebookId, readNotebookId(toolCtx)),
+        eq(learningState.userId, userId),
+      ];
       if (input.conceptIds.length > 0) {
         conditions.push(inArray(learningState.conceptId, input.conceptIds));
       }
@@ -709,7 +827,12 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
               title: concepts.canonicalName,
             })
             .from(concepts)
-            .where(and(eq(concepts.notebookId, readNotebookId(toolCtx)), inArray(concepts.id, conceptIds)))
+            .where(
+              and(
+                eq(concepts.notebookId, readNotebookId(toolCtx)),
+                inArray(concepts.id, conceptIds),
+              ),
+            )
         : [];
       const conceptTitleById = new Map(conceptRows.map((row) => [row.id, row.title]));
 
@@ -734,10 +857,15 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
 
 function buildEmbeddingOptions(appCtx: AppContext) {
   if (!appCtx.env.OPENROUTER_API_KEY) {
-    throw new ToolError("embedding_unavailable", "OPENROUTER_API_KEY is required for hybrid tutor search");
+    throw new ToolError(
+      "embedding_unavailable",
+      "OPENROUTER_API_KEY is required for hybrid tutor search",
+    );
   }
 
-  const baseUrl = (appCtx.env.EMBEDDING_API_BASE_URL?.trim() || appCtx.env.OPENROUTER_BASE_URL).replace(/\/+$/, "");
+  const baseUrl = (
+    appCtx.env.EMBEDDING_API_BASE_URL?.trim() || appCtx.env.OPENROUTER_BASE_URL
+  ).replace(/\/+$/, "");
   return {
     baseUrl,
     apiKey: appCtx.env.OPENROUTER_API_KEY,
@@ -786,7 +914,11 @@ async function loadTutorRetrievalRows(
 ): Promise<TutorRetrievalResult> {
   const cacheScope = await resolveTutorRetrievalRowsCacheScope(appCtx, input);
   if (cacheScope) {
-    const cached = await getTutorRetrievalRowsCacheValue(appCtx, cacheScope.cacheKey, input.retrievalMode);
+    const cached = await getTutorRetrievalRowsCacheValue(
+      appCtx,
+      cacheScope.cacheKey,
+      input.retrievalMode,
+    );
     if (cached) return cached;
   }
 
@@ -834,7 +966,11 @@ async function runSearchWithLexicalFallback(
     useHybrid: boolean;
     hybridCtx?: HybridSearchContext | undefined;
   },
-): Promise<{ rows: UnifiedSearchResult[]; retrievalMode: RetrievalMode; fallbackReason?: RetrievalFallbackReason }> {
+): Promise<{
+  rows: UnifiedSearchResult[];
+  retrievalMode: RetrievalMode;
+  fallbackReason?: RetrievalFallbackReason;
+}> {
   if (!input.useHybrid) {
     return {
       rows: await lexicalSearchNotebook(appCtx.db, input.notebookId, input.query, input.limit),
@@ -875,12 +1011,18 @@ async function runSearchWithLexicalFallback(
 
 function classifyRetrievalFallbackReason(error: unknown): RetrievalFallbackReason {
   if (error instanceof Error && error.name === "AbortError") return "timeout";
-  const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  const message =
+    error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
   if (message.includes("timed out")) return "timeout";
   if (message.includes("aborted")) return "timeout";
   if (message.includes("api key")) return "missing_api_key";
   if (message.includes("dimension")) return "dimension_mismatch";
-  if (message.includes("http") || message.includes("status") || message.includes("openrouter failed")) return "http_error";
+  if (
+    message.includes("http") ||
+    message.includes("status") ||
+    message.includes("openrouter failed")
+  )
+    return "http_error";
   return "unknown";
 }
 
@@ -921,7 +1063,10 @@ function extractRequestedSectionNumber(query: string): string | null {
   return match?.[1] ?? null;
 }
 
-function resultMentionsSection(result: { title?: string | undefined; snippet: string }, section: string): boolean {
+function resultMentionsSection(
+  result: { title?: string | undefined; snippet: string },
+  section: string,
+): boolean {
   const haystack = `${result.title ?? ""}\n${result.snippet}`.toLowerCase();
   return haystack.includes(section.toLowerCase());
 }
@@ -981,10 +1126,17 @@ async function resolveTutorRetrievalRowsCacheScope(
         { retrievalMode: input.retrievalMode },
         { query: normalizeRetrievalQuery(input.query) },
         { limit: input.limit },
-        { selectedNodeRefs: input.selectedNodeRefs.map((ref) => `${ref.refType}:${ref.refId}`).sort() },
+        {
+          selectedNodeRefs: input.selectedNodeRefs
+            .map((ref) => `${ref.refType}:${ref.refId}`)
+            .sort(),
+        },
         { objectivePathConceptIds: [...input.objectivePathConceptIds].sort() },
         { embeddingModel: input.retrievalMode === "hybrid" ? appCtx.env.EMBEDDING_MODEL : null },
-        { embeddingDimensions: input.retrievalMode === "hybrid" ? appCtx.env.EMBEDDING_DIMENSIONS ?? null : null },
+        {
+          embeddingDimensions:
+            input.retrievalMode === "hybrid" ? (appCtx.env.EMBEDDING_DIMENSIONS ?? null) : null,
+        },
       ],
     }),
   };
@@ -1046,7 +1198,9 @@ async function getTutorRetrievalRowsCacheValue(
 ): Promise<TutorRetrievalResult | null> {
   const stopTimer = startMetricTimer();
   try {
-    const cached = await getAgenticCacheEntry<TutorRetrievalRowsCacheValue>(appCtx.db, { cacheKey });
+    const cached = await getAgenticCacheEntry<TutorRetrievalRowsCacheValue>(appCtx.db, {
+      cacheKey,
+    });
     if (!isJsonRecord(cached) || !Array.isArray(cached.rows)) {
       recordAgenticCacheMetric({
         namespace: TUTOR_RETRIEVAL_ROWS_CACHE_NAMESPACE,
@@ -1079,7 +1233,9 @@ async function getTutorRetrievalRowsCacheValue(
           : defaultRetrievalMode,
       ...(cached.schemaVersion === 2 &&
       typeof cached.fallbackReason === "string" &&
-      ["timeout", "http_error", "missing_api_key", "dimension_mismatch", "unknown"].includes(cached.fallbackReason)
+      ["timeout", "http_error", "missing_api_key", "dimension_mismatch", "unknown"].includes(
+        cached.fallbackReason,
+      )
         ? { fallbackReason: cached.fallbackReason as RetrievalFallbackReason }
         : {}),
     };
@@ -1151,7 +1307,8 @@ function normalizeRetrievalQuery(query: string): string {
 
 function toCacheVersionComponent(value: unknown): string {
   if (value instanceof Date) return value.toISOString();
-  if (typeof value === "string" && !Number.isNaN(Date.parse(value))) return new Date(value).toISOString();
+  if (typeof value === "string" && !Number.isNaN(Date.parse(value)))
+    return new Date(value).toISOString();
   return "epoch";
 }
 
@@ -1173,7 +1330,9 @@ export function buildTutorContextSelectionPlan(input: {
   const openArtifactSummary = input.openArtifact
     ? `${input.openArtifact.title} (${input.openArtifact.artifactType}, ${input.openArtifact.status})`
     : null;
-  const recentMistakeConceptIds = Array.isArray(input.previousRuntimeContext?.recentMistakeConceptIds)
+  const recentMistakeConceptIds = Array.isArray(
+    input.previousRuntimeContext?.recentMistakeConceptIds,
+  )
     ? input.previousRuntimeContext.recentMistakeConceptIds
         .filter((value): value is string => typeof value === "string" && value.length > 0)
         .slice(0, 8)
@@ -1271,15 +1430,20 @@ export function buildTutorContextSelectionReason(input: {
       `Applied selected source scope (${input.sourceScopePolicy ?? "soft_source_scope"}): ${input.plan.selectedSourceIds.join(", ")}`,
     );
   }
-  if (input.plan.objectiveTitle) reasonParts.push(`Used current objective: ${input.plan.objectiveTitle}`);
+  if (input.plan.objectiveTitle)
+    reasonParts.push(`Used current objective: ${input.plan.objectiveTitle}`);
   if (input.plan.weakConceptNames.length) {
     reasonParts.push(`Included weak concepts: ${input.plan.weakConceptNames.join(", ")}`);
   }
   if (input.plan.objectivePathConceptIds.length) {
-    reasonParts.push(`Bounded retrieval by objective-path concepts: ${input.plan.objectivePathConceptIds.join(", ")}`);
+    reasonParts.push(
+      `Bounded retrieval by objective-path concepts: ${input.plan.objectivePathConceptIds.join(", ")}`,
+    );
   }
   if (input.plan.recentMistakeConceptIds.length) {
-    reasonParts.push(`Included recent mistake concepts: ${input.plan.recentMistakeConceptIds.join(", ")}`);
+    reasonParts.push(
+      `Included recent mistake concepts: ${input.plan.recentMistakeConceptIds.join(", ")}`,
+    );
   }
   if (input.plan.openArtifactSummary) {
     reasonParts.push(`Included open artifact context: ${input.plan.openArtifactSummary}`);
@@ -1289,7 +1453,9 @@ export function buildTutorContextSelectionReason(input: {
     reasonParts.push("No rows matched selected source scope; fell back to notebook-wide retrieval");
   }
   if (input.sourceCoverageGap) {
-    reasonParts.push("Strict source scope blocked notebook-wide fallback; surfaced a source coverage gap");
+    reasonParts.push(
+      "Strict source scope blocked notebook-wide fallback; surfaced a source coverage gap",
+    );
   }
   reasonParts.push(
     `Retrieved ${input.selectedChunkCount} chunks (capped at ${input.maxChunks}) across sources: ${
@@ -1299,7 +1465,9 @@ export function buildTutorContextSelectionReason(input: {
   return reasonParts.join("; ");
 }
 
-function dedupeRefs(refs: Array<{ refType: string; refId: string }>): Array<{ refType: string; refId: string }> {
+function dedupeRefs(
+  refs: Array<{ refType: string; refId: string }>,
+): Array<{ refType: string; refId: string }> {
   const seen = new Set<string>();
   const out: Array<{ refType: string; refId: string }> = [];
 
@@ -1361,7 +1529,9 @@ async function getChunkSpanBySource(
     conditions.push(sql`coalesce(${chunks.pageEnd}, ${chunks.pageStart}, 0) >= ${input.pageStart}`);
   }
   if (input.pageEnd !== undefined) {
-    conditions.push(sql`coalesce(${chunks.pageStart}, ${chunks.pageEnd}, 2147483647) <= ${input.pageEnd}`);
+    conditions.push(
+      sql`coalesce(${chunks.pageStart}, ${chunks.pageEnd}, 2147483647) <= ${input.pageEnd}`,
+    );
   }
 
   const [row] = await dbClient.db
@@ -1441,7 +1611,11 @@ async function withNeo4jGraph(
     return emptyGraph(["Neo4j is not configured"]);
   }
 
-  const driver = createNeo4jDriver(appCtx.env.NEO4J_URI, appCtx.env.NEO4J_USERNAME, appCtx.env.NEO4J_PASSWORD);
+  const driver = createNeo4jDriver(
+    appCtx.env.NEO4J_URI,
+    appCtx.env.NEO4J_USERNAME,
+    appCtx.env.NEO4J_PASSWORD,
+  );
   const session = driver.session();
   try {
     return await fn(session);
@@ -1484,14 +1658,23 @@ function applyGraphFilters(
 ): GraphPayloadToolOutput {
   const allowed = new Set(relationTypes.map((value) => value.trim().toLowerCase()).filter(Boolean));
   const edges = allowed.size
-    ? payload.edges.filter((edge: GraphPayloadToolOutput["edges"][number]) => allowed.has(edge.relationType) || allowed.has(String(edge.metadata.originalRelationType ?? "").toLowerCase()))
+    ? payload.edges.filter(
+        (edge: GraphPayloadToolOutput["edges"][number]) =>
+          allowed.has(edge.relationType) ||
+          allowed.has(String(edge.metadata.originalRelationType ?? "").toLowerCase()),
+      )
     : payload.edges;
 
   const nodes = payload.nodes.slice(0, maxNodes);
-  const allowedNodeIds = new Set(nodes.map((node: GraphPayloadToolOutput["nodes"][number]) => node.id));
+  const allowedNodeIds = new Set(
+    nodes.map((node: GraphPayloadToolOutput["nodes"][number]) => node.id),
+  );
   return {
     nodes,
-    edges: edges.filter((edge: GraphPayloadToolOutput["edges"][number]) => allowedNodeIds.has(edge.sourceNodeId) && allowedNodeIds.has(edge.targetNodeId)),
+    edges: edges.filter(
+      (edge: GraphPayloadToolOutput["edges"][number]) =>
+        allowedNodeIds.has(edge.sourceNodeId) && allowedNodeIds.has(edge.targetNodeId),
+    ),
     warnings: payload.warnings,
   };
 }
@@ -1532,7 +1715,9 @@ function simpleGraphToPayload(
       ...(confidence !== undefined ? { confidence } : {}),
       ...(weight !== undefined ? { weight } : {}),
       metadata: {
-        ...(normalized.originalRelationType ? { originalRelationType: normalized.originalRelationType } : {}),
+        ...(normalized.originalRelationType
+          ? { originalRelationType: normalized.originalRelationType }
+          : {}),
         ...edge.props,
       },
     };
@@ -1628,7 +1813,18 @@ function normalizeGraphNodeType(labels: string[]): GraphNodeType {
 
 function refTypeForNodeType(
   nodeType: GraphNodeType,
-): "notebook" | "source" | "chunk" | "concept" | "claim" | "curriculum" | "objective" | "study_plan" | "wiki_page" | "artifact" | "session" {
+):
+  | "notebook"
+  | "source"
+  | "chunk"
+  | "concept"
+  | "claim"
+  | "curriculum"
+  | "objective"
+  | "study_plan"
+  | "wiki_page"
+  | "artifact"
+  | "session" {
   switch (nodeType) {
     case "notebook":
       return "notebook";
@@ -1670,7 +1866,10 @@ function graphNodeRef(nodeType: GraphNodeType, refId: string, title: string) {
   };
 }
 
-function normalizeGraphRelationType(type: string): { relationType: GraphRelationType; originalRelationType?: string } {
+function normalizeGraphRelationType(type: string): {
+  relationType: GraphRelationType;
+  originalRelationType?: string;
+} {
   switch (type.toUpperCase()) {
     case "DEPENDS_ON":
       return { relationType: "depends_on" };
@@ -1705,7 +1904,11 @@ function normalizeGraphRelationType(type: string): { relationType: GraphRelation
   }
 }
 
-function pickNodeTitle(props: Record<string, unknown>, nodeType: GraphNodeType, fallbackId: string): string {
+function pickNodeTitle(
+  props: Record<string, unknown>,
+  nodeType: GraphNodeType,
+  fallbackId: string,
+): string {
   const title = typeof props.title === "string" ? props.title : undefined;
   const name = typeof props.name === "string" ? props.name : undefined;
   if (title) return title;
@@ -1715,7 +1918,15 @@ function pickNodeTitle(props: Record<string, unknown>, nodeType: GraphNodeType, 
 }
 
 function stripGraphNodeMeta(props: Record<string, unknown>): Record<string, unknown> {
-  const { id: _id, title: _title, name: _name, status: _status, confidence: _confidence, notebookId: _notebookId, ...rest } = props;
+  const {
+    id: _id,
+    title: _title,
+    name: _name,
+    status: _status,
+    confidence: _confidence,
+    notebookId: _notebookId,
+    ...rest
+  } = props;
   return rest;
 }
 

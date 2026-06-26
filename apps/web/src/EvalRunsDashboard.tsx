@@ -80,13 +80,31 @@ export default function EvalRunsDashboard({
   });
 
   const run = detailQuery.data?.run ?? selectedFromList;
-  const summary = detailQuery.data?.summary ?? runs.find((entry) => entry.summary.id === run?.id)?.summary;
-  const traceRefs = run ? uniqueTraceRefs(run.scenarioRuns.flatMap((scenarioRun) => scenarioRun.traceRefs)) : [];
-  const screenshotRefs = run ? uniqueTraceRefs(run.scenarioRuns.flatMap((scenarioRun) => scenarioRun.screenshotRefs ?? [])) : [];
-  const rubricResults = run ? [...(run.rubricResults ?? []), ...run.scenarioRuns.flatMap((scenarioRun) => scenarioRun.rubricResults ?? [])] : [];
-  const issueCandidates = run ? [...(run.issueCandidates ?? []), ...run.scenarioRuns.flatMap((scenarioRun) => scenarioRun.issueCandidates ?? [])] : [];
+  const summary =
+    detailQuery.data?.summary ?? runs.find((entry) => entry.summary.id === run?.id)?.summary;
+  const traceRefs = run
+    ? uniqueTraceRefs(run.scenarioRuns.flatMap((scenarioRun) => scenarioRun.traceRefs))
+    : [];
+  const screenshotRefs = run
+    ? uniqueTraceRefs(run.scenarioRuns.flatMap((scenarioRun) => scenarioRun.screenshotRefs ?? []))
+    : [];
+  const rubricResults = run
+    ? [
+        ...(run.rubricResults ?? []),
+        ...run.scenarioRuns.flatMap((scenarioRun) => scenarioRun.rubricResults ?? []),
+      ]
+    : [];
+  const issueCandidates = run
+    ? [
+        ...(run.issueCandidates ?? []),
+        ...run.scenarioRuns.flatMap((scenarioRun) => scenarioRun.issueCandidates ?? []),
+      ]
+    : [];
   const observationEvents = run
-    ? [...(run.observationEvents ?? []), ...run.scenarioRuns.flatMap((scenarioRun) => scenarioRun.observationEvents ?? [])]
+    ? [
+        ...(run.observationEvents ?? []),
+        ...run.scenarioRuns.flatMap((scenarioRun) => scenarioRun.observationEvents ?? []),
+      ]
     : [];
   const snapshotRefs = run
     ? uniqueTraceRefs([
@@ -108,7 +126,12 @@ export default function EvalRunsDashboard({
             </div>
           </div>
           <div className="study-topbar-actions">
-            <button type="button" className="study-secondary-button" onClick={() => void refetch()} disabled={isFetching}>
+            <button
+              type="button"
+              className="study-secondary-button"
+              onClick={() => void refetch()}
+              disabled={isFetching}
+            >
               {isFetching ? "Refreshing…" : "Refresh"}
             </button>
             <button type="button" className="study-secondary-button" onClick={onBackToNotebooks}>
@@ -119,10 +142,17 @@ export default function EvalRunsDashboard({
 
         {error instanceof Error && <pre className="study-error">{error.message}</pre>}
 
-        <section className="study-workspace" style={{ display: "grid", gridTemplateColumns: "340px minmax(0, 1fr)", gap: 16 }}>
+        <section
+          className="study-workspace"
+          style={{ display: "grid", gridTemplateColumns: "340px minmax(0, 1fr)", gap: 16 }}
+        >
           <aside style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {isLoading && runs.length === 0 && <div className="study-empty">Loading eval runs…</div>}
-            {!isLoading && runs.length === 0 && !error && <div className="study-empty">No persisted eval runs yet.</div>}
+            {isLoading && runs.length === 0 && (
+              <div className="study-empty">Loading eval runs…</div>
+            )}
+            {!isLoading && runs.length === 0 && !error && (
+              <div className="study-empty">No persisted eval runs yet.</div>
+            )}
             {runs.map((entry) => (
               <button
                 key={entry.summary.id}
@@ -130,19 +160,35 @@ export default function EvalRunsDashboard({
                 onClick={() => onSelectRun(entry.summary.id)}
                 style={{
                   textAlign: "left",
-                  border: entry.summary.id === selectedId ? "1px solid #2563eb" : "1px solid #e5e7eb",
+                  border:
+                    entry.summary.id === selectedId ? "1px solid #2563eb" : "1px solid #e5e7eb",
                   background: entry.summary.id === selectedId ? "#eff6ff" : "white",
                   borderRadius: 12,
                   padding: 12,
                   cursor: "pointer",
                 }}
               >
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    alignItems: "center",
+                  }}
+                >
                   <strong style={{ color: "#111827" }}>{entry.summary.id}</strong>
-                  <span style={{ fontSize: 11, color: entry.summary.status === "failed" ? "#b91c1c" : "#065f46" }}>{entry.summary.status}</span>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: entry.summary.status === "failed" ? "#b91c1c" : "#065f46",
+                    }}
+                  >
+                    {entry.summary.status}
+                  </span>
                 </div>
                 <div style={{ marginTop: 6, fontSize: 12, color: "#4b5563" }}>
-                  {entry.summary.fixtureManifestId} · {entry.summary.scenarioRunCount} runs · {entry.summary.failedScenarioCount} failed
+                  {entry.summary.fixtureManifestId} · {entry.summary.scenarioRunCount} runs ·{" "}
+                  {entry.summary.failedScenarioCount} failed
                 </div>
                 <div style={{ marginTop: 6, fontSize: 11, color: "#6b7280" }}>
                   {entry.summary.personaIds.join(", ")}
@@ -165,16 +211,26 @@ export default function EvalRunsDashboard({
           >
             {run && summary ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: 16,
+                    flexWrap: "wrap",
+                  }}
+                >
                   <div>
                     <h2 style={{ margin: 0, fontSize: 22 }}>{summary.id}</h2>
                     <div style={{ marginTop: 4, color: "#6b7280", fontSize: 12 }}>
-                      {summary.status} · {summary.scenarioRunCount} scenario runs · {summary.transcriptLineCount} transcript lines
+                      {summary.status} · {summary.scenarioRunCount} scenario runs ·{" "}
+                      {summary.transcriptLineCount} transcript lines
                     </div>
                   </div>
                   <div style={{ textAlign: "right", color: "#6b7280", fontSize: 12 }}>
                     <div>Started {new Date(summary.startedAt).toLocaleString()}</div>
-                    <div>{summary.durationMs ? `${Math.round(summary.durationMs / 1000)}s` : "—"}</div>
+                    <div>
+                      {summary.durationMs ? `${Math.round(summary.durationMs / 1000)}s` : "—"}
+                    </div>
                   </div>
                 </div>
 
@@ -184,7 +240,8 @@ export default function EvalRunsDashboard({
                     <div style={{ display: "grid", gap: 6, fontSize: 12, color: "#4b5563" }}>
                       {evalPlans.map((plan) => (
                         <div key={`${plan.scenarioId}:${plan.personaId}`}>
-                          <strong>{plan.scenarioId}</strong> · {plan.personaId} · {plan.runKind} · {plan.learnerMode} · {plan.gatingPolicy}
+                          <strong>{plan.scenarioId}</strong> · {plan.personaId} · {plan.runKind} ·{" "}
+                          {plan.learnerMode} · {plan.gatingPolicy}
                         </div>
                       ))}
                     </div>
@@ -196,7 +253,9 @@ export default function EvalRunsDashboard({
                 <section>
                   <h3 style={{ margin: "0 0 8px", fontSize: 14 }}>Coverage</h3>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 8, fontSize: 12 }}>
-                    <span>{summary.fixtureManifestId}@{summary.fixtureVersion}</span>
+                    <span>
+                      {summary.fixtureManifestId}@{summary.fixtureVersion}
+                    </span>
                     <span>Notebook {summary.notebookId}</span>
                     <span>{summary.passedScenarioCount} passed</span>
                     <span>{summary.failedScenarioCount} failed</span>
@@ -220,13 +279,28 @@ export default function EvalRunsDashboard({
                           <strong>{scenarioRun.personaId}</strong>
                           <span>{scenarioRun.status}</span>
                         </div>
-                        <div style={{ marginTop: 4, fontSize: 12, color: "#6b7280" }}>{scenarioRun.scenarioId}</div>
                         <div style={{ marginTop: 4, fontSize: 12, color: "#6b7280" }}>
-                          {scenarioRun.runKind} · {scenarioRun.learnerMode ?? "scripted"} · {scenarioRun.gatingPolicy ?? "ci_gating"} · {scenarioRun.assertions.filter((assertion) => assertion.status === "failed").length} failed assertions · {scenarioRun.steps.length} steps
+                          {scenarioRun.scenarioId}
                         </div>
-                        {scenarioRun.assertions.some((assertion) => assertion.status === "failed") && (
+                        <div style={{ marginTop: 4, fontSize: 12, color: "#6b7280" }}>
+                          {scenarioRun.runKind} · {scenarioRun.learnerMode ?? "scripted"} ·{" "}
+                          {scenarioRun.gatingPolicy ?? "ci_gating"} ·{" "}
+                          {
+                            scenarioRun.assertions.filter(
+                              (assertion) => assertion.status === "failed",
+                            ).length
+                          }{" "}
+                          failed assertions · {scenarioRun.steps.length} steps
+                        </div>
+                        {scenarioRun.assertions.some(
+                          (assertion) => assertion.status === "failed",
+                        ) && (
                           <div style={{ marginTop: 6, fontSize: 12, color: "#b91c1c" }}>
-                            {scenarioRun.assertions.find((assertion) => assertion.status === "failed")?.failureMessage}
+                            {
+                              scenarioRun.assertions.find(
+                                (assertion) => assertion.status === "failed",
+                              )?.failureMessage
+                            }
                           </div>
                         )}
                       </div>
@@ -246,7 +320,9 @@ export default function EvalRunsDashboard({
                       ))}
                     </div>
                   ) : (
-                    <span style={{ fontSize: 12, color: "#6b7280" }}>No observation events yet.</span>
+                    <span style={{ fontSize: 12, color: "#6b7280" }}>
+                      No observation events yet.
+                    </span>
                   )}
                 </section>
 
@@ -255,12 +331,20 @@ export default function EvalRunsDashboard({
                   {snapshotRefs.length ? (
                     <div style={{ display: "grid", gap: 6, fontSize: 12, color: "#4b5563" }}>
                       {snapshotRefs.map((ref) => (
-                        <span key={`${ref.refType}:${ref.refId}`}>{ref.refType}:{ref.refId}</span>
+                        <span key={`${ref.refType}:${ref.refId}`}>
+                          {ref.refType}:{ref.refId}
+                        </span>
                       ))}
                       {run.evalEvidenceSnapshots?.length ? (
                         <div style={{ marginTop: 4, color: "#6b7280" }}>
                           Categories:{" "}
-                          {run.evalEvidenceSnapshots.flatMap((snapshot) => snapshot.categories.filter((entry) => entry.status === "available").map((entry) => entry.category)).join(", ") || "none"}
+                          {run.evalEvidenceSnapshots
+                            .flatMap((snapshot) =>
+                              snapshot.categories
+                                .filter((entry) => entry.status === "available")
+                                .map((entry) => entry.category),
+                            )
+                            .join(", ") || "none"}
                         </div>
                       ) : null}
                     </div>
@@ -283,13 +367,19 @@ export default function EvalRunsDashboard({
                   {rubricResults.length ? (
                     <div style={{ display: "grid", gap: 8 }}>
                       {rubricResults.map((rubric, index) => (
-                        <div key={`${rubric.rubricId}:${index}`} style={{ fontSize: 12, color: "#4b5563" }}>
-                          <strong>{rubric.rubricId}</strong> · qualitative · {rubric.status} · {rubric.score ?? "no score"} · {rubric.summary}
+                        <div
+                          key={`${rubric.rubricId}:${index}`}
+                          style={{ fontSize: 12, color: "#4b5563" }}
+                        >
+                          <strong>{rubric.rubricId}</strong> · qualitative · {rubric.status} ·{" "}
+                          {rubric.score ?? "no score"} · {rubric.summary}
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <span style={{ fontSize: 12, color: "#6b7280" }}>No qualitative rubric results.</span>
+                    <span style={{ fontSize: 12, color: "#6b7280" }}>
+                      No qualitative rubric results.
+                    </span>
                   )}
                 </section>
 
@@ -313,9 +403,21 @@ export default function EvalRunsDashboard({
 
                 <section style={{ display: "grid", gap: 8 }}>
                   <h3 style={{ margin: 0, fontSize: 14 }}>Trace refs</h3>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, fontSize: 12, color: "#4b5563" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: 8,
+                      fontSize: 12,
+                      color: "#4b5563",
+                    }}
+                  >
                     {traceRefs.length ? (
-                      traceRefs.map((ref) => <span key={`${ref.refType}:${ref.refId}`}>{ref.refType}:{ref.refId}</span>)
+                      traceRefs.map((ref) => (
+                        <span key={`${ref.refType}:${ref.refId}`}>
+                          {ref.refType}:{ref.refId}
+                        </span>
+                      ))
                     ) : (
                       <span>None</span>
                     )}
@@ -324,9 +426,21 @@ export default function EvalRunsDashboard({
 
                 <section style={{ display: "grid", gap: 8 }}>
                   <h3 style={{ margin: 0, fontSize: 14 }}>Screenshots</h3>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, fontSize: 12, color: "#4b5563" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: 8,
+                      fontSize: 12,
+                      color: "#4b5563",
+                    }}
+                  >
                     {screenshotRefs.length ? (
-                      screenshotRefs.map((ref) => <span key={`${ref.refType}:${ref.refId}`}>{ref.refType}:{ref.refId}</span>)
+                      screenshotRefs.map((ref) => (
+                        <span key={`${ref.refType}:${ref.refId}`}>
+                          {ref.refType}:{ref.refId}
+                        </span>
+                      ))
                     ) : (
                       <span>None</span>
                     )}
@@ -335,13 +449,31 @@ export default function EvalRunsDashboard({
 
                 <section style={{ display: "grid", gap: 8 }}>
                   <h3 style={{ margin: 0, fontSize: 14 }}>Notebook refs</h3>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, fontSize: 12, color: "#4b5563" }}>
-                    {run.notebookRefs.length ? run.notebookRefs.map((ref) => <span key={`${ref.refType}:${ref.refId}`}>{ref.refType}:{ref.refId}</span>) : <span>None</span>}
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: 8,
+                      fontSize: 12,
+                      color: "#4b5563",
+                    }}
+                  >
+                    {run.notebookRefs.length ? (
+                      run.notebookRefs.map((ref) => (
+                        <span key={`${ref.refType}:${ref.refId}`}>
+                          {ref.refType}:{ref.refId}
+                        </span>
+                      ))
+                    ) : (
+                      <span>None</span>
+                    )}
                   </div>
                 </section>
               </div>
             ) : (
-              <div className="study-empty">Select a run to inspect its transcript, assertions, and trace refs.</div>
+              <div className="study-empty">
+                Select a run to inspect its transcript, assertions, and trace refs.
+              </div>
             )}
           </article>
         </section>
@@ -350,10 +482,7 @@ export default function EvalRunsDashboard({
   );
 }
 
-function useEvalRunUpdateStream(input: {
-  after: string | null;
-  queryClient: QueryClient;
-}): void {
+function useEvalRunUpdateStream(input: { after: string | null; queryClient: QueryClient }): void {
   useEffect(() => {
     if (input.after === null || typeof EventSource === "undefined") return;
 
@@ -386,24 +515,45 @@ function latestEvalRunUpdateCursor(runs: EvalRunListItem[]): string {
   return new Date(latest).toISOString();
 }
 
-function IssueCandidateGroups({ issueCandidates }: { issueCandidates: EvalRunListResponse["runs"][number]["run"]["issueCandidates"] }) {
+function IssueCandidateGroups({
+  issueCandidates,
+}: {
+  issueCandidates: EvalRunListResponse["runs"][number]["run"]["issueCandidates"];
+}) {
   const groups = [
-    { kind: "failure", label: "Failures", candidates: issueCandidates.filter((candidate) => (candidate.kind ?? "failure") === "failure") },
-    { kind: "warning", label: "Warnings", candidates: issueCandidates.filter((candidate) => candidate.kind === "warning") },
+    {
+      kind: "failure",
+      label: "Failures",
+      candidates: issueCandidates.filter(
+        (candidate) => (candidate.kind ?? "failure") === "failure",
+      ),
+    },
+    {
+      kind: "warning",
+      label: "Warnings",
+      candidates: issueCandidates.filter((candidate) => candidate.kind === "warning"),
+    },
   ];
 
   return (
     <div style={{ display: "grid", gap: 8 }}>
-      {groups.filter((group) => group.candidates.length).map((group) => (
-        <div key={group.kind} style={{ display: "grid", gap: 6 }}>
-          <strong style={{ fontSize: 12, color: group.kind === "failure" ? "#b91c1c" : "#92400e" }}>{group.label}</strong>
-          {group.candidates.map((candidate, index) => (
-            <div key={`${candidate.title}:${index}`} style={{ fontSize: 12, color: "#4b5563" }}>
-              <strong>{candidate.severity}</strong> · {candidate.reason ?? "run_failed"} · {candidate.learnerMode} · {candidate.title} · {candidate.failureSummary}
-            </div>
-          ))}
-        </div>
-      ))}
+      {groups
+        .filter((group) => group.candidates.length)
+        .map((group) => (
+          <div key={group.kind} style={{ display: "grid", gap: 6 }}>
+            <strong
+              style={{ fontSize: 12, color: group.kind === "failure" ? "#b91c1c" : "#92400e" }}
+            >
+              {group.label}
+            </strong>
+            {group.candidates.map((candidate, index) => (
+              <div key={`${candidate.title}:${index}`} style={{ fontSize: 12, color: "#4b5563" }}>
+                <strong>{candidate.severity}</strong> · {candidate.reason ?? "run_failed"} ·{" "}
+                {candidate.learnerMode} · {candidate.title} · {candidate.failureSummary}
+              </div>
+            ))}
+          </div>
+        ))}
     </div>
   );
 }

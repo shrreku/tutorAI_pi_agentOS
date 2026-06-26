@@ -41,7 +41,9 @@ export async function getAgenticCacheEntry<T extends Record<string, unknown>>(
 
   if (!row) return null;
   if (row.expiresAt && row.expiresAt.getTime() <= now.getTime()) {
-    await dbClient.db.delete(agenticCacheEntries).where(eq(agenticCacheEntries.cacheKey, input.cacheKey));
+    await dbClient.db
+      .delete(agenticCacheEntries)
+      .where(eq(agenticCacheEntries.cacheKey, input.cacheKey));
     return null;
   }
 
@@ -146,7 +148,8 @@ export async function deleteExpiredAgenticCacheEntries(
 
 function stableJsonStringify(value: unknown): string {
   if (value === null || typeof value !== "object") return JSON.stringify(value);
-  if (Array.isArray(value)) return `[${value.map((entry) => stableJsonStringify(entry)).join(",")}]`;
+  if (Array.isArray(value))
+    return `[${value.map((entry) => stableJsonStringify(entry)).join(",")}]`;
   return `{${Object.entries(value as Record<string, unknown>)
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([key, entry]) => `${JSON.stringify(key)}:${stableJsonStringify(entry)}`)

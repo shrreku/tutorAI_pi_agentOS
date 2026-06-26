@@ -1,5 +1,12 @@
 import { createDb } from "./client.js";
-import { chunks, notebooks, sourceVersions, sources, studyTemplates, users } from "./schema/index.js";
+import {
+  chunks,
+  notebooks,
+  sourceVersions,
+  sources,
+  studyTemplates,
+  users,
+} from "./schema/index.js";
 
 const hostedBetaTemplates = [
   {

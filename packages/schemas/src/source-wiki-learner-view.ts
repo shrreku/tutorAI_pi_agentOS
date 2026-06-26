@@ -12,9 +12,19 @@ const rawClaimSchema = z.object({
 export const sourceWikiLearnerViewSchema = z.object({
   pageId: z.string(),
   title: z.string(),
-  learnerStatus: z.enum(["available", "still_improving", "needs_source_support", "temporarily_unavailable"]),
+  learnerStatus: z.enum([
+    "available",
+    "still_improving",
+    "needs_source_support",
+    "temporarily_unavailable",
+  ]),
   markdown: z.string(),
-  evidenceGroups: z.array(z.object({ title: z.string(), citations: z.array(z.object({ sourceRef: z.string(), excerpt: z.string() })) })),
+  evidenceGroups: z.array(
+    z.object({
+      title: z.string(),
+      citations: z.array(z.object({ sourceRef: z.string(), excerpt: z.string() })),
+    }),
+  ),
   warnings: z.array(z.string()).default([]),
   devMode: z.boolean(),
   debug: z.record(z.string(), z.unknown()).nullable().default(null),
@@ -41,8 +51,12 @@ export function buildSourceWikiLearnerView(input: {
 
   const warnings = [
     input.projectionWarning,
-    input.page.status === "failed" ? "Source Wiki is temporarily unavailable while this page is refreshed." : null,
-    input.page.status !== "published" && input.page.status !== "active" ? "This page is still improving." : null,
+    input.page.status === "failed"
+      ? "Source Wiki is temporarily unavailable while this page is refreshed."
+      : null,
+    input.page.status !== "published" && input.page.status !== "active"
+      ? "This page is still improving."
+      : null,
   ].filter((value): value is string => Boolean(value));
 
   const learnerStatus =
@@ -68,7 +82,9 @@ export function buildSourceWikiLearnerView(input: {
     debug: devMode
       ? {
           rawPageStatus: input.page.status,
-          hiddenClaimIds: claims.filter((claim) => !learnerClaims.includes(claim)).map((claim) => claim.id),
+          hiddenClaimIds: claims
+            .filter((claim) => !learnerClaims.includes(claim))
+            .map((claim) => claim.id),
           rawClaims: claims,
         }
       : null,

@@ -28,7 +28,9 @@ export function validateSimulationDraft(input: unknown): SimulationDraft {
   return simulationDraftSchema.parse(input);
 }
 
-export function evaluateSimulationDraftForPromotion(draft: SimulationDraft): SimulationDraftEvaluationResult {
+export function evaluateSimulationDraftForPromotion(
+  draft: SimulationDraft,
+): SimulationDraftEvaluationResult {
   const failures: string[] = [];
   for (const key of PROMOTION_CHECKLIST_KEYS) {
     if (draft.checklist[key] !== true) {

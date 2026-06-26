@@ -1,135 +1,154 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Profile — TutorBook</title>
-<link rel="stylesheet" href="styles.css" />
-<link rel="stylesheet" href="themes/folio.css" />
-<link rel="stylesheet" href="themes/focus.css" />
-<link rel="stylesheet" href="themes/sunrise.css" />
-<link rel="stylesheet" href="themes/nocturne.css" />
-<link rel="stylesheet" href="themes/carbon.css" />
-</head>
-<body data-theme="mist">
-<div class="app">
-  <div data-include="topbar"></div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Profile — TutorBook</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="themes/folio.css" />
+    <link rel="stylesheet" href="themes/focus.css" />
+    <link rel="stylesheet" href="themes/sunrise.css" />
+    <link rel="stylesheet" href="themes/nocturne.css" />
+    <link rel="stylesheet" href="themes/carbon.css" />
+  </head>
+  <body data-theme="mist">
+    <div class="app">
+      <div data-include="topbar"></div>
 
-  <div class="settings-layout">
-    <nav class="settings-nav">
-      <a href="account.html" class="active">Profile</a>
-      <a href="settings.html">Preferences</a>
-      <a href="credits.html">Tutor credits</a>
-      <a href="notifications.html">Notifications</a>
-      <a href="support.html">Help</a>
-    </nav>
+      <div class="settings-layout">
+        <nav class="settings-nav">
+          <a href="account.html" class="active">Profile</a>
+          <a href="settings.html">Preferences</a>
+          <a href="credits.html">Tutor credits</a>
+          <a href="notifications.html">Notifications</a>
+          <a href="support.html">Help</a>
+        </nav>
 
-    <div>
-      <div class="profile-head">
-        <div class="big-avatar">SK</div>
-        <div style="flex:1;min-width:0">
-          <div class="row gap-10" style="flex-wrap:wrap">
-            <h1 style="font-size:22px;margin:0;letter-spacing:-0.02em">Shreyash Kumar</h1>
-            <span class="badge purple">Pro</span>
+        <div>
+          <div class="profile-head">
+            <div class="big-avatar">SK</div>
+            <div style="flex: 1; min-width: 0">
+              <div class="row gap-10" style="flex-wrap: wrap">
+                <h1 style="font-size: 22px; margin: 0; letter-spacing: -0.02em">Shreyash Kumar</h1>
+                <span class="badge purple">Pro</span>
+              </div>
+              <div class="muted" style="margin-top: 2px">
+                shreyash@alenkamedia.com · Joined Sep 2025
+              </div>
+            </div>
+            <button class="btn sm">Change avatar</button>
           </div>
-          <div class="muted" style="margin-top:2px">shreyash@alenkamedia.com · Joined Sep 2025</div>
-        </div>
-        <button class="btn sm">Change avatar</button>
-      </div>
 
-      <div class="settings-group">
-        <h2>Profile</h2>
-        <p class="gdesc">This information appears across your notebooks, sessions and shared artifacts.</p>
+          <div class="settings-group">
+            <h2>Profile</h2>
+            <p class="gdesc">
+              This information appears across your notebooks, sessions and shared artifacts.
+            </p>
 
-        <div class="field-row">
-          <div>
-            <div class="fr-label">Display name</div>
-            <div class="fr-desc">Shown to tutors and on shared study maps.</div>
+            <div class="field-row">
+              <div>
+                <div class="fr-label">Display name</div>
+                <div class="fr-desc">Shown to tutors and on shared study maps.</div>
+              </div>
+              <input class="input" style="max-width: 280px" value="Shreyash Kumar" />
+            </div>
+
+            <div class="field-row">
+              <div>
+                <div class="fr-label">Email</div>
+                <div class="fr-desc">Used for sign-in and study reminders.</div>
+              </div>
+              <input
+                class="input"
+                style="max-width: 280px"
+                type="email"
+                value="shreyash@alenkamedia.com"
+              />
+            </div>
+
+            <div class="field-row">
+              <div>
+                <div class="fr-label">Institution</div>
+                <div class="fr-desc">Helps tailor curriculum to your course.</div>
+              </div>
+              <input
+                class="input"
+                style="max-width: 280px"
+                value="State University · Chemistry BSc"
+              />
+            </div>
+
+            <div class="field-row">
+              <div>
+                <div class="fr-label">Study goal</div>
+                <div class="fr-desc">Your current focus, used by the tutor for planning.</div>
+              </div>
+              <input
+                class="input"
+                style="max-width: 280px"
+                value="Master Organic Chemistry I by finals"
+              />
+            </div>
+
+            <div class="row gap-10 mt-16">
+              <button class="btn primary">Save changes</button>
+              <button class="btn ghost">Cancel</button>
+            </div>
           </div>
-          <input class="input" style="max-width:280px" value="Shreyash Kumar" />
-        </div>
 
-        <div class="field-row">
-          <div>
-            <div class="fr-label">Email</div>
-            <div class="fr-desc">Used for sign-in and study reminders.</div>
+          <div class="settings-group">
+            <h2>Security</h2>
+            <p class="gdesc">Keep your account protected.</p>
+
+            <div class="field-row">
+              <div>
+                <div class="fr-label">Password</div>
+                <div class="fr-desc">Last changed 3 months ago.</div>
+              </div>
+              <button class="btn sm">Change password</button>
+            </div>
+
+            <div class="field-row">
+              <div>
+                <div class="fr-label">Two-factor authentication</div>
+                <div class="fr-desc">Require a code from your authenticator app at sign-in.</div>
+              </div>
+              <div class="switch on" data-switch></div>
+            </div>
+
+            <div class="field-row">
+              <div>
+                <div class="fr-label">Active sessions</div>
+                <div class="fr-desc">MacBook Pro · Safari — this device · 2 others</div>
+              </div>
+              <button class="btn sm">Manage sessions</button>
+            </div>
           </div>
-          <input class="input" style="max-width:280px" type="email" value="shreyash@alenkamedia.com" />
-        </div>
 
-        <div class="field-row">
-          <div>
-            <div class="fr-label">Institution</div>
-            <div class="fr-desc">Helps tailor curriculum to your course.</div>
+          <div class="settings-group">
+            <h2 style="color: var(--red)">Danger zone</h2>
+            <p class="gdesc">
+              Permanently remove your account and all study data. This cannot be undone.
+            </p>
+
+            <div class="field-row">
+              <div>
+                <div class="fr-label">Delete account</div>
+                <div class="fr-desc">Notebooks, sources, artifacts and credits will be erased.</div>
+              </div>
+              <button class="btn danger">Delete account</button>
+            </div>
           </div>
-          <input class="input" style="max-width:280px" value="State University · Chemistry BSc" />
-        </div>
-
-        <div class="field-row">
-          <div>
-            <div class="fr-label">Study goal</div>
-            <div class="fr-desc">Your current focus, used by the tutor for planning.</div>
-          </div>
-          <input class="input" style="max-width:280px" value="Master Organic Chemistry I by finals" />
-        </div>
-
-        <div class="row gap-10 mt-16">
-          <button class="btn primary">Save changes</button>
-          <button class="btn ghost">Cancel</button>
-        </div>
-      </div>
-
-      <div class="settings-group">
-        <h2>Security</h2>
-        <p class="gdesc">Keep your account protected.</p>
-
-        <div class="field-row">
-          <div>
-            <div class="fr-label">Password</div>
-            <div class="fr-desc">Last changed 3 months ago.</div>
-          </div>
-          <button class="btn sm">Change password</button>
-        </div>
-
-        <div class="field-row">
-          <div>
-            <div class="fr-label">Two-factor authentication</div>
-            <div class="fr-desc">Require a code from your authenticator app at sign-in.</div>
-          </div>
-          <div class="switch on" data-switch></div>
-        </div>
-
-        <div class="field-row">
-          <div>
-            <div class="fr-label">Active sessions</div>
-            <div class="fr-desc">MacBook Pro · Safari — this device · 2 others</div>
-          </div>
-          <button class="btn sm">Manage sessions</button>
-        </div>
-      </div>
-
-      <div class="settings-group">
-        <h2 style="color:var(--red)">Danger zone</h2>
-        <p class="gdesc">Permanently remove your account and all study data. This cannot be undone.</p>
-
-        <div class="field-row">
-          <div>
-            <div class="fr-label">Delete account</div>
-            <div class="fr-desc">Notebooks, sources, artifacts and credits will be erased.</div>
-          </div>
-          <button class="btn danger">Delete account</button>
         </div>
       </div>
     </div>
-  </div>
-</div>
 
-<script src="app.js"></script>
-<script src="themes/folio.js"></script>
-<script src="themes/focus.js"></script>
-<script src="themes/sunrise.js"></script>
-<script src="themes/nocturne.js"></script>
-<script src="themes/carbon.js"></script>
-<script src="partials.js"></script>
-</body>
+    <script src="app.js"></script>
+    <script src="themes/folio.js"></script>
+    <script src="themes/focus.js"></script>
+    <script src="themes/sunrise.js"></script>
+    <script src="themes/nocturne.js"></script>
+    <script src="themes/carbon.js"></script>
+    <script src="partials.js"></script>
+  </body>
 </html>

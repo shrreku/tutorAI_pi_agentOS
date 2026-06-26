@@ -29,7 +29,11 @@ export async function applyMasteryEvidence(
   const now = new Date();
   const nextReviewAt = daysFromNow(computeNextReviewDays(evidence));
   const weakConceptIds: string[] = [];
-  const updatedConceptStates: Array<{ conceptId: string; masteryScore: number; nextReviewAt: string }> = [];
+  const updatedConceptStates: Array<{
+    conceptId: string;
+    masteryScore: number;
+    nextReviewAt: string;
+  }> = [];
 
   for (const conceptId of conceptIds) {
     const delta = computeMasteryDeltaForEvidence(evidence, conceptId);
@@ -48,15 +52,14 @@ export async function applyMasteryEvidence(
     const nextMastery = clamp((existing?.masteryScore ?? 0.35) + delta);
     const nextConfidence = clamp((existing?.confidence ?? 0.5) + delta / 2);
     const misconception = evidence.misconceptions.find((entry) => entry.conceptId === conceptId);
-    const misconceptionJson =
-      misconception
-        ? { reason: misconception.description, observedAt: now.toISOString() }
-        : evidence.correctnessLabel === "correct"
-          ? (existing?.misconceptionJson ?? null)
-          : existing?.misconceptionJson ?? {
-              reason: `Observed ${evidence.correctnessLabel} during ${evidence.evidenceType}`,
-              observedAt: now.toISOString(),
-            };
+    const misconceptionJson = misconception
+      ? { reason: misconception.description, observedAt: now.toISOString() }
+      : evidence.correctnessLabel === "correct"
+        ? (existing?.misconceptionJson ?? null)
+        : (existing?.misconceptionJson ?? {
+            reason: `Observed ${evidence.correctnessLabel} during ${evidence.evidenceType}`,
+            observedAt: now.toISOString(),
+          });
 
     if (existing) {
       await dbClient.db
@@ -147,7 +150,9 @@ export async function applyMasteryEvidence(
   const [studyPlan] = await dbClient.db
     .select()
     .from(studyPlans)
-    .where(and(eq(studyPlans.notebookId, evidence.notebookId), eq(studyPlans.userId, evidence.userId)))
+    .where(
+      and(eq(studyPlans.notebookId, evidence.notebookId), eq(studyPlans.userId, evidence.userId)),
+    )
     .limit(1);
 
   if (studyPlan) {
@@ -169,7 +174,11 @@ export async function applyMasteryEvidence(
       ...(evidence.sessionId ? { sessionId: evidence.sessionId } : {}),
       ...(evidence.runId ? { runId: evidence.runId } : {}),
       eventType: "study_plan.updated",
-      payload: { studyPlanId: studyPlan.id, weakConceptIds: [...nextWeak], masteryEvidenceId: evidence.id },
+      payload: {
+        studyPlanId: studyPlan.id,
+        weakConceptIds: [...nextWeak],
+        masteryEvidenceId: evidence.id,
+      },
     });
   }
 

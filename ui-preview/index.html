@@ -1,102 +1,353 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>TutorBook — UI Preview</title>
-<link rel="stylesheet" href="styles.css" />
-<link rel="stylesheet" href="themes/folio.css" />
-<link rel="stylesheet" href="themes/focus.css" />
-<link rel="stylesheet" href="themes/sunrise.css" />
-<link rel="stylesheet" href="themes/nocturne.css" />
-<link rel="stylesheet" href="themes/carbon.css" />
-</head>
-<body data-theme="mist">
-<div class="app">
-  <div data-include="topbar"></div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TutorBook — UI Preview</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="themes/folio.css" />
+    <link rel="stylesheet" href="themes/focus.css" />
+    <link rel="stylesheet" href="themes/sunrise.css" />
+    <link rel="stylesheet" href="themes/nocturne.css" />
+    <link rel="stylesheet" href="themes/carbon.css" />
+  </head>
+  <body data-theme="mist">
+    <div class="app">
+      <div data-include="topbar"></div>
 
-  <div class="index-hero">
-    <span class="badge purple" style="margin-bottom:12px">UI PREVIEW · NO BACKEND</span>
-    <h1>TutorBook design system</h1>
-    <p>One navigable mockup, six live themes. Pick a look below — it switches in place — then jump into any surface. Press <span class="kbd">⌘K</span> anywhere to navigate.</p>
-  </div>
+      <div class="index-hero">
+        <span class="badge purple" style="margin-bottom: 12px">UI PREVIEW · NO BACKEND</span>
+        <h1>TutorBook design system</h1>
+        <p>
+          One navigable mockup, six live themes. Pick a look below — it switches in place — then
+          jump into any surface. Press <span class="kbd">⌘K</span> anywhere to navigate.
+        </p>
+      </div>
 
-  <!-- Theme switcher -->
-  <div class="gallery-section">
-    <h3 class="gs-title">Themes · click to apply live</h3>
-  </div>
-  <div class="theme-strip">
-    <button class="theme-chip" data-theme-chip="mist"><div class="sw" style="background:linear-gradient(135deg,#6366f1,#7c3aed)"></div><div class="nm">Mist Glass</div><div class="ds">Indigo glass · default</div></button>
-    <button class="theme-chip" data-theme-chip="folio"><div class="sw" style="background:linear-gradient(135deg,#2d5a47,#c9a86a)"></div><div class="nm">Folio</div><div class="ds">Editorial ivory · serif</div></button>
-    <button class="theme-chip" data-theme-chip="focus"><div class="sw" style="background:linear-gradient(135deg,#2d5bff,#dce6ff)"></div><div class="nm">Focus</div><div class="ds">Minimalist slate</div></button>
-    <button class="theme-chip" data-theme-chip="sunrise"><div class="sw" style="background:linear-gradient(135deg,#ff8a5c,#ffd166)"></div><div class="nm">Sunrise</div><div class="ds">Warm & rounded</div></button>
-    <button class="theme-chip" data-theme-chip="nocturne"><div class="sw" style="background:linear-gradient(135deg,#6d5efc,#16d3c8)"></div><div class="nm">Nocturne</div><div class="ds">Dark mode · glow</div></button>
-    <button class="theme-chip" data-theme-chip="carbon"><div class="sw" style="background:linear-gradient(135deg,#2bd97c,#1a1d24)"></div><div class="nm">Carbon</div><div class="ds">Terminal · dense</div></button>
-  </div>
+      <!-- Theme switcher -->
+      <div class="gallery-section">
+        <h3 class="gs-title">Themes · click to apply live</h3>
+      </div>
+      <div class="theme-strip">
+        <button class="theme-chip" data-theme-chip="mist">
+          <div class="sw" style="background: linear-gradient(135deg, #6366f1, #7c3aed)"></div>
+          <div class="nm">Mist Glass</div>
+          <div class="ds">Indigo glass · default</div>
+        </button>
+        <button class="theme-chip" data-theme-chip="folio">
+          <div class="sw" style="background: linear-gradient(135deg, #2d5a47, #c9a86a)"></div>
+          <div class="nm">Folio</div>
+          <div class="ds">Editorial ivory · serif</div>
+        </button>
+        <button class="theme-chip" data-theme-chip="focus">
+          <div class="sw" style="background: linear-gradient(135deg, #2d5bff, #dce6ff)"></div>
+          <div class="nm">Focus</div>
+          <div class="ds">Minimalist slate</div>
+        </button>
+        <button class="theme-chip" data-theme-chip="sunrise">
+          <div class="sw" style="background: linear-gradient(135deg, #ff8a5c, #ffd166)"></div>
+          <div class="nm">Sunrise</div>
+          <div class="ds">Warm & rounded</div>
+        </button>
+        <button class="theme-chip" data-theme-chip="nocturne">
+          <div class="sw" style="background: linear-gradient(135deg, #6d5efc, #16d3c8)"></div>
+          <div class="nm">Nocturne</div>
+          <div class="ds">Dark mode · glow</div>
+        </button>
+        <button class="theme-chip" data-theme-chip="carbon">
+          <div class="sw" style="background: linear-gradient(135deg, #2bd97c, #1a1d24)"></div>
+          <div class="nm">Carbon</div>
+          <div class="ds">Terminal · dense</div>
+        </button>
+      </div>
 
-  <div class="gallery-section">
-    <h3 class="gs-title">Workspace</h3>
-    <div class="gallery">
-      <a class="item" href="dashboard.html"><div class="thumb">Dashboard<br/>Per-theme layout</div><div class="meta"><div class="t">Dashboard</div><div class="d">Profile, mastery, notebooks, tutor suggestions, weekly activity.</div><span class="tag">Workspace</span></div></a>
-      <a class="item" href="study-map.html"><div class="thumb">Study Map<br/>Graph + chat</div><div class="meta"><div class="t">Study Map</div><div class="d">Node graph with SVG edges, agent-working tutor, docked evidence.</div><span class="tag">Workspace</span></div></a>
-      <a class="item" href="curriculum.html"><div class="thumb">Curriculum<br/>Module accordion</div><div class="meta"><div class="t">Curriculum</div><div class="d">Modules, objectives, mastery stats.</div><span class="tag">Workspace</span></div></a>
-      <a class="item" href="source-wiki.html"><div class="thumb">Source Wiki<br/>Topic reader</div><div class="meta"><div class="t">Source Wiki</div><div class="d">Source/topic sidebar + wiki article.</div><span class="tag">Workspace</span></div></a>
-      <a class="item" href="interactive-quiz.html"><div class="thumb">Interactive Quiz<br/>Workspace + chat</div><div class="meta"><div class="t">Interactive Quiz</div><div class="d">Quiz inside the workspace with tutor.</div><span class="tag">Workspace</span></div></a>
-      <a class="item" href="live-session.html"><div class="thumb">Live Session<br/>Tutor working</div><div class="meta"><div class="t">Live Session</div><div class="d">Active session banner, plan, produced items.</div><span class="tag">Workspace</span></div></a>
-      <a class="item" href="evidence-open.html"><div class="thumb">Evidence Drawer<br/>Glass overlay</div><div class="meta"><div class="t">Evidence</div><div class="d">Frosted scrim + cited snippets.</div><span class="tag">Evidence</span></div></a>
+      <div class="gallery-section">
+        <h3 class="gs-title">Workspace</h3>
+        <div class="gallery">
+          <a class="item" href="dashboard.html"
+            ><div class="thumb">Dashboard<br />Per-theme layout</div>
+            <div class="meta">
+              <div class="t">Dashboard</div>
+              <div class="d">Profile, mastery, notebooks, tutor suggestions, weekly activity.</div>
+              <span class="tag">Workspace</span>
+            </div></a
+          >
+          <a class="item" href="study-map.html"
+            ><div class="thumb">Study Map<br />Graph + chat</div>
+            <div class="meta">
+              <div class="t">Study Map</div>
+              <div class="d">Node graph with SVG edges, agent-working tutor, docked evidence.</div>
+              <span class="tag">Workspace</span>
+            </div></a
+          >
+          <a class="item" href="curriculum.html"
+            ><div class="thumb">Curriculum<br />Module accordion</div>
+            <div class="meta">
+              <div class="t">Curriculum</div>
+              <div class="d">Modules, objectives, mastery stats.</div>
+              <span class="tag">Workspace</span>
+            </div></a
+          >
+          <a class="item" href="source-wiki.html"
+            ><div class="thumb">Source Wiki<br />Topic reader</div>
+            <div class="meta">
+              <div class="t">Source Wiki</div>
+              <div class="d">Source/topic sidebar + wiki article.</div>
+              <span class="tag">Workspace</span>
+            </div></a
+          >
+          <a class="item" href="interactive-quiz.html"
+            ><div class="thumb">Interactive Quiz<br />Workspace + chat</div>
+            <div class="meta">
+              <div class="t">Interactive Quiz</div>
+              <div class="d">Quiz inside the workspace with tutor.</div>
+              <span class="tag">Workspace</span>
+            </div></a
+          >
+          <a class="item" href="live-session.html"
+            ><div class="thumb">Live Session<br />Tutor working</div>
+            <div class="meta">
+              <div class="t">Live Session</div>
+              <div class="d">Active session banner, plan, produced items.</div>
+              <span class="tag">Workspace</span>
+            </div></a
+          >
+          <a class="item" href="evidence-open.html"
+            ><div class="thumb">Evidence Drawer<br />Glass overlay</div>
+            <div class="meta">
+              <div class="t">Evidence</div>
+              <div class="d">Frosted scrim + cited snippets.</div>
+              <span class="tag">Evidence</span>
+            </div></a
+          >
+        </div>
+
+        <h3 class="gs-title">Reference surfaces</h3>
+        <div class="gallery">
+          <a class="item" href="page-concept.html"
+            ><div class="thumb">Concept</div>
+            <div class="meta">
+              <div class="t">Concept</div>
+              <div class="d">Definition, intuition, key factors, citation.</div>
+              <span class="tag">Reference</span>
+            </div></a
+          >
+          <a class="item" href="page-quiz.html"
+            ><div class="thumb">Quiz</div>
+            <div class="meta">
+              <div class="t">Quiz</div>
+              <div class="d">MCQ, short answer, numeric · graded states.</div>
+              <span class="tag">Reference</span>
+            </div></a
+          >
+          <a class="item" href="page-flashcards.html"
+            ><div class="thumb">Flashcards</div>
+            <div class="meta">
+              <div class="t">Flashcards</div>
+              <div class="d">Flip card · spaced-recall ratings.</div>
+              <span class="tag">Reference</span>
+            </div></a
+          >
+          <a class="item" href="page-worked-example.html"
+            ><div class="thumb">Worked Example</div>
+            <div class="meta">
+              <div class="t">Worked Example</div>
+              <div class="d">Step-by-step reveal.</div>
+              <span class="tag">Reference</span>
+            </div></a
+          >
+          <a class="item" href="page-comparison.html"
+            ><div class="thumb">Comparison</div>
+            <div class="meta">
+              <div class="t">Comparison</div>
+              <div class="d">SN1 vs SN2 table.</div>
+              <span class="tag">Reference</span>
+            </div></a
+          >
+          <a class="item" href="page-formula-sheet.html"
+            ><div class="thumb">Formula Sheet</div>
+            <div class="meta">
+              <div class="t">Formula Sheet</div>
+              <div class="d">Rate laws & constants.</div>
+              <span class="tag">Reference</span>
+            </div></a
+          >
+          <a class="item" href="page-wiki-topic.html"
+            ><div class="thumb">Wiki Topic</div>
+            <div class="meta">
+              <div class="t">Wiki Topic</div>
+              <div class="d">Long-form article + linked concepts.</div>
+              <span class="tag">Reference</span>
+            </div></a
+          >
+          <a class="item" href="page-module.html"
+            ><div class="thumb">Module</div>
+            <div class="meta">
+              <div class="t">Module</div>
+              <div class="d">Objectives checklist + resources.</div>
+              <span class="tag">Reference</span>
+            </div></a
+          >
+          <a class="item" href="page-source.html"
+            ><div class="thumb">Source Reader</div>
+            <div class="meta">
+              <div class="t">Source Reader</div>
+              <div class="d">Page thumbnails + cited highlight.</div>
+              <span class="tag">Reference</span>
+            </div></a
+          >
+          <a class="item" href="page-live-plan.html"
+            ><div class="thumb">Live Plan</div>
+            <div class="meta">
+              <div class="t">Live Plan</div>
+              <div class="d">Next actions + objective stack.</div>
+              <span class="tag">Reference</span>
+            </div></a
+          >
+          <a class="item" href="page-session.html"
+            ><div class="thumb">Past Session</div>
+            <div class="meta">
+              <div class="t">Session</div>
+              <div class="d">Summary + produced study items.</div>
+              <span class="tag">Reference</span>
+            </div></a
+          >
+        </div>
+
+        <h3 class="gs-title">Library</h3>
+        <div class="gallery">
+          <a class="item" href="notebooks.html"
+            ><div class="thumb">Notebooks</div>
+            <div class="meta">
+              <div class="t">Notebooks Library</div>
+              <div class="d">All notebooks, progress, filters.</div>
+              <span class="tag">Library</span>
+            </div></a
+          >
+          <a class="item" href="templates.html"
+            ><div class="thumb">Templates</div>
+            <div class="meta">
+              <div class="t">Template Gallery</div>
+              <div class="d">Start a notebook from a template.</div>
+              <span class="tag">Library</span>
+            </div></a
+          >
+          <a class="item" href="sources.html"
+            ><div class="thumb">Sources</div>
+            <div class="meta">
+              <div class="t">Sources Manager</div>
+              <div class="d">Upload & index status.</div>
+              <span class="tag">Library</span>
+            </div></a
+          >
+          <a class="item" href="artifacts.html"
+            ><div class="thumb">Artifacts</div>
+            <div class="meta">
+              <div class="t">Artifacts Gallery</div>
+              <div class="d">Generated study aids.</div>
+              <span class="tag">Library</span>
+            </div></a
+          >
+        </div>
+
+        <h3 class="gs-title">Account & billing</h3>
+        <div class="gallery">
+          <a class="item" href="account.html"
+            ><div class="thumb">Account</div>
+            <div class="meta">
+              <div class="t">Account</div>
+              <div class="d">Profile, security, danger zone.</div>
+              <span class="tag">Account</span>
+            </div></a
+          >
+          <a class="item" href="settings.html"
+            ><div class="thumb">Settings</div>
+            <div class="meta">
+              <div class="t">Settings</div>
+              <div class="d">Appearance (live theme), tutor behaviour.</div>
+              <span class="tag">Account</span>
+            </div></a
+          >
+          <a class="item" href="credits.html"
+            ><div class="thumb">Credits</div>
+            <div class="meta">
+              <div class="t">Tutor Credits</div>
+              <div class="d">Balance ring, usage, top-up.</div>
+              <span class="tag">Account</span>
+            </div></a
+          >
+          <a class="item" href="notifications.html"
+            ><div class="thumb">Notifications</div>
+            <div class="meta">
+              <div class="t">Notifications</div>
+              <div class="d">Activity feed.</div>
+              <span class="tag">Account</span>
+            </div></a
+          >
+          <a class="item" href="support.html"
+            ><div class="thumb">Support</div>
+            <div class="meta">
+              <div class="t">Help & Support</div>
+              <div class="d">FAQ, contact, status.</div>
+              <span class="tag">Account</span>
+            </div></a
+          >
+        </div>
+
+        <h3 class="gs-title">Public & onboarding</h3>
+        <div class="gallery">
+          <a class="item" href="landing.html"
+            ><div class="thumb">Landing</div>
+            <div class="meta">
+              <div class="t">Marketing Landing</div>
+              <div class="d">Hero, features, pricing.</div>
+              <span class="tag">Public</span>
+            </div></a
+          >
+          <a class="item" href="login.html"
+            ><div class="thumb">Sign in</div>
+            <div class="meta">
+              <div class="t">Login</div>
+              <div class="d">Email, social, access code.</div>
+              <span class="tag">Public</span>
+            </div></a
+          >
+          <a class="item" href="access-code.html"
+            ><div class="thumb">Access Code</div>
+            <div class="meta">
+              <div class="t">Access Code</div>
+              <div class="d">Beta code entry.</div>
+              <span class="tag">Public</span>
+            </div></a
+          >
+          <a class="item" href="onboarding.html"
+            ><div class="thumb">Onboarding</div>
+            <div class="meta">
+              <div class="t">Onboarding</div>
+              <div class="d">Pick subject, add first source.</div>
+              <span class="tag">Public</span>
+            </div></a
+          >
+          <a class="item" href="legal.html"
+            ><div class="thumb">Consent</div>
+            <div class="meta">
+              <div class="t">Consent & Legal</div>
+              <div class="d">Data use, consent toggles.</div>
+              <span class="tag">Public</span>
+            </div></a
+          >
+        </div>
+      </div>
+
+      <div style="height: 90px"></div>
     </div>
 
-    <h3 class="gs-title">Reference surfaces</h3>
-    <div class="gallery">
-      <a class="item" href="page-concept.html"><div class="thumb">Concept</div><div class="meta"><div class="t">Concept</div><div class="d">Definition, intuition, key factors, citation.</div><span class="tag">Reference</span></div></a>
-      <a class="item" href="page-quiz.html"><div class="thumb">Quiz</div><div class="meta"><div class="t">Quiz</div><div class="d">MCQ, short answer, numeric · graded states.</div><span class="tag">Reference</span></div></a>
-      <a class="item" href="page-flashcards.html"><div class="thumb">Flashcards</div><div class="meta"><div class="t">Flashcards</div><div class="d">Flip card · spaced-recall ratings.</div><span class="tag">Reference</span></div></a>
-      <a class="item" href="page-worked-example.html"><div class="thumb">Worked Example</div><div class="meta"><div class="t">Worked Example</div><div class="d">Step-by-step reveal.</div><span class="tag">Reference</span></div></a>
-      <a class="item" href="page-comparison.html"><div class="thumb">Comparison</div><div class="meta"><div class="t">Comparison</div><div class="d">SN1 vs SN2 table.</div><span class="tag">Reference</span></div></a>
-      <a class="item" href="page-formula-sheet.html"><div class="thumb">Formula Sheet</div><div class="meta"><div class="t">Formula Sheet</div><div class="d">Rate laws & constants.</div><span class="tag">Reference</span></div></a>
-      <a class="item" href="page-wiki-topic.html"><div class="thumb">Wiki Topic</div><div class="meta"><div class="t">Wiki Topic</div><div class="d">Long-form article + linked concepts.</div><span class="tag">Reference</span></div></a>
-      <a class="item" href="page-module.html"><div class="thumb">Module</div><div class="meta"><div class="t">Module</div><div class="d">Objectives checklist + resources.</div><span class="tag">Reference</span></div></a>
-      <a class="item" href="page-source.html"><div class="thumb">Source Reader</div><div class="meta"><div class="t">Source Reader</div><div class="d">Page thumbnails + cited highlight.</div><span class="tag">Reference</span></div></a>
-      <a class="item" href="page-live-plan.html"><div class="thumb">Live Plan</div><div class="meta"><div class="t">Live Plan</div><div class="d">Next actions + objective stack.</div><span class="tag">Reference</span></div></a>
-      <a class="item" href="page-session.html"><div class="thumb">Past Session</div><div class="meta"><div class="t">Session</div><div class="d">Summary + produced study items.</div><span class="tag">Reference</span></div></a>
-    </div>
-
-    <h3 class="gs-title">Library</h3>
-    <div class="gallery">
-      <a class="item" href="notebooks.html"><div class="thumb">Notebooks</div><div class="meta"><div class="t">Notebooks Library</div><div class="d">All notebooks, progress, filters.</div><span class="tag">Library</span></div></a>
-      <a class="item" href="templates.html"><div class="thumb">Templates</div><div class="meta"><div class="t">Template Gallery</div><div class="d">Start a notebook from a template.</div><span class="tag">Library</span></div></a>
-      <a class="item" href="sources.html"><div class="thumb">Sources</div><div class="meta"><div class="t">Sources Manager</div><div class="d">Upload & index status.</div><span class="tag">Library</span></div></a>
-      <a class="item" href="artifacts.html"><div class="thumb">Artifacts</div><div class="meta"><div class="t">Artifacts Gallery</div><div class="d">Generated study aids.</div><span class="tag">Library</span></div></a>
-    </div>
-
-    <h3 class="gs-title">Account & billing</h3>
-    <div class="gallery">
-      <a class="item" href="account.html"><div class="thumb">Account</div><div class="meta"><div class="t">Account</div><div class="d">Profile, security, danger zone.</div><span class="tag">Account</span></div></a>
-      <a class="item" href="settings.html"><div class="thumb">Settings</div><div class="meta"><div class="t">Settings</div><div class="d">Appearance (live theme), tutor behaviour.</div><span class="tag">Account</span></div></a>
-      <a class="item" href="credits.html"><div class="thumb">Credits</div><div class="meta"><div class="t">Tutor Credits</div><div class="d">Balance ring, usage, top-up.</div><span class="tag">Account</span></div></a>
-      <a class="item" href="notifications.html"><div class="thumb">Notifications</div><div class="meta"><div class="t">Notifications</div><div class="d">Activity feed.</div><span class="tag">Account</span></div></a>
-      <a class="item" href="support.html"><div class="thumb">Support</div><div class="meta"><div class="t">Help & Support</div><div class="d">FAQ, contact, status.</div><span class="tag">Account</span></div></a>
-    </div>
-
-    <h3 class="gs-title">Public & onboarding</h3>
-    <div class="gallery">
-      <a class="item" href="landing.html"><div class="thumb">Landing</div><div class="meta"><div class="t">Marketing Landing</div><div class="d">Hero, features, pricing.</div><span class="tag">Public</span></div></a>
-      <a class="item" href="login.html"><div class="thumb">Sign in</div><div class="meta"><div class="t">Login</div><div class="d">Email, social, access code.</div><span class="tag">Public</span></div></a>
-      <a class="item" href="access-code.html"><div class="thumb">Access Code</div><div class="meta"><div class="t">Access Code</div><div class="d">Beta code entry.</div><span class="tag">Public</span></div></a>
-      <a class="item" href="onboarding.html"><div class="thumb">Onboarding</div><div class="meta"><div class="t">Onboarding</div><div class="d">Pick subject, add first source.</div><span class="tag">Public</span></div></a>
-      <a class="item" href="legal.html"><div class="thumb">Consent</div><div class="meta"><div class="t">Consent & Legal</div><div class="d">Data use, consent toggles.</div><span class="tag">Public</span></div></a>
-    </div>
-  </div>
-
-  <div style="height:90px"></div>
-</div>
-
-<script src="app.js"></script>
-<script src="themes/folio.js"></script>
-<script src="themes/focus.js"></script>
-<script src="themes/sunrise.js"></script>
-<script src="themes/nocturne.js"></script>
-<script src="themes/carbon.js"></script>
-<script src="partials.js"></script>
-</body>
+    <script src="app.js"></script>
+    <script src="themes/folio.js"></script>
+    <script src="themes/focus.js"></script>
+    <script src="themes/sunrise.js"></script>
+    <script src="themes/nocturne.js"></script>
+    <script src="themes/carbon.js"></script>
+    <script src="partials.js"></script>
+  </body>
 </html>

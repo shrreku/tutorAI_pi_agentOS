@@ -1,5 +1,13 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
-import { chunks, curriculumModules, objectiveLists, objectives, sourceVersions, sources, type DbClient } from "@studyagent/db";
+import {
+  chunks,
+  curriculumModules,
+  objectiveLists,
+  objectives,
+  sourceVersions,
+  sources,
+  type DbClient,
+} from "@studyagent/db";
 import type { BoundarySignal } from "@studyagent/schemas";
 import type { NotebookStudyState } from "./study-state.js";
 
@@ -12,12 +20,21 @@ type SearchEvidenceRow = {
 
 export function buildStandingBoundarySignals(state: NotebookStudyState): BoundarySignal[] {
   const signals: BoundarySignal[] = [];
-  const completedIds = new Set(state.studyPlan?.completedObjectives.map((objective) => objective.id) ?? []);
+  const completedIds = new Set(
+    state.studyPlan?.completedObjectives.map((objective) => objective.id) ?? [],
+  );
   const currentObjectiveId = state.studyPlan?.currentObjective?.id ?? null;
   const plannedObjectiveIds = state.sessionPlan?.plannedObjectiveIds ?? [];
-  const remainingPlannedObjectiveIds = plannedObjectiveIds.filter((id) => id !== currentObjectiveId && !completedIds.has(id));
+  const remainingPlannedObjectiveIds = plannedObjectiveIds.filter(
+    (id) => id !== currentObjectiveId && !completedIds.has(id),
+  );
 
-  if (state.sessionPlan && plannedObjectiveIds.length > 0 && !currentObjectiveId && remainingPlannedObjectiveIds.length === 0) {
+  if (
+    state.sessionPlan &&
+    plannedObjectiveIds.length > 0 &&
+    !currentObjectiveId &&
+    remainingPlannedObjectiveIds.length === 0
+  ) {
     signals.push({
       type: "session_plan_boundary",
       strength: "likely",
@@ -33,7 +50,9 @@ export function buildStandingBoundarySignals(state: NotebookStudyState): Boundar
     signals.push({
       type: "source_coverage_complete",
       strength: state.coverage.checked + state.coverage.mastered > 0 ? "likely" : "weak",
-      scopeRef: state.curriculum ? { refType: "curriculum", refId: state.curriculum.id } : undefined,
+      scopeRef: state.curriculum
+        ? { refType: "curriculum", refId: state.curriculum.id }
+        : undefined,
       summary: "The current source-backed coverage has no remaining planned or needs-review items.",
       evidenceRefs: state.curriculum ? [{ refType: "curriculum", refId: state.curriculum.id }] : [],
     });
@@ -56,23 +75,37 @@ export async function buildModuleMilestoneSignals(
   const objectiveListRows = await dbClient.db
     .select({ id: objectiveLists.id, objectiveIdsOrdered: objectiveLists.objectiveIdsOrdered })
     .from(objectiveLists)
-    .where(and(eq(objectiveLists.notebookId, input.notebookId), eq(objectiveLists.moduleId, moduleId)));
-  const moduleObjectiveIds = [...new Set(objectiveListRows.flatMap((row) => row.objectiveIdsOrdered ?? []))];
+    .where(
+      and(eq(objectiveLists.notebookId, input.notebookId), eq(objectiveLists.moduleId, moduleId)),
+    );
+  const moduleObjectiveIds = [
+    ...new Set(objectiveListRows.flatMap((row) => row.objectiveIdsOrdered ?? [])),
+  ];
   if (moduleObjectiveIds.length === 0) return [];
 
   const moduleObjectiveRows = await dbClient.db
     .select({ id: objectives.id, status: objectives.status })
     .from(objectives)
-    .where(and(eq(objectives.notebookId, input.notebookId), inArray(objectives.id, moduleObjectiveIds)));
+    .where(
+      and(eq(objectives.notebookId, input.notebookId), inArray(objectives.id, moduleObjectiveIds)),
+    );
   const activeObjectiveRows = moduleObjectiveRows.filter(
-    (objective) => objective.status !== "completed" && objective.status !== "merged" && objective.status !== "superseded",
+    (objective) =>
+      objective.status !== "completed" &&
+      objective.status !== "merged" &&
+      objective.status !== "superseded",
   );
   if (activeObjectiveRows.length > 0) return [];
 
   const [nextModule] = await dbClient.db
     .select({ id: curriculumModules.id, title: curriculumModules.title })
     .from(curriculumModules)
-    .where(and(eq(curriculumModules.notebookId, input.notebookId), eq(curriculumModules.curriculumId, curriculumId)))
+    .where(
+      and(
+        eq(curriculumModules.notebookId, input.notebookId),
+        eq(curriculumModules.curriculumId, curriculumId),
+      ),
+    )
     .orderBy(asc(curriculumModules.orderIndex))
     .limit(20)
     .then((rows) => {
@@ -107,7 +140,11 @@ export async function buildWikiSearchBoundarySignals(
 ): Promise<BoundarySignal[]> {
   const requestedSection = input.requestedSection ?? null;
   if (input.results.length > 0 && !requestedSection) return [];
-  if (input.results.length > 0 && requestedSection && input.results.some((result) => resultMentions(result, requestedSection))) {
+  if (
+    input.results.length > 0 &&
+    requestedSection &&
+    input.results.some((result) => resultMentions(result, requestedSection))
+  ) {
     return [];
   }
 
@@ -115,7 +152,9 @@ export async function buildWikiSearchBoundarySignals(
   if (!scope) return [];
   if (!scope.sourceRefs.length) return [];
 
-  const requestedTopic = requestedSection ? `Section ${requestedSection}` : normalizeRequestedTopic(input.query);
+  const requestedTopic = requestedSection
+    ? `Section ${requestedSection}`
+    : normalizeRequestedTopic(input.query);
   const strength = input.results.length === 0 ? "likely" : "weak";
   return [
     {
@@ -151,11 +190,24 @@ async function loadSourceScopeSummary(
     .orderBy(asc(sources.title), asc(chunks.pageStart), asc(chunks.id))
     .limit(80);
 
-  const sourceRefs = [...new Map(rows.map((row) => [row.sourceId, { refType: "source" as const, refId: row.sourceId }])).values()];
-  const sectionNumbers = [...new Set(rows.flatMap((row) => extractSectionNumbers(row.headingPath ?? [])))].slice(0, 8);
-  const pageStarts = rows.map((row) => row.pageStart).filter((value): value is number => typeof value === "number");
-  const pageEnds = rows.map((row) => row.pageEnd ?? row.pageStart).filter((value): value is number => typeof value === "number");
-  const pageSummary = pageStarts.length && pageEnds.length ? `pages ${Math.min(...pageStarts)}-${Math.max(...pageEnds)}` : null;
+  const sourceRefs = [
+    ...new Map(
+      rows.map((row) => [row.sourceId, { refType: "source" as const, refId: row.sourceId }]),
+    ).values(),
+  ];
+  const sectionNumbers = [
+    ...new Set(rows.flatMap((row) => extractSectionNumbers(row.headingPath ?? []))),
+  ].slice(0, 8);
+  const pageStarts = rows
+    .map((row) => row.pageStart)
+    .filter((value): value is number => typeof value === "number");
+  const pageEnds = rows
+    .map((row) => row.pageEnd ?? row.pageStart)
+    .filter((value): value is number => typeof value === "number");
+  const pageSummary =
+    pageStarts.length && pageEnds.length
+      ? `pages ${Math.min(...pageStarts)}-${Math.max(...pageEnds)}`
+      : null;
   const sourceTitles = [...new Set(rows.map((row) => row.sourceTitle))].slice(0, 3);
   const parts = [
     sourceTitles.length ? `sources: ${sourceTitles.join(", ")}` : "uploaded sources",

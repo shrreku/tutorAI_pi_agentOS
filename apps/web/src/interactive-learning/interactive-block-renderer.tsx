@@ -41,7 +41,15 @@ function NativeInteractiveFallback({
           lineHeight: 1.5,
         }}
       >
-        <div style={{ fontSize: 12, fontWeight: 800, color: "#64748b", textTransform: "uppercase", marginBottom: 6 }}>
+        <div
+          style={{
+            fontSize: 12,
+            fontWeight: 800,
+            color: "#64748b",
+            textTransform: "uppercase",
+            marginBottom: 6,
+          }}
+        >
           {block.kind.replace(/_/g, " ")}
         </div>
         <div>{summary}</div>
@@ -79,14 +87,13 @@ export const InteractiveBlockRenderer: React.FC<InteractiveBlockRendererProps> =
   onLaunchTutor,
   onActionComplete,
 }) => {
-  const [useNativeFallback, setUseNativeFallback] = React.useState(block.rendererPreference === "native");
+  const [useNativeFallback, setUseNativeFallback] = React.useState(
+    block.rendererPreference === "native",
+  );
 
   if (useNativeFallback) {
     return (
-      <NativeInteractiveFallback
-        block={block}
-        {...(onLaunchTutor ? { onLaunchTutor } : {})}
-      />
+      <NativeInteractiveFallback block={block} {...(onLaunchTutor ? { onLaunchTutor } : {})} />
     );
   }
 
@@ -131,7 +138,9 @@ const McpInteractiveBlockRenderer: React.FC<
       {...(runId ? { runId } : {})}
       devMode={devMode}
       onFallback={onFallback}
-      onNavigate={(nodeId) => launchInteractiveSurface({ nodeId, blockKind: block.kind, blockId: block.id })}
+      onNavigate={(nodeId) =>
+        launchInteractiveSurface({ nodeId, blockKind: block.kind, blockId: block.id })
+      }
       {...(onActionComplete ? { onActionDispatched: onActionComplete } : {})}
     />
   );

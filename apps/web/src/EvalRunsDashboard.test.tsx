@@ -23,11 +23,20 @@ function renderDashboard(runRecord = buildRunRecord("passed")) {
       },
     },
   });
-  client.setQueryData(["eval-runs"], { runs: [{ summary: summarizeRun(runRecord), run: runRecord }] });
-  client.setQueryData(["eval-run", runRecord.id], { summary: summarizeRun(runRecord), run: runRecord });
+  client.setQueryData(["eval-runs"], {
+    runs: [{ summary: summarizeRun(runRecord), run: runRecord }],
+  });
+  client.setQueryData(["eval-run", runRecord.id], {
+    summary: summarizeRun(runRecord),
+    run: runRecord,
+  });
   return renderToStaticMarkup(
     <QueryClientProvider client={client}>
-      <EvalRunsDashboard selectedRunId={runRecord.id} onSelectRun={() => {}} onBackToNotebooks={() => {}} />
+      <EvalRunsDashboard
+        selectedRunId={runRecord.id}
+        onSelectRun={() => {}}
+        onBackToNotebooks={() => {}}
+      />
     </QueryClientProvider>,
   );
 }
@@ -45,7 +54,9 @@ function buildRunRecord(status: "passed" | "failed") {
     startedAt: "2026-05-22T00:00:00.000Z",
     completedAt: "2026-05-22T00:01:00.000Z",
     transcript: ["RUN STARTED", `FINAL: ${status}`],
-    notebookRefs: [{ refType: "notebook", refId: syntheticLearnerEvalTracerBulletFixture.seededNotebookId }],
+    notebookRefs: [
+      { refType: "notebook", refId: syntheticLearnerEvalTracerBulletFixture.seededNotebookId },
+    ],
     scenarioRuns: [
       {
         ...matrix.runs[0]!,
@@ -64,7 +75,10 @@ function buildRunRecord(status: "passed" | "failed") {
             description: "Tutor text does not leak raw IDs.",
             status,
             passed: status === "passed",
-            failureMessage: status === "failed" ? "Tutor text leaks machine-generated content: [object Object]" : undefined,
+            failureMessage:
+              status === "failed"
+                ? "Tutor text leaks machine-generated content: [object Object]"
+                : undefined,
             evidenceRefs: [],
             details: {},
           },
@@ -77,48 +91,54 @@ function buildRunRecord(status: "passed" | "failed") {
         runKind: status === "passed" ? "golden_journey" : "regression",
         learnerMode: status === "passed" ? "scripted" : "scenario_autonomous_llm",
         gatingPolicy: status === "passed" ? "ci_gating" : "non_ci_gating",
-        issueCandidates: status === "failed" ? [
-          {
-            title: "Synthetic Learner found a dashboard-rendered failure",
-            kind: "failure",
-            reason: "run_failed",
-            severity: "medium",
-            learnerMode: "scenario_autonomous_llm",
-            runKind: "regression",
-            personaId: syntheticLearnerEvalTracerBulletPersonas[0]!.id,
-            scenarioId: syntheticLearnerEvalTracerBulletScenarios[0]!.id,
-            fixtureManifestId: matrix.fixture.id,
-            fixtureVersion: matrix.fixture.version,
-            seededNotebookId: `nb_${status}`,
-            failureSummary: "Tutor text leaks machine-generated content.",
-            transcriptExcerpt: ["FINAL: failed"],
-            evidenceRefs: [],
-            traceRefs: [],
-            artifactRefs: [],
-            reproductionCommand: "pnpm --filter @studyagent/worker synthetic-learner-evals -- --learner-mode=scenario_autonomous_llm",
-            publishEligible: true,
-          },
-          {
-            title: "Synthetic Learner repaired invalid action",
-            kind: "warning",
-            reason: "invalid_action_repaired",
-            severity: "low",
-            learnerMode: "scenario_autonomous_llm",
-            runKind: "regression",
-            personaId: syntheticLearnerEvalTracerBulletPersonas[0]!.id,
-            scenarioId: syntheticLearnerEvalTracerBulletScenarios[0]!.id,
-            fixtureManifestId: matrix.fixture.id,
-            fixtureVersion: matrix.fixture.version,
-            seededNotebookId: `nb_${status}`,
-            failureSummary: "The Synthetic Learner produced an invalid action that was repaired.",
-            transcriptExcerpt: ["SIMULATOR ACTION repaired"],
-            evidenceRefs: [],
-            traceRefs: [],
-            artifactRefs: [],
-            reproductionCommand: "pnpm --filter @studyagent/worker synthetic-learner-evals -- --learner-mode=scenario_autonomous_llm",
-            publishEligible: true,
-          },
-        ] : [],
+        issueCandidates:
+          status === "failed"
+            ? [
+                {
+                  title: "Synthetic Learner found a dashboard-rendered failure",
+                  kind: "failure",
+                  reason: "run_failed",
+                  severity: "medium",
+                  learnerMode: "scenario_autonomous_llm",
+                  runKind: "regression",
+                  personaId: syntheticLearnerEvalTracerBulletPersonas[0]!.id,
+                  scenarioId: syntheticLearnerEvalTracerBulletScenarios[0]!.id,
+                  fixtureManifestId: matrix.fixture.id,
+                  fixtureVersion: matrix.fixture.version,
+                  seededNotebookId: `nb_${status}`,
+                  failureSummary: "Tutor text leaks machine-generated content.",
+                  transcriptExcerpt: ["FINAL: failed"],
+                  evidenceRefs: [],
+                  traceRefs: [],
+                  artifactRefs: [],
+                  reproductionCommand:
+                    "pnpm --filter @studyagent/worker synthetic-learner-evals -- --learner-mode=scenario_autonomous_llm",
+                  publishEligible: true,
+                },
+                {
+                  title: "Synthetic Learner repaired invalid action",
+                  kind: "warning",
+                  reason: "invalid_action_repaired",
+                  severity: "low",
+                  learnerMode: "scenario_autonomous_llm",
+                  runKind: "regression",
+                  personaId: syntheticLearnerEvalTracerBulletPersonas[0]!.id,
+                  scenarioId: syntheticLearnerEvalTracerBulletScenarios[0]!.id,
+                  fixtureManifestId: matrix.fixture.id,
+                  fixtureVersion: matrix.fixture.version,
+                  seededNotebookId: `nb_${status}`,
+                  failureSummary:
+                    "The Synthetic Learner produced an invalid action that was repaired.",
+                  transcriptExcerpt: ["SIMULATOR ACTION repaired"],
+                  evidenceRefs: [],
+                  traceRefs: [],
+                  artifactRefs: [],
+                  reproductionCommand:
+                    "pnpm --filter @studyagent/worker synthetic-learner-evals -- --learner-mode=scenario_autonomous_llm",
+                  publishEligible: true,
+                },
+              ]
+            : [],
         rubricResults: [
           {
             rubricId: "rubric_tutoring_quality",
@@ -151,8 +171,12 @@ function summarizeRun(runRecord: ReturnType<typeof buildRunRecord>) {
     fixtureVersion: runRecord.fixtureVersion,
     notebookId: runRecord.notebookRefs[0]?.refId ?? runRecord.seededNotebookId,
     scenarioRunCount: runRecord.scenarioRuns.length,
-    passedScenarioCount: runRecord.scenarioRuns.filter((scenarioRun) => scenarioRun.status === "passed").length,
-    failedScenarioCount: runRecord.scenarioRuns.filter((scenarioRun) => scenarioRun.status === "failed").length,
+    passedScenarioCount: runRecord.scenarioRuns.filter(
+      (scenarioRun) => scenarioRun.status === "passed",
+    ).length,
+    failedScenarioCount: runRecord.scenarioRuns.filter(
+      (scenarioRun) => scenarioRun.status === "failed",
+    ).length,
     personaIds: runRecord.scenarioRuns.map((scenarioRun) => scenarioRun.personaId),
     scenarioIds: runRecord.scenarioRuns.map((scenarioRun) => scenarioRun.scenarioId),
     notebookRefs: runRecord.notebookRefs,
@@ -241,7 +265,9 @@ describe("EvalRunsDashboard", () => {
         ],
       },
     ];
-    runRecord.scenarioRuns[0]!.evalEvidenceSnapshotRefs = [{ refType: "eval_evidence_snapshot", refId: "snap_dashboard_1" }];
+    runRecord.scenarioRuns[0]!.evalEvidenceSnapshotRefs = [
+      { refType: "eval_evidence_snapshot", refId: "snap_dashboard_1" },
+    ];
 
     const html = renderDashboard(runRecord);
     expect(html).toContain("Eval plans");

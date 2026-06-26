@@ -9,25 +9,36 @@ import {
 } from "./tutor-session-lifecycle.js";
 
 const planLearnerTraitEstimationMock = vi.fn(async (_db: unknown, _input: unknown) => ({}));
-const persistLearnerTraitEstimationPlanMock = vi.fn(async (_db: unknown, _plan: unknown) => undefined);
+const persistLearnerTraitEstimationPlanMock = vi.fn(
+  async (_db: unknown, _plan: unknown) => undefined,
+);
 const runLearnerTraitEstimationCycleMock = vi.fn(async (_input: unknown) => ({
-  plan: { decision: "skip", trigger: { shouldEstimate: false, reasons: [], evidenceRefs: [], traitFamilies: [] } },
+  plan: {
+    decision: "skip",
+    trigger: { shouldEstimate: false, reasons: [], evidenceRefs: [], traitFamilies: [] },
+  },
   trigger: { shouldEstimate: false, reasons: [], evidenceRefs: [], traitFamilies: [] },
   proposals: [],
   guardrailDecisions: [],
   persistedEstimateIds: [],
 }));
-const crystallizeTutorSessionMock = vi.fn(async (_input: unknown) => ({ artifactId: "artifact_1" }));
+const crystallizeTutorSessionMock = vi.fn(async (_input: unknown) => ({
+  artifactId: "artifact_1",
+}));
 const appendEventMock = vi.fn(async (_db: unknown, _event: unknown) => ({ id: "evt_1" }));
 const disposeRuntimeMock = vi.fn(async (_sessionId: unknown) => undefined);
 
 vi.mock("./learner-trait-estimation-planner.js", () => ({
-  planLearnerTraitEstimation: (db: unknown, input: unknown) => planLearnerTraitEstimationMock(db, input),
-  persistLearnerTraitEstimationPlan: (db: unknown, plan: unknown) => persistLearnerTraitEstimationPlanMock(db, plan),
+  planLearnerTraitEstimation: (db: unknown, input: unknown) =>
+    planLearnerTraitEstimationMock(db, input),
+  persistLearnerTraitEstimationPlan: (db: unknown, plan: unknown) =>
+    persistLearnerTraitEstimationPlanMock(db, plan),
 }));
 
 vi.mock("./learner-trait-estimation.js", async () => {
-  const actual = await vi.importActual<typeof import("./learner-trait-estimation.js")>("./learner-trait-estimation.js");
+  const actual = await vi.importActual<typeof import("./learner-trait-estimation.js")>(
+    "./learner-trait-estimation.js",
+  );
   return {
     ...actual,
     runLearnerTraitEstimationCycle: (input: unknown) => runLearnerTraitEstimationCycleMock(input),
@@ -47,7 +58,9 @@ vi.mock("@studyagent/db", async () => {
 });
 
 vi.mock("@studyagent/agent-runtime", async () => {
-  const actual = await vi.importActual<typeof import("@studyagent/agent-runtime")>("@studyagent/agent-runtime");
+  const actual = await vi.importActual<typeof import("@studyagent/agent-runtime")>(
+    "@studyagent/agent-runtime",
+  );
   return {
     ...actual,
     disposeStudyAgentTutorSession: vi.fn(async () => undefined),
@@ -121,7 +134,11 @@ describe("tutor session lifecycle trait estimation", () => {
       disposeRuntime: disposeRuntimeMock,
     });
 
-    expect(result).toEqual({ status: "completed", artifactId: null, reason: "ended_without_turns" });
+    expect(result).toEqual({
+      status: "completed",
+      artifactId: null,
+      reason: "ended_without_turns",
+    });
     expect(planLearnerTraitEstimationMock).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ endedWithoutTurns: true, sessionId: "sess_1" }),
@@ -145,18 +162,21 @@ describe("tutor session lifecycle trait estimation", () => {
       persistedEstimateIds: [],
     } as never);
 
-    const result = await completeTutorSessionLifecycle(createDbClient({
-      id: "turn_1",
-      userMessage: "hello",
-      assistantMessage: "Hi there",
-      turnIndex: 0,
-    }), {
-      notebookId: "nb_1",
-      userId: "user_1",
-      sessionId: "sess_1",
-      runtimeContextJson: {},
-      disposeRuntime: disposeRuntimeMock,
-    });
+    const result = await completeTutorSessionLifecycle(
+      createDbClient({
+        id: "turn_1",
+        userMessage: "hello",
+        assistantMessage: "Hi there",
+        turnIndex: 0,
+      }),
+      {
+        notebookId: "nb_1",
+        userId: "user_1",
+        sessionId: "sess_1",
+        runtimeContextJson: {},
+        disposeRuntime: disposeRuntimeMock,
+      },
+    );
 
     expect(result.reason).toBe("crystallized");
     expect(crystallizeTutorSessionMock).toHaveBeenCalledTimes(1);
@@ -167,7 +187,9 @@ describe("tutor session lifecycle trait estimation", () => {
         sessionId: "sess_1",
       }),
     );
-    const firstCycleCall = runLearnerTraitEstimationCycleMock.mock.calls[0] as unknown[] | undefined;
+    const firstCycleCall = runLearnerTraitEstimationCycleMock.mock.calls[0] as
+      | unknown[]
+      | undefined;
     expect(firstCycleCall?.[0]).not.toHaveProperty("estimator");
   });
 
@@ -177,27 +199,40 @@ describe("tutor session lifecycle trait estimation", () => {
       plan: {
         planId: "ltplan_run",
         decision: "run",
-        trigger: { shouldEstimate: true, reasons: ["explicit_preference_change"], evidenceRefs: [], traitFamilies: ["pacePreference"] },
+        trigger: {
+          shouldEstimate: true,
+          reasons: ["explicit_preference_change"],
+          evidenceRefs: [],
+          traitFamilies: ["pacePreference"],
+        },
       },
-      trigger: { shouldEstimate: true, reasons: ["explicit_preference_change"], evidenceRefs: [], traitFamilies: ["pacePreference"] },
+      trigger: {
+        shouldEstimate: true,
+        reasons: ["explicit_preference_change"],
+        evidenceRefs: [],
+        traitFamilies: ["pacePreference"],
+      },
       proposals: [],
       guardrailDecisions: [],
       persistedEstimateIds: [],
     } as never);
 
-    await completeTutorSessionLifecycle(createDbClient({
-      id: "turn_1",
-      userMessage: "Please go slower",
-      assistantMessage: "Sure, we can take smaller steps.",
-      turnIndex: 0,
-    }), {
-      notebookId: "nb_1",
-      userId: "user_1",
-      sessionId: "sess_1",
-      runtimeContextJson: {},
-      estimator,
-      disposeRuntime: disposeRuntimeMock,
-    });
+    await completeTutorSessionLifecycle(
+      createDbClient({
+        id: "turn_1",
+        userMessage: "Please go slower",
+        assistantMessage: "Sure, we can take smaller steps.",
+        turnIndex: 0,
+      }),
+      {
+        notebookId: "nb_1",
+        userId: "user_1",
+        sessionId: "sess_1",
+        runtimeContextJson: {},
+        estimator,
+        disposeRuntime: disposeRuntimeMock,
+      },
+    );
 
     expect(runLearnerTraitEstimationCycleMock).toHaveBeenCalledWith(
       expect.objectContaining({ estimator }),
@@ -209,9 +244,19 @@ describe("tutor session lifecycle trait estimation", () => {
       plan: {
         planId: "ltplan_run",
         decision: "run",
-        trigger: { shouldEstimate: true, reasons: ["explicit_preference_change"], evidenceRefs: [], traitFamilies: ["pacePreference"] },
+        trigger: {
+          shouldEstimate: true,
+          reasons: ["explicit_preference_change"],
+          evidenceRefs: [],
+          traitFamilies: ["pacePreference"],
+        },
       },
-      trigger: { shouldEstimate: true, reasons: ["explicit_preference_change"], evidenceRefs: [], traitFamilies: ["pacePreference"] },
+      trigger: {
+        shouldEstimate: true,
+        reasons: ["explicit_preference_change"],
+        evidenceRefs: [],
+        traitFamilies: ["pacePreference"],
+      },
       proposals: [],
       guardrailDecisions: [],
       persistedEstimateIds: [],
@@ -226,12 +271,17 @@ describe("tutor session lifecycle trait estimation", () => {
           from: (table: unknown) => ({
             where: () => ({
               orderBy: () => ({
-                limit: async () => (table === tutorTurns ? [{
-                  id: "turn_1",
-                  userMessage: "Please go slower",
-                  assistantMessage: "Sure, we can take smaller steps.",
-                  turnIndex: 0,
-                }] : []),
+                limit: async () =>
+                  table === tutorTurns
+                    ? [
+                        {
+                          id: "turn_1",
+                          userMessage: "Please go slower",
+                          assistantMessage: "Sure, we can take smaller steps.",
+                          turnIndex: 0,
+                        },
+                      ]
+                    : [],
               }),
             }),
           }),
@@ -249,28 +299,37 @@ describe("tutor session lifecycle trait estimation", () => {
       disposeRuntime: disposeRuntimeMock,
     });
 
-    expect(result).toEqual({ status: "estimation_boundary", artifactId: null, reason: "estimation_complete" });
+    expect(result).toEqual({
+      status: "estimation_boundary",
+      artifactId: null,
+      reason: "estimation_complete",
+    });
     expect(crystallizeTutorSessionMock).not.toHaveBeenCalled();
     expect(disposeRuntimeMock).not.toHaveBeenCalled();
-    expect(set).toHaveBeenCalledWith(expect.objectContaining({
-      runtimeContextJson: expect.objectContaining({ estimationBoundaryComplete: true }),
-    }));
+    expect(set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runtimeContextJson: expect.objectContaining({ estimationBoundaryComplete: true }),
+      }),
+    );
   });
 
   it("crystallizes without re-running estimation when phase is crystallization", async () => {
-    const result = await completeTutorSessionLifecycle(createDbClient({
-      id: "turn_1",
-      userMessage: "hello",
-      assistantMessage: "Hi there",
-      turnIndex: 0,
-    }), {
-      notebookId: "nb_1",
-      userId: "user_1",
-      sessionId: "sess_1",
-      runtimeContextJson: { estimationBoundaryComplete: true },
-      phase: "crystallization",
-      disposeRuntime: disposeRuntimeMock,
-    });
+    const result = await completeTutorSessionLifecycle(
+      createDbClient({
+        id: "turn_1",
+        userMessage: "hello",
+        assistantMessage: "Hi there",
+        turnIndex: 0,
+      }),
+      {
+        notebookId: "nb_1",
+        userId: "user_1",
+        sessionId: "sess_1",
+        runtimeContextJson: { estimationBoundaryComplete: true },
+        phase: "crystallization",
+        disposeRuntime: disposeRuntimeMock,
+      },
+    );
 
     expect(result.reason).toBe("crystallized");
     expect(runLearnerTraitEstimationCycleMock).not.toHaveBeenCalled();
@@ -295,7 +354,10 @@ describe("tutor session lifecycle trait estimation", () => {
     expect(disposeRuntime).toHaveBeenCalledWith("sess_1");
     expect(appendEventMock).toHaveBeenCalledWith(
       dbClient,
-      expect.objectContaining({ eventType: "session.focus.updated", payload: { action: "paused", sessionId: "sess_1" } }),
+      expect.objectContaining({
+        eventType: "session.focus.updated",
+        payload: { action: "paused", sessionId: "sess_1" },
+      }),
     );
   });
 
@@ -304,7 +366,11 @@ describe("tutor session lifecycle trait estimation", () => {
     const set = vi.fn(() => ({ where: updateWhere }));
     const update = vi.fn(() => ({ set }));
     const dbClient = { db: { update } } as never;
-    const replaceRuntime = vi.fn(async () => ({ replaced: true, disposedSessionId: "sess_1", binding: null }));
+    const replaceRuntime = vi.fn(async () => ({
+      replaced: true,
+      disposedSessionId: "sess_1",
+      binding: null,
+    }));
 
     const result = await resumeTutorSessionLifecycle(dbClient, {
       notebookId: "nb_1",
@@ -330,7 +396,10 @@ describe("tutor session lifecycle trait estimation", () => {
     );
     expect(appendEventMock).toHaveBeenCalledWith(
       dbClient,
-      expect.objectContaining({ eventType: "session.focus.updated", payload: { action: "resumed", sessionId: "sess_1" } }),
+      expect.objectContaining({
+        eventType: "session.focus.updated",
+        payload: { action: "resumed", sessionId: "sess_1" },
+      }),
     );
   });
 
@@ -390,7 +459,10 @@ describe("tutor session lifecycle trait estimation", () => {
     );
     expect(appendEventMock).toHaveBeenCalledWith(
       dbClient,
-      expect.objectContaining({ eventType: "session.focus.updated", payload: { action: "paused", sessionId: "sess_1" } }),
+      expect.objectContaining({
+        eventType: "session.focus.updated",
+        payload: { action: "paused", sessionId: "sess_1" },
+      }),
     );
   });
 
@@ -400,9 +472,20 @@ describe("tutor session lifecycle trait estimation", () => {
         select: () => ({
           from: (table: unknown) => ({
             where: () => ({
-              limit: async () => (table === tutorSessions
-                ? [{ id: "sess_done", notebookId: "nb_1", userId: "user_1", status: "completed", runtimeContextJson: {}, selectedNodeRefsJson: [], mode: "learn" }]
-                : []),
+              limit: async () =>
+                table === tutorSessions
+                  ? [
+                      {
+                        id: "sess_done",
+                        notebookId: "nb_1",
+                        userId: "user_1",
+                        status: "completed",
+                        runtimeContextJson: {},
+                        selectedNodeRefsJson: [],
+                        mode: "learn",
+                      },
+                    ]
+                  : [],
               orderBy: () => ({
                 limit: async () => [],
               }),

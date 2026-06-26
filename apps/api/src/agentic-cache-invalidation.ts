@@ -15,8 +15,7 @@ export const TUTOR_AGENTIC_CACHE_NAMESPACES = {
   retrievalRows: "tutor_turn.retrieval_rows",
 } as const;
 
-export type TutorReadCacheNamespace =
-  | typeof TUTOR_AGENTIC_CACHE_NAMESPACES.retrievalRows;
+export type TutorReadCacheNamespace = typeof TUTOR_AGENTIC_CACHE_NAMESPACES.retrievalRows;
 
 const RETRIEVAL_ROWS_INVALIDATING_EVENT_TYPES = new Set([
   "graph.node.created",
@@ -39,7 +38,9 @@ const RETRIEVAL_ROWS_INVALIDATING_EVENT_TYPES = new Set([
   "wiki.page.updated",
 ]);
 
-export function selectTutorReadCacheNamespacesForEvent(eventType: string): TutorReadCacheNamespace[] {
+export function selectTutorReadCacheNamespacesForEvent(
+  eventType: string,
+): TutorReadCacheNamespace[] {
   const namespaces: TutorReadCacheNamespace[] = [];
   if (RETRIEVAL_ROWS_INVALIDATING_EVENT_TYPES.has(eventType)) {
     namespaces.push(TUTOR_AGENTIC_CACHE_NAMESPACES.retrievalRows);

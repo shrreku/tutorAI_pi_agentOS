@@ -22,7 +22,10 @@ export function useNotebookWorkspaceSync(input: {
     let es: EventSource | null = null;
     lastSeenSequenceRef.current = 0;
 
-    const handleNotebookEvent = (ev: Event, eventType: string): WorkspaceRefreshHint | undefined => {
+    const handleNotebookEvent = (
+      ev: Event,
+      eventType: string,
+    ): WorkspaceRefreshHint | undefined => {
       const rawData = (ev as MessageEvent).data;
       let sequenceNo: number | undefined;
       let refreshHint: WorkspaceRefreshHint | undefined;
@@ -42,7 +45,8 @@ export function useNotebookWorkspaceSync(input: {
         ) {
           input.onInteractiveSurfaceLaunch?.({
             nodeId: parsed.payload.surfaceNodeId,
-            blockKind: typeof parsed.payload.blockKind === "string" ? parsed.payload.blockKind : null,
+            blockKind:
+              typeof parsed.payload.blockKind === "string" ? parsed.payload.blockKind : null,
             blockId: typeof parsed.payload.blockId === "string" ? parsed.payload.blockId : null,
           });
         }
@@ -86,5 +90,10 @@ export function useNotebookWorkspaceSync(input: {
     }
 
     return () => es?.close();
-  }, [input.notebookId, input.onGraphProjectionUpdated, input.onInteractiveSurfaceLaunch, input.queryClient]);
+  }, [
+    input.notebookId,
+    input.onGraphProjectionUpdated,
+    input.onInteractiveSurfaceLaunch,
+    input.queryClient,
+  ]);
 }

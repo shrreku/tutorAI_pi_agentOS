@@ -64,9 +64,15 @@ export async function bootstrapTutorTurn(
   const learnerNotebookId = input.notebookId;
   const contentNotebookId = input.contentNotebookId ?? learnerNotebookId;
   const federatedNotebookIds =
-    contentNotebookId !== learnerNotebookId ? [learnerNotebookId, contentNotebookId] : [learnerNotebookId];
+    contentNotebookId !== learnerNotebookId
+      ? [learnerNotebookId, contentNotebookId]
+      : [learnerNotebookId];
 
-  const selectedNodeRefs = await filterSelectedNodeRefsForNotebook(ctx, federatedNotebookIds, input.selectedNodeRefs);
+  const selectedNodeRefs = await filterSelectedNodeRefsForNotebook(
+    ctx,
+    federatedNotebookIds,
+    input.selectedNodeRefs,
+  );
   const { session, created } = await getOrCreateTutorSession(ctx.db, {
     notebookId: learnerNotebookId,
     userId: input.userId,
@@ -78,12 +84,21 @@ export async function bootstrapTutorTurn(
   const studyState = await loadNotebookStudyState(ctx.db, learnerNotebookId, input.userId, {
     contentNotebookId,
   });
-  const openArtifact = await loadSelectedArtifactContext(ctx, federatedNotebookIds, selectedNodeRefs);
-  const personalizationRecommendations = await loadPersonalizationRecommendationsForTutorContext(ctx.db, {
-    notebookId: learnerNotebookId,
-    userId: input.userId,
-  });
-  const previousRuntimeContext = isJsonRecord(session.runtimeContextJson) ? session.runtimeContextJson : null;
+  const openArtifact = await loadSelectedArtifactContext(
+    ctx,
+    federatedNotebookIds,
+    selectedNodeRefs,
+  );
+  const personalizationRecommendations = await loadPersonalizationRecommendationsForTutorContext(
+    ctx.db,
+    {
+      notebookId: learnerNotebookId,
+      userId: input.userId,
+    },
+  );
+  const previousRuntimeContext = isJsonRecord(session.runtimeContextJson)
+    ? session.runtimeContextJson
+    : null;
   const promptContext = buildThinPromptContext({
     notebookId: learnerNotebookId,
     notebookTitle: input.notebookTitle || "Untitled",
@@ -97,11 +112,15 @@ export async function bootstrapTutorTurn(
   promptContext.sourceScopePolicy = input.sourceScopePolicy;
 
   if (personalizationRecommendations.length) {
-    promptContext.personalizationRecommendations = personalizationRecommendations.map((recommendation) => recommendation.recommendation);
+    promptContext.personalizationRecommendations = personalizationRecommendations.map(
+      (recommendation) => recommendation.recommendation,
+    );
     promptContext.additionalInstructions = [
       ...(promptContext.additionalInstructions ?? []),
       "[Personalization Recommendations]",
-      ...personalizationRecommendations.map((recommendation) => `- ${recommendation.recommendation}`),
+      ...personalizationRecommendations.map(
+        (recommendation) => `- ${recommendation.recommendation}`,
+      ),
       "Use these as tutor-facing adaptation guidance only. Do not reveal raw inferred trait labels, confidence scores, or evidence IDs to the learner.",
     ];
   }
@@ -146,8 +165,12 @@ export async function bootstrapTutorTurn(
     selectedNodeRefs,
     activeMode: input.activeMode,
     ...(input.correlationContext?.traceId ? { traceId: input.correlationContext.traceId } : {}),
-    ...(input.correlationContext?.requestId ? { requestId: input.correlationContext.requestId } : {}),
-    ...(input.correlationContext?.traceparent ? { traceparent: input.correlationContext.traceparent } : {}),
+    ...(input.correlationContext?.requestId
+      ? { requestId: input.correlationContext.requestId }
+      : {}),
+    ...(input.correlationContext?.traceparent
+      ? { traceparent: input.correlationContext.traceparent }
+      : {}),
     modelConfig: { model: ctx.env.DEFAULT_TUTOR_MODEL },
     budgets: {
       maxToolCalls: ctx.env.TUTOR_MAX_TOOL_CALLS,
@@ -266,19 +289,33 @@ async function selectedNodeRefBelongsToNotebook(
   return notebookIds.includes(row.notebookId);
 }
 
-async function findSelectedNodeRefRow(ctx: AppContext, ref: NodeRef): Promise<{ id: string; notebookId: string } | null> {
+async function findSelectedNodeRefRow(
+  ctx: AppContext,
+  ref: NodeRef,
+): Promise<{ id: string; notebookId: string } | null> {
   const table =
-    ref.refType === "source" ? sources
-      : ref.refType === "artifact" ? artifacts
-        : ref.refType === "claim" ? claims
-          : ref.refType === "concept" ? concepts
-            : ref.refType === "objective" ? objectives
-              : ref.refType === "objective_list" ? objectiveLists
-                : ref.refType === "session_plan" ? sessionPlans
-                  : ref.refType === "study_plan" ? studyPlans
-                    : ref.refType === "curriculum" ? curricula
-                      : ref.refType === "curriculum_module" ? curriculumModules
-                        : ref.refType === "wiki_page" ? wikiPages
+    ref.refType === "source"
+      ? sources
+      : ref.refType === "artifact"
+        ? artifacts
+        : ref.refType === "claim"
+          ? claims
+          : ref.refType === "concept"
+            ? concepts
+            : ref.refType === "objective"
+              ? objectives
+              : ref.refType === "objective_list"
+                ? objectiveLists
+                : ref.refType === "session_plan"
+                  ? sessionPlans
+                  : ref.refType === "study_plan"
+                    ? studyPlans
+                    : ref.refType === "curriculum"
+                      ? curricula
+                      : ref.refType === "curriculum_module"
+                        ? curriculumModules
+                        : ref.refType === "wiki_page"
+                          ? wikiPages
                           : null;
   if (!table) return null;
 
@@ -300,7 +337,12 @@ async function loadSelectedArtifactContext(
   if (!artifactRef) return null;
   for (const notebookId of notebookIds) {
     const [artifact] = await ctx.db.db
-      .select({ id: artifacts.id, artifactType: artifacts.artifactType, title: artifacts.title, status: artifacts.status })
+      .select({
+        id: artifacts.id,
+        artifactType: artifacts.artifactType,
+        title: artifacts.title,
+        status: artifacts.status,
+      })
       .from(artifacts)
       .where(and(eq(artifacts.id, artifactRef.refId), eq(artifacts.notebookId, notebookId)))
       .limit(1);

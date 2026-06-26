@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { applyProjectionPlan } from "./graph-projection/apply-projection-plan.js";
 import { buildProjectionPlan } from "./graph-projection/build-projection-plan.js";
-import { clearNotebookProjectionScope, clearSourceProjectionScope } from "./graph-projection/clear-projection-scope.js";
+import {
+  clearNotebookProjectionScope,
+  clearSourceProjectionScope,
+} from "./graph-projection/clear-projection-scope.js";
 import type { CanonicalProjectionSnapshot } from "./graph-projection/types.js";
 
 function minimalSnapshot(scope: "notebook" | "source"): CanonicalProjectionSnapshot {

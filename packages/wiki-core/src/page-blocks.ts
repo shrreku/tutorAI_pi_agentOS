@@ -44,7 +44,10 @@ export function stripHumanBlocks(markdown: string): string {
 }
 
 /** Re-insert preserved human blocks under a generated agent body (typically headings + bullets). */
-export function mergeAgentMarkdownWithHumanBlocks(agentMarkdown: string, preserved: HumanBlock[]): string {
+export function mergeAgentMarkdownWithHumanBlocks(
+  agentMarkdown: string,
+  preserved: HumanBlock[],
+): string {
   if (preserved.length === 0) {
     return agentMarkdown.trim();
   }

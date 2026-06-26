@@ -16,8 +16,12 @@ export function extractContextRefsFromToolSummary(toolSummary: unknown): Context
 function parseRefs(value: unknown): ContextRef[] {
   if (!Array.isArray(value)) return [];
   return value
-    .filter((ref): ref is Record<string, unknown> => Boolean(ref && typeof ref === "object" && !Array.isArray(ref)))
-    .filter((ref): ref is ContextRef => typeof ref.refType === "string" && typeof ref.refId === "string");
+    .filter((ref): ref is Record<string, unknown> =>
+      Boolean(ref && typeof ref === "object" && !Array.isArray(ref)),
+    )
+    .filter(
+      (ref): ref is ContextRef => typeof ref.refType === "string" && typeof ref.refId === "string",
+    );
 }
 
 function dedupeRefs(refs: ContextRef[]): ContextRef[] {

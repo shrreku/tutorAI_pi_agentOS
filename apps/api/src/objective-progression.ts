@@ -34,9 +34,11 @@ export function readMasteryEvidenceObjectiveAdvancement(
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const record = value as Record<string, unknown>;
   if (typeof record.evidenceId !== "string" || typeof record.objectiveId !== "string") return null;
-  const correctnessLabel = typeof record.correctnessLabel === "string" ? record.correctnessLabel : "";
+  const correctnessLabel =
+    typeof record.correctnessLabel === "string" ? record.correctnessLabel : "";
   const readiness = typeof record.readiness === "string" ? record.readiness : "";
-  const tutoringIntervention = typeof record.tutoringIntervention === "string" ? record.tutoringIntervention : "";
+  const tutoringIntervention =
+    typeof record.tutoringIntervention === "string" ? record.tutoringIntervention : "";
   const confidence = typeof record.confidence === "number" ? record.confidence : 0;
   const uncertainty = typeof record.uncertainty === "number" ? record.uncertainty : 1;
   const overallScore = typeof record.overallScore === "number" ? record.overallScore : 0;
@@ -72,10 +74,18 @@ export async function applyMasteryEvidenceObjectiveProgression(
 
   const upcomingIds = state.studyPlan.upcomingObjectives.map((objective) => objective.id);
   const nextObjectiveId = upcomingIds[0] ?? null;
-  const completedIds = [...new Set([...state.studyPlan.completedObjectives.map((objective) => objective.id), current.id])];
+  const completedIds = [
+    ...new Set([
+      ...state.studyPlan.completedObjectives.map((objective) => objective.id),
+      current.id,
+    ]),
+  ];
   const remainingUpcomingIds = upcomingIds.filter((id) => id !== nextObjectiveId);
 
-  await dbClient.db.update(objectives).set({ status: "completed", updatedAt: new Date() }).where(eq(objectives.id, current.id));
+  await dbClient.db
+    .update(objectives)
+    .set({ status: "completed", updatedAt: new Date() })
+    .where(eq(objectives.id, current.id));
   await dbClient.db
     .update(studyPlans)
     .set({

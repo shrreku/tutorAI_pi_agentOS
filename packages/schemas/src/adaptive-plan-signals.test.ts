@@ -55,7 +55,12 @@ describe("adaptive plan signal vocabulary", () => {
       triggerSource: "runtime_auto",
       sourceRefs: [],
       contextRefs: [],
-      evaluatorProvenance: { mode: "deterministic", model: null, fallbackUsed: false, notes: "test" },
+      evaluatorProvenance: {
+        mode: "deterministic",
+        model: null,
+        fallbackUsed: false,
+        notes: "test",
+      },
     };
     const signals = buildAdaptivePlanSignalsFromMasteryEvidence(evidence);
     expect(signals.some((signal) => signal.signalType === "repeated_mistake")).toBe(true);
@@ -101,7 +106,12 @@ describe("adaptive plan signal vocabulary", () => {
       confidence: 0.85,
       evidenceType: "mastery_check",
       triggerSource: "runtime_auto",
-      evaluatorProvenance: { mode: "deterministic", model: null, fallbackUsed: false, notes: "test" },
+      evaluatorProvenance: {
+        mode: "deterministic",
+        model: null,
+        fallbackUsed: false,
+        notes: "test",
+      },
     };
     const signals = buildAdaptivePlanSignalsFromMasteryEvidence(evidence);
     expect(signals.some((signal) => signal.signalType === "mastery_change")).toBe(true);

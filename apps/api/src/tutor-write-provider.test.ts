@@ -4,7 +4,10 @@ import {
   resolveArtifactConsentPolicy,
 } from "./artifact-lifecycle.js";
 import { sanitizeArtifactSourceNodeRefs } from "./tutor-write-artifacts.js";
-import { findCoverageRecordForScope, selectPreferredCoverageGapRow } from "./tutor-write-coverage.js";
+import {
+  findCoverageRecordForScope,
+  selectPreferredCoverageGapRow,
+} from "./tutor-write-coverage.js";
 
 describe("findCoverageRecordForScope", () => {
   it("matches only the exact scope tuple including nulls", () => {
@@ -189,7 +192,9 @@ describe("resolveArtifactLifecycleOutcome", () => {
       artifactType: "quiz",
       artifactConsent: { autoCreateLearnerArtifacts: true },
       payload: {
-        questions: [{ prompt: "What is force?", answer: "Mass times acceleration.", conceptIds: [] }],
+        questions: [
+          { prompt: "What is force?", answer: "Mass times acceleration.", conceptIds: [] },
+        ],
       },
       sourceRefs: [],
     });
@@ -198,11 +203,19 @@ describe("resolveArtifactLifecycleOutcome", () => {
     expect(result.lifecycle.status).toBe("proposed");
     expect(result.lifecycle.visibility).toBe("learner");
     expect(result.lifecycle.approvalRequired).toBe(true);
-    expect(result.lifecycle.qualityGate).toEqual({ canBecomeReady: false, downgradedFromReady: true });
+    expect(result.lifecycle.qualityGate).toEqual({
+      canBecomeReady: false,
+      downgradedFromReady: true,
+    });
     expect(result.quality.issues).toEqual(
-      expect.arrayContaining(["Needs source support.", "Needs review before treating it as final."]),
+      expect.arrayContaining([
+        "Needs source support.",
+        "Needs review before treating it as final.",
+      ]),
     );
-    expect(result.warnings.map((warning) => warning.code)).toContain("artifact_quality_gate_failed");
+    expect(result.warnings.map((warning) => warning.code)).toContain(
+      "artifact_quality_gate_failed",
+    );
   });
 
   it("allows high-quality source-backed auto-created notes to become ready", () => {
@@ -289,7 +302,9 @@ describe("sanitizeArtifactSourceNodeRefs", () => {
       { refType: "objective", refId: "obj_1" },
     ]);
     expect(result.refs).toEqual([]);
-    expect(result.warnings.map((w) => w.code)).toEqual(expect.arrayContaining(["source_ref_type_unsupported"]));
+    expect(result.warnings.map((w) => w.code)).toEqual(
+      expect.arrayContaining(["source_ref_type_unsupported"]),
+    );
   });
 
   it("deduplicates refs and keeps only notebook-scoped rows", async () => {

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { wikiPages } from "@studyagent/db";
-import { learnerFacingSurfaceStatus, pageReadinessLabel, resolveWorkspaceRefreshPolicy } from "@studyagent/schemas";
+import {
+  learnerFacingSurfaceStatus,
+  pageReadinessLabel,
+  resolveWorkspaceRefreshPolicy,
+} from "@studyagent/schemas";
 import { buildReferenceSurface } from "./reference-surface.js";
 import { ReferenceSurfaceFakeDb } from "./reference-surface.test-db.js";
 import { augmentCanvasWithPageReadiness } from "./workspace-read-model.js";
@@ -56,7 +60,9 @@ describe("rolling wiki generation integration", () => {
     expect(state.modules[0]?.objectiveIds).toHaveLength(2);
     expect(state.modules[1]?.objectiveIds).toHaveLength(0);
     expect(state.modules[1]?.deepBuilt).toBe(false);
-    expect(state.pages.some((page) => page.structuredJson.generationMode === "heuristic")).toBe(true);
+    expect(state.pages.some((page) => page.structuredJson.generationMode === "heuristic")).toBe(
+      true,
+    );
     assertNoAutoFlashcardArtifacts(state);
   });
 
@@ -68,7 +74,13 @@ describe("rolling wiki generation integration", () => {
       sourceTitle: "Heat Transfer Notes",
       chunkIds: ["chk_1"],
       concepts: [{ name: "Conduction" }],
-      claims: [{ claimText: "Conduction transfers heat.", conceptNames: ["Conduction"], evidenceChunkId: "chk_1" }],
+      claims: [
+        {
+          claimText: "Conduction transfers heat.",
+          conceptNames: ["Conduction"],
+          evidenceChunkId: "chk_1",
+        },
+      ],
       modulePlans: [
         { title: "Module 1", summary: "First module", objectiveTitles: ["Explain conduction"] },
         { title: "Module 2", summary: "Later module", objectiveTitles: ["Outline only"] },
@@ -99,12 +111,21 @@ describe("rolling wiki generation integration", () => {
       sourceTitle: "Heat Transfer Notes",
       chunkIds: ["chk_1"],
       concepts: [{ name: "Conduction" }],
-      claims: [{ claimText: "Conduction transfers heat.", conceptNames: ["Conduction"], evidenceChunkId: "chk_1" }],
-      modulePlans: [{ title: "Module 1", summary: "First module", objectiveTitles: ["Explain conduction"] }],
+      claims: [
+        {
+          claimText: "Conduction transfers heat.",
+          conceptNames: ["Conduction"],
+          evidenceChunkId: "chk_1",
+        },
+      ],
+      modulePlans: [
+        { title: "Module 1", summary: "First module", objectiveTitles: ["Explain conduction"] },
+      ],
       llmAvailable: true,
     });
 
-    const conceptId = baseline.pages.find((page) => page.pageType === "concept")?.structuredJson.conceptId;
+    const conceptId = baseline.pages.find((page) => page.pageType === "concept")?.structuredJson
+      .conceptId;
     expect(typeof conceptId).toBe("string");
 
     const improved = await simulateConceptTouch({
@@ -151,13 +172,23 @@ describe("rolling wiki generation integration", () => {
       sourceTitle: "Sparse Source",
       chunkIds: ["chk_1"],
       concepts: [{ name: "Topic A" }],
-      claims: [{ claimText: "Topic A appears in the source.", conceptNames: ["Topic A"], evidenceChunkId: "chk_1" }],
-      modulePlans: [{ title: "Module 1", summary: "Fallback module", objectiveTitles: ["Learn Topic A"] }],
+      claims: [
+        {
+          claimText: "Topic A appears in the source.",
+          conceptNames: ["Topic A"],
+          evidenceChunkId: "chk_1",
+        },
+      ],
+      modulePlans: [
+        { title: "Module 1", summary: "Fallback module", objectiveTitles: ["Learn Topic A"] },
+      ],
       llmAvailable: false,
     });
 
     expect(state.events).toContain("generation.initial_build.failed");
-    expect(state.pages.every((page) => page.structuredJson.generationMode === "heuristic")).toBe(true);
+    expect(state.pages.every((page) => page.structuredJson.generationMode === "heuristic")).toBe(
+      true,
+    );
     assertNoAutoFlashcardArtifacts(state);
   });
 
@@ -201,48 +232,63 @@ describe("rolling wiki generation integration", () => {
     expect(nodes[0]?.properties.status).toBe("weak");
 
     const surfaceCtx = {
-      db: { db: new ReferenceSurfaceFakeDb({
-        concepts: [
+      db: {
+        db: new ReferenceSurfaceFakeDb(
           {
-            id: conceptId,
-            notebookId: "nb_roll",
-            canonicalName: "Conduction",
-            description: "Heat transfer mode.",
-            conceptType: "physics",
-            confidence: 0.9,
+            concepts: [
+              {
+                id: conceptId,
+                notebookId: "nb_roll",
+                canonicalName: "Conduction",
+                description: "Heat transfer mode.",
+                conceptType: "physics",
+                confidence: 0.9,
+              },
+            ],
+            wikiPages: [wikiPage],
+            claims: [
+              {
+                id: "claim_1",
+                claimType: "definition",
+                claimText: "Conduction transfers heat through solids.",
+                confidence: 0.9,
+                status: "accepted",
+                sourceChunkIds: ["chunk_1"],
+              },
+            ],
+            claimConceptLinks: [{ claimId: "claim_1" }],
+            chunks: [
+              {
+                id: "chunk_1",
+                chunkType: "paragraph",
+                text: "Conduction transfers heat through solids.",
+                pageStart: 1,
+                pageEnd: 1,
+                sourceVersionId: "sv_roll",
+              },
+            ],
+            sourceVersions: [{ id: "sv_roll", sourceId: "src_roll" }],
+            sources: [
+              {
+                id: "src_roll",
+                notebookId: "nb_roll",
+                title: "Heat notes",
+                sourceType: "pdf",
+                status: "tutoring_ready",
+              },
+            ],
           },
-        ],
-        wikiPages: [wikiPage],
-        claims: [
-          {
-            id: "claim_1",
-            claimType: "definition",
-            claimText: "Conduction transfers heat through solids.",
-            confidence: 0.9,
-            status: "accepted",
-            sourceChunkIds: ["chunk_1"],
-          },
-        ],
-        claimConceptLinks: [{ claimId: "claim_1" }],
-        chunks: [
-          {
-            id: "chunk_1",
-            chunkType: "paragraph",
-            text: "Conduction transfers heat through solids.",
-            pageStart: 1,
-            pageEnd: 1,
-            sourceVersionId: "sv_roll",
-          },
-        ],
-        sourceVersions: [{ id: "sv_roll", sourceId: "src_roll" }],
-        sources: [{ id: "src_roll", notebookId: "nb_roll", title: "Heat notes", sourceType: "pdf", status: "tutoring_ready" }],
-      }, conceptId) },
+          conceptId,
+        ),
+      },
       env: {},
     } as unknown as AppContext;
 
     const surface = await buildReferenceSurface(surfaceCtx, "nb_roll", conceptId);
     expect(surface.status).toBe("ready_to_study");
-    expect(learnerFacingSurfaceStatus({ surfaceType: "concept", status: surface.status })).toBe("Ready to study");
+    expect(learnerFacingSurfaceStatus({ surfaceType: "concept", status: surface.status })).toBe(
+      "Ready to study",
+    );
     expect(surface.generation).toBeUndefined();
     expect(pageReadinessLabel("ready_to_study")).toBe("Ready to study");
   });
@@ -277,7 +323,10 @@ function makeWikiPagesCtx(wikiPageRows: unknown[]): AppContext {
                   limit: () => Promise.resolve([]),
                 }),
                 limit: () => Promise.resolve([]),
-                then(onFulfilled: (value: unknown[]) => unknown, onRejected?: (reason: unknown) => unknown) {
+                then(
+                  onFulfilled: (value: unknown[]) => unknown,
+                  onRejected?: (reason: unknown) => unknown,
+                ) {
                   return Promise.resolve([]).then(onFulfilled, onRejected);
                 },
               }),

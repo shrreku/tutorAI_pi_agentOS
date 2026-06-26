@@ -18,12 +18,31 @@ import {
 
 type TopicLayer = SourceWikiTopicGroup;
 
-function shouldShowNodeByDefault(viewMode: "curriculum" | "study_map" | "source_wiki_map", nodeType: string, isDeveloperMode: boolean): boolean {
+function shouldShowNodeByDefault(
+  viewMode: "curriculum" | "study_map" | "source_wiki_map",
+  nodeType: string,
+  isDeveloperMode: boolean,
+): boolean {
   if (isDeveloperMode) return true;
-  if (viewMode === "study_map" && ["claim", "source_section", "coverage_item", "coverage_record", "objective_list"].includes(nodeType)) {
+  if (
+    viewMode === "study_map" &&
+    ["claim", "source_section", "coverage_item", "coverage_record", "objective_list"].includes(
+      nodeType,
+    )
+  ) {
     return false;
   }
-  if (viewMode === "source_wiki_map" && ["claim", "coverage_item", "coverage_record", "weak_concept", "objective_list", "session_plan"].includes(nodeType)) {
+  if (
+    viewMode === "source_wiki_map" &&
+    [
+      "claim",
+      "coverage_item",
+      "coverage_record",
+      "weak_concept",
+      "objective_list",
+      "session_plan",
+    ].includes(nodeType)
+  ) {
     return false;
   }
   return true;
@@ -49,24 +68,37 @@ function applyDefaultViewVisibility(
       if (["teaching_arc", "study_plan", "session_plan"].includes(artifactType)) return false;
       return !["draft", "failed", "archived", "rejected"].includes(status);
     })
-    .map((node) => (isWeakPlanningTitle(typeof node.properties.title === "string" ? node.properties.title : null) || isWeakPlanningTitle(typeof node.properties.canonicalName === "string" ? node.properties.canonicalName : null) ? {
-      ...node,
-      properties: {
-        ...node.properties,
-        title:
-          ({
-            objective_list: "Objective sequence",
-            session_plan: "Lesson plan",
-            study_plan: "Live Plan",
-            studyplan: "Live Plan",
-            curriculum_module: "Course module",
-            curriculum: "Course",
-          } as Record<string, string>)[node.nodeType] ?? "Reference needs review",
-        needsReview: true,
-      },
-    } : node));
+    .map((node) =>
+      isWeakPlanningTitle(
+        typeof node.properties.title === "string" ? node.properties.title : null,
+      ) ||
+      isWeakPlanningTitle(
+        typeof node.properties.canonicalName === "string" ? node.properties.canonicalName : null,
+      )
+        ? {
+            ...node,
+            properties: {
+              ...node.properties,
+              title:
+                (
+                  {
+                    objective_list: "Objective sequence",
+                    session_plan: "Lesson plan",
+                    study_plan: "Live Plan",
+                    studyplan: "Live Plan",
+                    curriculum_module: "Course module",
+                    curriculum: "Course",
+                  } as Record<string, string>
+                )[node.nodeType] ?? "Reference needs review",
+              needsReview: true,
+            },
+          }
+        : node,
+    );
   const visibleIds = new Set(nodes.map((node) => node.id));
-  const edges = graphData.edges.filter((edge) => visibleIds.has(edge.source) && visibleIds.has(edge.target));
+  const edges = graphData.edges.filter(
+    (edge) => visibleIds.has(edge.source) && visibleIds.has(edge.target),
+  );
   return { ...graphData, nodes, edges };
 }
 
@@ -165,12 +197,28 @@ describe("whiteboard utils", () => {
       name: "study_map",
       notebookId: "nb_1",
       nodes: [
-        { id: "plan_1", nodeType: "study_plan", labels: [], properties: { currentObjectiveId: "obj_current" } },
-        { id: "obj_current", nodeType: "objective", labels: [], properties: { status: "in_progress" } },
+        {
+          id: "plan_1",
+          nodeType: "study_plan",
+          labels: [],
+          properties: { currentObjectiveId: "obj_current" },
+        },
+        {
+          id: "obj_current",
+          nodeType: "objective",
+          labels: [],
+          properties: { status: "in_progress" },
+        },
         { id: "obj_done", nodeType: "objective", labels: [], properties: { status: "completed" } },
       ],
       edges: [
-        { id: "e1", source: "plan_1", target: "obj_current", relationType: "plans", properties: {} },
+        {
+          id: "e1",
+          source: "plan_1",
+          target: "obj_current",
+          relationType: "plans",
+          properties: {},
+        },
         { id: "e2", source: "plan_1", target: "obj_done", relationType: "plans", properties: {} },
       ],
     };
@@ -180,13 +228,53 @@ describe("whiteboard utils", () => {
   });
 
   it("assigns study-map node levels for hierarchy and layout", () => {
-    expect(getGraphNodeLevel("study_map", { id: "s1", nodeType: "source", labels: [], properties: {} })).toBe(0);
-    expect(getGraphNodeLevel("study_map", { id: "c1", nodeType: "curriculum", labels: [], properties: {} })).toBe(1);
-    expect(getGraphNodeLevel("study_map", { id: "m1", nodeType: "curriculum_module", labels: [], properties: {} })).toBe(2);
-    expect(getGraphNodeLevel("study_map", { id: "sess1", nodeType: "tutor_session", labels: [], properties: {} })).toBe(3);
-    expect(getGraphNodeLevel("study_map", { id: "art1", nodeType: "artifact", labels: [], properties: {} })).toBe(4);
-    expect(getGraphNodeLevel("study_map", { id: "cnc1", nodeType: "concept", labels: [], properties: {} })).toBe(4);
-    expect(getIntentAwareNodePosition("tutor_session", 2, { x: 10, y: 20 }, "study_map")).toEqual({ x: 10, y: 20 });
+    expect(
+      getGraphNodeLevel("study_map", { id: "s1", nodeType: "source", labels: [], properties: {} }),
+    ).toBe(0);
+    expect(
+      getGraphNodeLevel("study_map", {
+        id: "c1",
+        nodeType: "curriculum",
+        labels: [],
+        properties: {},
+      }),
+    ).toBe(1);
+    expect(
+      getGraphNodeLevel("study_map", {
+        id: "m1",
+        nodeType: "curriculum_module",
+        labels: [],
+        properties: {},
+      }),
+    ).toBe(2);
+    expect(
+      getGraphNodeLevel("study_map", {
+        id: "sess1",
+        nodeType: "tutor_session",
+        labels: [],
+        properties: {},
+      }),
+    ).toBe(3);
+    expect(
+      getGraphNodeLevel("study_map", {
+        id: "art1",
+        nodeType: "artifact",
+        labels: [],
+        properties: {},
+      }),
+    ).toBe(4);
+    expect(
+      getGraphNodeLevel("study_map", {
+        id: "cnc1",
+        nodeType: "concept",
+        labels: [],
+        properties: {},
+      }),
+    ).toBe(4);
+    expect(getIntentAwareNodePosition("tutor_session", 2, { x: 10, y: 20 }, "study_map")).toEqual({
+      x: 10,
+      y: 20,
+    });
   });
 
   it("filters study-map edges to adjacent levels and artifact scope", () => {
@@ -277,14 +365,31 @@ describe("whiteboard utils", () => {
       notebookId: "nb_1",
       nodes: [
         { id: "src", nodeType: "source", labels: [], properties: {} },
-        { id: "topic", nodeType: "wiki_page", labels: [], properties: { title: "Kinematics", pageType: "topic" } },
+        {
+          id: "topic",
+          nodeType: "wiki_page",
+          labels: [],
+          properties: { title: "Kinematics", pageType: "topic" },
+        },
         { id: "c1", nodeType: "concept", labels: [], properties: { name: "Velocity" } },
         { id: "c2", nodeType: "concept", labels: [], properties: { name: "Acceleration" } },
       ],
       edges: [
         { id: "e1", source: "src", target: "topic", relationType: "HAS_TOPIC", properties: {} },
-        { id: "e2", source: "topic", target: "c1", relationType: "CONTAINS_CONCEPT", properties: {} },
-        { id: "e3", source: "topic", target: "c2", relationType: "CONTAINS_CONCEPT", properties: {} },
+        {
+          id: "e2",
+          source: "topic",
+          target: "c1",
+          relationType: "CONTAINS_CONCEPT",
+          properties: {},
+        },
+        {
+          id: "e3",
+          source: "topic",
+          target: "c2",
+          relationType: "CONTAINS_CONCEPT",
+          properties: {},
+        },
       ],
     };
 
@@ -302,13 +407,26 @@ describe("whiteboard utils", () => {
       name: "source_wiki_map",
       notebookId: "nb_1",
       nodes: [
-        { id: "c1", nodeType: "concept", labels: [], properties: { headingPath: ["Linear Algebra"] } },
-        { id: "c2", nodeType: "concept", labels: [], properties: { headingPath: ["Linear Algebra"] } },
-        { id: "p1", nodeType: "wiki_page", labels: [], properties: { headingPath: ["Linear Algebra"] } },
+        {
+          id: "c1",
+          nodeType: "concept",
+          labels: [],
+          properties: { headingPath: ["Linear Algebra"] },
+        },
+        {
+          id: "c2",
+          nodeType: "concept",
+          labels: [],
+          properties: { headingPath: ["Linear Algebra"] },
+        },
+        {
+          id: "p1",
+          nodeType: "wiki_page",
+          labels: [],
+          properties: { headingPath: ["Linear Algebra"] },
+        },
       ],
-      edges: [
-        { id: "e1", source: "c1", target: "p1", relationType: "cites", properties: {} },
-      ],
+      edges: [{ id: "e1", source: "c1", target: "p1", relationType: "cites", properties: {} }],
     };
 
     const topics = buildTopicLayer(graph as never, "source_1");
@@ -351,14 +469,36 @@ describe("whiteboard utils", () => {
       nodes: [
         { id: "src1", nodeType: "source", labels: [], properties: {} },
         { id: "topic1", nodeType: "topic", labels: [], properties: { title: "Linear Algebra" } },
-        { id: "c1", nodeType: "concept", labels: [], properties: { headingPath: ["Linear Algebra"] } },
-        { id: "p1", nodeType: "wiki_page", labels: [], properties: { headingPath: ["Linear Algebra"], pageType: "topic" } },
+        {
+          id: "c1",
+          nodeType: "concept",
+          labels: [],
+          properties: { headingPath: ["Linear Algebra"] },
+        },
+        {
+          id: "p1",
+          nodeType: "wiki_page",
+          labels: [],
+          properties: { headingPath: ["Linear Algebra"], pageType: "topic" },
+        },
         { id: "c2", nodeType: "concept", labels: [], properties: { headingPath: ["Calculus"] } },
       ],
       edges: [
         { id: "e1", source: "src1", target: "topic1", relationType: "HAS_TOPIC", properties: {} },
-        { id: "e2", source: "topic1", target: "c1", relationType: "CONTAINS_CONCEPT", properties: {} },
-        { id: "e3", source: "topic1", target: "c2", relationType: "CONTAINS_CONCEPT", properties: {} },
+        {
+          id: "e2",
+          source: "topic1",
+          target: "c1",
+          relationType: "CONTAINS_CONCEPT",
+          properties: {},
+        },
+        {
+          id: "e3",
+          source: "topic1",
+          target: "c2",
+          relationType: "CONTAINS_CONCEPT",
+          properties: {},
+        },
       ],
     };
 
@@ -404,11 +544,31 @@ describe("whiteboard utils", () => {
       notebookId: "nb_1",
       nodes: [
         { id: "cur_1", nodeType: "curriculum", labels: [], properties: { title: "Heat Transfer" } },
-        { id: "mod_1", nodeType: "curriculum_module", labels: [], properties: { title: "Conduction", summary: "Core conduction ideas." } },
-        { id: "obj_1", nodeType: "objective", labels: [], properties: { title: "Explain Fourier's law", status: "active" } },
+        {
+          id: "mod_1",
+          nodeType: "curriculum_module",
+          labels: [],
+          properties: { title: "Conduction", summary: "Core conduction ideas." },
+        },
+        {
+          id: "obj_1",
+          nodeType: "objective",
+          labels: [],
+          properties: { title: "Explain Fourier's law", status: "active" },
+        },
         { id: "art_1", nodeType: "artifact", labels: [], properties: { title: "Formula sheet" } },
-        { id: "sess_1", nodeType: "session_plan", labels: [], properties: { title: "Fourier lesson" } },
-        { id: "concept_1", nodeType: "concept", labels: [], properties: { canonicalName: "Heat flux" } },
+        {
+          id: "sess_1",
+          nodeType: "session_plan",
+          labels: [],
+          properties: { title: "Fourier lesson" },
+        },
+        {
+          id: "concept_1",
+          nodeType: "concept",
+          labels: [],
+          properties: { canonicalName: "Heat flux" },
+        },
       ],
       edges: [
         { id: "e1", source: "cur_1", target: "mod_1", relationType: "contains", properties: {} },
@@ -426,9 +586,15 @@ describe("whiteboard utils", () => {
     expect(outline.modules[0]?.objectives[0]?.artifactIds).toEqual(["art_1"]);
     expect(outline.modules[0]?.objectives[0]?.sessionIds).toEqual(["sess_1"]);
     expect(outline.modules[0]?.objectives[0]?.conceptIds).toEqual(["concept_1"]);
-    expect(outline.modules[0]?.objectives[0]?.artifactRefs).toEqual([{ id: "art_1", title: "Formula sheet" }]);
-    expect(outline.modules[0]?.objectives[0]?.sessionRefs).toEqual([{ id: "sess_1", title: "Fourier lesson" }]);
-    expect(outline.modules[0]?.objectives[0]?.conceptRefs).toEqual([{ id: "concept_1", title: "Heat flux" }]);
+    expect(outline.modules[0]?.objectives[0]?.artifactRefs).toEqual([
+      { id: "art_1", title: "Formula sheet" },
+    ]);
+    expect(outline.modules[0]?.objectives[0]?.sessionRefs).toEqual([
+      { id: "sess_1", title: "Fourier lesson" },
+    ]);
+    expect(outline.modules[0]?.objectives[0]?.conceptRefs).toEqual([
+      { id: "concept_1", title: "Heat flux" },
+    ]);
   });
 
   it("prefers concept names over raw ids for learner titles", () => {

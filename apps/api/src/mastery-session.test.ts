@@ -212,6 +212,8 @@ describe("maybeRunRuntimeMasteryEvaluation", () => {
       readiness: "advanced",
       tutoringIntervention: "advance",
     });
-    expect(set).toHaveBeenCalledWith(expect.objectContaining({ runtimeContextJson: result.runtimeContext }));
+    expect(set).toHaveBeenCalledWith(
+      expect.objectContaining({ runtimeContextJson: result.runtimeContext }),
+    );
   });
 });

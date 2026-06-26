@@ -1,11 +1,5 @@
 import { and, eq, inArray } from "drizzle-orm";
-import {
-  chunks,
-  concepts,
-  sourceVersions,
-  sources,
-  type DbClient,
-} from "@studyagent/db";
+import { chunks, concepts, sourceVersions, sources, type DbClient } from "@studyagent/db";
 import { ToolError } from "@studyagent/tools";
 
 export type ResolvedEvidence = {
@@ -26,7 +20,11 @@ export function isJsonRecordLocal(value: unknown): value is Record<string, unkno
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-export async function resolveConceptIds(dbClient: DbClient, notebookId: string, requestedIds: string[]): Promise<string[]> {
+export async function resolveConceptIds(
+  dbClient: DbClient,
+  notebookId: string,
+  requestedIds: string[],
+): Promise<string[]> {
   if (!requestedIds.length) return [];
 
   const rows = await dbClient.db
@@ -116,5 +114,8 @@ export async function resolveEvidence(
     });
   }
 
-  throw new ToolError("missing_source_evidence", "Write tools require at least one notebook-scoped source reference.");
+  throw new ToolError(
+    "missing_source_evidence",
+    "Write tools require at least one notebook-scoped source reference.",
+  );
 }

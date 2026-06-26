@@ -1,115 +1,117 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Artifacts — TutorBook</title>
-<link rel="stylesheet" href="styles.css" />
-<link rel="stylesheet" href="themes/folio.css" />
-<link rel="stylesheet" href="themes/focus.css" />
-<link rel="stylesheet" href="themes/sunrise.css" />
-<link rel="stylesheet" href="themes/nocturne.css" />
-<link rel="stylesheet" href="themes/carbon.css" />
-</head>
-<body data-theme="mist">
-<div class="app">
-  <div data-include="topbar"></div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Artifacts — TutorBook</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="themes/folio.css" />
+    <link rel="stylesheet" href="themes/focus.css" />
+    <link rel="stylesheet" href="themes/sunrise.css" />
+    <link rel="stylesheet" href="themes/nocturne.css" />
+    <link rel="stylesheet" href="themes/carbon.css" />
+  </head>
+  <body data-theme="mist">
+    <div class="app">
+      <div data-include="topbar"></div>
 
-  <div class="page-head">
-    <a class="back-link" href="study-map.html" style="margin-bottom:10px">← Back to study map</a>
-    <div class="between">
-      <div>
-        <h1>Artifacts</h1>
-        <p class="ph-sub">Organic Chemistry I · generated study aids from your 6 sources</p>
+      <div class="page-head">
+        <a class="back-link" href="study-map.html" style="margin-bottom: 10px"
+          >← Back to study map</a
+        >
+        <div class="between">
+          <div>
+            <h1>Artifacts</h1>
+            <p class="ph-sub">Organic Chemistry I · generated study aids from your 6 sources</p>
+          </div>
+          <button class="btn primary">+ Generate artifact</button>
+        </div>
       </div>
-      <button class="btn primary">+ Generate artifact</button>
-    </div>
-  </div>
 
-  <div class="page-body">
-    <div class="ev-tabs" style="margin-bottom:18px">
-      <button class="active">All</button>
-      <button>Flashcards</button>
-      <button>Quizzes</button>
-      <button>Summaries</button>
-      <button>Worked examples</button>
+      <div class="page-body">
+        <div class="ev-tabs" style="margin-bottom: 18px">
+          <button class="active">All</button>
+          <button>Flashcards</button>
+          <button>Quizzes</button>
+          <button>Summaries</button>
+          <button>Worked examples</button>
+        </div>
+
+        <div class="artifact-grid">
+          <a class="art-card" href="page-flashcards.html">
+            <div class="art-cover">🗂️</div>
+            <div class="art-body">
+              <div class="art-type">Flashcards</div>
+              <div class="art-t">Ch. 7 flashcards</div>
+              <div class="art-s">24 cards · spaced recall · updated today</div>
+            </div>
+          </a>
+          <a class="art-card" href="page-quiz.html">
+            <div class="art-cover">❓</div>
+            <div class="art-body">
+              <div class="art-type">Quiz</div>
+              <div class="art-t">SN2 quiz</div>
+              <div class="art-s">5 questions · from SN2_Mechanisms.pdf</div>
+            </div>
+          </a>
+          <a class="art-card" href="page-comparison.html">
+            <div class="art-cover">⚖️</div>
+            <div class="art-body">
+              <div class="art-type">Comparison</div>
+              <div class="art-t">SN1 vs SN2 comparison</div>
+              <div class="art-s">Side-by-side · rate, stereochem, solvent</div>
+            </div>
+          </a>
+          <a class="art-card" href="page-formula-sheet.html">
+            <div class="art-cover">📐</div>
+            <div class="art-body">
+              <div class="art-type">Summary</div>
+              <div class="art-t">Formula sheet</div>
+              <div class="art-s">Rate laws & key relations · 1 page</div>
+            </div>
+          </a>
+          <a class="art-card" href="page-worked-example.html">
+            <div class="art-cover">✍️</div>
+            <div class="art-body">
+              <div class="art-type">Worked example</div>
+              <div class="art-t">Worked example: SN2 product</div>
+              <div class="art-s">Step-by-step · backside attack</div>
+            </div>
+          </a>
+          <a class="art-card" href="page-wiki-topic.html">
+            <div class="art-cover">📄</div>
+            <div class="art-body">
+              <div class="art-type">Summary</div>
+              <div class="art-t">Chapter summary</div>
+              <div class="art-s">Ch. 7 · Substitution · auto-generated</div>
+            </div>
+          </a>
+          <a class="art-card" href="page-flashcards.html">
+            <div class="art-cover">🧬</div>
+            <div class="art-body">
+              <div class="art-type">Flashcards</div>
+              <div class="art-t">Stereochemistry deck</div>
+              <div class="art-s">12 cards · 45% mastered · needs review</div>
+            </div>
+          </a>
+          <a class="art-card" href="page-quiz.html">
+            <div class="art-cover">🧪</div>
+            <div class="art-body">
+              <div class="art-type">Quiz</div>
+              <div class="art-t">Nucleophiles quiz</div>
+              <div class="art-s">5 questions · strength & basicity</div>
+            </div>
+          </a>
+        </div>
+      </div>
     </div>
 
-    <div class="artifact-grid">
-      <a class="art-card" href="page-flashcards.html">
-        <div class="art-cover">🗂️</div>
-        <div class="art-body">
-          <div class="art-type">Flashcards</div>
-          <div class="art-t">Ch. 7 flashcards</div>
-          <div class="art-s">24 cards · spaced recall · updated today</div>
-        </div>
-      </a>
-      <a class="art-card" href="page-quiz.html">
-        <div class="art-cover">❓</div>
-        <div class="art-body">
-          <div class="art-type">Quiz</div>
-          <div class="art-t">SN2 quiz</div>
-          <div class="art-s">5 questions · from SN2_Mechanisms.pdf</div>
-        </div>
-      </a>
-      <a class="art-card" href="page-comparison.html">
-        <div class="art-cover">⚖️</div>
-        <div class="art-body">
-          <div class="art-type">Comparison</div>
-          <div class="art-t">SN1 vs SN2 comparison</div>
-          <div class="art-s">Side-by-side · rate, stereochem, solvent</div>
-        </div>
-      </a>
-      <a class="art-card" href="page-formula-sheet.html">
-        <div class="art-cover">📐</div>
-        <div class="art-body">
-          <div class="art-type">Summary</div>
-          <div class="art-t">Formula sheet</div>
-          <div class="art-s">Rate laws & key relations · 1 page</div>
-        </div>
-      </a>
-      <a class="art-card" href="page-worked-example.html">
-        <div class="art-cover">✍️</div>
-        <div class="art-body">
-          <div class="art-type">Worked example</div>
-          <div class="art-t">Worked example: SN2 product</div>
-          <div class="art-s">Step-by-step · backside attack</div>
-        </div>
-      </a>
-      <a class="art-card" href="page-wiki-topic.html">
-        <div class="art-cover">📄</div>
-        <div class="art-body">
-          <div class="art-type">Summary</div>
-          <div class="art-t">Chapter summary</div>
-          <div class="art-s">Ch. 7 · Substitution · auto-generated</div>
-        </div>
-      </a>
-      <a class="art-card" href="page-flashcards.html">
-        <div class="art-cover">🧬</div>
-        <div class="art-body">
-          <div class="art-type">Flashcards</div>
-          <div class="art-t">Stereochemistry deck</div>
-          <div class="art-s">12 cards · 45% mastered · needs review</div>
-        </div>
-      </a>
-      <a class="art-card" href="page-quiz.html">
-        <div class="art-cover">🧪</div>
-        <div class="art-body">
-          <div class="art-type">Quiz</div>
-          <div class="art-t">Nucleophiles quiz</div>
-          <div class="art-s">5 questions · strength & basicity</div>
-        </div>
-      </a>
-    </div>
-  </div>
-</div>
-
-<script src="app.js"></script>
-<script src="themes/folio.js"></script>
-<script src="themes/focus.js"></script>
-<script src="themes/sunrise.js"></script>
-<script src="themes/nocturne.js"></script>
-<script src="themes/carbon.js"></script>
-<script src="partials.js"></script>
-</body>
+    <script src="app.js"></script>
+    <script src="themes/folio.js"></script>
+    <script src="themes/focus.js"></script>
+    <script src="themes/sunrise.js"></script>
+    <script src="themes/nocturne.js"></script>
+    <script src="themes/carbon.js"></script>
+    <script src="partials.js"></script>
+  </body>
 </html>

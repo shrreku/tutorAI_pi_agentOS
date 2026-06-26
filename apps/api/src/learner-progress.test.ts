@@ -14,10 +14,23 @@ function baseState(overrides: Partial<NotebookStudyState> = {}): NotebookStudySt
     objectiveList: null,
     sessionPlan: null,
     studyPlan: null,
-    coverage: { total: 0, planned: 0, introduced: 0, checked: 0, mastered: 0, needsReview: 0, gaps: [] },
+    coverage: {
+      total: 0,
+      planned: 0,
+      introduced: 0,
+      checked: 0,
+      mastered: 0,
+      needsReview: 0,
+      gaps: [],
+    },
     sourceLevels: [],
     learnerReadiness: [],
-    learnerProgressSummary: { strengths: [], weakConcepts: [], needsReview: [], readyToAdvance: [] },
+    learnerProgressSummary: {
+      strengths: [],
+      weakConcepts: [],
+      needsReview: [],
+      readyToAdvance: [],
+    },
     ...overrides,
   };
 }
@@ -42,12 +55,21 @@ describe("learner progress summaries", () => {
           checked: 0,
           mastered: 0,
           needsReview: 1,
-          gaps: [{ coverageItemId: "cov_1", title: "Product rule", itemFamily: "procedure", status: "needs_review" }],
+          gaps: [
+            {
+              coverageItemId: "cov_1",
+              title: "Product rule",
+              itemFamily: "procedure",
+              status: "needs_review",
+            },
+          ],
         },
       }),
     );
     expect(text).toBeDefined();
     expect(text).not.toMatch(/confidence|uncertainty|0\.\d{2}/i);
-    expect(learnerProgressExposesRawEvaluatorData(deriveLearnerProgressSummary(baseState()))).toBe(false);
+    expect(learnerProgressExposesRawEvaluatorData(deriveLearnerProgressSummary(baseState()))).toBe(
+      false,
+    );
   });
 });

@@ -126,16 +126,24 @@ export function AdminUserDetailPage({
               type="button"
               className="tb-button"
               disabled={busy}
-              onClick={() => void patchUser({ ingestionAccess: !data.productState?.ingestionAccess })}
+              onClick={() =>
+                void patchUser({ ingestionAccess: !data.productState?.ingestionAccess })
+              }
             >
-              {data.productState?.ingestionAccess ? "Revoke Ingestion Access" : "Grant Ingestion Access"}
+              {data.productState?.ingestionAccess
+                ? "Revoke Ingestion Access"
+                : "Grant Ingestion Access"}
             </button>
           </>
         ) : null}
         <button
           type="button"
           className="tb-button tb-button-primary"
-          onClick={() => void api(`/admin/credits/${encodeURIComponent(userId)}`).then(() => navigate("/admin/credits"))}
+          onClick={() =>
+            void api(`/admin/credits/${encodeURIComponent(userId)}`).then(() =>
+              navigate("/admin/credits"),
+            )
+          }
         >
           View credit ledger
         </button>

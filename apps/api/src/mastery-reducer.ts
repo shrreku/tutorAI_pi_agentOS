@@ -29,7 +29,10 @@ export function shouldApplyStrongMasteryUpdate(evidence: MasteryEvidence): boole
   );
 }
 
-export function computeMasteryDeltaForEvidence(evidence: MasteryEvidence, conceptId: string): number {
+export function computeMasteryDeltaForEvidence(
+  evidence: MasteryEvidence,
+  conceptId: string,
+): number {
   const conceptScore = evidence.conceptScores.find((entry) => entry.conceptId === conceptId);
   if (!conceptScore) return 0;
 
@@ -37,11 +40,15 @@ export function computeMasteryDeltaForEvidence(evidence: MasteryEvidence, concep
   const sign = LABEL_SIGN[evidence.correctnessLabel];
   if (sign === 0) return 0;
 
-  const confidenceScale = shouldApplyStrongMasteryUpdate(evidence) ? evidence.confidence : Math.min(evidence.confidence, 0.35);
+  const confidenceScale = shouldApplyStrongMasteryUpdate(evidence)
+    ? evidence.confidence
+    : Math.min(evidence.confidence, 0.35);
   const uncertaintyPenalty = 1 - evidence.uncertainty * 0.5;
   const baseMagnitude = Math.abs(conceptScore.delta) > 0 ? Math.abs(conceptScore.delta) : 0.08;
 
-  return Number((sign * baseMagnitude * typeWeight * confidenceScale * uncertaintyPenalty).toFixed(4));
+  return Number(
+    (sign * baseMagnitude * typeWeight * confidenceScale * uncertaintyPenalty).toFixed(4),
+  );
 }
 
 export function computeNextReviewDays(evidence: MasteryEvidence): number {

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { buildSourceReadiness, sourceReadinessComponent } from "./source-readiness.js";
-import { resolveSourceReadiness, sourceReadinessFromLegacyStatus, toSourceLearnerView } from "./source-learner-view.js";
+import {
+  resolveSourceReadiness,
+  sourceReadinessFromLegacyStatus,
+  toSourceLearnerView,
+} from "./source-learner-view.js";
 
 describe("source learner view", () => {
   it("maps legacy tutoring_ready status into learner-safe readiness copy", () => {

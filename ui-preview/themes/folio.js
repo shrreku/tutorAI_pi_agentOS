@@ -23,7 +23,7 @@
         <div class="right"><span class="accent">Objective: Obj 5 · SN2 mechanism</span></div>`;
     },
 
-    tutor(context = 'SN2 mechanism') {
+    tutor(context = "SN2 mechanism") {
       return `
       <aside class="tutor" data-tutor>
         <div class="tutor-header">
@@ -43,7 +43,7 @@
             <div class="msg-agent">
               <div class="agent-avatar-line"><span class="av">${I.cap}</span> TutorBook</div>
               <div class="collapse open" data-collapse>
-                <div class="collapse-head" data-collapse-head>${I.chev.replace('class="svg-i"','class="svg-i chev"')} AGENT ACTIVITY <span class="timer">1.4s</span></div>
+                <div class="collapse-head" data-collapse-head>${I.chev.replace('class="svg-i"', 'class="svg-i chev"')} AGENT ACTIVITY <span class="timer">1.4s</span></div>
                 <div class="collapse-body">
                   <div class="step"><span class="dot"></span> Parsed stereochemical query</div>
                   <div class="toolcall"><span class="tc-ico">${I.book}</span><span class="tc-name">retrieve("Walden inversion")</span><span class="tc-status">done</span></div>
@@ -51,7 +51,7 @@
                 </div>
               </div>
               <div class="collapse open" data-collapse>
-                <div class="collapse-head" data-collapse-head>${I.chev.replace('class="svg-i"','class="svg-i chev"')} THINKING</div>
+                <div class="collapse-head" data-collapse-head>${I.chev.replace('class="svg-i"', 'class="svg-i chev"')} THINKING</div>
                 <div class="collapse-body"><div class="thinking">The student wants the inversion mechanism. Tie the Walden inversion to backside-attack geometry, then cite Ch. 7.</div></div>
               </div>
               <p>The backside attack inverts the configuration at the reacting carbon — the three substituents flip through a planar transition state, producing the opposite stereoisomer.</p>
@@ -60,7 +60,16 @@
             </div>
           </div>
           <div data-tutor-pane="history" style="display:none">
-            ${['SN2 backside attack|Today · 4:32 PM','Leaving group recap|Today · 2:10 PM','Stereochemistry inversion|Yesterday · 9:48 PM'].map(h=>{const[t,s]=h.split('|');return `<div class="history-item"><div class="t">${t}</div><div class="s">${s}</div></div>`}).join('')}
+            ${[
+              "SN2 backside attack|Today · 4:32 PM",
+              "Leaving group recap|Today · 2:10 PM",
+              "Stereochemistry inversion|Yesterday · 9:48 PM",
+            ]
+              .map((h) => {
+                const [t, s] = h.split("|");
+                return `<div class="history-item"><div class="t">${t}</div><div class="s">${s}</div></div>`;
+              })
+              .join("")}
           </div>
           <div data-tutor-pane="settings" style="display:none">
             <div class="setting-row">Show thinking <div class="switch on" data-switch></div></div>
@@ -81,8 +90,20 @@
     },
 
     dashboard() {
-      const bars = [['M',40,1],['T',70,1],['W',25,1],['T',90,0],['F',55,1],['S',15,1],['S',60,1]]
-        .map(([l,h,faint])=>`<div style="flex:1"><div class="bar" style="height:${h}%${faint?';background:var(--text-faint)':''}"></div><div class="lbl">${l}</div></div>`).join('');
+      const bars = [
+        ["M", 40, 1],
+        ["T", 70, 1],
+        ["W", 25, 1],
+        ["T", 90, 0],
+        ["F", 55, 1],
+        ["S", 15, 1],
+        ["S", 60, 1],
+      ]
+        .map(
+          ([l, h, faint]) =>
+            `<div style="flex:1"><div class="bar" style="height:${h}%${faint ? ";background:var(--text-faint)" : ""}"></div><div class="lbl">${l}</div></div>`,
+        )
+        .join("");
       return `
       <div class="folio-masthead">
         <div class="folio-edition-line"><span>The Study Journal · Vol. III</span><span>Friday, 26 June · Edition 07</span></div>

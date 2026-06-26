@@ -106,7 +106,10 @@ function createAuthTestContext(options?: {
             onConflictDoNothing: async () => {
               await insertRow();
             },
-            then(onFulfilled: (value: unknown) => unknown, onRejected?: (reason: unknown) => unknown) {
+            then(
+              onFulfilled: (value: unknown) => unknown,
+              onRejected?: (reason: unknown) => unknown,
+            ) {
               return insertRow().then(onFulfilled, onRejected);
             },
           };
@@ -143,7 +146,7 @@ function createAuthTestContext(options?: {
       WORKOS_CLIENT_ID: options?.workos ? "client_test_workos" : undefined,
       WORKOS_COOKIE_PASSWORD: options?.workos ? "x".repeat(32) : undefined,
       WORKOS_REDIRECT_URI: options?.workos
-        ? options.workosRedirectUri ?? "https://tutorbook.me/auth/callback"
+        ? (options.workosRedirectUri ?? "https://tutorbook.me/auth/callback")
         : undefined,
     },
     db: { db },
@@ -194,7 +197,9 @@ describe("auth", () => {
     const { ctx, userRows } = createAuthTestContext({ disableAuth: true });
     userRows.length = 0;
     userRows.push({ id: "usr_alt", email: "alt@studyagent.local", settingsJson: {} });
-    const request = { headers: { "x-user-id": "usr_alt" } } as unknown as Parameters<typeof resolveActor>[1];
+    const request = { headers: { "x-user-id": "usr_alt" } } as unknown as Parameters<
+      typeof resolveActor
+    >[1];
 
     await expect(resolveActor(ctx, request)).resolves.toEqual({
       id: "usr_alt",

@@ -16,7 +16,10 @@ function normalizeScopeValue(value: string | null | undefined): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
 }
 
-export function findCoverageRecordForScope<T extends CoverageScope>(rows: T[], scope: CoverageScope): T | undefined {
+export function findCoverageRecordForScope<T extends CoverageScope>(
+  rows: T[],
+  scope: CoverageScope,
+): T | undefined {
   return rows.find(
     (row) =>
       normalizeScopeValue(row.curriculumId) === normalizeScopeValue(scope.curriculumId) &&
@@ -33,10 +36,7 @@ export function selectPreferredCoverageGapRow<
     objectiveListId: string | null;
     sessionPlanId: string | null;
   },
->(
-  rows: T[],
-  input: CoverageGetGapsInput,
-): T | null {
+>(rows: T[], input: CoverageGetGapsInput): T | null {
   const scope = {
     curriculumId: normalizeScopeValue(input.curriculumId),
     moduleId: normalizeScopeValue(input.moduleId),
@@ -53,16 +53,21 @@ export function selectPreferredCoverageGapRow<
     return (
       (!scope.curriculumId || !tuple.curriculumId || tuple.curriculumId === scope.curriculumId) &&
       (!scope.moduleId || !tuple.moduleId || tuple.moduleId === scope.moduleId) &&
-      (!scope.objectiveListId || !tuple.objectiveListId || tuple.objectiveListId === scope.objectiveListId) &&
+      (!scope.objectiveListId ||
+        !tuple.objectiveListId ||
+        tuple.objectiveListId === scope.objectiveListId) &&
       (!scope.sessionPlanId || !tuple.sessionPlanId || tuple.sessionPlanId === scope.sessionPlanId)
     );
   });
   if (compatible.length === 0) return null;
   const score = (row: T): number => {
-    if (scope.sessionPlanId && normalizeScopeValue(row.sessionPlanId) === scope.sessionPlanId) return 40;
-    if (scope.objectiveListId && normalizeScopeValue(row.objectiveListId) === scope.objectiveListId) return 30;
+    if (scope.sessionPlanId && normalizeScopeValue(row.sessionPlanId) === scope.sessionPlanId)
+      return 40;
+    if (scope.objectiveListId && normalizeScopeValue(row.objectiveListId) === scope.objectiveListId)
+      return 30;
     if (scope.moduleId && normalizeScopeValue(row.moduleId) === scope.moduleId) return 20;
-    if (scope.curriculumId && normalizeScopeValue(row.curriculumId) === scope.curriculumId) return 10;
+    if (scope.curriculumId && normalizeScopeValue(row.curriculumId) === scope.curriculumId)
+      return 10;
     if (
       !normalizeScopeValue(row.curriculumId) &&
       !normalizeScopeValue(row.moduleId) &&
@@ -96,14 +101,21 @@ async function upsertCoverageRecord(
   const [coverageItem] = await appCtx.db.db
     .select({ id: coverageItems.id })
     .from(coverageItems)
-    .where(and(eq(coverageItems.id, input.coverageItemId), eq(coverageItems.notebookId, notebookId)))
+    .where(
+      and(eq(coverageItems.id, input.coverageItemId), eq(coverageItems.notebookId, notebookId)),
+    )
     .limit(1);
   if (!coverageItem) return null;
 
   const existingRows = await appCtx.db.db
     .select()
     .from(coverageRecords)
-    .where(and(eq(coverageRecords.notebookId, notebookId), eq(coverageRecords.coverageItemId, input.coverageItemId)));
+    .where(
+      and(
+        eq(coverageRecords.notebookId, notebookId),
+        eq(coverageRecords.coverageItemId, input.coverageItemId),
+      ),
+    );
 
   const targetScope: CoverageScope = {
     curriculumId: input.curriculumId ?? null,
@@ -129,7 +141,10 @@ async function upsertCoverageRecord(
   } as const;
 
   if (existing) {
-    await appCtx.db.db.update(coverageRecords).set(values).where(eq(coverageRecords.id, existing.id));
+    await appCtx.db.db
+      .update(coverageRecords)
+      .set(values)
+      .where(eq(coverageRecords.id, existing.id));
     return { id: existing.id, ...values, updatedAt: now };
   }
 
@@ -158,7 +173,10 @@ async function getCoverageGaps(
     .from(coverageItems)
     .leftJoin(
       coverageRecords,
-      and(eq(coverageRecords.coverageItemId, coverageItems.id), eq(coverageRecords.notebookId, notebookId)),
+      and(
+        eq(coverageRecords.coverageItemId, coverageItems.id),
+        eq(coverageRecords.notebookId, notebookId),
+      ),
     )
     .where(eq(coverageItems.notebookId, notebookId));
 
@@ -185,7 +203,12 @@ async function getCoverageGaps(
       title: row.title,
       itemFamily: row.itemFamily,
       description: row.description,
-      status: (row.recordStatus ?? "planned") as "planned" | "introduced" | "checked" | "mastered" | "needs_review",
+      status: (row.recordStatus ?? "planned") as
+        | "planned"
+        | "introduced"
+        | "checked"
+        | "mastered"
+        | "needs_review",
       curriculumId: row.curriculumId,
       moduleId: row.moduleId,
       objectiveListId: row.objectiveListId,
@@ -199,7 +222,12 @@ export function createCoverageWriteHandlers(
   return {
     async markCoverage(input, ctx): Promise<CoverageMarkOutput> {
       const result = await upsertCoverageRecord(appCtx, ctx.notebookId, input, ctx.runId);
-      const status = (input.status ?? "introduced") as "planned" | "introduced" | "checked" | "mastered" | "needs_review";
+      const status = (input.status ?? "introduced") as
+        | "planned"
+        | "introduced"
+        | "checked"
+        | "mastered"
+        | "needs_review";
       const event = result
         ? await appendEvent(appCtx.db, {
             notebookId: ctx.notebookId,
@@ -235,7 +263,14 @@ export function createCoverageWriteHandlers(
               updatedAt: result.updatedAt.toISOString(),
             }
           : null,
-        warnings: result ? [] : [{ code: "coverage_item_missing", message: "Coverage item was not found in this notebook." }],
+        warnings: result
+          ? []
+          : [
+              {
+                code: "coverage_item_missing",
+                message: "Coverage item was not found in this notebook.",
+              },
+            ],
         reducerResult: buildReducerResult(
           "coverage.record.updated",
           {

@@ -56,7 +56,9 @@ function createEntitlementsContext(options?: {
   disabled?: boolean;
   consentRows?: ConsentRow[];
 }) {
-  const userRows: UserRow[] = [{ id: "usr_1", email: "learner@studyagent.local", disabledAt: null }];
+  const userRows: UserRow[] = [
+    { id: "usr_1", email: "learner@studyagent.local", disabledAt: null },
+  ];
   if (options?.disabled) {
     userRows[0]!.disabledAt = new Date();
   }
@@ -101,7 +103,9 @@ function createEntitlementsContext(options?: {
                   orderBy(_order: unknown) {
                     return {
                       limit: async (count: number) =>
-                        [...consentRows].sort((a, b) => b.acceptedAt.getTime() - a.acceptedAt.getTime()).slice(0, count),
+                        [...consentRows]
+                          .sort((a, b) => b.acceptedAt.getTime() - a.acceptedAt.getTime())
+                          .slice(0, count),
                     };
                   },
                 };
@@ -138,7 +142,8 @@ function createEntitlementsContext(options?: {
               if (
                 !consentRows.some(
                   (existing) =>
-                    existing.userId === candidate.userId && existing.consentVersion === candidate.consentVersion,
+                    existing.userId === candidate.userId &&
+                    existing.consentVersion === candidate.consentVersion,
                 )
               ) {
                 consentRows.push(candidate);
@@ -150,7 +155,10 @@ function createEntitlementsContext(options?: {
             onConflictDoNothing: async () => {
               await insertRow();
             },
-            then(onFulfilled: (value: unknown) => unknown, onRejected?: (reason: unknown) => unknown) {
+            then(
+              onFulfilled: (value: unknown) => unknown,
+              onRejected?: (reason: unknown) => unknown,
+            ) {
               return insertRow().then(onFulfilled, onRejected);
             },
           };

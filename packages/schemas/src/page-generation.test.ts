@@ -155,7 +155,9 @@ describe("page block plans", () => {
 describe("material path change confirmation", () => {
   it("requires confirmation for material path changes unless learner confirmed", () => {
     expect(requiresMaterialPathChangeConfirmation({ kind: "skip_module" })).toBe(true);
-    expect(requiresMaterialPathChangeConfirmation({ kind: "skip_module", learnerConfirmed: true })).toBe(false);
+    expect(
+      requiresMaterialPathChangeConfirmation({ kind: "skip_module", learnerConfirmed: true }),
+    ).toBe(false);
     expect(requiresMaterialPathChangeConfirmation({ kind: "module_milestone" })).toBe(false);
   });
 });

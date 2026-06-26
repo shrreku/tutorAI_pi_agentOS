@@ -6,9 +6,30 @@ describe("Source Wiki learner view", () => {
     const view = buildSourceWikiLearnerView({
       page: { id: "wp_1", title: "Voltage", status: "published", markdown: "## Voltage" },
       claims: [
-        { id: "clm_ok", status: "published", claimText: "Voltage drives current.", confidence: 0.8, supportScore: 0.7, evidence: [{ sourceRef: "chunk:1", excerpt: "Voltage..." }] },
-        { id: "clm_candidate", status: "candidate", claimText: "Raw candidate", confidence: 0.9, supportScore: 0.9, evidence: [{ sourceRef: "chunk:2", excerpt: "Candidate" }] },
-        { id: "clm_low", status: "published", claimText: "Weak claim", confidence: 0.4, supportScore: 0.9, evidence: [{ sourceRef: "chunk:3", excerpt: "Weak" }] },
+        {
+          id: "clm_ok",
+          status: "published",
+          claimText: "Voltage drives current.",
+          confidence: 0.8,
+          supportScore: 0.7,
+          evidence: [{ sourceRef: "chunk:1", excerpt: "Voltage..." }],
+        },
+        {
+          id: "clm_candidate",
+          status: "candidate",
+          claimText: "Raw candidate",
+          confidence: 0.9,
+          supportScore: 0.9,
+          evidence: [{ sourceRef: "chunk:2", excerpt: "Candidate" }],
+        },
+        {
+          id: "clm_low",
+          status: "published",
+          claimText: "Weak claim",
+          confidence: 0.4,
+          supportScore: 0.9,
+          evidence: [{ sourceRef: "chunk:3", excerpt: "Weak" }],
+        },
       ],
     });
 
@@ -22,7 +43,16 @@ describe("Source Wiki learner view", () => {
     const view = buildSourceWikiLearnerView({
       page: { id: "wp_1", title: "Voltage", status: "draft", markdown: "Draft" },
       devMode: true,
-      claims: [{ id: "clm_candidate", status: "candidate", claimText: "Raw candidate", confidence: 0.9, supportScore: 0.9, evidence: [] }],
+      claims: [
+        {
+          id: "clm_candidate",
+          status: "candidate",
+          claimText: "Raw candidate",
+          confidence: 0.9,
+          supportScore: 0.9,
+          evidence: [],
+        },
+      ],
     });
 
     expect(view.learnerStatus).toBe("needs_source_support");
@@ -43,8 +73,22 @@ describe("Source Wiki learner view", () => {
     const view = buildSourceWikiLearnerView({
       page: { id: "wp_3", title: "Current", status: "published", markdown: "Current" },
       claims: [
-        { id: "clm_a", status: "published", claimText: "Ohm's law relates voltage and current.", confidence: 0.8, supportScore: 0.75, evidence: [{ sourceRef: "chunk:1", excerpt: "V=IR" }] },
-        { id: "clm_b", status: "published", claimText: "Resistance opposes current flow.", confidence: 0.85, supportScore: 0.8, evidence: [{ sourceRef: "chunk:2", excerpt: "resistance" }] },
+        {
+          id: "clm_a",
+          status: "published",
+          claimText: "Ohm's law relates voltage and current.",
+          confidence: 0.8,
+          supportScore: 0.75,
+          evidence: [{ sourceRef: "chunk:1", excerpt: "V=IR" }],
+        },
+        {
+          id: "clm_b",
+          status: "published",
+          claimText: "Resistance opposes current flow.",
+          confidence: 0.85,
+          supportScore: 0.8,
+          evidence: [{ sourceRef: "chunk:2", excerpt: "resistance" }],
+        },
       ],
     });
 
@@ -59,9 +103,30 @@ describe("Source Wiki learner view", () => {
     const view = buildSourceWikiLearnerView({
       page: { id: "wp_4", title: "Claims", status: "published", markdown: "Claims" },
       claims: [
-        { id: "clm_ok", status: "published", claimText: "Visible claim.", confidence: 0.8, supportScore: 0.7, evidence: [{ sourceRef: "chunk:1", excerpt: "ok" }] },
-        { id: "clm_contra", status: "contradicted", claimText: "Hidden contradicted.", confidence: 0.9, supportScore: 0.9, evidence: [{ sourceRef: "chunk:2", excerpt: "no" }] },
-        { id: "clm_super", status: "superseded", claimText: "Hidden superseded.", confidence: 0.9, supportScore: 0.9, evidence: [{ sourceRef: "chunk:3", excerpt: "no" }] },
+        {
+          id: "clm_ok",
+          status: "published",
+          claimText: "Visible claim.",
+          confidence: 0.8,
+          supportScore: 0.7,
+          evidence: [{ sourceRef: "chunk:1", excerpt: "ok" }],
+        },
+        {
+          id: "clm_contra",
+          status: "contradicted",
+          claimText: "Hidden contradicted.",
+          confidence: 0.9,
+          supportScore: 0.9,
+          evidence: [{ sourceRef: "chunk:2", excerpt: "no" }],
+        },
+        {
+          id: "clm_super",
+          status: "superseded",
+          claimText: "Hidden superseded.",
+          confidence: 0.9,
+          supportScore: 0.9,
+          evidence: [{ sourceRef: "chunk:3", excerpt: "no" }],
+        },
       ],
     });
 
@@ -83,14 +148,16 @@ describe("Source Wiki learner view", () => {
   it("maps draft page with visible claims to still_improving", () => {
     const view = buildSourceWikiLearnerView({
       page: { id: "wp_draft", title: "Draft", status: "draft", markdown: "Draft body" },
-      claims: [{
-        id: "clm_published",
-        status: "published",
-        claimText: "Draft page claim.",
-        confidence: 0.8,
-        supportScore: 0.7,
-        evidence: [{ sourceRef: "chunk:1", excerpt: "draft" }],
-      }],
+      claims: [
+        {
+          id: "clm_published",
+          status: "published",
+          claimText: "Draft page claim.",
+          confidence: 0.8,
+          supportScore: 0.7,
+          evidence: [{ sourceRef: "chunk:1", excerpt: "draft" }],
+        },
+      ],
     });
 
     expect(view.learnerStatus).toBe("still_improving");
@@ -100,12 +167,21 @@ describe("Source Wiki learner view", () => {
   it("does not leak raw confidence or claim ids in learner mode JSON", () => {
     const view = buildSourceWikiLearnerView({
       page: { id: "wp_5", title: "Privacy", status: "published", markdown: "Privacy" },
-      claims: [{ id: "clm_secret", status: "published", claimText: "Safe claim.", confidence: 0.82, supportScore: 0.76, evidence: [{ sourceRef: "chunk:1", excerpt: "safe" }] }],
+      claims: [
+        {
+          id: "clm_secret",
+          status: "published",
+          claimText: "Safe claim.",
+          confidence: 0.82,
+          supportScore: 0.76,
+          evidence: [{ sourceRef: "chunk:1", excerpt: "safe" }],
+        },
+      ],
     });
 
     const serialized = JSON.stringify(view);
     expect(serialized).not.toContain("clm_secret");
-    expect(serialized).not.toContain("\"confidence\"");
+    expect(serialized).not.toContain('"confidence"');
     expect(serialized).not.toContain("0.82");
   });
 });

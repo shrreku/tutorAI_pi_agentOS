@@ -42,12 +42,16 @@ export type ScenarioExecutionEvidenceInput = {
   supplementalPersistence?: SyntheticLearnerAssertionPersistenceEvidence;
 };
 
-export function buildExecutionEvidenceInput(input: ScenarioExecutionEvidenceInput): Parameters<typeof buildEvalEvidenceSnapshot>[0] {
+export function buildExecutionEvidenceInput(
+  input: ScenarioExecutionEvidenceInput,
+): Parameters<typeof buildEvalEvidenceSnapshot>[0] {
   const tutorTurns = input.steps.flatMap((step) =>
     step.traceRefs.filter((ref) => ref.refType === "turn").map((ref) => ({ ref })),
   );
   const toolCalls = input.steps.flatMap((step) =>
-    step.toolEvents.flatMap((event) => event.nodeRefs.filter((ref) => ref.refType === "tool_call").map((ref) => ({ ref }))),
+    step.toolEvents.flatMap((event) =>
+      event.nodeRefs.filter((ref) => ref.refType === "tool_call").map((ref) => ({ ref })),
+    ),
   );
   const notebookEvents = input.allNotebookEvents.map((event) => ({
     ref: { refType: "notebook" as const, refId: input.notebookId },
@@ -60,9 +64,15 @@ export function buildExecutionEvidenceInput(input: ScenarioExecutionEvidenceInpu
     tutorTurns,
     toolCalls,
     notebookEvents,
-    ...(input.supplementalPersistence?.masteryEvidence ? { masteryEvidence: input.supplementalPersistence.masteryEvidence } : {}),
-    ...(input.supplementalPersistence?.artifacts ? { artifacts: input.supplementalPersistence.artifacts } : {}),
-    ...(input.supplementalPersistence?.sessionEvents ? { sessionEvents: input.supplementalPersistence.sessionEvents } : {}),
+    ...(input.supplementalPersistence?.masteryEvidence
+      ? { masteryEvidence: input.supplementalPersistence.masteryEvidence }
+      : {}),
+    ...(input.supplementalPersistence?.artifacts
+      ? { artifacts: input.supplementalPersistence.artifacts }
+      : {}),
+    ...(input.supplementalPersistence?.sessionEvents
+      ? { sessionEvents: input.supplementalPersistence.sessionEvents }
+      : {}),
     ...(input.supplementalPersistence?.sessionEvents
       ? {
           learnerTraitSignals: input.supplementalPersistence.sessionEvents
@@ -70,7 +80,9 @@ export function buildExecutionEvidenceInput(input: ScenarioExecutionEvidenceInpu
             .flatMap((event) => (event.ref ? [{ ref: event.ref }] : [])),
           learnerTraitEstimates: input.supplementalPersistence.sessionEvents
             .filter((event) => event.eventType.startsWith("learner_trait."))
-            .flatMap((event) => (event.ref?.refType === "trait_estimate" ? [{ ref: event.ref }] : [])),
+            .flatMap((event) =>
+              event.ref?.refType === "trait_estimate" ? [{ ref: event.ref }] : [],
+            ),
         }
       : {}),
   };
@@ -84,9 +96,15 @@ export async function resolveScenarioEvalEvidenceSnapshot(input: {
   execution: ScenarioExecutionEvidenceInput;
   beforeSnapshot?: EvalEvidenceSnapshot;
   afterEstimationSnapshot?: EvalEvidenceSnapshot;
-  captureSnapshot?: (input: { notebookId: string; snapshotId: string }) => Promise<EvalEvidenceSnapshot>;
+  captureSnapshot?: (input: {
+    notebookId: string;
+    snapshotId: string;
+  }) => Promise<EvalEvidenceSnapshot>;
   supplementalPersistence?: SyntheticLearnerAssertionPersistenceEvidence;
-}): Promise<{ snapshots: EvalEvidenceSnapshot[]; persistence: SyntheticLearnerAssertionPersistenceEvidence }> {
+}): Promise<{
+  snapshots: EvalEvidenceSnapshot[];
+  persistence: SyntheticLearnerAssertionPersistenceEvidence;
+}> {
   const requiredCategories = requiredSnapshotCategoriesForAssertionRefs(input.assertionRefs);
   const afterSnapshotId = `snap_${input.runId}_${input.scenarioId}_after`;
   const capturedAfter = input.captureSnapshot
@@ -96,7 +114,10 @@ export async function resolveScenarioEvalEvidenceSnapshot(input: {
         id: afterSnapshotId,
         requiredCategories,
         ...(input.supplementalPersistence?.traitRecommendationOnlySnapshot
-          ? { traitRecommendationOnlySnapshot: input.supplementalPersistence.traitRecommendationOnlySnapshot }
+          ? {
+              traitRecommendationOnlySnapshot:
+                input.supplementalPersistence.traitRecommendationOnlySnapshot,
+            }
           : {}),
       });
 
@@ -105,7 +126,9 @@ export async function resolveScenarioEvalEvidenceSnapshot(input: {
       notebookId: input.execution.notebookId,
       steps: input.execution.steps,
       allNotebookEvents: input.execution.allNotebookEvents,
-      ...(input.execution.supplementalPersistence ? { supplementalPersistence: input.execution.supplementalPersistence } : {}),
+      ...(input.execution.supplementalPersistence
+        ? { supplementalPersistence: input.execution.supplementalPersistence }
+        : {}),
     }),
     id: `snap_${input.runId}_${input.scenarioId}_execution`,
     requiredCategories,
@@ -118,7 +141,9 @@ export async function resolveScenarioEvalEvidenceSnapshot(input: {
         notebookId: input.execution.notebookId,
         steps: input.execution.steps,
         allNotebookEvents: input.execution.allNotebookEvents,
-        ...(input.execution.supplementalPersistence ? { supplementalPersistence: input.execution.supplementalPersistence } : {}),
+        ...(input.execution.supplementalPersistence
+          ? { supplementalPersistence: input.execution.supplementalPersistence }
+          : {}),
       }),
     },
   });
@@ -135,7 +160,8 @@ export async function resolveScenarioEvalEvidenceSnapshot(input: {
   } else if (input.supplementalPersistence?.traitRecommendationOnlySnapshot) {
     afterSnapshot = {
       ...afterSnapshot,
-      traitRecommendationOnlySnapshot: input.supplementalPersistence.traitRecommendationOnlySnapshot,
+      traitRecommendationOnlySnapshot:
+        input.supplementalPersistence.traitRecommendationOnlySnapshot,
     };
   }
 
@@ -157,17 +183,37 @@ export function collectExecutedRuntimeEvidence(input: {
   toolEvents: SyntheticLearnerToolEvent[];
 }): string[] {
   const executed = new Set<string>();
-  if (input.runtimeEvents.some((event) => event.eventType.includes("context"))) executed.add("runtime_context_selection");
-  if (input.runtimeEvents.some((event) => event.eventType.includes("evaluate_response") || event.eventType.includes("mastery_evidence"))) {
+  if (input.runtimeEvents.some((event) => event.eventType.includes("context")))
+    executed.add("runtime_context_selection");
+  if (
+    input.runtimeEvents.some(
+      (event) =>
+        event.eventType.includes("evaluate_response") ||
+        event.eventType.includes("mastery_evidence"),
+    )
+  ) {
     executed.add("runtime_mastery_evidence");
   }
-  if (input.runtimeEvents.some((event) => event.eventType.includes("artifact")) || input.toolEvents.some((event) => event.toolName.includes("artifact"))) {
+  if (
+    input.runtimeEvents.some((event) => event.eventType.includes("artifact")) ||
+    input.toolEvents.some((event) => event.toolName.includes("artifact"))
+  ) {
     executed.add("runtime_artifact_lifecycle");
   }
-  if (input.runtimeEvents.some((event) => event.eventType.includes("session") || event.eventType.includes("digest") || event.eventType.includes("crystall"))) {
+  if (
+    input.runtimeEvents.some(
+      (event) =>
+        event.eventType.includes("session") ||
+        event.eventType.includes("digest") ||
+        event.eventType.includes("crystall"),
+    )
+  ) {
     executed.add("runtime_session_digest");
   }
-  if (input.runtimeEvents.some((event) => event.eventType.startsWith("learner_trait.")) || input.toolEvents.some((event) => event.toolName.includes("learner_trait"))) {
+  if (
+    input.runtimeEvents.some((event) => event.eventType.startsWith("learner_trait.")) ||
+    input.toolEvents.some((event) => event.toolName.includes("learner_trait"))
+  ) {
     executed.add("runtime_trait_estimation");
   }
   return [...executed];
@@ -185,7 +231,9 @@ export function uniqueNodeRefs(refs: NodeRef[]): NodeRef[] {
   return deduped;
 }
 
-export function persistenceAssertionsRequireSnapshot(assertionRefs: SyntheticLearnerEvalRunPlan["assertionRefs"]): boolean {
+export function persistenceAssertionsRequireSnapshot(
+  assertionRefs: SyntheticLearnerEvalRunPlan["assertionRefs"],
+): boolean {
   return assertionRefs.some((ref) => ref.refId.startsWith("persistence_"));
 }
 
@@ -226,10 +274,15 @@ export async function finalizeSyntheticLearnerScenarioRun(input: {
   autonomyStartProfile?: SyntheticLearnerEvalScenarioRun["autonomyStartProfile"];
   beforeSnapshot?: EvalEvidenceSnapshot;
   afterEstimationSnapshot?: EvalEvidenceSnapshot;
-  captureSnapshot?: (input: { notebookId: string; snapshotId: string }) => Promise<EvalEvidenceSnapshot>;
+  captureSnapshot?: (input: {
+    notebookId: string;
+    snapshotId: string;
+  }) => Promise<EvalEvidenceSnapshot>;
   supplementalPersistence?: SyntheticLearnerAssertionPersistenceEvidence;
   writeObservation?: (
-    event: Omit<SyntheticLearnerEvalObservationEvent, "id" | "runId" | "timestamp"> & { timestamp?: string },
+    event: Omit<SyntheticLearnerEvalObservationEvent, "id" | "runId" | "timestamp"> & {
+      timestamp?: string;
+    },
   ) => Promise<void>;
 }): Promise<{
   scenarioRun: SyntheticLearnerEvalScenarioRun;
@@ -246,32 +299,46 @@ export async function finalizeSyntheticLearnerScenarioRun(input: {
       notebookId: input.notebookId,
       steps: input.steps,
       allNotebookEvents: input.allNotebookEvents,
-      ...(input.supplementalPersistence ? { supplementalPersistence: input.supplementalPersistence } : {}),
+      ...(input.supplementalPersistence
+        ? { supplementalPersistence: input.supplementalPersistence }
+        : {}),
     },
     ...(input.beforeSnapshot ? { beforeSnapshot: input.beforeSnapshot } : {}),
-    ...(input.afterEstimationSnapshot ? { afterEstimationSnapshot: input.afterEstimationSnapshot } : {}),
+    ...(input.afterEstimationSnapshot
+      ? { afterEstimationSnapshot: input.afterEstimationSnapshot }
+      : {}),
     ...(input.captureSnapshot ? { captureSnapshot: input.captureSnapshot } : {}),
-    ...(input.supplementalPersistence ? { supplementalPersistence: input.supplementalPersistence } : {}),
+    ...(input.supplementalPersistence
+      ? { supplementalPersistence: input.supplementalPersistence }
+      : {}),
   });
 
   const requiredCategories = requiredSnapshotCategoriesForAssertionRefs(input.plan.assertionRefs);
   const afterSnapshot = evidence.snapshots.at(-1);
-  const missingCategories = afterSnapshot ? missingRequiredSnapshotCategories(afterSnapshot) : requiredCategories;
-  const snapshotComplete = requiredCategories.every((category) => !missingCategories.includes(category));
-  const persistence = !snapshotComplete && input.finalAssertionInput
-    ? mergePersistenceEvidenceWithRuntime(
-        evidence.persistence,
-        persistenceEvidenceFromRuntimeEvents(input.finalAssertionInput.runtimeEvents),
-      )
-    : evidence.persistence;
-  const disableRuntimeFallback = persistenceAssertionsRequireSnapshot(input.plan.assertionRefs)
-    && Boolean(input.captureSnapshot)
-    && snapshotComplete;
+  const missingCategories = afterSnapshot
+    ? missingRequiredSnapshotCategories(afterSnapshot)
+    : requiredCategories;
+  const snapshotComplete = requiredCategories.every(
+    (category) => !missingCategories.includes(category),
+  );
+  const persistence =
+    !snapshotComplete && input.finalAssertionInput
+      ? mergePersistenceEvidenceWithRuntime(
+          evidence.persistence,
+          persistenceEvidenceFromRuntimeEvents(input.finalAssertionInput.runtimeEvents),
+        )
+      : evidence.persistence;
+  const disableRuntimeFallback =
+    persistenceAssertionsRequireSnapshot(input.plan.assertionRefs) &&
+    Boolean(input.captureSnapshot) &&
+    snapshotComplete;
   let scenarioAssertions = input.scenarioAssertions;
   let finalStatus = input.finalStatus;
   let finalSummary = input.finalSummary;
   if (input.finalAssertionInput) {
-    const assertionResultsById = input.assertionResultsById ?? new Map(input.scenarioAssertions.map((assertion) => [assertion.id, assertion]));
+    const assertionResultsById =
+      input.assertionResultsById ??
+      new Map(input.scenarioAssertions.map((assertion) => [assertion.id, assertion]));
     const finalAssertions = evaluateSyntheticLearnerAssertions({
       assertionRefs: input.plan.assertionRefs,
       ...input.finalAssertionInput,
@@ -325,7 +392,9 @@ export async function finalizeSyntheticLearnerScenarioRun(input: {
     simulatorEvidence: input.simulatorEvidence ?? [],
     issueCandidates: [],
     observationEvents: input.observationEvents,
-    evalEvidenceSnapshotRefs: uniqueNodeRefs(evidence.snapshots.flatMap((snapshot) => snapshot.snapshotRefs)),
+    evalEvidenceSnapshotRefs: uniqueNodeRefs(
+      evidence.snapshots.flatMap((snapshot) => snapshot.snapshotRefs),
+    ),
     evalEvidenceSnapshots: evidence.snapshots,
     evalPlan: input.plan,
     rubricResults: input.rubricResults ?? [],
@@ -378,4 +447,3 @@ export async function finalizeSyntheticLearnerScenarioRun(input: {
 
   return { scenarioRun, runRecord, observationEvents: input.observationEvents };
 }
-

@@ -56,7 +56,11 @@ export function AdminUsersPage({ navigate }: { navigate: (path: string) => void 
             {data.users.map((user) => (
               <tr key={user.id}>
                 <td>
-                  <button type="button" className="tb-inline-link" onClick={() => navigate(`/admin/users/${encodeURIComponent(user.id)}`)}>
+                  <button
+                    type="button"
+                    className="tb-inline-link"
+                    onClick={() => navigate(`/admin/users/${encodeURIComponent(user.id)}`)}
+                  >
                     {user.email}
                   </button>
                 </td>
@@ -75,7 +79,9 @@ export function AdminUsersPage({ navigate }: { navigate: (path: string) => void 
                   <button
                     type="button"
                     disabled={busyId === user.id}
-                    onClick={() => void patchUser(user.id, { ingestionAccess: !user.ingestionAccess })}
+                    onClick={() =>
+                      void patchUser(user.id, { ingestionAccess: !user.ingestionAccess })
+                    }
                   >
                     Toggle ingestion
                   </button>

@@ -1,6 +1,9 @@
 import { and, asc, desc, eq, gt, sql } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
-import { syntheticLearnerEvalRunRecordSchema, type SyntheticLearnerEvalRunRecord } from "@studyagent/schemas";
+import {
+  syntheticLearnerEvalRunRecordSchema,
+  type SyntheticLearnerEvalRunRecord,
+} from "@studyagent/schemas";
 import type { AppContext } from "../context.js";
 import { withAdminAccess } from "../hosted-beta/route-guards.js";
 import { syntheticLearnerEvalRuns } from "@studyagent/db";
@@ -71,7 +74,12 @@ export async function registerEvalRunRoutes(app: FastifyInstance, ctx: AppContex
         const rows = await ctx.db.db
           .select()
           .from(syntheticLearnerEvalRuns)
-          .where(and(eq(syntheticLearnerEvalRuns.ownerId, actor.id), gt(syntheticLearnerEvalRuns.updatedAt, cursor)))
+          .where(
+            and(
+              eq(syntheticLearnerEvalRuns.ownerId, actor.id),
+              gt(syntheticLearnerEvalRuns.updatedAt, cursor),
+            ),
+          )
           .orderBy(asc(syntheticLearnerEvalRuns.updatedAt))
           .limit(100);
 
@@ -110,7 +118,12 @@ export async function registerEvalRunRoutes(app: FastifyInstance, ctx: AppContex
       const [row] = await ctx.db.db
         .select()
         .from(syntheticLearnerEvalRuns)
-        .where(and(eq(syntheticLearnerEvalRuns.id, request.params.runId), eq(syntheticLearnerEvalRuns.ownerId, actor.id)))
+        .where(
+          and(
+            eq(syntheticLearnerEvalRuns.id, request.params.runId),
+            eq(syntheticLearnerEvalRuns.ownerId, actor.id),
+          ),
+        )
         .limit(1);
 
       if (!row) {
@@ -138,34 +151,46 @@ export async function registerEvalRunRoutes(app: FastifyInstance, ctx: AppContex
     });
   });
 
-  app.patch<{ Params: { runId: string }; Body: unknown }>("/eval/runs/:runId", async (request, reply) => {
-    return withAdminAccess(ctx, request, reply, async (actor) => {
-      const patch = syntheticLearnerEvalRunRecordSchema.partial().extend({
-        observationEvents: syntheticLearnerEvalRunRecordSchema.shape.observationEvents.optional(),
-      }).parse(request.body);
-      const [existing] = await ctx.db.db
-        .select()
-        .from(syntheticLearnerEvalRuns)
-        .where(and(eq(syntheticLearnerEvalRuns.id, request.params.runId), eq(syntheticLearnerEvalRuns.ownerId, actor.id)))
-        .limit(1);
+  app.patch<{ Params: { runId: string }; Body: unknown }>(
+    "/eval/runs/:runId",
+    async (request, reply) => {
+      return withAdminAccess(ctx, request, reply, async (actor) => {
+        const patch = syntheticLearnerEvalRunRecordSchema
+          .partial()
+          .extend({
+            observationEvents:
+              syntheticLearnerEvalRunRecordSchema.shape.observationEvents.optional(),
+          })
+          .parse(request.body);
+        const [existing] = await ctx.db.db
+          .select()
+          .from(syntheticLearnerEvalRuns)
+          .where(
+            and(
+              eq(syntheticLearnerEvalRuns.id, request.params.runId),
+              eq(syntheticLearnerEvalRuns.ownerId, actor.id),
+            ),
+          )
+          .limit(1);
 
-      if (!existing) {
-        return reply.status(404).send({ code: "not_found", message: "Eval run not found" });
-      }
+        if (!existing) {
+          return reply.status(404).send({ code: "not_found", message: "Eval run not found" });
+        }
 
-      const mergedRun = syntheticLearnerEvalRunRecordSchema.parse({
-        ...syntheticLearnerEvalRunRecordSchema.parse(existing.runJson),
-        ...patch,
-        id: request.params.runId,
-        observationEvents: mergeObservationEvents(
-          syntheticLearnerEvalRunRecordSchema.parse(existing.runJson).observationEvents,
-          patch.observationEvents ?? [],
-        ),
+        const mergedRun = syntheticLearnerEvalRunRecordSchema.parse({
+          ...syntheticLearnerEvalRunRecordSchema.parse(existing.runJson),
+          ...patch,
+          id: request.params.runId,
+          observationEvents: mergeObservationEvents(
+            syntheticLearnerEvalRunRecordSchema.parse(existing.runJson).observationEvents,
+            patch.observationEvents ?? [],
+          ),
+        });
+        const summary = await upsertEvalRun(ctx, actor.id, mergedRun, Boolean(existing));
+        return reply.send({ summary, run: mergedRun });
       });
-      const summary = await upsertEvalRun(ctx, actor.id, mergedRun, Boolean(existing));
-      return reply.send({ summary, run: mergedRun });
-    });
-  });
+    },
+  );
 }
 
 async function upsertEvalRun(
@@ -177,7 +202,9 @@ async function upsertEvalRun(
   const now = new Date();
   const personaIds = uniqueValues(run.scenarioRuns.map((scenarioRun) => scenarioRun.personaId));
   const scenarioIds = uniqueValues(run.scenarioRuns.map((scenarioRun) => scenarioRun.scenarioId));
-  const failedScenarioCount = run.scenarioRuns.filter((scenarioRun) => scenarioRun.status === "failed").length;
+  const failedScenarioCount = run.scenarioRuns.filter(
+    (scenarioRun) => scenarioRun.status === "failed",
+  ).length;
   const notebookId = run.notebookRefs[0]?.refId ?? run.seededNotebookId;
   if (!notebookId) {
     throw new Error("Eval run is missing a notebook reference");
@@ -206,7 +233,9 @@ async function upsertEvalRun(
     await ctx.db.db
       .update(syntheticLearnerEvalRuns)
       .set(values)
-      .where(and(eq(syntheticLearnerEvalRuns.id, run.id), eq(syntheticLearnerEvalRuns.ownerId, ownerId)));
+      .where(
+        and(eq(syntheticLearnerEvalRuns.id, run.id), eq(syntheticLearnerEvalRuns.ownerId, ownerId)),
+      );
   } else {
     await ctx.db.db.insert(syntheticLearnerEvalRuns).values({
       ...values,
@@ -290,10 +319,17 @@ function summarizeEvalRun(
     fixtureVersion: row.fixtureVersion,
     notebookId: row.notebookId,
     scenarioRunCount: row.scenarioRunCount || run.scenarioRuns.length,
-    passedScenarioCount: run.scenarioRuns.filter((scenarioRun) => scenarioRun.status === "passed").length,
-    failedScenarioCount: row.failedScenarioCount || run.scenarioRuns.filter((scenarioRun) => scenarioRun.status === "failed").length,
-    personaIds: row.personaCoverageJson.length ? row.personaCoverageJson : uniqueValues(run.scenarioRuns.map((scenarioRun) => scenarioRun.personaId)),
-    scenarioIds: row.scenarioCoverageJson.length ? row.scenarioCoverageJson : uniqueValues(run.scenarioRuns.map((scenarioRun) => scenarioRun.scenarioId)),
+    passedScenarioCount: run.scenarioRuns.filter((scenarioRun) => scenarioRun.status === "passed")
+      .length,
+    failedScenarioCount:
+      row.failedScenarioCount ||
+      run.scenarioRuns.filter((scenarioRun) => scenarioRun.status === "failed").length,
+    personaIds: row.personaCoverageJson.length
+      ? row.personaCoverageJson
+      : uniqueValues(run.scenarioRuns.map((scenarioRun) => scenarioRun.personaId)),
+    scenarioIds: row.scenarioCoverageJson.length
+      ? row.scenarioCoverageJson
+      : uniqueValues(run.scenarioRuns.map((scenarioRun) => scenarioRun.scenarioId)),
     notebookRefs: row.notebookRefsJson.length ? row.notebookRefsJson : run.notebookRefs,
     transcriptLineCount: run.transcript.length,
     updatedAt: toIsoString(row.updatedAt),
@@ -364,13 +400,16 @@ function createEvalRunUpdateNotifier(ctx: AppContext): EvalRunUpdateNotifier {
   };
 }
 
-export function parseEvalRunUpdateNotificationPayload(payload: string): EvalRunUpdateNotification | null {
+export function parseEvalRunUpdateNotificationPayload(
+  payload: string,
+): EvalRunUpdateNotification | null {
   try {
     const parsed = JSON.parse(payload) as Record<string, unknown>;
     if (typeof parsed.runId !== "string" || !parsed.runId) return null;
     if (typeof parsed.ownerId !== "string" || !parsed.ownerId) return null;
     if (typeof parsed.status !== "string" || !parsed.status) return null;
-    if (typeof parsed.updatedAt !== "string" || Number.isNaN(Date.parse(parsed.updatedAt))) return null;
+    if (typeof parsed.updatedAt !== "string" || Number.isNaN(Date.parse(parsed.updatedAt)))
+      return null;
     return {
       runId: parsed.runId,
       ownerId: parsed.ownerId,
@@ -410,7 +449,9 @@ function evalRunUpdateEnvelopeFromRow(row: {
   };
 }
 
-function evalRunUpdateEnvelopeFromNotification(event: EvalRunUpdateNotification): EvalRunUpdateEnvelope {
+function evalRunUpdateEnvelopeFromNotification(
+  event: EvalRunUpdateNotification,
+): EvalRunUpdateEnvelope {
   return {
     eventType: "eval_run.updated",
     runId: event.runId,

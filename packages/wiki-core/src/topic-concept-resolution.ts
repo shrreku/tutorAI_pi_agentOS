@@ -55,7 +55,11 @@ export function shouldMergeTopics(a: TopicMergeCandidate, b: TopicMergeCandidate
 
   const aObjectives = a.objectiveIds ?? [];
   const bObjectives = b.objectiveIds ?? [];
-  if (aObjectives.length > 0 && bObjectives.length > 0 && overlapCount(aObjectives, bObjectives) > 0) {
+  if (
+    aObjectives.length > 0 &&
+    bObjectives.length > 0 &&
+    overlapCount(aObjectives, bObjectives) > 0
+  ) {
     return true;
   }
 
@@ -100,7 +104,11 @@ function topicPageToMergeCandidate(page: ExistingTopicPageRef): TopicMergeCandid
     title,
     aliases,
     ...(Array.isArray(headingPath)
-      ? { sourceHeadingPath: headingPath.filter((entry): entry is string => typeof entry === "string") }
+      ? {
+          sourceHeadingPath: headingPath.filter(
+            (entry): entry is string => typeof entry === "string",
+          ),
+        }
       : {}),
     conceptIds: Array.isArray(page.structuredJson?.conceptIds)
       ? page.structuredJson.conceptIds.filter((entry): entry is string => typeof entry === "string")
@@ -160,16 +168,25 @@ export function topicPageBelongsToSource(page: ExistingTopicPageRef, sourceId: s
 }
 
 export function loadTopicPagesForObjectiveConcepts(input: {
-  topicPages: Array<{ id: string; pageKey: string; title: string; structuredJson?: Record<string, unknown> }>;
+  topicPages: Array<{
+    id: string;
+    pageKey: string;
+    title: string;
+    structuredJson?: Record<string, unknown>;
+  }>;
   conceptRows: Array<{ id: string; canonicalName: string }>;
   objectiveConceptIds: string[];
   moduleTopicTitles?: string[];
 }): Array<{ id: string; pageKey: string; title: string }> {
   const wantedConceptIds = new Set(input.objectiveConceptIds);
   const conceptNames = new Set(
-    input.conceptRows.filter((row) => wantedConceptIds.has(row.id)).map((row) => row.canonicalName.toLowerCase()),
+    input.conceptRows
+      .filter((row) => wantedConceptIds.has(row.id))
+      .map((row) => row.canonicalName.toLowerCase()),
   );
-  const moduleTopics = new Set((input.moduleTopicTitles ?? []).map((title) => normalizeTopicKey(title)));
+  const moduleTopics = new Set(
+    (input.moduleTopicTitles ?? []).map((title) => normalizeTopicKey(title)),
+  );
 
   const matches = input.topicPages.filter((page) => {
     const pageConceptIds = Array.isArray(page.structuredJson?.conceptIds)
@@ -182,11 +199,16 @@ export function loadTopicPagesForObjectiveConcepts(input: {
     if (moduleTopics.has(normalizeTopicKey(topicTitle))) return true;
 
     const structuredTopicKey = page.structuredJson?.topicKey;
-    if (typeof structuredTopicKey === "string" && moduleTopics.has(structuredTopicKey.replace(/^topic:/, ""))) {
+    if (
+      typeof structuredTopicKey === "string" &&
+      moduleTopics.has(structuredTopicKey.replace(/^topic:/, ""))
+    ) {
       return true;
     }
     return false;
   });
 
-  return matches.slice(0, 8).map((page) => ({ id: page.id, pageKey: page.pageKey, title: page.title }));
+  return matches
+    .slice(0, 8)
+    .map((page) => ({ id: page.id, pageKey: page.pageKey, title: page.title }));
 }

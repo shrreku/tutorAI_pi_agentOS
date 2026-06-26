@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { evaluateSimulationDraftForPromotion, validateSimulationDraft } from "./simulation-draft-pipeline.js";
+import {
+  evaluateSimulationDraftForPromotion,
+  validateSimulationDraft,
+} from "./simulation-draft-pipeline.js";
 
 describe("simulation draft pipeline", () => {
   it("rejects drafts that fail safety checklist items", () => {

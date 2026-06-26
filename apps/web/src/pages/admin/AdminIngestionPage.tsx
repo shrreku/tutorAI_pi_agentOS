@@ -26,9 +26,19 @@ type TriggerRunsResponse = {
 
 function toIngestionStatus(source: IngestionSourceRow["source"]): IngestionStatusView {
   const learnerRetryCount =
-    typeof source.metadataJson.learnerRetryCount === "number" ? source.metadataJson.learnerRetryCount : 0;
+    typeof source.metadataJson.learnerRetryCount === "number"
+      ? source.metadataJson.learnerRetryCount
+      : 0;
   if (source.status === "ingestion_review") {
-    return { status: source.status, queued: false, processing: false, ready: false, failed: true, retryNeeded: false, reviewNeeded: true };
+    return {
+      status: source.status,
+      queued: false,
+      processing: false,
+      ready: false,
+      failed: true,
+      retryNeeded: false,
+      reviewNeeded: true,
+    };
   }
   if (source.status === "failed") {
     return {
@@ -42,16 +52,42 @@ function toIngestionStatus(source: IngestionSourceRow["source"]): IngestionStatu
     };
   }
   if (source.status === "uploaded") {
-    return { status: source.status, queued: true, processing: false, ready: false, failed: false, retryNeeded: false, reviewNeeded: false };
+    return {
+      status: source.status,
+      queued: true,
+      processing: false,
+      ready: false,
+      failed: false,
+      retryNeeded: false,
+      reviewNeeded: false,
+    };
   }
   if (source.status === "tutoring_ready" || source.status === "ready") {
-    return { status: source.status, queued: false, processing: false, ready: true, failed: false, retryNeeded: false, reviewNeeded: false };
+    return {
+      status: source.status,
+      queued: false,
+      processing: false,
+      ready: true,
+      failed: false,
+      retryNeeded: false,
+      reviewNeeded: false,
+    };
   }
-  return { status: source.status, queued: false, processing: true, ready: false, failed: false, retryNeeded: false, reviewNeeded: false };
+  return {
+    status: source.status,
+    queued: false,
+    processing: true,
+    ready: false,
+    failed: false,
+    retryNeeded: false,
+    reviewNeeded: false,
+  };
 }
 
 export function AdminIngestionPage() {
-  const { data, error, loading, reload } = useAdminFetch<IngestionSourcesResponse>("/admin/ingestion/sources");
+  const { data, error, loading, reload } = useAdminFetch<IngestionSourcesResponse>(
+    "/admin/ingestion/sources",
+  );
   const { data: runsData } = useAdminFetch<TriggerRunsResponse>("/admin/ingestion/trigger-runs");
   const [triggerMessage, setTriggerMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -62,7 +98,9 @@ export function AdminIngestionPage() {
     try {
       const res = await api("/admin/ingestion/trigger", { method: "POST" });
       const body = (await res.json()) as { runId?: string; status?: string; message?: string };
-      setTriggerMessage(body.runId ? `Trigger ${body.status} (${body.runId})` : body.message ?? "Triggered");
+      setTriggerMessage(
+        body.runId ? `Trigger ${body.status} (${body.runId})` : (body.message ?? "Triggered"),
+      );
       await reload();
     } catch (err) {
       setTriggerMessage(err instanceof Error ? err.message : String(err));
@@ -74,8 +112,15 @@ export function AdminIngestionPage() {
   return (
     <div className="tb-card">
       <h1>Ingestion</h1>
-      <p>Review queued, failed, and review-needed sources. Manually trigger a one-shot worker drain.</p>
-      <button type="button" className="tb-button tb-button-primary" disabled={busy} onClick={() => void triggerDrain()}>
+      <p>
+        Review queued, failed, and review-needed sources. Manually trigger a one-shot worker drain.
+      </p>
+      <button
+        type="button"
+        className="tb-button tb-button-primary"
+        disabled={busy}
+        onClick={() => void triggerDrain()}
+      >
         Trigger worker drain
       </button>
       {triggerMessage ? <p>{triggerMessage}</p> : null}
@@ -96,7 +141,9 @@ export function AdminIngestionPage() {
                 <td>{row.source.title}</td>
                 <td>{row.notebookTitle}</td>
                 <td>{row.ownerEmail}</td>
-                <td><IngestionStatusBadge status={toIngestionStatus(row.source)} /></td>
+                <td>
+                  <IngestionStatusBadge status={toIngestionStatus(row.source)} />
+                </td>
               </tr>
             ))}
           </tbody>
@@ -121,7 +168,9 @@ export function AdminIngestionPage() {
                   <td>{run.id}</td>
                   <td>{run.triggeredBy}</td>
                   <td>{run.status}</td>
-                  <td>{run.jobsCompleted}/{run.jobsClaimed} ({run.jobsFailed} failed)</td>
+                  <td>
+                    {run.jobsCompleted}/{run.jobsClaimed} ({run.jobsFailed} failed)
+                  </td>
                   <td>{new Date(run.startedAt).toLocaleString()}</td>
                 </tr>
               ))}

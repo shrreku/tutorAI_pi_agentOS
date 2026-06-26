@@ -29,7 +29,9 @@ export const adaptivePlanSignalSchema = z.object({
   targetRefs: z.array(nodeRefSchema).default([]),
   confidence: z.number().min(0).max(1),
   sourceRefs: z.array(nodeRefSchema).default([]),
-  turnRefs: z.array(z.object({ refType: z.enum(["turn", "session", "run"]), refId: idSchema })).default([]),
+  turnRefs: z
+    .array(z.object({ refType: z.enum(["turn", "session", "run"]), refId: idSchema }))
+    .default([]),
   learnerConfirmation: learnerConfirmationStateSchema.default("unconfirmed"),
   reason: z.string().min(1),
 });
@@ -50,7 +52,9 @@ const DURABLE_SIGNAL_TYPES = new Set<AdaptivePlanSignalType>([
 
 export function shouldApplyDurablePlanChange(signals: AdaptivePlanSignal[]): boolean {
   const durable = signals.filter(
-    (signal) => DURABLE_SIGNAL_TYPES.has(signal.signalType) && signal.confidence >= DURABLE_PLAN_CHANGE_CONFIDENCE_THRESHOLD,
+    (signal) =>
+      DURABLE_SIGNAL_TYPES.has(signal.signalType) &&
+      signal.confidence >= DURABLE_PLAN_CHANGE_CONFIDENCE_THRESHOLD,
   );
   return durable.length > 0;
 }
@@ -104,7 +108,9 @@ export function buildAdaptivePlanSignalsFromMasteryEvidence(
   const masteryIncreasedConceptIds =
     evidence.tutoringIntervention === "advance" ||
     (evidence.correctnessLabel === "correct" && evidence.confidence >= 0.7)
-      ? evidence.conceptScores.filter((entry) => entry.score >= 0.65 || entry.delta > 0).map((entry) => entry.conceptId)
+      ? evidence.conceptScores
+          .filter((entry) => entry.score >= 0.65 || entry.delta > 0)
+          .map((entry) => entry.conceptId)
       : [];
   const weakConceptIds =
     context.weakConceptIds ??
@@ -167,9 +173,15 @@ export function buildAdaptivePlanSignals(input: {
     signals.push({
       id: nextId(),
       signalType: "checkpoint_performance",
-      targetRefs: (input.diagnosticConceptIds ?? []).map((refId) => ({ refType: "concept" as const, refId })),
+      targetRefs: (input.diagnosticConceptIds ?? []).map((refId) => ({
+        refType: "concept" as const,
+        refId,
+      })),
       confidence: 0.78,
-      sourceRefs: (input.sourceRefs ?? []).map((ref) => ({ refType: ref.refType as "source", refId: ref.refId })),
+      sourceRefs: (input.sourceRefs ?? []).map((ref) => ({
+        refType: ref.refType as "source",
+        refId: ref.refId,
+      })),
       turnRefs: input.turnRef ? [input.turnRef] : [],
       learnerConfirmation: "unconfirmed",
       reason: "Checkpoint performance showed the learner needs remediation.",
@@ -238,7 +250,10 @@ export function buildAdaptivePlanSignals(input: {
       signalType: "learner_self_report",
       targetRefs: [],
       confidence: 0.62,
-      sourceRefs: (input.sourceRefs ?? []).map((ref) => ({ refType: ref.refType as "source", refId: ref.refId })),
+      sourceRefs: (input.sourceRefs ?? []).map((ref) => ({
+        refType: ref.refType as "source",
+        refId: ref.refId,
+      })),
       turnRefs: input.turnRef ? [input.turnRef] : [],
       learnerConfirmation: "unconfirmed",
       reason: "Learner self-reported readiness or confusion.",
@@ -249,9 +264,15 @@ export function buildAdaptivePlanSignals(input: {
     signals.push({
       id: nextId(),
       signalType: "source_coverage_gap",
-      targetRefs: (input.sourceRefs ?? []).map((ref) => ({ refType: ref.refType as "source", refId: ref.refId })),
+      targetRefs: (input.sourceRefs ?? []).map((ref) => ({
+        refType: ref.refType as "source",
+        refId: ref.refId,
+      })),
       confidence: 0.76,
-      sourceRefs: (input.sourceRefs ?? []).map((ref) => ({ refType: ref.refType as "source", refId: ref.refId })),
+      sourceRefs: (input.sourceRefs ?? []).map((ref) => ({
+        refType: ref.refType as "source",
+        refId: ref.refId,
+      })),
       turnRefs: input.turnRef ? [input.turnRef] : [],
       learnerConfirmation: "unconfirmed",
       reason: "Selected sources did not cover the requested teaching context.",
@@ -262,7 +283,10 @@ export function buildAdaptivePlanSignals(input: {
     signals.push({
       id: nextId(),
       signalType: "mastery_change",
-      targetRefs: (input.nextObjectiveIds ?? []).map((refId) => ({ refType: "objective" as const, refId })),
+      targetRefs: (input.nextObjectiveIds ?? []).map((refId) => ({
+        refType: "objective" as const,
+        refId,
+      })),
       confidence: 0.72,
       sourceRefs: [],
       turnRefs: input.turnRef ? [input.turnRef] : [],
@@ -275,7 +299,10 @@ export function buildAdaptivePlanSignals(input: {
     signals.push({
       id: nextId(),
       signalType: "multi_turn_confusion",
-      targetRefs: (input.weakConceptIds ?? []).map((refId) => ({ refType: "concept" as const, refId })),
+      targetRefs: (input.weakConceptIds ?? []).map((refId) => ({
+        refType: "concept" as const,
+        refId,
+      })),
       confidence: 0.68,
       sourceRefs: [],
       turnRefs: input.turnRef ? [input.turnRef] : [],

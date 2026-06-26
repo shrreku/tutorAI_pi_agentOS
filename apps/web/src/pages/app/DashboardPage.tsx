@@ -17,7 +17,11 @@ export function DashboardPage({ navigate }: { navigate: (path: string) => void }
   const [level, setLevel] = useState<string>(LEVEL_OPTIONS[0].value);
   const [onboardingError, setOnboardingError] = useState<string | null>(null);
 
-  const { data: templates = [], isLoading, error } = useQuery({
+  const {
+    data: templates = [],
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ["study-templates"],
     queryFn: fetchStudyTemplates,
   });
@@ -47,10 +51,16 @@ export function DashboardPage({ navigate }: { navigate: (path: string) => void }
         <div className="tb-modal-backdrop" role="presentation">
           <div className="tb-modal tb-card" role="dialog" aria-labelledby="onboarding-title">
             <h2 id="onboarding-title">Quick setup</h2>
-            <p className="tb-lead">Optional — helps us suggest better study paths. You can skip anytime.</p>
+            <p className="tb-lead">
+              Optional — helps us suggest better study paths. You can skip anytime.
+            </p>
             <label className="tb-field">
               <span>What are you trying to learn right now?</span>
-              <textarea value={studyGoal} onChange={(event) => setStudyGoal(event.target.value)} rows={3} />
+              <textarea
+                value={studyGoal}
+                onChange={(event) => setStudyGoal(event.target.value)}
+                rows={3}
+              />
             </label>
             <label className="tb-field">
               <span>Rough level</span>
@@ -89,7 +99,11 @@ export function DashboardPage({ navigate }: { navigate: (path: string) => void }
       <p className="tb-lead">Choose a published template to start a guided study path.</p>
 
       {isLoading && <div className="tb-card">Loading templates…</div>}
-      {error && <pre className="tb-error">{error instanceof Error ? error.message : "Failed to load templates"}</pre>}
+      {error && (
+        <pre className="tb-error">
+          {error instanceof Error ? error.message : "Failed to load templates"}
+        </pre>
+      )}
 
       {!isLoading && !error && templates.length === 0 && (
         <div className="tb-card">

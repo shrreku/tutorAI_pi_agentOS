@@ -37,12 +37,12 @@ Use [`ui-example/mist-glass/`](../../ui-example/mist-glass/README.md) as the ana
 
 Shared type system across design explorations (`design-variations/README.md`):
 
-| Role | Typeface | Folio usage |
-|------|----------|-------------|
-| Display / titles | Fraunces (Instrument Serif fallback) | Workspace titles, reference H1s, drawer headings, node XL titles |
-| Long-form reading | Instrument Serif | Tutor prose, wiki body, worked-example steps |
-| UI / labels / body | Inter | Controls, meta, chips, status bars, graph labels |
-| Eyebrows / locators | JetBrains Mono | Type badges, locators, compact meta |
+| Role                | Typeface                             | Folio usage                                                      |
+| ------------------- | ------------------------------------ | ---------------------------------------------------------------- |
+| Display / titles    | Fraunces (Instrument Serif fallback) | Workspace titles, reference H1s, drawer headings, node XL titles |
+| Long-form reading   | Instrument Serif                     | Tutor prose, wiki body, worked-example steps                     |
+| UI / labels / body  | Inter                                | Controls, meta, chips, status bars, graph labels                 |
+| Eyebrows / locators | JetBrains Mono                       | Type badges, locators, compact meta                              |
 
 Mist Glass uses Inter throughout; Folio's differentiation is serif-forward reading surfaces with sans UI chrome.
 
@@ -54,21 +54,21 @@ Folio adds **Completed** and **Locked** to the Mist Glass state set (Default · 
 
 ## Kit status
 
-| Area | Folio status | Mist Glass reference |
-|------|--------------|----------------------|
-| Node pack (XL→XS) | **Complete** — 12 showcase frames | `ui-example/mist-glass/node-pack/` |
-| Node components | **Complete** — 5 scales | `ui-example/mist-glass/node-components/` |
-| Workspace screens | **Complete** — 6 screens | `ui-example/mist-glass/workspace-screens/` |
-| Reference surfaces | **Complete** — 13 pages + widget library | `ui-example/mist-glass/reference-surfaces/` |
-| Reference header | **Complete** | `ui-example/mist-glass/reference-components/` |
-| Evidence pages | **Complete** — 5 format variants | `ui-example/mist-glass/evidence-pages/` |
-| Evidence workspace | **Complete** — 2 overlay screens | `ui-example/mist-glass/evidence-workspace/` |
-| Dashboard | **Complete** — library index layout | `ui-example/mist-glass/workspace-screens/dashboard.png` |
-| Tutor chat kit | **Partial** — tabs + composer only | `ui-example/mist-glass/chat-components/` (15 files) |
-| Evidence components | **Partial** — dock shell only | `ui-example/mist-glass/evidence-components/` (12 files) |
-| Workspace chrome | **Missing** | `workspace-surface-switcher`, `workspace-status-bar` |
-| Chat showcases | **Missing** | `chat-showcases/` |
-| Canvas indices | **Missing** | `indices/` |
+| Area                | Folio status                             | Mist Glass reference                                    |
+| ------------------- | ---------------------------------------- | ------------------------------------------------------- |
+| Node pack (XL→XS)   | **Complete** — 12 showcase frames        | `ui-example/mist-glass/node-pack/`                      |
+| Node components     | **Complete** — 5 scales                  | `ui-example/mist-glass/node-components/`                |
+| Workspace screens   | **Complete** — 6 screens                 | `ui-example/mist-glass/workspace-screens/`              |
+| Reference surfaces  | **Complete** — 13 pages + widget library | `ui-example/mist-glass/reference-surfaces/`             |
+| Reference header    | **Complete**                             | `ui-example/mist-glass/reference-components/`           |
+| Evidence pages      | **Complete** — 5 format variants         | `ui-example/mist-glass/evidence-pages/`                 |
+| Evidence workspace  | **Complete** — 2 overlay screens         | `ui-example/mist-glass/evidence-workspace/`             |
+| Dashboard           | **Complete** — library index layout      | `ui-example/mist-glass/workspace-screens/dashboard.png` |
+| Tutor chat kit      | **Partial** — tabs + composer only       | `ui-example/mist-glass/chat-components/` (15 files)     |
+| Evidence components | **Partial** — dock shell only            | `ui-example/mist-glass/evidence-components/` (12 files) |
+| Workspace chrome    | **Missing**                              | `workspace-surface-switcher`, `workspace-status-bar`    |
+| Chat showcases      | **Missing**                              | `chat-showcases/`                                       |
+| Canvas indices      | **Missing**                              | `indices/`                                              |
 
 ---
 
@@ -78,49 +78,49 @@ Design these in Folio editorial language before aesthetic polish passes.
 
 ### Tutor chat (`chat-components/`)
 
-| Component | Mist Glass file | Folio status |
-|-----------|-----------------|--------------|
-| User message row | `chat-user-row.png` | Not designed |
-| Agent step (complete) | `chat-agent-step.png` | Not designed |
-| Agent step (running) | `chat-agent-step-running.png` | Not designed |
-| Thinking block | `chat-thinking.png` | Not designed |
-| Tutor prose + citation | `chat-tutor-prose.png` | Not designed |
-| Activity block (collapsible) | `chat-activity-block.png` | Not designed |
-| Header — Tutor tab | `chat-header-tutor.png` | Covered by `folio-chat-tabs.png` |
-| Header — History tab | `chat-header-history.png` | Partial (tabs frame) |
-| Header — Settings tab | `chat-header-settings.png` | Partial (tabs frame) |
-| History view | `chat-history-view.png` | Not designed |
-| Settings view | `chat-settings-view.png` | Not designed |
-| Full tutor panel | `chat-panel.png` | Not designed |
-| History panel | `chat-panel-history.png` | Not designed |
-| Settings panel | `chat-panel-settings.png` | Not designed |
-| Collapsed rail + FAB | `chat-collapsed-rail.png` | Not designed |
-| Composer | `chat-composer.png` | **Done** (`f64En`) |
+| Component                    | Mist Glass file               | Folio status                     |
+| ---------------------------- | ----------------------------- | -------------------------------- |
+| User message row             | `chat-user-row.png`           | Not designed                     |
+| Agent step (complete)        | `chat-agent-step.png`         | Not designed                     |
+| Agent step (running)         | `chat-agent-step-running.png` | Not designed                     |
+| Thinking block               | `chat-thinking.png`           | Not designed                     |
+| Tutor prose + citation       | `chat-tutor-prose.png`        | Not designed                     |
+| Activity block (collapsible) | `chat-activity-block.png`     | Not designed                     |
+| Header — Tutor tab           | `chat-header-tutor.png`       | Covered by `folio-chat-tabs.png` |
+| Header — History tab         | `chat-header-history.png`     | Partial (tabs frame)             |
+| Header — Settings tab        | `chat-header-settings.png`    | Partial (tabs frame)             |
+| History view                 | `chat-history-view.png`       | Not designed                     |
+| Settings view                | `chat-settings-view.png`      | Not designed                     |
+| Full tutor panel             | `chat-panel.png`              | Not designed                     |
+| History panel                | `chat-panel-history.png`      | Not designed                     |
+| Settings panel               | `chat-panel-settings.png`     | Not designed                     |
+| Collapsed rail + FAB         | `chat-collapsed-rail.png`     | Not designed                     |
+| Composer                     | `chat-composer.png`           | **Done** (`f64En`)               |
 
 ### Evidence (`evidence-components/`)
 
-| Component | Mist Glass file | Folio status |
-|-----------|-----------------|--------------|
-| Drawer dock shell | `evidence-drawer-dock.png` | **Done** (`Ki6X9`) |
-| PDF drawer body | `evidence-drawer-pdf.png` | Not designed (page variant exists) |
-| PPT drawer body | `evidence-drawer-ppt.png` | Not designed |
-| Wiki drawer body | `evidence-drawer-wiki.png` | Not designed |
-| Word drawer body | `evidence-drawer-word.png` | Not designed |
-| Empty drawer | `evidence-drawer-empty.png` | Not designed (page variant exists) |
-| Snippet thumb | `evidence-snippet-thumb.png` | Not designed |
-| Snippet thumb selected | `evidence-snippet-thumb-selected.png` | Not designed |
-| Citation chip | `citation-chip.png` | Not designed |
-| Citation chip active | `citation-chip-active.png` | Not designed |
-| Evidence button active | `evidence-button-active.png` | Not designed |
-| Glass/warm backdrop | `evidence-glass-backdrop.png` | Implied in evidence-workspace screens |
+| Component              | Mist Glass file                       | Folio status                          |
+| ---------------------- | ------------------------------------- | ------------------------------------- |
+| Drawer dock shell      | `evidence-drawer-dock.png`            | **Done** (`Ki6X9`)                    |
+| PDF drawer body        | `evidence-drawer-pdf.png`             | Not designed (page variant exists)    |
+| PPT drawer body        | `evidence-drawer-ppt.png`             | Not designed                          |
+| Wiki drawer body       | `evidence-drawer-wiki.png`            | Not designed                          |
+| Word drawer body       | `evidence-drawer-word.png`            | Not designed                          |
+| Empty drawer           | `evidence-drawer-empty.png`           | Not designed (page variant exists)    |
+| Snippet thumb          | `evidence-snippet-thumb.png`          | Not designed                          |
+| Snippet thumb selected | `evidence-snippet-thumb-selected.png` | Not designed                          |
+| Citation chip          | `citation-chip.png`                   | Not designed                          |
+| Citation chip active   | `citation-chip-active.png`            | Not designed                          |
+| Evidence button active | `evidence-button-active.png`          | Not designed                          |
+| Glass/warm backdrop    | `evidence-glass-backdrop.png`         | Implied in evidence-workspace screens |
 
 ### Workspace chrome (`workspace-components/`)
 
-| Component | Mist Glass ID | Folio status |
-|-----------|---------------|--------------|
-| Topbar | `O4nHt` | Not designed (infer from workspace screens) |
-| Surface switcher | `Bn5nK` | Not designed |
-| Status bar | `pDSTm` | Not designed |
+| Component        | Mist Glass ID | Folio status                                |
+| ---------------- | ------------- | ------------------------------------------- |
+| Topbar           | `O4nHt`       | Not designed (infer from workspace screens) |
+| Surface switcher | `Bn5nK`       | Not designed                                |
+| Status bar       | `pDSTm`       | Not designed                                |
 
 ---
 
@@ -130,80 +130,80 @@ Full screenshot filenames: [`ui-example/folio/README.md`](../../ui-example/folio
 
 ### Node pack
 
-| Section | ID |
-|---------|-----|
-| Header | `znwGn` |
-| Size legend | `AQDmb` |
-| Type legend | `MAZrE` |
-| XL Planning | `RtOEi` |
-| L Curriculum | `AC1hs` |
-| M Gateway | `bMtX5` |
-| S Compact | `FE9Yr` |
-| XS Pins | `YgTiF` |
-| States | `t0vhl` |
-| Sample canvas | `U3WWBW` |
+| Section            | ID       |
+| ------------------ | -------- |
+| Header             | `znwGn`  |
+| Size legend        | `AQDmb`  |
+| Type legend        | `MAZrE`  |
+| XL Planning        | `RtOEi`  |
+| L Curriculum       | `AC1hs`  |
+| M Gateway          | `bMtX5`  |
+| S Compact          | `FE9Yr`  |
+| XS Pins            | `YgTiF`  |
+| States             | `t0vhl`  |
+| Sample canvas      | `U3WWBW` |
 | Mixed-scale canvas | `O4mkCa` |
-| Artifacts | `m8Ddg` |
+| Artifacts          | `m8Ddg`  |
 
 ### Node components
 
-| Scale | ID | Size |
-|-------|-----|------|
-| XL | `sNGOM` | 200×220 |
-| L | `Y2PGui` | 200×168 |
-| M | `bHhyr` | 184×112 |
-| S | `Gplim` | 148×80 |
-| XS | `MAQ69` | 112×44 |
+| Scale | ID       | Size    |
+| ----- | -------- | ------- |
+| XL    | `sNGOM`  | 200×220 |
+| L     | `Y2PGui` | 200×168 |
+| M     | `bHhyr`  | 184×112 |
+| S     | `Gplim`  | 148×80  |
+| XS    | `MAQ69`  | 112×44  |
 
 ### Workspace screens (1440×900)
 
-| Screen | ID |
-|--------|-----|
-| Study Map | `rh9El` |
-| Source Wiki | `zn4aP` |
-| Curriculum | `wvyLU` |
-| Evidence open | `ulGd5` |
+| Screen           | ID      |
+| ---------------- | ------- |
+| Study Map        | `rh9El` |
+| Source Wiki      | `zn4aP` |
+| Curriculum       | `wvyLU` |
+| Evidence open    | `ulGd5` |
 | Interactive quiz | `IDi3o` |
-| Dashboard | `btkBw` |
+| Dashboard        | `btkBw` |
 
 ### Chat
 
-| Component | ID |
-|-----------|-----|
+| Component                         | ID      |
+| --------------------------------- | ------- |
 | Tabs (Tutor / History / Settings) | `k3B9t` |
-| Composer | `f64En` |
+| Composer                          | `f64En` |
 
 ### Reference
 
-| Item | ID |
-|------|-----|
+| Item           | ID      |
+| -------------- | ------- |
 | Surface header | `PaWJ7` |
-| Concept | `riwmQ` |
-| Wiki topic | `hveFo` |
-| Curriculum | `aothd` |
-| Module | `DOr72` |
-| Quiz | `qVm2J` |
-| Session | `AzUDW` |
-| Source | `aYn3j` |
-| Flashcards | `C3Vbf` |
+| Concept        | `riwmQ` |
+| Wiki topic     | `hveFo` |
+| Curriculum     | `aothd` |
+| Module         | `DOr72` |
+| Quiz           | `qVm2J` |
+| Session        | `AzUDW` |
+| Source         | `aYn3j` |
+| Flashcards     | `C3Vbf` |
 | Worked example | `eiTY0` |
-| Formula sheet | `aEzDV` |
-| Comparison | `Gm1MV` |
-| Live plan | `qovGy` |
+| Formula sheet  | `aEzDV` |
+| Comparison     | `Gm1MV` |
+| Live plan      | `qovGy` |
 | Widget library | `iQ9DY` |
 
 ### Evidence
 
-| Item | ID |
-|------|-----|
-| Drawer dock | `Ki6X9` |
-| PDF page | `qwLCV` |
-| PPT page | `CiGrK` |
-| Wiki page | `NY2a3` |
-| Word page | `kAQSd` |
-| Empty page | `G4T4NC` |
-| Study map + drawer | `FrNxk` |
-| Concept + drawer | `FgyIo` |
+| Item               | ID       |
+| ------------------ | -------- |
+| Drawer dock        | `Ki6X9`  |
+| PDF page           | `qwLCV`  |
+| PPT page           | `CiGrK`  |
+| Wiki page          | `NY2a3`  |
+| Word page          | `kAQSd`  |
+| Empty page         | `G4T4NC` |
+| Study map + drawer | `FrNxk`  |
+| Concept + drawer   | `FgyIo`  |
 
 ---
 
@@ -211,14 +211,14 @@ Full screenshot filenames: [`ui-example/folio/README.md`](../../ui-example/folio
 
 Folio implements the same product anatomy as Mist Glass. Cross-reference:
 
-| Product area | Spec doc |
-|--------------|----------|
-| Workspace layout | [03-app-shell-and-navigation](./03-app-shell-and-navigation.md) |
-| Tutor chat | [04-tutor-chat](./04-tutor-chat.md) |
+| Product area                  | Spec doc                                                                      |
+| ----------------------------- | ----------------------------------------------------------------------------- |
+| Workspace layout              | [03-app-shell-and-navigation](./03-app-shell-and-navigation.md)               |
+| Tutor chat                    | [04-tutor-chat](./04-tutor-chat.md)                                           |
 | Study Map / Wiki / Curriculum | [05-workspace-study-map-source-wiki](./05-workspace-study-map-source-wiki.md) |
-| Nodes | [06-node-design-system](./06-node-design-system.md) |
-| Reference + Evidence | [07-reference-surfaces-evidence](./07-reference-surfaces-evidence.md) |
-| Artifacts | [08-artifacts](./08-artifacts.md) |
+| Nodes                         | [06-node-design-system](./06-node-design-system.md)                           |
+| Reference + Evidence          | [07-reference-surfaces-evidence](./07-reference-surfaces-evidence.md)         |
+| Artifacts                     | [08-artifacts](./08-artifacts.md)                                             |
 
 When Folio chat and evidence kits are complete, update this doc's catalog tables and re-export PNGs to `ui-example/folio/`.
 

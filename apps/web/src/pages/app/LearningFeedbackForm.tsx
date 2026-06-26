@@ -70,7 +70,11 @@ export function LearningFeedbackForm({ onSubmitted }: { onSubmitted?: () => void
 
       <label className="tb-field">
         <span>What were you trying to learn?</span>
-        <textarea value={studyGoal} onChange={(event) => setStudyGoal(event.target.value)} rows={3} />
+        <textarea
+          value={studyGoal}
+          onChange={(event) => setStudyGoal(event.target.value)}
+          rows={3}
+        />
       </label>
 
       <fieldset className="tb-field">
@@ -97,7 +101,11 @@ export function LearningFeedbackForm({ onSubmitted }: { onSubmitted?: () => void
 
       <label className="tb-field">
         <span>Where did it break down or confuse you?</span>
-        <textarea value={confusionText} onChange={(event) => setConfusionText(event.target.value)} rows={3} />
+        <textarea
+          value={confusionText}
+          onChange={(event) => setConfusionText(event.target.value)}
+          rows={3}
+        />
       </label>
 
       <label className="tb-field">

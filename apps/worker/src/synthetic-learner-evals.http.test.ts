@@ -8,7 +8,10 @@ import {
   syntheticLearnerEvalTracerBulletPersonas,
   syntheticLearnerEvalTracerBulletScenarios,
 } from "@studyagent/schemas";
-import { patchSyntheticLearnerEvalRun, persistSyntheticLearnerEvalRun } from "./synthetic-learner-evals.js";
+import {
+  patchSyntheticLearnerEvalRun,
+  persistSyntheticLearnerEvalRun,
+} from "./synthetic-learner-evals.js";
 
 describe("synthetic learner eval worker http helpers", () => {
   afterEach(() => {
@@ -71,7 +74,10 @@ describe("synthetic learner eval worker http helpers", () => {
   });
 
   it("throws when live eval run patch fails", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => new Response("not found", { status: 404 })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("not found", { status: 404 })),
+    );
 
     await expect(
       patchSyntheticLearnerEvalRun("http://localhost:3000", undefined, {

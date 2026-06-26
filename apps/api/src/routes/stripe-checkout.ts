@@ -139,7 +139,9 @@ export async function createStripeCheckoutSession(
     body: params.toString(),
   });
 
-  const payload = (await response.json()) as StripeCheckoutSessionResponse & { error?: { message?: string } };
+  const payload = (await response.json()) as StripeCheckoutSessionResponse & {
+    error?: { message?: string };
+  };
   if (!response.ok) {
     throw new CheckoutError(
       "stripe_checkout_failed",
@@ -203,12 +205,19 @@ export async function grantPaymentBackedCreditsIdempotent(
       return { granted: false, entry: existing };
     }
 
-    const entry = await grantCredits(db, input.userId, input.creditType, input.amountCents, "paid_credit_checkout", {
-      source: "stripe_checkout",
-      idempotencyKey: input.idempotencyKey,
-      stripeSessionId: input.stripeSessionId,
-      packId: input.packId,
-    });
+    const entry = await grantCredits(
+      db,
+      input.userId,
+      input.creditType,
+      input.amountCents,
+      "paid_credit_checkout",
+      {
+        source: "stripe_checkout",
+        idempotencyKey: input.idempotencyKey,
+        stripeSessionId: input.stripeSessionId,
+        packId: input.packId,
+      },
+    );
 
     return { granted: true, entry };
   });
@@ -247,7 +256,9 @@ export function verifyStripeWebhookSignature(
   return signatures.some((signature) => {
     const actualBuffer = Buffer.from(signature);
     const expectedBuffer = Buffer.from(expected);
-    return actualBuffer.length === expectedBuffer.length && timingSafeEqual(actualBuffer, expectedBuffer);
+    return (
+      actualBuffer.length === expectedBuffer.length && timingSafeEqual(actualBuffer, expectedBuffer)
+    );
   });
 }
 
@@ -262,12 +273,21 @@ export async function handleCheckoutSessionCompleted(
   const metadata = session.metadata ?? {};
   const userId = metadata.userId ?? session.client_reference_id ?? null;
   const packId = metadata.packId ?? null;
-  const creditType = metadata.creditType === "ingestion" ? "ingestion" : metadata.creditType === "tutor" ? "tutor" : null;
+  const creditType =
+    metadata.creditType === "ingestion"
+      ? "ingestion"
+      : metadata.creditType === "tutor"
+        ? "tutor"
+        : null;
   const amountCents = Number.parseInt(metadata.amountCents ?? "", 10);
   const idempotencyKey = buildCheckoutIdempotencyKey(session.id);
 
   if (!userId || !packId || !creditType || !Number.isInteger(amountCents) || amountCents <= 0) {
-    throw new CheckoutError("invalid_session_metadata", "Checkout session metadata is incomplete", 400);
+    throw new CheckoutError(
+      "invalid_session_metadata",
+      "Checkout session metadata is incomplete",
+      400,
+    );
   }
 
   const result = await grantPaymentBackedCreditsIdempotent(ctx.db, {
@@ -306,11 +326,18 @@ export class CheckoutError extends Error {
   }
 }
 
-function sendFeatureDisabled(reply: { status: (code: number) => { send: (body: unknown) => unknown } }): unknown {
-  return reply.status(404).send({ code: "feature_disabled", message: "Paid credit checkout is not enabled" });
+function sendFeatureDisabled(reply: {
+  status: (code: number) => { send: (body: unknown) => unknown };
+}): unknown {
+  return reply
+    .status(404)
+    .send({ code: "feature_disabled", message: "Paid credit checkout is not enabled" });
 }
 
-export async function registerStripeCheckoutRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
+export async function registerStripeCheckoutRoutes(
+  app: FastifyInstance,
+  ctx: AppContext,
+): Promise<void> {
   app.get("/checkout/credits/packs", async (request, reply) => {
     if (!isPaidCreditCheckoutEnabled(ctx)) {
       return sendFeatureDisabled(reply);
@@ -337,7 +364,9 @@ export async function registerStripeCheckoutRoutes(app: FastifyInstance, ctx: Ap
       const actor = await requireActor(ctx, request);
       await requireBetaConsent(ctx, request);
       if (!ctx.env.STRIPE_SECRET_KEY) {
-        return reply.status(503).send({ code: "stripe_unconfigured", message: "Stripe is not configured" });
+        return reply
+          .status(503)
+          .send({ code: "stripe_unconfigured", message: "Stripe is not configured" });
       }
 
       const packId = typeof request.body?.packId === "string" ? request.body.packId.trim() : "";
@@ -396,14 +425,19 @@ export async function registerStripeCheckoutRoutes(app: FastifyInstance, ctx: Ap
       );
 
       if (!verified) {
-        return reply.status(400).send({ code: "invalid_signature", message: "Stripe webhook signature verification failed" });
+        return reply.status(400).send({
+          code: "invalid_signature",
+          message: "Stripe webhook signature verification failed",
+        });
       }
 
       let event: StripeCheckoutCompletedEvent;
       try {
         event = JSON.parse(rawBody.toString("utf8")) as StripeCheckoutCompletedEvent;
       } catch {
-        return reply.status(400).send({ code: "invalid_json", message: "Webhook body must be valid JSON" });
+        return reply
+          .status(400)
+          .send({ code: "invalid_json", message: "Webhook body must be valid JSON" });
       }
 
       if (event.type !== "checkout.session.completed") {

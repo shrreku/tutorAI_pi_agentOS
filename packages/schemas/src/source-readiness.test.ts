@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildSourceReadiness, learnerSourceStatus, sourceReadinessComponent } from "./source-readiness.js";
+import {
+  buildSourceReadiness,
+  learnerSourceStatus,
+  sourceReadinessComponent,
+} from "./source-readiness.js";
 
 describe("source readiness", () => {
   it("keeps tutoring readiness separate from Source Wiki and projection readiness", () => {
@@ -14,7 +18,9 @@ describe("source readiness", () => {
 
     expect(readiness.tutoring.ready).toBe(true);
     expect(readiness.learnerSourceWiki.ready).toBe(false);
-    expect(learnerSourceStatus(readiness).label).toBe("Ready for tutoring; Source Wiki still improving");
+    expect(learnerSourceStatus(readiness).label).toBe(
+      "Ready for tutoring; Source Wiki still improving",
+    );
   });
 
   it("keeps graph projection readiness separate from tutoring readiness", () => {
@@ -31,7 +37,9 @@ describe("source readiness", () => {
     expect(readiness.tutoring.ready).toBe(true);
     expect(readiness.projection.ready).toBe(false);
     expect(readiness.learnerSourceWiki.ready).toBe(true);
-    expect(learnerSourceStatus(readiness).label).toBe("Ready for tutoring; Source Wiki still improving");
+    expect(learnerSourceStatus(readiness).label).toBe(
+      "Ready for tutoring; Source Wiki still improving",
+    );
   });
 
   it("returns Ready when tutoring, learnerSourceWiki, and projection are all ready", () => {
@@ -52,7 +60,10 @@ describe("source readiness", () => {
     const readiness = buildSourceReadiness({
       retrieval: sourceReadinessComponent(true),
       search: sourceReadinessComponent(false, { status: "pending" }),
-      tutoring: sourceReadinessComponent(false, { status: "pending", message: "Still preparing tutoring context" }),
+      tutoring: sourceReadinessComponent(false, {
+        status: "pending",
+        message: "Still preparing tutoring context",
+      }),
       wiki: sourceReadinessComponent(false),
       planning: sourceReadinessComponent(false),
       projection: sourceReadinessComponent(false),

@@ -22,15 +22,22 @@
 
             if (!card) {
               ctx.root.innerHTML =
-                h.headerHtml(title, "Flip, then rate how well you remembered each card.", "Flashcards") +
-                '<div class="sa-empty">No flashcards in this deck yet.</div>';
+                h.headerHtml(
+                  title,
+                  "Flip, then rate how well you remembered each card.",
+                  "Flashcards",
+                ) + '<div class="sa-empty">No flashcards in this deck yet.</div>';
               return;
             }
 
             var front = card.front || card.term || card.title || "Card";
             var back = card.back || card.definition || card.answer || "";
             var html = '<div class="sa-shell">';
-            html += h.headerHtml(title, "Card " + (index + 1) + " of " + cards.length, "Flashcards");
+            html += h.headerHtml(
+              title,
+              "Card " + (index + 1) + " of " + cards.length,
+              "Flashcards",
+            );
             html += h.pendingOverlay(ctx.state);
             html += h.statusHtml(ctx.state);
             html += '<div class="sa-card sa-flashcard">';
@@ -38,11 +45,15 @@
             if (ctx.state.ui.revealed) {
               html += '<div class="sa-flashcard-back">' + h.escapeHtml(back) + "</div>";
             } else {
-              html += '<div class="sa-subtitle">Tap reveal when you are ready to check yourself.</div>';
+              html +=
+                '<div class="sa-subtitle">Tap reveal when you are ready to check yourself.</div>';
             }
             html += "</div>";
             html += '<div class="sa-row">';
-            html += '<button class="sa-btn" id="reveal"' + (ctx.state.ui.revealed ? " disabled" : "") + ">Reveal</button>";
+            html +=
+              '<button class="sa-btn" id="reveal"' +
+              (ctx.state.ui.revealed ? " disabled" : "") +
+              ">Reveal</button>";
             html += '<button class="sa-btn" id="again">Again</button>';
             html += '<button class="sa-btn" id="hard">Hard</button>';
             html += '<button class="sa-btn sa-btn-primary" id="good">Good</button>';

@@ -69,26 +69,23 @@ describe("digest draft update emission", () => {
 
 describe("context selection selected-ref merge", () => {
   it("adds selected chunks and sources without duplicating existing refs", () => {
-    const merged = mergeSelectedNodeRefs(
-      [{ refType: "source", refId: "src_1" }],
-      {
-        strategy: "selected-nodes-current-objective-weak-concepts-notebook",
-        query: "q",
-        retrievalMode: "hybrid",
-        maxChunks: 6,
-        selectedNodeRefs: [{ refType: "concept", refId: "c_1" }],
-        selectedChunkIds: ["ch_1"],
-        selectedSourceIds: ["src_1", "src_2"],
-        objectiveTitle: null,
-        objectivePathConceptIds: [],
-        weakConceptNames: [],
-        recentMistakeConceptIds: [],
-        sourceScopePolicy: "soft_source_scope",
-        usedSourceScopeFallback: false,
-        sourceCoverageGap: false,
-        reason: "r",
-      },
-    );
+    const merged = mergeSelectedNodeRefs([{ refType: "source", refId: "src_1" }], {
+      strategy: "selected-nodes-current-objective-weak-concepts-notebook",
+      query: "q",
+      retrievalMode: "hybrid",
+      maxChunks: 6,
+      selectedNodeRefs: [{ refType: "concept", refId: "c_1" }],
+      selectedChunkIds: ["ch_1"],
+      selectedSourceIds: ["src_1", "src_2"],
+      objectiveTitle: null,
+      objectivePathConceptIds: [],
+      weakConceptNames: [],
+      recentMistakeConceptIds: [],
+      sourceScopePolicy: "soft_source_scope",
+      usedSourceScopeFallback: false,
+      sourceCoverageGap: false,
+      reason: "r",
+    });
     expect(merged).toEqual(
       expect.arrayContaining([
         { refType: "source", refId: "src_1" },

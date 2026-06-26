@@ -6,8 +6,14 @@ const readRecentLearnerTraitSignalsMock = vi.fn<() => Promise<LearnerTraitSignal
 const readCurrentLearnerTraitEstimatesMock = vi.fn<() => Promise<LearnerTraitEstimate[]>>();
 
 vi.mock("./learner-trait-store.js", () => ({
-  readRecentLearnerTraitSignals: (...args: unknown[]) => readRecentLearnerTraitSignalsMock(...(args as Parameters<typeof readRecentLearnerTraitSignalsMock>)),
-  readCurrentLearnerTraitEstimates: (...args: unknown[]) => readCurrentLearnerTraitEstimatesMock(...(args as Parameters<typeof readCurrentLearnerTraitEstimatesMock>)),
+  readRecentLearnerTraitSignals: (...args: unknown[]) =>
+    readRecentLearnerTraitSignalsMock(
+      ...(args as Parameters<typeof readRecentLearnerTraitSignalsMock>),
+    ),
+  readCurrentLearnerTraitEstimates: (...args: unknown[]) =>
+    readCurrentLearnerTraitEstimatesMock(
+      ...(args as Parameters<typeof readCurrentLearnerTraitEstimatesMock>),
+    ),
 }));
 
 function createDbClient(input: {
@@ -65,7 +71,12 @@ describe("learner trait evidence collector", () => {
   it("includes cross-session repeated signals in the evidence packet", async () => {
     readRecentLearnerTraitSignalsMock.mockResolvedValue([
       signal({ id: "lts_sess_a", sessionId: "sess_a" }),
-      signal({ id: "lts_sess_b", sessionId: "sess_b", trait: "pacePreference", suggestedValue: "slow" }),
+      signal({
+        id: "lts_sess_b",
+        sessionId: "sess_b",
+        trait: "pacePreference",
+        suggestedValue: "slow",
+      }),
     ]);
 
     const packet = await collectLearnerTraitEvidencePacket(createDbClient({}), {
@@ -95,27 +106,32 @@ describe("learner trait evidence collector", () => {
       signal({ trait: "confidenceStyle", suggestedValue: "underconfident" }),
     ]);
 
-    const packet = await collectLearnerTraitEvidencePacket(createDbClient({
-      masteryRows: [{
-        id: "mev_1",
-        turnId: "turn_1",
-        sessionId: "sess_1",
-        evidenceJson: {
-          correctnessLabel: "incorrect",
-          confidence: 0.9,
-          evidenceType: "self_report",
+    const packet = await collectLearnerTraitEvidencePacket(
+      createDbClient({
+        masteryRows: [
+          {
+            id: "mev_1",
+            turnId: "turn_1",
+            sessionId: "sess_1",
+            evidenceJson: {
+              correctnessLabel: "incorrect",
+              confidence: 0.9,
+              evidenceType: "self_report",
+            },
+          },
+        ],
+      }),
+      {
+        notebookId: "nb_1",
+        userId: "user_1",
+        trigger: {
+          shouldEstimate: true,
+          reasons: ["mastery_self_report_contradiction"],
+          evidenceRefs: [{ refType: "mastery_evidence", refId: "mev_1" }],
+          traitFamilies: ["confidenceStyle"],
         },
-      }],
-    }), {
-      notebookId: "nb_1",
-      userId: "user_1",
-      trigger: {
-        shouldEstimate: true,
-        reasons: ["mastery_self_report_contradiction"],
-        evidenceRefs: [{ refType: "mastery_evidence", refId: "mev_1" }],
-        traitFamilies: ["confidenceStyle"],
       },
-    });
+    );
 
     expect(packet.masteryEvidenceSummaries).toEqual([
       expect.objectContaining({
@@ -130,24 +146,29 @@ describe("learner trait evidence collector", () => {
       signal({ trait: "assessmentPreference", suggestedValue: "quiz" }),
     ]);
 
-    const packet = await collectLearnerTraitEvidencePacket(createDbClient({
-      profileRows: [{
-        goalSummary: "Pass the midterm",
-        pacePreference: "slow",
-        depthPreference: "intuitive",
-        examplePreferencesJson: { preference: "worked_examples" },
-        assessmentPreferenceJson: { preference: "quiz" },
-      }],
-    }), {
-      notebookId: "nb_1",
-      userId: "user_1",
-      trigger: {
-        shouldEstimate: true,
-        reasons: ["explicit_preference_change"],
-        evidenceRefs: [],
-        traitFamilies: ["assessmentPreference"],
+    const packet = await collectLearnerTraitEvidencePacket(
+      createDbClient({
+        profileRows: [
+          {
+            goalSummary: "Pass the midterm",
+            pacePreference: "slow",
+            depthPreference: "intuitive",
+            examplePreferencesJson: { preference: "worked_examples" },
+            assessmentPreferenceJson: { preference: "quiz" },
+          },
+        ],
+      }),
+      {
+        notebookId: "nb_1",
+        userId: "user_1",
+        trigger: {
+          shouldEstimate: true,
+          reasons: ["explicit_preference_change"],
+          evidenceRefs: [],
+          traitFamilies: ["assessmentPreference"],
+        },
       },
-    });
+    );
 
     expect(packet.profileSummary).toContain("Pass the midterm");
     expect(packet.profileSummary).toContain("Profile pace preference: slow");
@@ -159,18 +180,20 @@ describe("learner trait evidence collector", () => {
     readRecentLearnerTraitSignalsMock.mockResolvedValue([
       signal({ trait: "confidenceStyle", suggestedValue: "underconfident" }),
     ]);
-    readCurrentLearnerTraitEstimatesMock.mockResolvedValue([{
-      notebookId: "nb_1",
-      userId: "user_1",
-      trait: "confidenceStyle",
-      value: "calibrated",
-      confidence: 0.7,
-      lane: "inferred",
-      evidenceRefs: [{ refType: "trait_signal", refId: "lts_prior" }],
-      contradictionRefs: [{ refType: "self_report", refId: "turn_low_confidence" }],
-      decay: {},
-      lastUpdatedReason: "prior evidence",
-    }]);
+    readCurrentLearnerTraitEstimatesMock.mockResolvedValue([
+      {
+        notebookId: "nb_1",
+        userId: "user_1",
+        trait: "confidenceStyle",
+        value: "calibrated",
+        confidence: 0.7,
+        lane: "inferred",
+        evidenceRefs: [{ refType: "trait_signal", refId: "lts_prior" }],
+        contradictionRefs: [{ refType: "self_report", refId: "turn_low_confidence" }],
+        decay: {},
+        lastUpdatedReason: "prior evidence",
+      },
+    ]);
 
     const packet = await collectLearnerTraitEvidencePacket(createDbClient({}), {
       notebookId: "nb_1",
@@ -183,13 +206,27 @@ describe("learner trait evidence collector", () => {
       },
     });
 
-    expect(packet.contradictionRefs).toEqual([{ refType: "self_report", refId: "turn_low_confidence" }]);
+    expect(packet.contradictionRefs).toEqual([
+      { refType: "self_report", refId: "turn_low_confidence" },
+    ]);
   });
 
   it("prioritizes explicit self-report over conflicting inferred behavior in the packet", async () => {
     readRecentLearnerTraitSignalsMock.mockResolvedValue([
-      signal({ id: "lts_inferred", source: "behavior_extraction", trait: "pacePreference", suggestedValue: "fast", strength: 0.55 }),
-      signal({ id: "lts_explicit", source: "explicit_self_report", trait: "pacePreference", suggestedValue: "slow", strength: 0.95 }),
+      signal({
+        id: "lts_inferred",
+        source: "behavior_extraction",
+        trait: "pacePreference",
+        suggestedValue: "fast",
+        strength: 0.55,
+      }),
+      signal({
+        id: "lts_explicit",
+        source: "explicit_self_report",
+        trait: "pacePreference",
+        suggestedValue: "slow",
+        strength: 0.95,
+      }),
     ]);
 
     const packet = await collectLearnerTraitEvidencePacket(createDbClient({}), {
@@ -210,27 +247,32 @@ describe("learner trait evidence collector", () => {
   it("includes mastery evidence pattern signals derived from persisted mastery evidence", async () => {
     readRecentLearnerTraitSignalsMock.mockResolvedValue([]);
 
-    const packet = await collectLearnerTraitEvidencePacket(createDbClient({
-      masteryRows: [{
-        id: "mev_1",
-        turnId: "turn_1",
-        sessionId: "sess_1",
-        evidenceJson: {
-          evidenceType: "self_report",
-          correctnessLabel: "incorrect",
-          confidence: 0.88,
+    const packet = await collectLearnerTraitEvidencePacket(
+      createDbClient({
+        masteryRows: [
+          {
+            id: "mev_1",
+            turnId: "turn_1",
+            sessionId: "sess_1",
+            evidenceJson: {
+              evidenceType: "self_report",
+              correctnessLabel: "incorrect",
+              confidence: 0.88,
+            },
+          },
+        ],
+      }),
+      {
+        notebookId: "nb_1",
+        userId: "user_1",
+        trigger: {
+          shouldEstimate: true,
+          reasons: ["mastery_self_report_contradiction"],
+          evidenceRefs: [{ refType: "mastery_evidence", refId: "mev_1" }],
+          traitFamilies: ["confidenceStyle"],
         },
-      }],
-    }), {
-      notebookId: "nb_1",
-      userId: "user_1",
-      trigger: {
-        shouldEstimate: true,
-        reasons: ["mastery_self_report_contradiction"],
-        evidenceRefs: [{ refType: "mastery_evidence", refId: "mev_1" }],
-        traitFamilies: ["confidenceStyle"],
       },
-    });
+    );
 
     expect(packet.signals).toEqual([
       expect.objectContaining({

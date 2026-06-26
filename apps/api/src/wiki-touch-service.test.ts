@@ -13,7 +13,12 @@ vi.mock("@studyagent/db", async (importOriginal) => {
   };
 });
 
-import { ensureConceptPage, ensureTopicPage, touchConceptPage, touchTopicPage } from "./wiki-touch-service.js";
+import {
+  ensureConceptPage,
+  ensureTopicPage,
+  touchConceptPage,
+  touchTopicPage,
+} from "./wiki-touch-service.js";
 
 vi.mock("./agentic-cache-invalidation.js", () => ({
   appendEventWithTutorCacheInvalidation: vi.fn(async () => ({ id: "evt_1", sequenceNo: 1 })),
@@ -179,7 +184,10 @@ describe("wiki touch service", () => {
         executePolish: async (_env, _dbClient, target) => {
           const page = db.wikiPages.find((row) => row.id === target.pageId);
           if (page) {
-            page.structuredJson = { ...(page.structuredJson as object), pageReadiness: "ready_to_study" };
+            page.structuredJson = {
+              ...(page.structuredJson as object),
+              pageReadiness: "ready_to_study",
+            };
             page.markdown = "# Entropy\n\n## Definition\nPolished.";
           }
           return {

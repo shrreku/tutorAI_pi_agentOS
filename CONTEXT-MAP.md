@@ -4,12 +4,12 @@ StudyAgent is a multi-context TypeScript monorepo. Before changing code, pick th
 
 ## Contexts
 
-| Context | Read When Working On | Context File |
-| --- | --- | --- |
-| Product Domain | Product vocabulary, user journeys, curriculum-first behavior, artifacts, Live Plan, Evidence, Workspace semantics | `docs/contexts/product-domain/CONTEXT.md` |
-| API Runtime | Fastify routes, tutor chat, session lifecycle, Pi runtime, tool registry, event streams, reducers, DB-backed tutor writes | `docs/contexts/api-runtime/CONTEXT.md` |
-| Web Workspace | React app, tutor panel, Study Map, Source Wiki, reference surfaces, artifact viewer, Evidence drawer, dev timeline | `docs/contexts/web-workspace/CONTEXT.md` |
-| Knowledge Graph | Ingestion, source versions, chunks, wiki compilation, claims, search, embeddings, graph projection, Neo4j | `docs/contexts/knowledge-graph/CONTEXT.md` |
+| Context         | Read When Working On                                                                                                      | Context File                               |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| Product Domain  | Product vocabulary, user journeys, curriculum-first behavior, artifacts, Live Plan, Evidence, Workspace semantics         | `docs/contexts/product-domain/CONTEXT.md`  |
+| API Runtime     | Fastify routes, tutor chat, session lifecycle, Pi runtime, tool registry, event streams, reducers, DB-backed tutor writes | `docs/contexts/api-runtime/CONTEXT.md`     |
+| Web Workspace   | React app, tutor panel, Study Map, Source Wiki, reference surfaces, artifact viewer, Evidence drawer, dev timeline        | `docs/contexts/web-workspace/CONTEXT.md`   |
+| Knowledge Graph | Ingestion, source versions, chunks, wiki compilation, claims, search, embeddings, graph projection, Neo4j                 | `docs/contexts/knowledge-graph/CONTEXT.md` |
 
 ## How To Choose
 
@@ -23,15 +23,15 @@ StudyAgent is a multi-context TypeScript monorepo. Before changing code, pick th
 
 The implementation tickets in `docs/architecture/architecture-deepening-implementation-tickets.md` map to these runtime modules:
 
-| Module | Primary code |
-| --- | --- |
-| Tutor Turn | `apps/api/src/tutor-turn.ts` |
-| Reference Surface | `apps/api/src/reference-surface.ts` |
+| Module                         | Primary code                                   |
+| ------------------------------ | ---------------------------------------------- |
+| Tutor Turn                     | `apps/api/src/tutor-turn.ts`                   |
+| Reference Surface              | `apps/api/src/reference-surface.ts`            |
 | Source-to-LLM-Wiki Compilation | `packages/wiki-core/src/source-compilation.ts` |
-| Workspace Read Model | `apps/api/src/workspace-read-model.ts` |
-| Artifact Lifecycle | `apps/api/src/artifact-lifecycle.ts` |
-| Graph Projection | `packages/graph/src/graph-projection/` |
-| Tool Contract | `packages/tools/src/index.ts` |
+| Workspace Read Model           | `apps/api/src/workspace-read-model.ts`         |
+| Artifact Lifecycle             | `apps/api/src/artifact-lifecycle.ts`           |
+| Graph Projection               | `packages/graph/src/graph-projection/`         |
+| Tool Contract                  | `packages/tools/src/index.ts`                  |
 
 Cross-module regression: `apps/api/src/architecture-deepening.integration.test.ts`.
 

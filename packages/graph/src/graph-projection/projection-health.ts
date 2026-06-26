@@ -11,7 +11,8 @@ export function computeProjectionLagSeconds(
   canonicalUpdatedAt: Date | null,
 ): number | null {
   if (!canonicalUpdatedAt) return null;
-  if (!lastProjectedAt) return Math.max(0, Math.floor((Date.now() - canonicalUpdatedAt.getTime()) / 1000));
+  if (!lastProjectedAt)
+    return Math.max(0, Math.floor((Date.now() - canonicalUpdatedAt.getTime()) / 1000));
   const lagMs = canonicalUpdatedAt.getTime() - lastProjectedAt.getTime();
   if (lagMs <= 0) return 0;
   return Math.floor(lagMs / 1000);
@@ -24,11 +25,14 @@ export function deriveHealthStatus(
 ): ProjectionHealthStatus {
   if (failureReason || status === "failed") return "failed";
   if (lagSeconds !== null && lagSeconds > STALE_LAG_SECONDS) return "stale";
-  if (status === "healthy" || status === "idle") return lagSeconds !== null && lagSeconds > STALE_LAG_SECONDS ? "stale" : "healthy";
+  if (status === "healthy" || status === "idle")
+    return lagSeconds !== null && lagSeconds > STALE_LAG_SECONDS ? "stale" : "healthy";
   return status === "stale" ? "stale" : "idle";
 }
 
-export function learnerWarningForHealth(health: Pick<ProjectionHealth, "status" | "scope">): string | null {
+export function learnerWarningForHealth(
+  health: Pick<ProjectionHealth, "status" | "scope">,
+): string | null {
   if (health.status === "failed") {
     return health.scope === "source"
       ? "Source Wiki is temporarily unavailable while we refresh it."
@@ -54,7 +58,8 @@ export async function upsertNotebookProjectionHealth(
   },
 ): Promise<void> {
   const now = new Date();
-  const canonicalUpdatedAt = input.canonicalUpdatedAt ?? (await maxCanonicalUpdatedAt(dbClient, input.notebookId));
+  const canonicalUpdatedAt =
+    input.canonicalUpdatedAt ?? (await maxCanonicalUpdatedAt(dbClient, input.notebookId));
   const lastProjectedAt = input.lastProjectedAt ?? (input.status === "healthy" ? now : null);
   const lagSeconds = computeProjectionLagSeconds(lastProjectedAt, canonicalUpdatedAt);
   const status = deriveHealthStatus(input.status, lagSeconds, input.failureReason ?? null);
@@ -78,7 +83,10 @@ export async function upsertNotebookProjectionHealth(
   };
 
   if (existing) {
-    await dbClient.db.update(neo4jProjectionState).set(row).where(eq(neo4jProjectionState.id, existing.id));
+    await dbClient.db
+      .update(neo4jProjectionState)
+      .set(row)
+      .where(eq(neo4jProjectionState.id, existing.id));
   } else {
     await dbClient.db.insert(neo4jProjectionState).values({
       id: `proj_nb_${input.notebookId}`,
@@ -101,7 +109,8 @@ export async function upsertSourceProjectionHealth(
 ): Promise<void> {
   const now = new Date();
   const canonicalUpdatedAt =
-    input.canonicalUpdatedAt ?? (await maxCanonicalUpdatedAt(dbClient, input.notebookId, input.sourceId));
+    input.canonicalUpdatedAt ??
+    (await maxCanonicalUpdatedAt(dbClient, input.notebookId, input.sourceId));
   const lastProjectedAt = input.lastProjectedAt ?? (input.status === "healthy" ? now : null);
   const lagSeconds = computeProjectionLagSeconds(lastProjectedAt, canonicalUpdatedAt);
   const status = deriveHealthStatus(input.status, lagSeconds, input.failureReason ?? null);
@@ -132,7 +141,10 @@ export async function upsertSourceProjectionHealth(
   };
 
   if (existing) {
-    await dbClient.db.update(neo4jSourceProjectionState).set(row).where(eq(neo4jSourceProjectionState.id, existing.id));
+    await dbClient.db
+      .update(neo4jSourceProjectionState)
+      .set(row)
+      .where(eq(neo4jSourceProjectionState.id, existing.id));
   } else {
     await dbClient.db.insert(neo4jSourceProjectionState).values({
       id: `proj_src_${input.sourceId}`,
@@ -152,7 +164,8 @@ export async function loadNotebookProjectionHealth(
     .where(eq(neo4jProjectionState.notebookId, notebookId))
     .limit(1);
 
-  const canonicalUpdatedAt = row?.canonicalUpdatedAt ?? (await maxCanonicalUpdatedAt(dbClient, notebookId));
+  const canonicalUpdatedAt =
+    row?.canonicalUpdatedAt ?? (await maxCanonicalUpdatedAt(dbClient, notebookId));
   const lastProjectedAt = row?.lastProjectedAt ?? null;
   const lagSeconds = computeProjectionLagSeconds(lastProjectedAt, canonicalUpdatedAt);
   const status = deriveHealthStatus(row?.status ?? "idle", lagSeconds, row?.failureReason ?? null);
@@ -190,11 +203,15 @@ export async function loadSourceProjectionHealth(
     .select()
     .from(neo4jSourceProjectionState)
     .where(
-      and(eq(neo4jSourceProjectionState.notebookId, notebookId), eq(neo4jSourceProjectionState.sourceId, sourceId)),
+      and(
+        eq(neo4jSourceProjectionState.notebookId, notebookId),
+        eq(neo4jSourceProjectionState.sourceId, sourceId),
+      ),
     )
     .limit(1);
 
-  const canonicalUpdatedAt = row?.canonicalUpdatedAt ?? (await maxCanonicalUpdatedAt(dbClient, notebookId, sourceId));
+  const canonicalUpdatedAt =
+    row?.canonicalUpdatedAt ?? (await maxCanonicalUpdatedAt(dbClient, notebookId, sourceId));
   const lastProjectedAt = row?.lastProjectedAt ?? null;
   const lagSeconds = computeProjectionLagSeconds(lastProjectedAt, canonicalUpdatedAt);
   const status = deriveHealthStatus(row?.status ?? "idle", lagSeconds, row?.failureReason ?? null);

@@ -3,7 +3,12 @@ import { idSchema, nodeRefSchema } from "./ids.js";
 import { learnerTraitValuesSchema } from "./learner-traits.js";
 import { evalEvidenceSnapshotSchema } from "./synthetic-learner-evals.snapshot.js";
 
-export const syntheticLearnerModeSchema = z.enum(["scripted", "beat_llm", "scenario_autonomous_llm", "full_autonomous_llm"]);
+export const syntheticLearnerModeSchema = z.enum([
+  "scripted",
+  "beat_llm",
+  "scenario_autonomous_llm",
+  "full_autonomous_llm",
+]);
 export const syntheticLearnerRunKindSchema = z.enum([
   "regression",
   "golden_journey",
@@ -11,7 +16,11 @@ export const syntheticLearnerRunKindSchema = z.enum([
   "full_autonomous",
   "scheduled",
 ]);
-export const syntheticLearnerGatingPolicySchema = z.enum(["ci_gating", "non_ci_gating", "discovery_only"]);
+export const syntheticLearnerGatingPolicySchema = z.enum([
+  "ci_gating",
+  "non_ci_gating",
+  "discovery_only",
+]);
 export const syntheticLearnerAutonomyStartProfileSchema = z.enum(["naive_entry", "oriented_entry"]);
 
 export const syntheticLearnerLevelSchema = z.enum(["beginner", "intermediate", "advanced"]);
@@ -120,7 +129,9 @@ export const syntheticLearnerBrowserStepSchema = z.object({
 export const syntheticLearnerAutonomousConfigSchema = z.object({
   enabled: z.boolean(),
   maxTurns: z.number().int().positive(),
-  allowedProductSurfaces: z.array(z.enum(["tutor_chat", "workspace", "source_wiki", "study_map", "artifacts"])).min(1),
+  allowedProductSurfaces: z
+    .array(z.enum(["tutor_chat", "workspace", "source_wiki", "study_map", "artifacts"]))
+    .min(1),
   invariantAssertionRefs: z.array(syntheticLearnerAssertionReferenceSchema).min(1),
   durableWritesScope: z.literal("eval_owned_notebooks"),
   gateStatus: syntheticLearnerGatingPolicySchema.default("discovery_only"),
@@ -138,13 +149,17 @@ export const syntheticLearnerRubricDefinitionSchema = z.object({
   id: idSchema,
   label: z.string().min(1),
   qualitative: z.literal(true).default(true),
-  dimensions: z.array(z.enum([
-    "explanation_clarity",
-    "remediation_quality",
-    "artifact_usefulness",
-    "source_faithfulness",
-    "persona_realism",
-  ])).min(1),
+  dimensions: z
+    .array(
+      z.enum([
+        "explanation_clarity",
+        "remediation_quality",
+        "artifact_usefulness",
+        "source_faithfulness",
+        "persona_realism",
+      ]),
+    )
+    .min(1),
   enabled: z.boolean().default(false),
 });
 
@@ -177,9 +192,18 @@ export const syntheticLearnerScenarioSchema = z.object({
   objectiveId: idSchema.optional(),
 });
 
-export const evalSourceFixtureCompatibilityStatusSchema = z.enum(["compatible", "needs_regeneration", "blocked"]);
+export const evalSourceFixtureCompatibilityStatusSchema = z.enum([
+  "compatible",
+  "needs_regeneration",
+  "blocked",
+]);
 export const evalSourceFixtureFreshnessModeSchema = z.enum(["warn", "strict", "regenerate"]);
-export const evalSourceFixtureFreshnessStatusSchema = z.enum(["fresh", "stale_warning", "stale_failure", "regenerated"]);
+export const evalSourceFixtureFreshnessStatusSchema = z.enum([
+  "fresh",
+  "stale_warning",
+  "stale_failure",
+  "regenerated",
+]);
 
 export const CURRENT_SYNTHETIC_LEARNER_EVAL_FIXTURE_VERSIONS = {
   ingestionPipelineVersion: "ingestion@2026.05.22",
@@ -279,22 +303,25 @@ export const syntheticLearnerAssertionStatusSchema = z.enum(["passed", "failed",
 function normalizeSyntheticLearnerActionDecisionInput(value: unknown): unknown {
   if (!value || typeof value !== "object" || Array.isArray(value)) return value;
   const input = value as Record<string, unknown>;
-  const parameters = input.parameters && typeof input.parameters === "object" && !Array.isArray(input.parameters)
-    ? input.parameters as Record<string, unknown>
-    : {};
+  const parameters =
+    input.parameters && typeof input.parameters === "object" && !Array.isArray(input.parameters)
+      ? (input.parameters as Record<string, unknown>)
+      : {};
   const rawAction = typeof input.action === "string" ? input.action : "";
-  const query = typeof parameters.query === "string"
-    ? parameters.query
-    : typeof parameters.message === "string"
-      ? parameters.message
-      : typeof input.learnerMessage === "string"
-        ? input.learnerMessage
+  const query =
+    typeof parameters.query === "string"
+      ? parameters.query
+      : typeof parameters.message === "string"
+        ? parameters.message
+        : typeof input.learnerMessage === "string"
+          ? input.learnerMessage
+          : undefined;
+  const artifactId =
+    typeof input.artifactId === "string"
+      ? input.artifactId
+      : typeof parameters.artifactId === "string"
+        ? parameters.artifactId
         : undefined;
-  const artifactId = typeof input.artifactId === "string"
-    ? input.artifactId
-    : typeof parameters.artifactId === "string"
-      ? parameters.artifactId
-      : undefined;
 
   const actionAliases: Record<string, z.infer<typeof syntheticLearnerSimulatorActionSchema>> = {
     ask_question: "chat.respond",
@@ -316,41 +343,62 @@ function normalizeSyntheticLearnerActionDecisionInput(value: unknown): unknown {
     ...input,
     ...parameters,
     action: normalizedAction,
-    rationale: typeof input.rationale === "string"
-      ? input.rationale
-      : `Synthetic Learner selected ${String(normalizedAction || rawAction || "an action")}.`,
+    rationale:
+      typeof input.rationale === "string"
+        ? input.rationale
+        : `Synthetic Learner selected ${String(normalizedAction || rawAction || "an action")}.`,
     ...(query && normalizedAction === "chat.respond" ? { learnerMessage: query } : {}),
     ...(artifactId ? { artifactId } : {}),
   };
 }
 
-export const syntheticLearnerActionDecisionSchema = z.preprocess(normalizeSyntheticLearnerActionDecisionInput, z.object({
-  action: syntheticLearnerSimulatorActionSchema,
-  rationale: z.string().min(1),
-  learnerMessage: z.string().min(1).optional(),
-  artifactId: idSchema.optional(),
-  questionId: idSchema.optional(),
-  answer: z.string().min(1).optional(),
-  isCorrect: z.boolean().optional(),
-  score: z.number().min(0).max(1).optional(),
-  conceptIds: z.array(idSchema).default([]),
-  explanation: z.string().min(1).optional(),
-  usefulness: z.enum(["useful", "not_useful", "mixed"]).optional(),
-  difficulty: z.enum(["too_easy", "right_level", "too_hard"]).optional(),
-  confusion: z.string().min(1).optional(),
-  sourceGrounding: z.enum(["grounded", "ungrounded", "unclear"]).optional(),
-  finishReason: z.string().min(1).optional(),
-}).superRefine((value, ctx) => {
-  if (value.action === "chat.respond" && !value.learnerMessage) {
-    ctx.addIssue({ code: "custom", path: ["learnerMessage"], message: "chat.respond requires learnerMessage." });
-  }
-  if (value.action === "artifact.view" && !value.artifactId) {
-    ctx.addIssue({ code: "custom", path: ["artifactId"], message: "artifact.view requires artifactId." });
-  }
-  if (value.action === "quiz.answer" && (!value.artifactId || !value.questionId || !value.answer)) {
-    ctx.addIssue({ code: "custom", path: ["quiz.answer"], message: "quiz.answer requires artifactId, questionId, and answer." });
-  }
-}));
+export const syntheticLearnerActionDecisionSchema = z.preprocess(
+  normalizeSyntheticLearnerActionDecisionInput,
+  z
+    .object({
+      action: syntheticLearnerSimulatorActionSchema,
+      rationale: z.string().min(1),
+      learnerMessage: z.string().min(1).optional(),
+      artifactId: idSchema.optional(),
+      questionId: idSchema.optional(),
+      answer: z.string().min(1).optional(),
+      isCorrect: z.boolean().optional(),
+      score: z.number().min(0).max(1).optional(),
+      conceptIds: z.array(idSchema).default([]),
+      explanation: z.string().min(1).optional(),
+      usefulness: z.enum(["useful", "not_useful", "mixed"]).optional(),
+      difficulty: z.enum(["too_easy", "right_level", "too_hard"]).optional(),
+      confusion: z.string().min(1).optional(),
+      sourceGrounding: z.enum(["grounded", "ungrounded", "unclear"]).optional(),
+      finishReason: z.string().min(1).optional(),
+    })
+    .superRefine((value, ctx) => {
+      if (value.action === "chat.respond" && !value.learnerMessage) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["learnerMessage"],
+          message: "chat.respond requires learnerMessage.",
+        });
+      }
+      if (value.action === "artifact.view" && !value.artifactId) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["artifactId"],
+          message: "artifact.view requires artifactId.",
+        });
+      }
+      if (
+        value.action === "quiz.answer" &&
+        (!value.artifactId || !value.questionId || !value.answer)
+      ) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["quiz.answer"],
+          message: "quiz.answer requires artifactId, questionId, and answer.",
+        });
+      }
+    }),
+);
 
 export const syntheticLearnerActionObservationSchema = z.object({
   action: syntheticLearnerSimulatorActionSchema,
@@ -360,19 +408,30 @@ export const syntheticLearnerActionObservationSchema = z.object({
   evidenceRefs: z.array(nodeRefSchema).default([]),
 });
 
-export const syntheticLearnerLearnerResponseSchema = z.object({
-  learnerFacingText: z.string().min(1).optional(),
-  finish: z.boolean().default(false),
-  finishReason: z.string().min(1).optional(),
-  internalRationale: z.string().min(1).optional(),
-}).superRefine((value, ctx) => {
-  if (!value.finish && !value.learnerFacingText) {
-    ctx.addIssue({ code: "custom", path: ["learnerFacingText"], message: "learnerFacingText is required unless finish is true." });
-  }
-});
+export const syntheticLearnerLearnerResponseSchema = z
+  .object({
+    learnerFacingText: z.string().min(1).optional(),
+    finish: z.boolean().default(false),
+    finishReason: z.string().min(1).optional(),
+    internalRationale: z.string().min(1).optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (!value.finish && !value.learnerFacingText) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["learnerFacingText"],
+        message: "learnerFacingText is required unless finish is true.",
+      });
+    }
+  });
 
 export const syntheticLearnerSimulatorEvidenceSchema = z.object({
-  eventType: z.enum(["model_output_invalid", "action_repaired", "action_failed", "observation_recorded"]),
+  eventType: z.enum([
+    "model_output_invalid",
+    "action_repaired",
+    "action_failed",
+    "observation_recorded",
+  ]),
   learnerMode: syntheticLearnerModeSchema,
   message: z.string().min(1),
   rawModelOutput: z.string().optional(),
@@ -398,19 +457,21 @@ export const syntheticLearnerEvalRunPlanSchema = z.object({
 export const syntheticLearnerEvalIssueCandidateSchema = z.object({
   title: z.string().min(1),
   kind: z.enum(["warning", "failure"]).default("failure"),
-  reason: z.enum([
-    "run_failed",
-    "invalid_action_repaired",
-    "required_snapshot_unavailable",
-    "optional_assertion_skipped",
-    "required_action_not_covered",
-    "suspicious_finish",
-    "raw_id_leak_repaired",
-    "simulator_tool_mismatch",
-    "degraded_observation",
-    "flaky_retry",
-    "quality_warning",
-  ]).default("run_failed"),
+  reason: z
+    .enum([
+      "run_failed",
+      "invalid_action_repaired",
+      "required_snapshot_unavailable",
+      "optional_assertion_skipped",
+      "required_action_not_covered",
+      "suspicious_finish",
+      "raw_id_leak_repaired",
+      "simulator_tool_mismatch",
+      "degraded_observation",
+      "flaky_retry",
+      "quality_warning",
+    ])
+    .default("run_failed"),
   severity: z.enum(["low", "medium", "high", "critical"]),
   publishEligible: z.boolean().default(true),
   learnerMode: syntheticLearnerModeSchema,
@@ -441,10 +502,12 @@ const syntheticLearnerAssertionBaseSchema = z.object({
   details: z.record(z.string(), z.unknown()).default({}),
 });
 
-export const syntheticLearnerAssertionSchema = syntheticLearnerAssertionBaseSchema.transform((value) => ({
-  ...value,
-  passed: value.status === "passed",
-}));
+export const syntheticLearnerAssertionSchema = syntheticLearnerAssertionBaseSchema.transform(
+  (value) => ({
+    ...value,
+    passed: value.status === "passed",
+  }),
+);
 
 export const syntheticLearnerToolEventSchema = z.object({
   label: z.string().min(1),
@@ -458,14 +521,30 @@ export const syntheticLearnerRuntimeEventSchema = z.object({
   timestamp: z.string().datetime(),
 });
 
-export const syntheticLearnerRunStatusSchema = z.enum(["planned", "running", "passed", "failed", "skipped"]);
+export const syntheticLearnerRunStatusSchema = z.enum([
+  "planned",
+  "running",
+  "passed",
+  "failed",
+  "skipped",
+]);
 
 export const syntheticLearnerEvalObservationEventSchema = z.object({
   id: idSchema,
   runId: idSchema,
   scenarioRunId: idSchema.optional(),
   timestamp: z.string().datetime(),
-  kind: z.enum(["run", "student", "tutor", "tool", "runtime", "notebook", "assertion", "artifact", "issue_candidate"]),
+  kind: z.enum([
+    "run",
+    "student",
+    "tutor",
+    "tool",
+    "runtime",
+    "notebook",
+    "assertion",
+    "artifact",
+    "issue_candidate",
+  ]),
   status: syntheticLearnerRunStatusSchema.optional(),
   message: z.string().min(1),
   payload: z.record(z.string(), z.unknown()).default({}),
@@ -615,60 +694,100 @@ export const syntheticLearnerEvalMatrixSchema = z.object({
 export type SyntheticLearnerMode = z.infer<typeof syntheticLearnerModeSchema>;
 export type SyntheticLearnerRunKind = z.infer<typeof syntheticLearnerRunKindSchema>;
 export type SyntheticLearnerGatingPolicy = z.infer<typeof syntheticLearnerGatingPolicySchema>;
-export type SyntheticLearnerAutonomyStartProfile = z.infer<typeof syntheticLearnerAutonomyStartProfileSchema>;
+export type SyntheticLearnerAutonomyStartProfile = z.infer<
+  typeof syntheticLearnerAutonomyStartProfileSchema
+>;
 export type SyntheticLearnerLevel = z.infer<typeof syntheticLearnerLevelSchema>;
 export type SyntheticLearnerResponsePolicy = z.infer<typeof syntheticLearnerResponsePolicySchema>;
 export type SyntheticLearnerPersona = z.infer<typeof syntheticLearnerPersonaSchema>;
 export type SyntheticLearnerScenarioKind = z.infer<typeof syntheticLearnerScenarioKindSchema>;
-export type SyntheticLearnerScenarioBeatKind = z.infer<typeof syntheticLearnerScenarioBeatKindSchema>;
+export type SyntheticLearnerScenarioBeatKind = z.infer<
+  typeof syntheticLearnerScenarioBeatKindSchema
+>;
 export type SyntheticLearnerAllowedAction = z.infer<typeof syntheticLearnerAllowedActionSchema>;
 export type SyntheticLearnerSimulatorAction = z.infer<typeof syntheticLearnerSimulatorActionSchema>;
 export type SyntheticLearnerStopCondition = z.infer<typeof syntheticLearnerStopConditionSchema>;
-export type SyntheticLearnerAssertionReference = z.infer<typeof syntheticLearnerAssertionReferenceSchema>;
-export type SyntheticLearnerBrowserStepAction = z.infer<typeof syntheticLearnerBrowserStepActionSchema>;
+export type SyntheticLearnerAssertionReference = z.infer<
+  typeof syntheticLearnerAssertionReferenceSchema
+>;
+export type SyntheticLearnerBrowserStepAction = z.infer<
+  typeof syntheticLearnerBrowserStepActionSchema
+>;
 export type SyntheticLearnerBrowserStep = z.infer<typeof syntheticLearnerBrowserStepSchema>;
-export type SyntheticLearnerAutonomousConfig = z.infer<typeof syntheticLearnerAutonomousConfigSchema>;
+export type SyntheticLearnerAutonomousConfig = z.infer<
+  typeof syntheticLearnerAutonomousConfigSchema
+>;
 export type SyntheticLearnerModelConfig = z.infer<typeof syntheticLearnerModelConfigSchema>;
-export type SyntheticLearnerRubricDefinition = z.infer<typeof syntheticLearnerRubricDefinitionSchema>;
+export type SyntheticLearnerRubricDefinition = z.infer<
+  typeof syntheticLearnerRubricDefinitionSchema
+>;
 export type SyntheticLearnerScenarioBeat = z.infer<typeof syntheticLearnerScenarioBeatSchema>;
 export type SyntheticLearnerScenario = z.infer<typeof syntheticLearnerScenarioSchema>;
-export type EvalSourceFixtureCompatibilityStatus = z.infer<typeof evalSourceFixtureCompatibilityStatusSchema>;
+export type EvalSourceFixtureCompatibilityStatus = z.infer<
+  typeof evalSourceFixtureCompatibilityStatusSchema
+>;
 export type EvalSourceFixtureFreshnessMode = z.infer<typeof evalSourceFixtureFreshnessModeSchema>;
-export type EvalSourceFixtureFreshnessStatus = z.infer<typeof evalSourceFixtureFreshnessStatusSchema>;
-export type EvalSourceFixtureGenerationMetadata = z.infer<typeof evalSourceFixtureGenerationMetadataSchema>;
+export type EvalSourceFixtureFreshnessStatus = z.infer<
+  typeof evalSourceFixtureFreshnessStatusSchema
+>;
+export type EvalSourceFixtureGenerationMetadata = z.infer<
+  typeof evalSourceFixtureGenerationMetadataSchema
+>;
 export type EvalSourceFixtureReadinessCheck = z.infer<typeof evalSourceFixtureReadinessCheckSchema>;
-export type EvalSourceFixtureExpectedCitation = z.infer<typeof evalSourceFixtureExpectedCitationSchema>;
+export type EvalSourceFixtureExpectedCitation = z.infer<
+  typeof evalSourceFixtureExpectedCitationSchema
+>;
 export type EvalSourceFixtureManifest = z.infer<typeof evalSourceFixtureManifestSchema>;
-export type EvalSourceFixtureFreshnessResult = z.infer<typeof evalSourceFixtureFreshnessResultSchema>;
-export type SyntheticLearnerAssertionCategory = z.infer<typeof syntheticLearnerAssertionCategorySchema>;
+export type EvalSourceFixtureFreshnessResult = z.infer<
+  typeof evalSourceFixtureFreshnessResultSchema
+>;
+export type SyntheticLearnerAssertionCategory = z.infer<
+  typeof syntheticLearnerAssertionCategorySchema
+>;
 export type SyntheticLearnerRubricResult = z.infer<typeof syntheticLearnerRubricResultSchema>;
 export type SyntheticLearnerAssertionStatus = z.infer<typeof syntheticLearnerAssertionStatusSchema>;
 export type SyntheticLearnerActionDecision = z.infer<typeof syntheticLearnerActionDecisionSchema>;
-export type SyntheticLearnerActionObservation = z.infer<typeof syntheticLearnerActionObservationSchema>;
+export type SyntheticLearnerActionObservation = z.infer<
+  typeof syntheticLearnerActionObservationSchema
+>;
 export type SyntheticLearnerLearnerResponse = z.infer<typeof syntheticLearnerLearnerResponseSchema>;
-export type SyntheticLearnerSimulatorEvidence = z.infer<typeof syntheticLearnerSimulatorEvidenceSchema>;
-export type SyntheticLearnerEvalIssueCandidate = z.infer<typeof syntheticLearnerEvalIssueCandidateSchema>;
+export type SyntheticLearnerSimulatorEvidence = z.infer<
+  typeof syntheticLearnerSimulatorEvidenceSchema
+>;
+export type SyntheticLearnerEvalIssueCandidate = z.infer<
+  typeof syntheticLearnerEvalIssueCandidateSchema
+>;
 export type SyntheticLearnerAssertion = z.infer<typeof syntheticLearnerAssertionSchema>;
 export type SyntheticLearnerToolEvent = z.infer<typeof syntheticLearnerToolEventSchema>;
 export type SyntheticLearnerRuntimeEvent = z.infer<typeof syntheticLearnerRuntimeEventSchema>;
 export type SyntheticLearnerRunStatus = z.infer<typeof syntheticLearnerRunStatusSchema>;
-export type SyntheticLearnerEvalObservationEvent = z.infer<typeof syntheticLearnerEvalObservationEventSchema>;
+export type SyntheticLearnerEvalObservationEvent = z.infer<
+  typeof syntheticLearnerEvalObservationEventSchema
+>;
 export type SyntheticLearnerEvalRun = z.infer<typeof syntheticLearnerEvalRunSchema>;
 export type SyntheticLearnerEvalStep = z.infer<typeof syntheticLearnerEvalStepSchema>;
 export type SyntheticLearnerEvalScenarioRun = z.infer<typeof syntheticLearnerEvalScenarioRunSchema>;
-export type SyntheticLearnerEvalReportFormat = z.infer<typeof syntheticLearnerEvalReportFormatSchema>;
-export type SyntheticLearnerEvalReportMetadata = z.infer<typeof syntheticLearnerEvalReportMetadataSchema>;
+export type SyntheticLearnerEvalReportFormat = z.infer<
+  typeof syntheticLearnerEvalReportFormatSchema
+>;
+export type SyntheticLearnerEvalReportMetadata = z.infer<
+  typeof syntheticLearnerEvalReportMetadataSchema
+>;
 export type SyntheticLearnerEvalRunRecord = z.infer<typeof syntheticLearnerEvalRunRecordSchema>;
 export type SyntheticLearnerEvalMatrix = z.infer<typeof syntheticLearnerEvalMatrixSchema>;
 
-export type SyntheticLearnerIssueCandidatePolicy = z.infer<typeof syntheticLearnerIssueCandidatePolicySchema>;
+export type SyntheticLearnerIssueCandidatePolicy = z.infer<
+  typeof syntheticLearnerIssueCandidatePolicySchema
+>;
 export type SyntheticLearnerEvalRunPlan = z.infer<typeof syntheticLearnerEvalRunPlanSchema>;
 
 export function formatSyntheticLearnerList(items: string[], separator: string): string {
   return items.length ? items.join(separator) : "none";
 }
 
-export function renderSyntheticLearnerScriptedMessages(scenario: SyntheticLearnerScenario): string[] {
+export function renderSyntheticLearnerScriptedMessages(
+  scenario: SyntheticLearnerScenario,
+): string[] {
   return scenario.beats.map((beat) => beat.scriptedMessage);
 }
 
@@ -782,17 +901,27 @@ export function planSyntheticLearnerEvalRun(input: {
   const autonomyStartProfile = input.autonomyStartProfile;
   const compatible = isLearnerModeCompatibleWithRunKind(runKind, learnerMode);
   if (!compatible) {
-    throw new Error(`Synthetic Learner runKind ${runKind} is incompatible with learnerMode ${learnerMode}.`);
+    throw new Error(
+      `Synthetic Learner runKind ${runKind} is incompatible with learnerMode ${learnerMode}.`,
+    );
   }
   if (learnerMode === "full_autonomous_llm" && !input.scenario.autonomousConfig) {
-    throw new Error(`Synthetic Learner full_autonomous_llm requires autonomousConfig for scenario ${input.scenario.id}.`);
+    throw new Error(
+      `Synthetic Learner full_autonomous_llm requires autonomousConfig for scenario ${input.scenario.id}.`,
+    );
   }
   if (learnerMode !== "full_autonomous_llm" && autonomyStartProfile) {
-    throw new Error(`Synthetic Learner autonomyStartProfile requires full_autonomous_llm, received ${learnerMode}.`);
+    throw new Error(
+      `Synthetic Learner autonomyStartProfile requires full_autonomous_llm, received ${learnerMode}.`,
+    );
   }
-  const gatingPolicy = input.gatingPolicy ?? defaultGatingPolicyForPlan(runKind, learnerMode, input.scenario.autonomousConfig?.gateStatus);
+  const gatingPolicy =
+    input.gatingPolicy ??
+    defaultGatingPolicyForPlan(runKind, learnerMode, input.scenario.autonomousConfig?.gateStatus);
   if (learnerMode !== "scripted" && gatingPolicy === "ci_gating") {
-    throw new Error(`Synthetic Learner learnerMode ${learnerMode} is non-CI-gating by default and cannot be promoted without an explicit suite decision.`);
+    throw new Error(
+      `Synthetic Learner learnerMode ${learnerMode} is non-CI-gating by default and cannot be promoted without an explicit suite decision.`,
+    );
   }
   return syntheticLearnerEvalRunPlanSchema.parse({
     scenarioId: input.scenario.id,
@@ -803,9 +932,10 @@ export function planSyntheticLearnerEvalRun(input: {
     issueCandidatePolicy: input.issueCandidatePolicy ?? "emit_all",
     ...(autonomyStartProfile ? { autonomyStartProfile } : {}),
     ...(input.simulatorModelConfig ? { simulatorModel: input.simulatorModelConfig } : {}),
-    assertionRefs: learnerMode === "full_autonomous_llm"
-      ? input.scenario.autonomousConfig?.invariantAssertionRefs ?? input.scenario.assertionRefs
-      : input.scenario.assertionRefs,
+    assertionRefs:
+      learnerMode === "full_autonomous_llm"
+        ? (input.scenario.autonomousConfig?.invariantAssertionRefs ?? input.scenario.assertionRefs)
+        : input.scenario.assertionRefs,
   });
 }
 
@@ -826,7 +956,8 @@ function defaultGatingPolicyForPlan(
   autonomousGateStatus?: SyntheticLearnerGatingPolicy,
 ): SyntheticLearnerGatingPolicy {
   if (autonomousGateStatus) return autonomousGateStatus;
-  if (learnerMode !== "scripted") return runKind === "full_autonomous" ? "discovery_only" : "non_ci_gating";
+  if (learnerMode !== "scripted")
+    return runKind === "full_autonomous" ? "discovery_only" : "non_ci_gating";
   return runKind === "regression" || runKind === "golden_journey" ? "ci_gating" : "discovery_only";
 }
 
@@ -850,25 +981,39 @@ export function evaluateEvalSourceFixtureFreshness(input: {
   const reasons: string[] = [];
 
   if (fixture.ingestionPipelineVersion !== expected.ingestionPipelineVersion) {
-    reasons.push(`ingestion pipeline version ${fixture.ingestionPipelineVersion} does not match ${expected.ingestionPipelineVersion}`);
+    reasons.push(
+      `ingestion pipeline version ${fixture.ingestionPipelineVersion} does not match ${expected.ingestionPipelineVersion}`,
+    );
   }
   if (fixture.generationMetadata.pipelineVersion !== expected.ingestionPipelineVersion) {
-    reasons.push(`generation metadata pipeline version ${fixture.generationMetadata.pipelineVersion} does not match ${expected.ingestionPipelineVersion}`);
+    reasons.push(
+      `generation metadata pipeline version ${fixture.generationMetadata.pipelineVersion} does not match ${expected.ingestionPipelineVersion}`,
+    );
   }
   if (fixture.schemaVersion !== expected.schemaVersion) {
-    reasons.push(`schema version ${fixture.schemaVersion} does not match ${expected.schemaVersion}`);
+    reasons.push(
+      `schema version ${fixture.schemaVersion} does not match ${expected.schemaVersion}`,
+    );
   }
   if (fixture.generationMetadata.schemaVersion !== expected.schemaVersion) {
-    reasons.push(`generation metadata schema version ${fixture.generationMetadata.schemaVersion} does not match ${expected.schemaVersion}`);
+    reasons.push(
+      `generation metadata schema version ${fixture.generationMetadata.schemaVersion} does not match ${expected.schemaVersion}`,
+    );
   }
   if (fixture.generationMetadata.modelProvider !== expected.modelProvider) {
-    reasons.push(`model provider ${fixture.generationMetadata.modelProvider} does not match ${expected.modelProvider}`);
+    reasons.push(
+      `model provider ${fixture.generationMetadata.modelProvider} does not match ${expected.modelProvider}`,
+    );
   }
   if (fixture.generationMetadata.modelName !== expected.modelName) {
-    reasons.push(`model name ${fixture.generationMetadata.modelName} does not match ${expected.modelName}`);
+    reasons.push(
+      `model name ${fixture.generationMetadata.modelName} does not match ${expected.modelName}`,
+    );
   }
   if (expected.sourceContentHash && fixture.sourceContentHash !== expected.sourceContentHash) {
-    reasons.push(`source content hash ${fixture.sourceContentHash} does not match ${expected.sourceContentHash}`);
+    reasons.push(
+      `source content hash ${fixture.sourceContentHash} does not match ${expected.sourceContentHash}`,
+    );
   }
   if (fixture.compatibilityStatus !== "compatible" || !fixture.compatible) {
     reasons.push(`fixture compatibility is ${fixture.compatibilityStatus}`);
@@ -919,9 +1064,13 @@ export function regenerateEvalSourceFixtureManifest(input: {
   notes?: string;
 }): EvalSourceFixtureManifest {
   const generatedAt = input.generatedAt ?? new Date().toISOString();
-  const ingestionPipelineVersion = input.ingestionPipelineVersion ?? CURRENT_SYNTHETIC_LEARNER_EVAL_FIXTURE_VERSIONS.ingestionPipelineVersion;
-  const schemaVersion = input.schemaVersion ?? CURRENT_SYNTHETIC_LEARNER_EVAL_FIXTURE_VERSIONS.schemaVersion;
-  const modelProvider = input.modelProvider ?? CURRENT_SYNTHETIC_LEARNER_EVAL_FIXTURE_VERSIONS.modelProvider;
+  const ingestionPipelineVersion =
+    input.ingestionPipelineVersion ??
+    CURRENT_SYNTHETIC_LEARNER_EVAL_FIXTURE_VERSIONS.ingestionPipelineVersion;
+  const schemaVersion =
+    input.schemaVersion ?? CURRENT_SYNTHETIC_LEARNER_EVAL_FIXTURE_VERSIONS.schemaVersion;
+  const modelProvider =
+    input.modelProvider ?? CURRENT_SYNTHETIC_LEARNER_EVAL_FIXTURE_VERSIONS.modelProvider;
   const modelName = input.modelName ?? CURRENT_SYNTHETIC_LEARNER_EVAL_FIXTURE_VERSIONS.modelName;
   const sourceContentHash = input.sourceContentHash ?? input.fixture.sourceContentHash;
 
@@ -946,7 +1095,9 @@ export function regenerateEvalSourceFixtureManifest(input: {
   });
 }
 
-function deriveSyntheticLearnerEvalRunStatus(scenarioRuns: SyntheticLearnerEvalScenarioRun[]): SyntheticLearnerRunStatus {
+function deriveSyntheticLearnerEvalRunStatus(
+  scenarioRuns: SyntheticLearnerEvalScenarioRun[],
+): SyntheticLearnerRunStatus {
   if (scenarioRuns.some((run) => run.status === "failed")) return "failed";
   if (scenarioRuns.some((run) => run.status === "running")) return "running";
   if (scenarioRuns.every((run) => run.status === "passed")) return "passed";
@@ -964,7 +1115,9 @@ function deriveSyntheticLearnerEvalDurationMs(
     if (Number.isFinite(duration) && duration >= 0) return duration;
   }
 
-  const scenarioDurations = scenarioRuns.flatMap((run) => (typeof run.durationMs === "number" ? [run.durationMs] : []));
+  const scenarioDurations = scenarioRuns.flatMap((run) =>
+    typeof run.durationMs === "number" ? [run.durationMs] : [],
+  );
   if (!scenarioDurations.length) return undefined;
   return scenarioDurations.reduce((sum, duration) => sum + duration, 0);
 }
@@ -985,42 +1138,53 @@ export function buildSyntheticLearnerEvalRunRecord(input: {
   status?: SyntheticLearnerRunStatus;
   observationEvents?: SyntheticLearnerEvalObservationEvent[];
 }): SyntheticLearnerEvalRunRecord {
-  const runId = input.runId ?? `slrun_${input.matrix.fixture.id}_${input.matrix.personas.length}x${input.matrix.scenarios.length}`;
-  const scenarioRuns = (input.scenarioRuns ?? input.matrix.runs.map((run) =>
-    syntheticLearnerEvalScenarioRunSchema.parse({
-      ...run,
-      id: run.id,
-      runId,
-      fixtureVersion: input.matrix.fixture.version,
-      steps: [],
-      assertions: run.assertions,
-      artifactRefs: run.artifactRefs,
-      traceRefs: run.traceRefs,
-      notebookRefs: [{ refType: "notebook", refId: run.seededNotebookId }],
-      runKind: input.matrix.scenarios.find((scenario) => scenario.id === run.scenarioId)?.runKind ?? "regression",
-      learnerMode: run.learnerMode ?? "scripted",
-      simulatorModel: run.simulatorModel,
-      autonomyStartProfile: run.autonomyStartProfile,
-      gatingPolicy: run.gatingPolicy ?? "ci_gating",
-      actionRepairAttempts: run.actionRepairAttempts ?? 0,
-      simulatorEvidence: run.simulatorEvidence ?? [],
-      issueCandidates: run.issueCandidates ?? [],
-      observationEvents: run.observationEvents ?? [],
-      evalEvidenceSnapshotRefs: run.evalEvidenceSnapshotRefs ?? [],
-      rubricResults: [],
-      finalState: run.finalState,
-    }),
-  )) satisfies SyntheticLearnerEvalScenarioRun[];
+  const runId =
+    input.runId ??
+    `slrun_${input.matrix.fixture.id}_${input.matrix.personas.length}x${input.matrix.scenarios.length}`;
+  const scenarioRuns = (input.scenarioRuns ??
+    input.matrix.runs.map((run) =>
+      syntheticLearnerEvalScenarioRunSchema.parse({
+        ...run,
+        id: run.id,
+        runId,
+        fixtureVersion: input.matrix.fixture.version,
+        steps: [],
+        assertions: run.assertions,
+        artifactRefs: run.artifactRefs,
+        traceRefs: run.traceRefs,
+        notebookRefs: [{ refType: "notebook", refId: run.seededNotebookId }],
+        runKind:
+          input.matrix.scenarios.find((scenario) => scenario.id === run.scenarioId)?.runKind ??
+          "regression",
+        learnerMode: run.learnerMode ?? "scripted",
+        simulatorModel: run.simulatorModel,
+        autonomyStartProfile: run.autonomyStartProfile,
+        gatingPolicy: run.gatingPolicy ?? "ci_gating",
+        actionRepairAttempts: run.actionRepairAttempts ?? 0,
+        simulatorEvidence: run.simulatorEvidence ?? [],
+        issueCandidates: run.issueCandidates ?? [],
+        observationEvents: run.observationEvents ?? [],
+        evalEvidenceSnapshotRefs: run.evalEvidenceSnapshotRefs ?? [],
+        rubricResults: [],
+        finalState: run.finalState,
+      }),
+    )) satisfies SyntheticLearnerEvalScenarioRun[];
 
   const startedAt = input.startedAt ?? input.matrix.fixture.generatedAt;
-  const completedAt = input.completedAt ?? scenarioRuns
-    .map((run) => run.completedAt)
-    .find((value): value is string => Boolean(value));
+  const completedAt =
+    input.completedAt ??
+    scenarioRuns.map((run) => run.completedAt).find((value): value is string => Boolean(value));
   const status = input.status ?? deriveSyntheticLearnerEvalRunStatus(scenarioRuns);
-  const durationMs = input.durationMs ?? deriveSyntheticLearnerEvalDurationMs(startedAt, completedAt, scenarioRuns);
-  const notebookRefs = input.notebookRefs ?? resolveEvalRunNotebookRefs(scenarioRuns, input.matrix.fixture.seededNotebookId);
+  const durationMs =
+    input.durationMs ?? deriveSyntheticLearnerEvalDurationMs(startedAt, completedAt, scenarioRuns);
+  const notebookRefs =
+    input.notebookRefs ??
+    resolveEvalRunNotebookRefs(scenarioRuns, input.matrix.fixture.seededNotebookId);
   const seededNotebookId =
-    scenarioRuns.find((run) => run.seededNotebookId && run.seededNotebookId !== input.matrix.fixture.seededNotebookId)?.seededNotebookId ??
+    scenarioRuns.find(
+      (run) =>
+        run.seededNotebookId && run.seededNotebookId !== input.matrix.fixture.seededNotebookId,
+    )?.seededNotebookId ??
     notebookRefs.find((ref) => ref.refType === "notebook")?.refId ??
     input.matrix.fixture.seededNotebookId;
 
@@ -1036,13 +1200,22 @@ export function buildSyntheticLearnerEvalRunRecord(input: {
     transcript: input.transcript ?? [],
     scenarioRuns,
     notebookRefs,
-    rubricResults: input.rubricResults ?? scenarioRuns.flatMap((scenarioRun) => scenarioRun.rubricResults),
+    rubricResults:
+      input.rubricResults ?? scenarioRuns.flatMap((scenarioRun) => scenarioRun.rubricResults),
     reportMetadata: [],
     issueCandidates: scenarioRuns.flatMap((scenarioRun) => scenarioRun.issueCandidates ?? []),
-    observationEvents: input.observationEvents ?? scenarioRuns.flatMap((scenarioRun) => scenarioRun.observationEvents ?? []),
-    evalEvidenceSnapshotRefs: scenarioRuns.flatMap((scenarioRun) => scenarioRun.evalEvidenceSnapshotRefs ?? []),
-    evalEvidenceSnapshots: scenarioRuns.flatMap((scenarioRun) => scenarioRun.evalEvidenceSnapshots ?? []),
-    evalPlans: scenarioRuns.flatMap((scenarioRun) => (scenarioRun.evalPlan ? [scenarioRun.evalPlan] : [])),
+    observationEvents:
+      input.observationEvents ??
+      scenarioRuns.flatMap((scenarioRun) => scenarioRun.observationEvents ?? []),
+    evalEvidenceSnapshotRefs: scenarioRuns.flatMap(
+      (scenarioRun) => scenarioRun.evalEvidenceSnapshotRefs ?? [],
+    ),
+    evalEvidenceSnapshots: scenarioRuns.flatMap(
+      (scenarioRun) => scenarioRun.evalEvidenceSnapshots ?? [],
+    ),
+    evalPlans: scenarioRuns.flatMap((scenarioRun) =>
+      scenarioRun.evalPlan ? [scenarioRun.evalPlan] : [],
+    ),
   });
 }
 
@@ -1070,18 +1243,20 @@ export function buildSkippedSyntheticLearnerRubricResults(input: {
   definitions: SyntheticLearnerRubricDefinition[];
   evidenceRefs?: Array<{ refType: string; refId: string }>;
 }): SyntheticLearnerRubricResult[] {
-  return input.definitions.map((definition) => syntheticLearnerRubricResultSchema.parse({
-    rubricId: definition.id,
-    qualitative: true,
-    enabled: definition.enabled,
-    status: "skipped",
-    score: null,
-    dimensionScores: {},
-    summary: definition.enabled
-      ? "Qualitative rubric was enabled but no LLM judge result was provided."
-      : "Qualitative rubric is disabled for this run.",
-    evidenceRefs: input.evidenceRefs ?? [],
-  }));
+  return input.definitions.map((definition) =>
+    syntheticLearnerRubricResultSchema.parse({
+      rubricId: definition.id,
+      qualitative: true,
+      enabled: definition.enabled,
+      status: "skipped",
+      score: null,
+      dimensionScores: {},
+      summary: definition.enabled
+        ? "Qualitative rubric was enabled but no LLM judge result was provided."
+        : "Qualitative rubric is disabled for this run.",
+      evidenceRefs: input.evidenceRefs ?? [],
+    }),
+  );
 }
 
 export function deriveDeterministicGateStatus(input: {
@@ -1099,9 +1274,12 @@ export function buildSyntheticLearnerIssueCandidates(input: {
   executedActions?: string[];
   issueCandidatePolicy?: SyntheticLearnerIssueCandidatePolicy;
 }): SyntheticLearnerEvalIssueCandidate[] {
-  const policy = input.issueCandidatePolicy ?? input.scenarioRun.evalPlan?.issueCandidatePolicy ?? "emit_all";
+  const policy =
+    input.issueCandidatePolicy ?? input.scenarioRun.evalPlan?.issueCandidatePolicy ?? "emit_all";
   const assertionRefs = input.assertionRefs ?? input.scenarioRun.evalPlan?.assertionRefs ?? [];
-  const assertionRequiredById = new Map(assertionRefs.map((ref) => [ref.refId, ref.required !== false]));
+  const assertionRequiredById = new Map(
+    assertionRefs.map((ref) => [ref.refId, ref.required !== false]),
+  );
   const transcriptExcerpt = (input.transcript?.slice(-8) ?? []).length
     ? input.transcript!.slice(-8)
     : [input.scenarioRun.finalState.summary];
@@ -1110,7 +1288,9 @@ export function buildSyntheticLearnerIssueCandidates(input: {
     runKind: input.scenarioRun.runKind,
     personaId: input.scenarioRun.personaId,
     scenarioId: input.scenarioRun.scenarioId,
-    ...(input.scenarioRun.autonomyStartProfile ? { autonomyStartProfile: input.scenarioRun.autonomyStartProfile } : {}),
+    ...(input.scenarioRun.autonomyStartProfile
+      ? { autonomyStartProfile: input.scenarioRun.autonomyStartProfile }
+      : {}),
     fixtureManifestId: input.fixture.id,
     fixtureVersion: input.fixture.version,
     seededNotebookId: input.scenarioRun.seededNotebookId,
@@ -1128,121 +1308,159 @@ export function buildSyntheticLearnerIssueCandidates(input: {
   };
 
   if (input.scenarioRun.status === "failed") {
-    pushCandidate(syntheticLearnerEvalIssueCandidateSchema.parse({
-      ...base,
-      kind: "failure",
-      reason: "run_failed",
-      title: `Synthetic Learner failure: ${input.scenarioRun.scenarioId}`,
-      severity: "medium",
-      failureSummary: input.scenarioRun.finalState.summary,
-    }));
+    pushCandidate(
+      syntheticLearnerEvalIssueCandidateSchema.parse({
+        ...base,
+        kind: "failure",
+        reason: "run_failed",
+        title: `Synthetic Learner failure: ${input.scenarioRun.scenarioId}`,
+        severity: "medium",
+        failureSummary: input.scenarioRun.finalState.summary,
+      }),
+    );
   }
   if (input.scenarioRun.simulatorEvidence.some((event) => event.eventType === "action_repaired")) {
-    pushCandidate(syntheticLearnerEvalIssueCandidateSchema.parse({
-      ...base,
-      kind: "warning",
-      reason: "invalid_action_repaired",
-      title: `Synthetic Learner repaired invalid action: ${input.scenarioRun.scenarioId}`,
-      severity: "low",
-      failureSummary: "The Synthetic Learner produced an invalid action that was repaired before the run continued.",
-    }));
+    pushCandidate(
+      syntheticLearnerEvalIssueCandidateSchema.parse({
+        ...base,
+        kind: "warning",
+        reason: "invalid_action_repaired",
+        title: `Synthetic Learner repaired invalid action: ${input.scenarioRun.scenarioId}`,
+        severity: "low",
+        failureSummary:
+          "The Synthetic Learner produced an invalid action that was repaired before the run continued.",
+      }),
+    );
   }
-  if (input.scenarioRun.simulatorEvidence.some((event) => event.eventType === "model_output_invalid")) {
-    pushCandidate(syntheticLearnerEvalIssueCandidateSchema.parse({
-      ...base,
-      kind: "warning",
-      reason: "simulator_tool_mismatch",
-      title: `Synthetic Learner simulator output mismatch: ${input.scenarioRun.scenarioId}`,
-      severity: "medium",
-      failureSummary: "The Synthetic Learner model output did not match the typed simulator contract.",
-    }));
+  if (
+    input.scenarioRun.simulatorEvidence.some((event) => event.eventType === "model_output_invalid")
+  ) {
+    pushCandidate(
+      syntheticLearnerEvalIssueCandidateSchema.parse({
+        ...base,
+        kind: "warning",
+        reason: "simulator_tool_mismatch",
+        title: `Synthetic Learner simulator output mismatch: ${input.scenarioRun.scenarioId}`,
+        severity: "medium",
+        failureSummary:
+          "The Synthetic Learner model output did not match the typed simulator contract.",
+      }),
+    );
   }
   if (input.scenarioRun.actionRepairAttempts > 1) {
-    pushCandidate(syntheticLearnerEvalIssueCandidateSchema.parse({
-      ...base,
-      kind: "warning",
-      reason: "flaky_retry",
-      title: `Synthetic Learner required multiple action repairs: ${input.scenarioRun.scenarioId}`,
-      severity: "low",
-      failureSummary: `The Synthetic Learner needed ${input.scenarioRun.actionRepairAttempts} action repair attempts.`,
-    }));
+    pushCandidate(
+      syntheticLearnerEvalIssueCandidateSchema.parse({
+        ...base,
+        kind: "warning",
+        reason: "flaky_retry",
+        title: `Synthetic Learner required multiple action repairs: ${input.scenarioRun.scenarioId}`,
+        severity: "low",
+        failureSummary: `The Synthetic Learner needed ${input.scenarioRun.actionRepairAttempts} action repair attempts.`,
+      }),
+    );
   }
   if ((input.observationEventCount ?? input.scenarioRun.observationEvents.length) === 0) {
-    pushCandidate(syntheticLearnerEvalIssueCandidateSchema.parse({
-      ...base,
-      kind: "warning",
-      reason: "degraded_observation",
-      title: `Synthetic Learner observation stream was empty: ${input.scenarioRun.scenarioId}`,
-      severity: "medium",
-      failureSummary: "No live observation events were recorded for this scenario run.",
-    }));
+    pushCandidate(
+      syntheticLearnerEvalIssueCandidateSchema.parse({
+        ...base,
+        kind: "warning",
+        reason: "degraded_observation",
+        title: `Synthetic Learner observation stream was empty: ${input.scenarioRun.scenarioId}`,
+        severity: "medium",
+        failureSummary: "No live observation events were recorded for this scenario run.",
+      }),
+    );
   }
-  if (input.scenarioRun.status === "passed" && /too quickly|without evidence|suspicious|premature/i.test(input.scenarioRun.finalState.summary)) {
-    pushCandidate(syntheticLearnerEvalIssueCandidateSchema.parse({
-      ...base,
-      kind: "warning",
-      reason: "suspicious_finish",
-      title: `Synthetic Learner suspicious pass: ${input.scenarioRun.scenarioId}`,
-      severity: "medium",
-      failureSummary: input.scenarioRun.finalState.summary,
-    }));
+  if (
+    input.scenarioRun.status === "passed" &&
+    /too quickly|without evidence|suspicious|premature/i.test(input.scenarioRun.finalState.summary)
+  ) {
+    pushCandidate(
+      syntheticLearnerEvalIssueCandidateSchema.parse({
+        ...base,
+        kind: "warning",
+        reason: "suspicious_finish",
+        title: `Synthetic Learner suspicious pass: ${input.scenarioRun.scenarioId}`,
+        severity: "medium",
+        failureSummary: input.scenarioRun.finalState.summary,
+      }),
+    );
   }
   for (const rubric of input.scenarioRun.rubricResults) {
     if (rubric.enabled && rubric.status === "skipped") {
-      pushCandidate(syntheticLearnerEvalIssueCandidateSchema.parse({
-        ...base,
-        kind: "warning",
-        reason: "quality_warning",
-        title: `Synthetic Learner qualitative rubric skipped: ${rubric.rubricId}`,
-        severity: "low",
-        failureSummary: rubric.summary,
-      }));
+      pushCandidate(
+        syntheticLearnerEvalIssueCandidateSchema.parse({
+          ...base,
+          kind: "warning",
+          reason: "quality_warning",
+          title: `Synthetic Learner qualitative rubric skipped: ${rubric.rubricId}`,
+          severity: "low",
+          failureSummary: rubric.summary,
+        }),
+      );
     }
   }
   for (const assertion of input.scenarioRun.assertions) {
     if (assertion.details.reason === "unavailable_required_snapshot") {
-      pushCandidate(syntheticLearnerEvalIssueCandidateSchema.parse({
-        ...base,
-        kind: "failure",
-        reason: "required_snapshot_unavailable",
-        title: `Synthetic Learner missing required snapshot: ${assertion.id}`,
-        severity: "high",
-        failureSummary: assertion.failureMessage ?? "Required persisted state snapshot was unavailable.",
-      }));
+      pushCandidate(
+        syntheticLearnerEvalIssueCandidateSchema.parse({
+          ...base,
+          kind: "failure",
+          reason: "required_snapshot_unavailable",
+          title: `Synthetic Learner missing required snapshot: ${assertion.id}`,
+          severity: "high",
+          failureSummary:
+            assertion.failureMessage ?? "Required persisted state snapshot was unavailable.",
+        }),
+      );
     }
-    if (assertion.status === "skipped" && (assertionRequiredById.get(assertion.id) === false || assertion.details.reason === "skipped_optional_snapshot")) {
-      pushCandidate(syntheticLearnerEvalIssueCandidateSchema.parse({
-        ...base,
-        kind: "warning",
-        reason: "optional_assertion_skipped",
-        title: `Synthetic Learner skipped optional assertion: ${assertion.id}`,
-        severity: "low",
-        failureSummary: assertion.failureMessage ?? "An optional assertion was skipped.",
-      }));
+    if (
+      assertion.status === "skipped" &&
+      (assertionRequiredById.get(assertion.id) === false ||
+        assertion.details.reason === "skipped_optional_snapshot")
+    ) {
+      pushCandidate(
+        syntheticLearnerEvalIssueCandidateSchema.parse({
+          ...base,
+          kind: "warning",
+          reason: "optional_assertion_skipped",
+          title: `Synthetic Learner skipped optional assertion: ${assertion.id}`,
+          severity: "low",
+          failureSummary: assertion.failureMessage ?? "An optional assertion was skipped.",
+        }),
+      );
     }
     if (assertion.id === "learner_visible_no_id_leak" && assertion.status === "failed") {
-      pushCandidate(syntheticLearnerEvalIssueCandidateSchema.parse({
-        ...base,
-        kind: "warning",
-        reason: "raw_id_leak_repaired",
-        title: `Synthetic Learner learner-visible leak detected: ${assertion.id}`,
-        severity: "high",
-        failureSummary: assertion.failureMessage ?? "Learner-visible output leaked machine-generated identifiers.",
-      }));
+      pushCandidate(
+        syntheticLearnerEvalIssueCandidateSchema.parse({
+          ...base,
+          kind: "warning",
+          reason: "raw_id_leak_repaired",
+          title: `Synthetic Learner learner-visible leak detected: ${assertion.id}`,
+          severity: "high",
+          failureSummary:
+            assertion.failureMessage ??
+            "Learner-visible output leaked machine-generated identifiers.",
+        }),
+      );
     }
   }
   if (input.executedActions?.length) {
-    const runtimeAssertions = assertionRefs.map((ref) => ref.refId).filter((refId) => refId.startsWith("runtime_"));
+    const runtimeAssertions = assertionRefs
+      .map((ref) => ref.refId)
+      .filter((refId) => refId.startsWith("runtime_"));
     const uncovered = runtimeAssertions.filter((refId) => !input.executedActions!.includes(refId));
     if (uncovered.length) {
-      pushCandidate(syntheticLearnerEvalIssueCandidateSchema.parse({
-        ...base,
-        kind: "warning",
-        reason: "required_action_not_covered",
-        title: `Synthetic Learner did not cover required runtime evidence: ${input.scenarioRun.scenarioId}`,
-        severity: "medium",
-        failureSummary: `Missing runtime coverage for ${uncovered.join(", ")}.`,
-      }));
+      pushCandidate(
+        syntheticLearnerEvalIssueCandidateSchema.parse({
+          ...base,
+          kind: "warning",
+          reason: "required_action_not_covered",
+          title: `Synthetic Learner did not cover required runtime evidence: ${input.scenarioRun.scenarioId}`,
+          severity: "medium",
+          failureSummary: `Missing runtime coverage for ${uncovered.join(", ")}.`,
+        }),
+      );
     }
   }
   return candidates;
@@ -1261,7 +1479,8 @@ export function exportSyntheticLearnerEvalRunReport(input: {
 
   const format = input.format ?? "json";
   const generatedAt = input.generatedAt ?? new Date().toISOString();
-  const artifactPath = input.artifactPath ?? `eval-runs/${run.id}.${format === "ndjson" ? "ndjson" : "json"}`;
+  const artifactPath =
+    input.artifactPath ?? `eval-runs/${run.id}.${format === "ndjson" ? "ndjson" : "json"}`;
   const reportMetadata = syntheticLearnerEvalReportMetadataSchema.parse({
     format,
     artifactPath,
@@ -1277,7 +1496,9 @@ export function exportSyntheticLearnerEvalRunReport(input: {
 
   const reportContent =
     format === "ndjson"
-      ? [reportMetadata, runWithMetadata, ...runWithMetadata.scenarioRuns].map((record) => JSON.stringify(record)).join("\n")
+      ? [reportMetadata, runWithMetadata, ...runWithMetadata.scenarioRuns]
+          .map((record) => JSON.stringify(record))
+          .join("\n")
       : JSON.stringify(
           {
             metadata: reportMetadata,

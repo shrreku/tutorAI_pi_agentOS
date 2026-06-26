@@ -1,4 +1,11 @@
-export type PublicPage = "landing" | "demo" | "contact" | "privacy" | "terms" | "login" | "auth-callback";
+export type PublicPage =
+  | "landing"
+  | "demo"
+  | "contact"
+  | "privacy"
+  | "terms"
+  | "login"
+  | "auth-callback";
 
 export type AppPage =
   | "dashboard"
@@ -61,7 +68,11 @@ export function matchRoute(pathname: string): RouteMatch {
 
   const templateMatch = path.match(/^\/app\/templates\/([^/]+)$/);
   if (templateMatch?.[1]) {
-    return { kind: "app", page: "template-detail", templateId: decodeURIComponent(templateMatch[1]) };
+    return {
+      kind: "app",
+      page: "template-detail",
+      templateId: decodeURIComponent(templateMatch[1]),
+    };
   }
 
   if (path === "/admin") return { kind: "admin", page: "overview" };
@@ -74,7 +85,11 @@ export function matchRoute(pathname: string): RouteMatch {
   if (path === "/admin/workspaces") return { kind: "admin", page: "workspaces" };
   const adminWorkspaceMatch = path.match(/^\/admin\/workspaces\/([^/]+)$/);
   if (adminWorkspaceMatch?.[1]) {
-    return { kind: "admin", page: "workspace-detail", workspaceId: decodeURIComponent(adminWorkspaceMatch[1]) };
+    return {
+      kind: "admin",
+      page: "workspace-detail",
+      workspaceId: decodeURIComponent(adminWorkspaceMatch[1]),
+    };
   }
   if (path === "/admin/templates") return { kind: "admin", page: "templates" };
   if (path === "/admin/access-codes") return { kind: "admin", page: "access-codes" };

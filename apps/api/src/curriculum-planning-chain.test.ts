@@ -28,7 +28,15 @@ describe("Curriculum-First Planning Chain - Complete Implementation", () => {
         objectiveList: null,
         sessionPlan: null,
         studyPlan: null,
-        coverage: { total: 0, planned: 0, introduced: 0, checked: 0, mastered: 0, needsReview: 0, gaps: [] },
+        coverage: {
+          total: 0,
+          planned: 0,
+          introduced: 0,
+          checked: 0,
+          mastered: 0,
+          needsReview: 0,
+          gaps: [],
+        },
       } as any;
 
       const summary = formatLearnerStateSummary(state);
@@ -55,9 +63,20 @@ describe("Curriculum-First Planning Chain - Complete Implementation", () => {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         },
-        curriculum: { id: "cur_1", title: "React Basics", status: "active", activeModuleId: "mod_1" },
+        curriculum: {
+          id: "cur_1",
+          title: "React Basics",
+          status: "active",
+          activeModuleId: "mod_1",
+        },
         module: { id: "mod_1", title: "Components", summary: null, status: "active" },
-        objectiveList: { id: "objlist_1", title: "React Objectives", status: "active", currentObjectiveId: "obj_1", objectiveIdsOrdered: ["obj_1"] },
+        objectiveList: {
+          id: "objlist_1",
+          title: "React Objectives",
+          status: "active",
+          currentObjectiveId: "obj_1",
+          objectiveIdsOrdered: ["obj_1"],
+        },
         sessionPlan: {
           id: "sessplan_1",
           title: "Session 1",
@@ -76,7 +95,15 @@ describe("Curriculum-First Planning Chain - Complete Implementation", () => {
           completedObjectives: [],
           weakConcepts: [],
         },
-        coverage: { total: 5, planned: 2, introduced: 1, checked: 1, mastered: 1, needsReview: 0, gaps: [] },
+        coverage: {
+          total: 5,
+          planned: 2,
+          introduced: 1,
+          checked: 1,
+          mastered: 1,
+          needsReview: 0,
+          gaps: [],
+        },
       } as any;
 
       const studyPlanSummary = formatStudyPlanSummary(state);
@@ -188,7 +215,12 @@ describe("Curriculum-First Planning Chain - Complete Implementation", () => {
         currentObjectiveId: "obj_a",
         objectives: [
           { id: "obj_a", title: "Normal", status: "in_progress", targetConceptIds: ["c_normal"] },
-          { id: "obj_b", title: "Misconception", status: "not_started", targetConceptIds: ["c_misconception"] },
+          {
+            id: "obj_b",
+            title: "Misconception",
+            status: "not_started",
+            targetConceptIds: ["c_misconception"],
+          },
         ],
         weakConceptIds: [],
         misconceptionConceptIds: ["c_misconception"],
@@ -259,9 +291,20 @@ describe("Curriculum-First Planning Chain - Complete Implementation", () => {
   describe("Ticket 7: Planning UI Surfaces 🟡→✅", () => {
     it("TutorPanel displays curriculum, module, objective list, session plan", () => {
       const studyState = {
-        curriculum: { id: "cur_1", title: "React Course", status: "active", activeModuleId: "mod_1" },
+        curriculum: {
+          id: "cur_1",
+          title: "React Course",
+          status: "active",
+          activeModuleId: "mod_1",
+        },
         module: { id: "mod_1", title: "Components", summary: null, status: "active" },
-        objectiveList: { id: "objlist_1", title: "Objectives", status: "active", currentObjectiveId: "obj_1", objectiveIdsOrdered: ["obj_1", "obj_2", "obj_3"] },
+        objectiveList: {
+          id: "objlist_1",
+          title: "Objectives",
+          status: "active",
+          currentObjectiveId: "obj_1",
+          objectiveIdsOrdered: ["obj_1", "obj_2", "obj_3"],
+        },
         sessionPlan: {
           id: "sessplan_1",
           title: "Session 1",
@@ -281,7 +324,15 @@ describe("Curriculum-First Planning Chain - Complete Implementation", () => {
           weakConcepts: [{ id: "c_1", name: "JSX" }],
         },
         studentProfile: { goalSummary: "Learn React", pacePreference: "slow" },
-        coverage: { total: 10, mastered: 2, checked: 3, introduced: 3, planned: 2, needsReview: 0, gaps: [] },
+        coverage: {
+          total: 10,
+          mastered: 2,
+          checked: 3,
+          introduced: 3,
+          planned: 2,
+          needsReview: 0,
+          gaps: [],
+        },
       };
 
       // Verify study state has all required fields for UI display
@@ -304,7 +355,15 @@ describe("Curriculum-First Planning Chain - Complete Implementation", () => {
             { id: "c_2", name: "Effects" },
           ],
         },
-        coverage: { mastered: 5, checked: 3, introduced: 2, planned: 2, needsReview: 1, total: 13, gaps: [] },
+        coverage: {
+          mastered: 5,
+          checked: 3,
+          introduced: 2,
+          planned: 2,
+          needsReview: 1,
+          total: 13,
+          gaps: [],
+        },
       };
 
       expect(studyState.studyPlan.completedObjectives).toHaveLength(2);
@@ -316,7 +375,11 @@ describe("Curriculum-First Planning Chain - Complete Implementation", () => {
   describe("Ticket 8: Regression and Scenario Coverage 🧪", () => {
     it("empty profile → diagnostic questions → personalized session plan flow", () => {
       const emptyProfile = { goalSummary: null, pacePreference: null, depthPreference: null };
-      const filledProfile = { goalSummary: "Learn React", pacePreference: "slow", depthPreference: "foundational" };
+      const filledProfile = {
+        goalSummary: "Learn React",
+        pacePreference: "slow",
+        depthPreference: "foundational",
+      };
 
       // Simulate diagnostic flow
       expect(emptyProfile.goalSummary).toBeNull();

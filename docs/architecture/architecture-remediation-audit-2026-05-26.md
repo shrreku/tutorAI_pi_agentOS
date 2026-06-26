@@ -627,4 +627,3 @@ Docs that need status correction after remediation tickets are accepted:
    - Estimation planner.
    - Evidence collector.
    - Snapshot-based recommendation-only assertions.
-

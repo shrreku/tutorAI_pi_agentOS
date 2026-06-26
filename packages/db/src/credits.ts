@@ -130,7 +130,9 @@ export async function expireStaleCreditReservations(
       const [updated] = await tx
         .update(creditReservations)
         .set({ status: "expired", updatedAt: now })
-        .where(and(eq(creditReservations.id, reservation.id), eq(creditReservations.status, "active")))
+        .where(
+          and(eq(creditReservations.id, reservation.id), eq(creditReservations.status, "active")),
+        )
         .returning();
       if (!updated) continue;
       expired += 1;
@@ -215,7 +217,12 @@ export async function grantTrialBudgetIfNeeded(
       await tx
         .update(userProductState)
         .set({ trialBudgetGrantedAt: now, updatedAt: now })
-        .where(and(eq(userProductState.userId, userId), sql`${userProductState.trialBudgetGrantedAt} is null`));
+        .where(
+          and(
+            eq(userProductState.userId, userId),
+            sql`${userProductState.trialBudgetGrantedAt} is null`,
+          ),
+        );
     }
 
     const [after] = await tx
@@ -394,7 +401,10 @@ export async function settleCreditReservation(
       return mapReservation(reservation);
     }
 
-    const settledCents = Math.min(actualCents ?? reservation.reservedCents, reservation.reservedCents);
+    const settledCents = Math.min(
+      actualCents ?? reservation.reservedCents,
+      reservation.reservedCents,
+    );
     const releasedCents = reservation.reservedCents - settledCents;
     const now = new Date();
 

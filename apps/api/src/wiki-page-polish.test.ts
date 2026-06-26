@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { compileInteractiveBlockPlan, compilePageBlockPlansToInteractiveBlocks } from "@studyagent/wiki-core";
+import {
+  compileInteractiveBlockPlan,
+  compilePageBlockPlansToInteractiveBlocks,
+} from "@studyagent/wiki-core";
 import { polishWikiPage } from "@studyagent/wiki-generation";
 
 const interactivePlanDefaults = {
@@ -156,7 +159,8 @@ describe("wiki page polish", () => {
             pageKey: polishedConceptOutput.pageKey,
             readiness: "still_improving",
             generationMode: "llm_polished",
-            markdown: "# Entropy\n\n## Definition\nOnly definition.\n\n## Intuition\nBrief intuition.",
+            markdown:
+              "# Entropy\n\n## Definition\nOnly definition.\n\n## Intuition\nBrief intuition.",
             blocks: [],
             citationsBySection: {},
             qualityIssues: [],

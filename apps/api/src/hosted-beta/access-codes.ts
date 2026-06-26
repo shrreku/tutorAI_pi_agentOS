@@ -147,9 +147,16 @@ async function applyGrants(
   }
 
   if (grants.ingestionCreditsCents && grants.ingestionCreditsCents > 0) {
-    await grantCreditsInTransaction(tx, userId, "ingestion", grants.ingestionCreditsCents, "access_code", {
-      accessCodeId,
-    });
+    await grantCreditsInTransaction(
+      tx,
+      userId,
+      "ingestion",
+      grants.ingestionCreditsCents,
+      "access_code",
+      {
+        accessCodeId,
+      },
+    );
   }
 }
 
@@ -196,7 +203,8 @@ function parseGrants(value: unknown): AccessCodeGrants {
   const parsed: AccessCodeGrants = {};
   if (grants.studyAccess === true) parsed.studyAccess = true;
   if (grants.ingestionAccess === true) parsed.ingestionAccess = true;
-  if (typeof grants.tutorCreditsCents === "number") parsed.tutorCreditsCents = grants.tutorCreditsCents;
+  if (typeof grants.tutorCreditsCents === "number")
+    parsed.tutorCreditsCents = grants.tutorCreditsCents;
   if (typeof grants.ingestionCreditsCents === "number") {
     parsed.ingestionCreditsCents = grants.ingestionCreditsCents;
   }
@@ -204,7 +212,9 @@ function parseGrants(value: unknown): AccessCodeGrants {
     parsed.pilotTags = grants.pilotTags.filter((tag): tag is string => typeof tag === "string");
   }
   if (Array.isArray(grants.templateIds)) {
-    parsed.templateIds = grants.templateIds.filter((id): id is string => typeof id === "string" && id.length > 0);
+    parsed.templateIds = grants.templateIds.filter(
+      (id): id is string => typeof id === "string" && id.length > 0,
+    );
   }
   return parsed;
 }
@@ -220,11 +230,7 @@ export async function redeemAccessCode(
   }
 
   return dbClient.db.transaction(async (tx) => {
-    const [row] = await tx
-      .select()
-      .from(accessCodes)
-      .where(eq(accessCodes.code, code))
-      .limit(1);
+    const [row] = await tx.select().from(accessCodes).where(eq(accessCodes.code, code)).limit(1);
 
     if (!row) {
       throw new AccessCodeError("invalid_code", "This access code is not valid");
@@ -239,7 +245,12 @@ export async function redeemAccessCode(
     const [existingRedemption] = await tx
       .select({ id: accessCodeRedemptions.id })
       .from(accessCodeRedemptions)
-      .where(and(eq(accessCodeRedemptions.accessCodeId, row.id), eq(accessCodeRedemptions.userId, userId)))
+      .where(
+        and(
+          eq(accessCodeRedemptions.accessCodeId, row.id),
+          eq(accessCodeRedemptions.userId, userId),
+        ),
+      )
       .limit(1);
 
     if (existingRedemption) {
@@ -284,7 +295,10 @@ export async function redeemAccessCode(
   });
 }
 
-export async function revokeAccessCode(dbClient: DbClient, accessCodeId: string): Promise<AccessCodeRecord> {
+export async function revokeAccessCode(
+  dbClient: DbClient,
+  accessCodeId: string,
+): Promise<AccessCodeRecord> {
   const now = new Date();
   const [row] = await dbClient.db
     .update(accessCodes)
@@ -298,8 +312,15 @@ export async function revokeAccessCode(dbClient: DbClient, accessCodeId: string)
   return row;
 }
 
-export async function listAccessCodes(dbClient: DbClient, limit = 100): Promise<AccessCodeRecord[]> {
-  return dbClient.db.select().from(accessCodes).orderBy(sql`${accessCodes.createdAt} desc`).limit(limit);
+export async function listAccessCodes(
+  dbClient: DbClient,
+  limit = 100,
+): Promise<AccessCodeRecord[]> {
+  return dbClient.db
+    .select()
+    .from(accessCodes)
+    .orderBy(sql`${accessCodes.createdAt} desc`)
+    .limit(limit);
 }
 
 export async function listAccessCodeRedemptions(

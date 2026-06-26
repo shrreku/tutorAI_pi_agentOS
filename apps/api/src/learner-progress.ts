@@ -6,7 +6,9 @@ import {
 import type { NotebookStudyState } from "./study-state.js";
 
 export function deriveLearnerProgressSummary(state: NotebookStudyState): LearnerProgressSummary {
-  const weakById = new Map((state.studyPlan?.weakConcepts ?? []).map((concept) => [concept.id, concept.name]));
+  const weakById = new Map(
+    (state.studyPlan?.weakConcepts ?? []).map((concept) => [concept.id, concept.name]),
+  );
   const readinessLabels = (state.learnerReadiness ?? [])
     .filter((entry) => entry.targetRef.refType === "concept")
     .map((entry) => ({

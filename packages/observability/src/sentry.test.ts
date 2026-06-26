@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { captureException, initSentry, resetSentryForTests, scrubEvent, scrubRecord } from "./sentry.js";
+import {
+  captureException,
+  initSentry,
+  resetSentryForTests,
+  scrubEvent,
+  scrubRecord,
+} from "./sentry.js";
 
 describe("Sentry scrubbing", () => {
   it("scrubs sensitive keys from context records", () => {

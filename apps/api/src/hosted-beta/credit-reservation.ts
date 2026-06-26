@@ -29,7 +29,9 @@ export type CreditReservationRecord = {
 export class InsufficientCreditsError extends Error {
   readonly code = "credit_exhausted" as const;
 
-  constructor(message = "Tutor credits are exhausted. Review your study materials or request more access.") {
+  constructor(
+    message = "Tutor credits are exhausted. Review your study materials or request more access.",
+  ) {
     super(message);
     this.name = "InsufficientCreditsError";
   }
@@ -148,9 +150,14 @@ export async function releaseReservation(
   return releaseCreditReservation(dbClient, reservationId, metadata);
 }
 
-export function costCentsFromRuntimeUsage(usage: unknown, fallbackCents: number = TUTOR_TURN_ESTIMATE_CENTS): number {
+export function costCentsFromRuntimeUsage(
+  usage: unknown,
+  fallbackCents: number = TUTOR_TURN_ESTIMATE_CENTS,
+): number {
   const normalized = normalizeTraceUsage(
-    usage && typeof usage === "object" && !Array.isArray(usage) ? (usage as Record<string, unknown>) : undefined,
+    usage && typeof usage === "object" && !Array.isArray(usage)
+      ? (usage as Record<string, unknown>)
+      : undefined,
   );
   const totalDollars = normalized?.cost.total ?? 0;
   if (totalDollars > 0) {

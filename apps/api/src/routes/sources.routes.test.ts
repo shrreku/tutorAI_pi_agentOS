@@ -43,16 +43,18 @@ function createFakeDb() {
                 },
                 limit(limitCount: number) {
                   if (table === notebooks) {
-                    return Promise.resolve([
-                      {
-                        id: "nb_1",
-                        ownerId: "user_1",
-                        title: "Notebook",
-                        disabledAt: null,
-                        settingsJson: {},
-                        workspaceType: "personal_learner",
-                      },
-                    ].slice(0, limitCount));
+                    return Promise.resolve(
+                      [
+                        {
+                          id: "nb_1",
+                          ownerId: "user_1",
+                          title: "Notebook",
+                          disabledAt: null,
+                          settingsJson: {},
+                          workspaceType: "personal_learner",
+                        },
+                      ].slice(0, limitCount),
+                    );
                   }
                   return Promise.resolve([]);
                 },
@@ -60,16 +62,18 @@ function createFakeDb() {
             },
             limit(limitCount: number) {
               if (table === notebooks) {
-                return Promise.resolve([
-                  {
-                    id: "nb_1",
-                    ownerId: "user_1",
-                    title: "Notebook",
-                    disabledAt: null,
-                    settingsJson: {},
-                    workspaceType: "personal_learner",
-                  },
-                ].slice(0, limitCount));
+                return Promise.resolve(
+                  [
+                    {
+                      id: "nb_1",
+                      ownerId: "user_1",
+                      title: "Notebook",
+                      disabledAt: null,
+                      settingsJson: {},
+                      workspaceType: "personal_learner",
+                    },
+                  ].slice(0, limitCount),
+                );
               }
               return Promise.resolve([]);
             },
@@ -154,16 +158,18 @@ describe("source routes", () => {
                       },
                       limit(limitCount: number) {
                         if (table === notebooks) {
-                          return Promise.resolve([
-                  {
-                    id: "nb_1",
-                    ownerId: "user_1",
-                    title: "Notebook",
-                    disabledAt: null,
-                    settingsJson: {},
-                    workspaceType: "personal_learner",
-                  },
-                ].slice(0, limitCount));
+                          return Promise.resolve(
+                            [
+                              {
+                                id: "nb_1",
+                                ownerId: "user_1",
+                                title: "Notebook",
+                                disabledAt: null,
+                                settingsJson: {},
+                                workspaceType: "personal_learner",
+                              },
+                            ].slice(0, limitCount),
+                          );
                         }
                         return Promise.resolve([]);
                       },
@@ -171,16 +177,18 @@ describe("source routes", () => {
                   },
                   limit(limitCount: number) {
                     if (table === notebooks) {
-                      return Promise.resolve([
-                  {
-                    id: "nb_1",
-                    ownerId: "user_1",
-                    title: "Notebook",
-                    disabledAt: null,
-                    settingsJson: {},
-                    workspaceType: "personal_learner",
-                  },
-                ].slice(0, limitCount));
+                      return Promise.resolve(
+                        [
+                          {
+                            id: "nb_1",
+                            ownerId: "user_1",
+                            title: "Notebook",
+                            disabledAt: null,
+                            settingsJson: {},
+                            workspaceType: "personal_learner",
+                          },
+                        ].slice(0, limitCount),
+                      );
                     }
                     return Promise.resolve([]);
                   },
@@ -202,12 +210,20 @@ describe("source routes", () => {
 
     expect(response.statusCode).toBe(200);
     const body = response.json() as {
-      sources: Array<{ learnerLabel: string; tutoringReady: boolean; sourceWikiReady: boolean; readiness: Record<string, unknown> }>;
+      sources: Array<{
+        learnerLabel: string;
+        tutoringReady: boolean;
+        sourceWikiReady: boolean;
+        readiness: Record<string, unknown>;
+      }>;
     };
     expect(body.sources[0]?.tutoringReady).toBe(true);
     expect(body.sources[0]?.sourceWikiReady).toBe(false);
     expect(body.sources[0]?.learnerLabel).toBe("Ready for tutoring; Source Wiki still improving");
-    expect(body.sources[0]?.readiness).toMatchObject({ tutoring: { ready: true }, projection: { ready: false } });
+    expect(body.sources[0]?.readiness).toMatchObject({
+      tutoring: { ready: true },
+      projection: { ready: false },
+    });
     await appWithSplit.close();
   });
 });

@@ -41,12 +41,14 @@ export async function appendEvent(
       payloadJson: payload,
     });
 
-    await tx.execute(sql`select pg_notify(${NOTEBOOK_EVENT_CHANNEL}, ${JSON.stringify({
-      notebookId: input.notebookId,
-      sessionId: input.sessionId ?? null,
-      sequenceNo: nextSeq,
-      eventType: input.eventType,
-    })})`);
+    await tx.execute(
+      sql`select pg_notify(${NOTEBOOK_EVENT_CHANNEL}, ${JSON.stringify({
+        notebookId: input.notebookId,
+        sessionId: input.sessionId ?? null,
+        sequenceNo: nextSeq,
+        eventType: input.eventType,
+      })})`,
+    );
 
     return { id, sequenceNo: nextSeq };
   });

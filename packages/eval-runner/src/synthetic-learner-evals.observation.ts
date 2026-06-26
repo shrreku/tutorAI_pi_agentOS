@@ -164,19 +164,55 @@ function observationsFromStep(input: {
   };
   const events: SyntheticLearnerEvalObservationEvent[] = [];
   if (input.step.studentMessage) {
-    events.push({ ...base, id: `obs_${input.step.id}_student`, kind: "student", message: input.step.studentMessage, payload: {}, evidenceRefs: [] });
+    events.push({
+      ...base,
+      id: `obs_${input.step.id}_student`,
+      kind: "student",
+      message: input.step.studentMessage,
+      payload: {},
+      evidenceRefs: [],
+    });
   }
   if (input.step.tutorMessage) {
-    events.push({ ...base, id: `obs_${input.step.id}_tutor`, kind: "tutor", message: input.step.tutorMessage, payload: {}, evidenceRefs: input.step.traceRefs });
+    events.push({
+      ...base,
+      id: `obs_${input.step.id}_tutor`,
+      kind: "tutor",
+      message: input.step.tutorMessage,
+      payload: {},
+      evidenceRefs: input.step.traceRefs,
+    });
   }
   for (const [index, toolEvent] of input.step.toolEvents.entries()) {
-    events.push({ ...base, id: `obs_${input.step.id}_tool_${index + 1}`, kind: "tool", message: `${toolEvent.label}: ${toolEvent.toolName}`, payload: { toolEvent }, evidenceRefs: toolEvent.nodeRefs });
+    events.push({
+      ...base,
+      id: `obs_${input.step.id}_tool_${index + 1}`,
+      kind: "tool",
+      message: `${toolEvent.label}: ${toolEvent.toolName}`,
+      payload: { toolEvent },
+      evidenceRefs: toolEvent.nodeRefs,
+    });
   }
   for (const [index, assertion] of input.step.assertions.entries()) {
-    events.push({ ...base, id: `obs_${input.step.id}_assertion_${index + 1}`, kind: "assertion", status: assertion.status, message: `${assertion.id}: ${assertion.status}`, payload: { assertion }, evidenceRefs: assertion.evidenceRefs });
+    events.push({
+      ...base,
+      id: `obs_${input.step.id}_assertion_${index + 1}`,
+      kind: "assertion",
+      status: assertion.status,
+      message: `${assertion.id}: ${assertion.status}`,
+      payload: { assertion },
+      evidenceRefs: assertion.evidenceRefs,
+    });
   }
   for (const [index, artifactRef] of input.step.artifactRefs.entries()) {
-    events.push({ ...base, id: `obs_${input.step.id}_artifact_${index + 1}`, kind: "artifact", message: `${artifactRef.refType}:${artifactRef.refId}`, payload: { artifactRef }, evidenceRefs: [artifactRef] });
+    events.push({
+      ...base,
+      id: `obs_${input.step.id}_artifact_${index + 1}`,
+      kind: "artifact",
+      message: `${artifactRef.refType}:${artifactRef.refId}`,
+      payload: { artifactRef },
+      evidenceRefs: [artifactRef],
+    });
   }
   return events;
 }

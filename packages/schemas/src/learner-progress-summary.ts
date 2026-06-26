@@ -18,7 +18,9 @@ export type LearnerProgressSummaryInput = {
   readinessLabels: Array<{ conceptName: string; readiness: string }>;
 };
 
-export function buildLearnerProgressSummary(input: LearnerProgressSummaryInput): LearnerProgressSummary {
+export function buildLearnerProgressSummary(
+  input: LearnerProgressSummaryInput,
+): LearnerProgressSummary {
   const strengths: string[] = [];
   const weakConcepts = input.weakConcepts.slice(0, 4).map((concept) => concept.name);
   const needsReview = input.coverageGapTitles.slice(0, 4);
@@ -38,9 +40,14 @@ export function buildLearnerProgressSummary(input: LearnerProgressSummaryInput):
 
   const headlineParts: string[] = [];
   if (weakConcepts.length) headlineParts.push(`Focus on ${weakConcepts.slice(0, 2).join(" and ")}`);
-  if (needsReview.length) headlineParts.push(`${needsReview.length} topic${needsReview.length === 1 ? "" : "s"} need review`);
-  if (!headlineParts.length && readyToAdvance.length) headlineParts.push("You are ready to advance");
-  if (!headlineParts.length && strengths.length) headlineParts.push("Building momentum on core concepts");
+  if (needsReview.length)
+    headlineParts.push(
+      `${needsReview.length} topic${needsReview.length === 1 ? "" : "s"} need review`,
+    );
+  if (!headlineParts.length && readyToAdvance.length)
+    headlineParts.push("You are ready to advance");
+  if (!headlineParts.length && strengths.length)
+    headlineParts.push("Building momentum on core concepts");
 
   return learnerProgressSummarySchema.parse({
     ...(headlineParts.length ? { headline: headlineParts.join("; ") } : {}),
@@ -57,6 +64,7 @@ export function formatLearnerProgressSummaryText(summary: LearnerProgressSummary
   if (summary.strengths.length) parts.push(`Strengths: ${summary.strengths.join(", ")}`);
   if (summary.weakConcepts.length) parts.push(`Needs practice: ${summary.weakConcepts.join(", ")}`);
   if (summary.needsReview.length) parts.push(`Review: ${summary.needsReview.join(", ")}`);
-  if (summary.readyToAdvance.length) parts.push(`Ready to advance: ${summary.readyToAdvance.join(", ")}`);
+  if (summary.readyToAdvance.length)
+    parts.push(`Ready to advance: ${summary.readyToAdvance.join(", ")}`);
   return parts.join(" | ");
 }

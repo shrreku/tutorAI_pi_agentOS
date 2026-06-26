@@ -33,14 +33,16 @@ export function buildWikiPolishQueue(input: BuildWikiPolishQueueInput): WikiPage
   const gapKeys = new Set(input.sourceCoverageGapPageKeys ?? []);
   const isLargeSource = (input.largeSourceConceptCount ?? 0) >= 8;
 
-  const candidates = input.pages.map((page) => scoreWikiPolishCandidate(page, {
-    weakSet,
-    targetSet,
-    recentSet,
-    gapKeys,
-    isLargeSource,
-    now,
-  }));
+  const candidates = input.pages.map((page) =>
+    scoreWikiPolishCandidate(page, {
+      weakSet,
+      targetSet,
+      recentSet,
+      gapKeys,
+      isLargeSource,
+      now,
+    }),
+  );
 
   return candidates
     .filter((candidate) => candidate.status !== "skipped" || candidate.priorityScore > 0)
@@ -60,9 +62,13 @@ function scoreWikiPolishCandidate(
 ): WikiPagePolishCandidate {
   const reasons: string[] = [];
   let score = 0;
-  const conceptId = page.conceptId ?? (typeof page.structuredJson?.conceptId === "string" ? page.structuredJson.conceptId : null);
+  const conceptId =
+    page.conceptId ??
+    (typeof page.structuredJson?.conceptId === "string" ? page.structuredJson.conceptId : null);
   const lastPolishedAt =
-    typeof page.structuredJson?.lastPolishedAt === "string" ? page.structuredJson.lastPolishedAt : null;
+    typeof page.structuredJson?.lastPolishedAt === "string"
+      ? page.structuredJson.lastPolishedAt
+      : null;
   const quality = page.qualityScore ?? 0.5;
 
   if (lastPolishedAt && quality >= 0.75) {
@@ -104,9 +110,12 @@ function scoreWikiPolishCandidate(
     reasons.push("unpublished_page");
   }
 
-  const status: WikiPolishCandidateStatus = score >= 0.45 ? "queued" : score >= 0.2 ? "queued" : "skipped";
+  const status: WikiPolishCandidateStatus =
+    score >= 0.45 ? "queued" : score >= 0.2 ? "queued" : "skipped";
   const learnerSignalRefs = [
-    ...(conceptId && ctx.weakSet.has(conceptId) ? [{ refType: "concept" as const, refId: conceptId }] : []),
+    ...(conceptId && ctx.weakSet.has(conceptId)
+      ? [{ refType: "concept" as const, refId: conceptId }]
+      : []),
     ...(page.sourceId ? [{ refType: "source" as const, refId: page.sourceId }] : []),
   ];
 

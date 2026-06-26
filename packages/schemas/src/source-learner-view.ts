@@ -25,14 +25,28 @@ export function sourceReadinessFromLegacyStatus(status: string): SourceReadiness
     retrieval: sourceReadinessComponent(!failed && !processing, {
       status: failed ? "failed" : processing ? "pending" : "ready",
     }),
-    search: sourceReadinessComponent(tutoringReady, { status: tutoringReady ? "ready" : processing ? "pending" : "failed" }),
-    wiki: sourceReadinessComponent(tutoringReady, { status: tutoringReady ? "ready" : processing ? "pending" : "failed" }),
-    planning: sourceReadinessComponent(tutoringReady, { status: tutoringReady ? "ready" : processing ? "pending" : "failed" }),
-    projection: sourceReadinessComponent(tutoringReady, { status: tutoringReady ? "ready" : processing ? "pending" : "failed" }),
-    learnerSourceWiki: sourceReadinessComponent(tutoringReady, { status: tutoringReady ? "ready" : processing ? "pending" : "failed" }),
+    search: sourceReadinessComponent(tutoringReady, {
+      status: tutoringReady ? "ready" : processing ? "pending" : "failed",
+    }),
+    wiki: sourceReadinessComponent(tutoringReady, {
+      status: tutoringReady ? "ready" : processing ? "pending" : "failed",
+    }),
+    planning: sourceReadinessComponent(tutoringReady, {
+      status: tutoringReady ? "ready" : processing ? "pending" : "failed",
+    }),
+    projection: sourceReadinessComponent(tutoringReady, {
+      status: tutoringReady ? "ready" : processing ? "pending" : "failed",
+    }),
+    learnerSourceWiki: sourceReadinessComponent(tutoringReady, {
+      status: tutoringReady ? "ready" : processing ? "pending" : "failed",
+    }),
     tutoring: sourceReadinessComponent(tutoringReady, {
       status: failed ? "failed" : tutoringReady ? "ready" : processing ? "pending" : "pending",
-      message: failed ? "This source failed to prepare." : processing ? "Still preparing for tutoring." : null,
+      message: failed
+        ? "This source failed to prepare."
+        : processing
+          ? "Still preparing for tutoring."
+          : null,
     }),
   });
 }

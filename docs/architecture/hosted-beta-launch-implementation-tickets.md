@@ -46,26 +46,26 @@ The tickets respect:
 
 Last verified: Docker stack on `localhost:8080` (web) / `localhost:4000` (API); `pnpm check` green; **1,084** Vitest tests passing; `scripts/hosted-beta-verify.sh` smoke green; `pnpm e2e:hosted-beta` green. Docker API health reports DB and object storage OK and now distinguishes provider reachability from fallback-only mode.
 
-| Ticket | Status | Notes |
-|--------|--------|-------|
-| HB-001 | **Done** | WorkOS sealed-session adapter + dev login; local cookie path preserved only for Docker/dev |
-| HB-002 | **Done** | Consent enforced on learner routes including dev mode |
-| HB-003 | **Done** | Ledger + trial grant; `/me` exposes percent only |
-| HB-004 | **Done** | Reservation/settlement on tutor turns |
-| HB-005 | **Done** | Public/app/admin routes + `RouteGuards`; see `docs/frontend/12-tutorbook-hosted-beta.md` |
-| HB-006 | **Done** | Model + gallery UI + admin draft/publish + local Docker seed with 3 reviewed/published launch templates |
-| HB-007 | **Done** | `POST /workspaces/from-template`; `contentNotebookId` federation wired |
-| HB-008 | **Done** | First-party events + PostHog mirror with scrubbing |
-| HB-009 | **Done** | Learning Feedback + Support Reports at `/app/support` |
-| HB-010 | **Done** | Access codes + admin grant bundles (pilot tags, template IDs) |
+| Ticket | Status   | Notes                                                                                                                        |
+| ------ | -------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| HB-001 | **Done** | WorkOS sealed-session adapter + dev login; local cookie path preserved only for Docker/dev                                   |
+| HB-002 | **Done** | Consent enforced on learner routes including dev mode                                                                        |
+| HB-003 | **Done** | Ledger + trial grant; `/me` exposes percent only                                                                             |
+| HB-004 | **Done** | Reservation/settlement on tutor turns                                                                                        |
+| HB-005 | **Done** | Public/app/admin routes + `RouteGuards`; see `docs/frontend/12-tutorbook-hosted-beta.md`                                     |
+| HB-006 | **Done** | Model + gallery UI + admin draft/publish + local Docker seed with 3 reviewed/published launch templates                      |
+| HB-007 | **Done** | `POST /workspaces/from-template`; `contentNotebookId` federation wired                                                       |
+| HB-008 | **Done** | First-party events + PostHog mirror with scrubbing                                                                           |
+| HB-009 | **Done** | Learning Feedback + Support Reports at `/app/support`                                                                        |
+| HB-010 | **Done** | Access codes + admin grant bundles (pilot tags, template IDs)                                                                |
 | HB-011 | **Done** | Admin console live with user/workspace detail, grant/revoke, credits, templates, feedback, ingestion, and analytics surfaces |
-| HB-012 | **Done** | Ingestion gate/status/limits/retry/review path plus ingestion credit reservations |
-| HB-013 | **Done** | One-shot worker drain + on-demand trigger |
-| HB-014 | **Done** | Sentry init + PostHog scrub; replay off by default |
-| HB-015 | **Done** | Workspace/source delete + account deletion request/admin review + tombstone-safe analytics |
-| HB-016 | **Done** | Stripe Checkout flow/webhook/ledger grants behind disabled-by-default feature flag |
-| HB-017 | **Done** | Env docs, production fail-closed guards, expanded `/health`, CORS/cookie/session hardening |
-| HB-018 | **Done** | API smoke script + Playwright hosted-beta suite + route/unit/integration coverage |
+| HB-012 | **Done** | Ingestion gate/status/limits/retry/review path plus ingestion credit reservations                                            |
+| HB-013 | **Done** | One-shot worker drain + on-demand trigger                                                                                    |
+| HB-014 | **Done** | Sentry init + PostHog scrub; replay off by default                                                                           |
+| HB-015 | **Done** | Workspace/source delete + account deletion request/admin review + tombstone-safe analytics                                   |
+| HB-016 | **Done** | Stripe Checkout flow/webhook/ledger grants behind disabled-by-default feature flag                                           |
+| HB-017 | **Done** | Env docs, production fail-closed guards, expanded `/health`, CORS/cookie/session hardening                                   |
+| HB-018 | **Done** | API smoke script + Playwright hosted-beta suite + route/unit/integration coverage                                            |
 
 Frontend doc anchor: [TutorBook hosted beta shell](../frontend/12-tutorbook-hosted-beta.md).
 

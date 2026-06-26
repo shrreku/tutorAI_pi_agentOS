@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  decideQualityRepair,
-  runQualityGates,
-  validatePolishedPage,
-} from "./page-quality.js";
+import { decideQualityRepair, runQualityGates, validatePolishedPage } from "./page-quality.js";
 
 const evidenceRef = {
   id: "ev_1",

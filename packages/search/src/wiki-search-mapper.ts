@@ -41,6 +41,8 @@ export function unifiedSearchResultToWikiRow(r: UnifiedSearchResult): WikiSearch
   };
 }
 
-export function unifiedSearchResultsToWikiRows(results: UnifiedSearchResult[]): WikiSearchResultRow[] {
+export function unifiedSearchResultsToWikiRows(
+  results: UnifiedSearchResult[],
+): WikiSearchResultRow[] {
   return results.map(unifiedSearchResultToWikiRow);
 }

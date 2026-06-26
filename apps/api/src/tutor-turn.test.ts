@@ -1,5 +1,13 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { agentRuns, objectiveLists, objectives, studyPlans, toolCalls, tutorSessions, tutorTurns } from "@studyagent/db";
+import {
+  agentRuns,
+  objectiveLists,
+  objectives,
+  studyPlans,
+  toolCalls,
+  tutorSessions,
+  tutorTurns,
+} from "@studyagent/db";
 import type { AppContext } from "./context.js";
 import { executeTutorTurn } from "./tutor-turn.js";
 import { resetLivePiSessionsForTests } from "@studyagent/agent-runtime";
@@ -15,7 +23,11 @@ const {
 } = vi.hoisted(() => ({
   appendEventMock: vi.fn(async () => ({ id: "evt_1" })),
   runSessionMock: vi.fn(),
-  replaceRuntimeMock: vi.fn(async () => ({ replaced: false, disposedSessionId: null, binding: null })),
+  replaceRuntimeMock: vi.fn(async () => ({
+    replaced: false,
+    disposedSessionId: null,
+    binding: null,
+  })),
   compactStudyContextMock: vi.fn(() => ({
     compressedContext: "compressed-context",
     activeConceptIds: [],
@@ -23,8 +35,12 @@ const {
     citationIds: [],
   })),
   loadNotebookStudyStateMock: vi.fn(),
-  processCompletedTutorTurnLearnerTraitSignalsMock: vi.fn(async (_ctx: unknown, _input: unknown) => ({ explicitCount: 0, inferredCount: 0 })),
-  loadRehydrationTranscriptMock: vi.fn(async (): Promise<Array<{ role: "user" | "assistant"; content: string }>> => []),
+  processCompletedTutorTurnLearnerTraitSignalsMock: vi.fn(
+    async (_ctx: unknown, _input: unknown) => ({ explicitCount: 0, inferredCount: 0 }),
+  ),
+  loadRehydrationTranscriptMock: vi.fn(
+    async (): Promise<Array<{ role: "user" | "assistant"; content: string }>> => [],
+  ),
 }));
 
 vi.mock("@studyagent/db", async () => {
@@ -37,7 +53,9 @@ vi.mock("@studyagent/db", async () => {
 });
 
 vi.mock("@studyagent/agent-runtime", async () => {
-  const actual = await vi.importActual<typeof import("@studyagent/agent-runtime")>("@studyagent/agent-runtime");
+  const actual = await vi.importActual<typeof import("@studyagent/agent-runtime")>(
+    "@studyagent/agent-runtime",
+  );
   return {
     ...actual,
     createRuntimeRun: vi.fn(() => ({
@@ -129,8 +147,19 @@ class FakeDb {
       from(table: unknown) {
         return {
           where(_condition: unknown) {
-            if (table === tutorTurns && selection && typeof selection === "object" && "maxTurnIndex" in selection) {
-              return Promise.resolve([{ maxTurnIndex: db.turns.length ? Number(db.turns[db.turns.length - 1]?.turnIndex ?? -1) : null }]);
+            if (
+              table === tutorTurns &&
+              selection &&
+              typeof selection === "object" &&
+              "maxTurnIndex" in selection
+            ) {
+              return Promise.resolve([
+                {
+                  maxTurnIndex: db.turns.length
+                    ? Number(db.turns[db.turns.length - 1]?.turnIndex ?? -1)
+                    : null,
+                },
+              ]);
             }
             return this;
           },
@@ -140,7 +169,8 @@ class FakeDb {
             if (table === agentRuns) return Promise.resolve(db.runs.slice(0, limitCount));
             if (table === objectives) return Promise.resolve(db.objectives.slice(0, limitCount));
             if (table === studyPlans) return Promise.resolve(db.studyPlanRows.slice(0, limitCount));
-            if (table === objectiveLists) return Promise.resolve(db.objectiveListRows.slice(0, limitCount));
+            if (table === objectiveLists)
+              return Promise.resolve(db.objectiveListRows.slice(0, limitCount));
             return Promise.resolve([]);
           },
         };
@@ -225,7 +255,15 @@ const progressionStudyState = {
     completedObjectives: [],
     weakConcepts: [],
   },
-  coverage: { total: 0, planned: 0, introduced: 0, checked: 0, mastered: 0, needsReview: 0, gaps: [] },
+  coverage: {
+    total: 0,
+    planned: 0,
+    introduced: 0,
+    checked: 0,
+    mastered: 0,
+    needsReview: 0,
+    gaps: [],
+  },
   sourceLevels: [],
   learnerReadiness: [],
 } as const;
@@ -272,7 +310,15 @@ describe("executeTutorTurn", () => {
         completedObjectives: [],
         weakConcepts: [],
       },
-      coverage: { total: 0, planned: 0, introduced: 0, checked: 0, mastered: 0, needsReview: 0, gaps: [] },
+      coverage: {
+        total: 0,
+        planned: 0,
+        introduced: 0,
+        checked: 0,
+        mastered: 0,
+        needsReview: 0,
+        gaps: [],
+      },
       sourceLevels: [],
       learnerReadiness: [],
     });
@@ -324,7 +370,15 @@ describe("executeTutorTurn", () => {
         objectiveList: null,
         sessionPlan: { id: "plan_1" },
         studyPlan: null,
-        coverage: { total: 0, planned: 0, introduced: 0, checked: 0, mastered: 0, needsReview: 0, gaps: [] },
+        coverage: {
+          total: 0,
+          planned: 0,
+          introduced: 0,
+          checked: 0,
+          mastered: 0,
+          needsReview: 0,
+          gaps: [],
+        },
         sourceLevels: [],
         learnerReadiness: [],
       } as never,
@@ -402,9 +456,17 @@ describe("executeTutorTurn", () => {
         objectiveList: null,
         sessionPlan: { id: "plan_1" },
         studyPlan: null,
-        coverage: { total: 0, planned: 0, introduced: 0, checked: 0, mastered: 0, needsReview: 0, gaps: [] },
-      sourceLevels: [],
-      learnerReadiness: [],
+        coverage: {
+          total: 0,
+          planned: 0,
+          introduced: 0,
+          checked: 0,
+          mastered: 0,
+          needsReview: 0,
+          gaps: [],
+        },
+        sourceLevels: [],
+        learnerReadiness: [],
       } as never,
       previousRuntimeContext: {},
       toolRegistry: {},
@@ -431,7 +493,11 @@ describe("executeTutorTurn", () => {
 
     expect(result.status).toBe("completed");
     expect(result.runId).toBe("run_1");
-    expect(emitted[0]).toMatchObject({ type: "SESSION_STARTED", sessionId: "sess_1", runId: "run_1" });
+    expect(emitted[0]).toMatchObject({
+      type: "SESSION_STARTED",
+      sessionId: "sess_1",
+      runId: "run_1",
+    });
     expect(fakeDb.turns).toHaveLength(1);
     expect(fakeDb.turns[0]?.assistantMessage).toBe("Tutor response");
     expect(fakeDb.runs[0]?.status).toBe("completed");
@@ -491,7 +557,15 @@ describe("executeTutorTurn", () => {
         objectiveList: null,
         sessionPlan: { id: "plan_1" },
         studyPlan: null,
-        coverage: { total: 0, planned: 0, introduced: 0, checked: 0, mastered: 0, needsReview: 0, gaps: [] },
+        coverage: {
+          total: 0,
+          planned: 0,
+          introduced: 0,
+          checked: 0,
+          mastered: 0,
+          needsReview: 0,
+          gaps: [],
+        },
         sourceLevels: [],
         learnerReadiness: [],
       } as never,
@@ -552,7 +626,15 @@ describe("executeTutorTurn", () => {
         objectiveList: null,
         sessionPlan: { id: "plan_1" },
         studyPlan: null,
-        coverage: { total: 0, planned: 0, introduced: 0, checked: 0, mastered: 0, needsReview: 0, gaps: [] },
+        coverage: {
+          total: 0,
+          planned: 0,
+          introduced: 0,
+          checked: 0,
+          mastered: 0,
+          needsReview: 0,
+          gaps: [],
+        },
         sourceLevels: [],
         learnerReadiness: [],
       } as never,
@@ -594,14 +676,20 @@ describe("executeTutorTurn", () => {
       } as never,
     });
 
-    const appendCalls = appendEventMock.mock.calls as unknown as Array<[unknown, { eventType?: string } | undefined]>;
-    expect(appendCalls.some((call) => call[1]?.eventType === "session.context.selected")).toBe(false);
+    const appendCalls = appendEventMock.mock.calls as unknown as Array<
+      [unknown, { eventType?: string } | undefined]
+    >;
+    expect(appendCalls.some((call) => call[1]?.eventType === "session.context.selected")).toBe(
+      false,
+    );
     expect(fakeDb.turns[0]?.toolSummaryJson).toEqual(
       expect.objectContaining({
         tools: [],
       }),
     );
-    expect((fakeDb.turns[0]?.toolSummaryJson as Record<string, unknown>)?.contextSelection).toBeUndefined();
+    expect(
+      (fakeDb.turns[0]?.toolSummaryJson as Record<string, unknown>)?.contextSelection,
+    ).toBeUndefined();
   });
 
   it("persists failed run and turn summary when runtime throws", async () => {
@@ -649,9 +737,17 @@ describe("executeTutorTurn", () => {
         objectiveList: null,
         sessionPlan: { id: "plan_1" },
         studyPlan: null,
-        coverage: { total: 0, planned: 0, introduced: 0, checked: 0, mastered: 0, needsReview: 0, gaps: [] },
-      sourceLevels: [],
-      learnerReadiness: [],
+        coverage: {
+          total: 0,
+          planned: 0,
+          introduced: 0,
+          checked: 0,
+          mastered: 0,
+          needsReview: 0,
+          gaps: [],
+        },
+        sourceLevels: [],
+        learnerReadiness: [],
       } as never,
       previousRuntimeContext: {},
       toolRegistry: {},
@@ -755,9 +851,17 @@ describe("executeTutorTurn", () => {
         objectiveList: null,
         sessionPlan: { id: "plan_1" },
         studyPlan: null,
-        coverage: { total: 0, planned: 0, introduced: 0, checked: 0, mastered: 0, needsReview: 0, gaps: [] },
-      sourceLevels: [],
-      learnerReadiness: [],
+        coverage: {
+          total: 0,
+          planned: 0,
+          introduced: 0,
+          checked: 0,
+          mastered: 0,
+          needsReview: 0,
+          gaps: [],
+        },
+        sourceLevels: [],
+        learnerReadiness: [],
       } as never,
       previousRuntimeContext: {},
       toolRegistry: {},
@@ -783,7 +887,12 @@ describe("executeTutorTurn", () => {
     expect(result.status).toBe("completed");
     expect(result.artifactProposalIds).toEqual(["art_1"]);
     expect(result.toolSummary).toEqual([
-      { toolCallId: "tool_1", toolName: "artifact.create_note", status: "completed", latencyMs: 12 },
+      {
+        toolCallId: "tool_1",
+        toolName: "artifact.create_note",
+        status: "completed",
+        latencyMs: 12,
+      },
     ]);
     expect(fakeDb.toolCalls[0]).toMatchObject({
       id: "tool_1",
@@ -800,7 +909,14 @@ describe("executeTutorTurn", () => {
       },
     });
     expect(fakeDb.turns[0]?.toolSummaryJson).toMatchObject({
-      tools: [{ toolCallId: "tool_1", toolName: "artifact.create_note", status: "completed", latencyMs: 12 }],
+      tools: [
+        {
+          toolCallId: "tool_1",
+          toolName: "artifact.create_note",
+          status: "completed",
+          latencyMs: 12,
+        },
+      ],
     });
   });
 
@@ -833,7 +949,15 @@ describe("executeTutorTurn", () => {
           toolName: "artifact.create_note",
           toolCallId: "tool_1",
           args: { title: "Note" },
-          result: { artifactId: "art_1", reducerResult: { accepted: true, mutationType: "artifact.created", appliedChanges: { artifactId: "art_1" }, emittedEventIds: [] } },
+          result: {
+            artifactId: "art_1",
+            reducerResult: {
+              accepted: true,
+              mutationType: "artifact.created",
+              appliedChanges: { artifactId: "art_1" },
+              emittedEventIds: [],
+            },
+          },
         },
       };
       yield {
@@ -886,9 +1010,17 @@ describe("executeTutorTurn", () => {
         objectiveList: null,
         sessionPlan: { id: "plan_1" },
         studyPlan: null,
-        coverage: { total: 0, planned: 0, introduced: 0, checked: 0, mastered: 0, needsReview: 0, gaps: [] },
-      sourceLevels: [],
-      learnerReadiness: [],
+        coverage: {
+          total: 0,
+          planned: 0,
+          introduced: 0,
+          checked: 0,
+          mastered: 0,
+          needsReview: 0,
+          gaps: [],
+        },
+        sourceLevels: [],
+        learnerReadiness: [],
       } as never,
       previousRuntimeContext: {},
       toolRegistry: {},
@@ -991,9 +1123,17 @@ describe("executeTutorTurn", () => {
         objectiveList: null,
         sessionPlan: { id: "plan_1" },
         studyPlan: null,
-        coverage: { total: 0, planned: 0, introduced: 0, checked: 0, mastered: 0, needsReview: 0, gaps: [] },
-      sourceLevels: [],
-      learnerReadiness: [],
+        coverage: {
+          total: 0,
+          planned: 0,
+          introduced: 0,
+          checked: 0,
+          mastered: 0,
+          needsReview: 0,
+          gaps: [],
+        },
+        sourceLevels: [],
+        learnerReadiness: [],
       } as never,
       previousRuntimeContext: {},
       toolRegistry: {},
@@ -1066,8 +1206,12 @@ describe("executeTutorTurn", () => {
 
     const fakeDb = new FakeDb();
     fakeDb.objectives = [{ id: "objective_1", notebookId: "nb_1", status: "active" }];
-    fakeDb.studyPlanRows = [{ id: "study_plan_1", notebookId: "nb_1", currentObjectiveId: "objective_1" }];
-    fakeDb.objectiveListRows = [{ id: "olist_1", notebookId: "nb_1", currentObjectiveId: "objective_1" }];
+    fakeDb.studyPlanRows = [
+      { id: "study_plan_1", notebookId: "nb_1", currentObjectiveId: "objective_1" },
+    ];
+    fakeDb.objectiveListRows = [
+      { id: "olist_1", notebookId: "nb_1", currentObjectiveId: "objective_1" },
+    ];
     const ctx = {
       db: { db: fakeDb },
       env: {
@@ -1126,9 +1270,17 @@ describe("executeTutorTurn", () => {
           completedObjectives: [],
           weakConcepts: [],
         },
-        coverage: { total: 0, planned: 0, introduced: 0, checked: 0, mastered: 0, needsReview: 0, gaps: [] },
-      sourceLevels: [],
-      learnerReadiness: [],
+        coverage: {
+          total: 0,
+          planned: 0,
+          introduced: 0,
+          checked: 0,
+          mastered: 0,
+          needsReview: 0,
+          gaps: [],
+        },
+        sourceLevels: [],
+        learnerReadiness: [],
       } as never,
       previousRuntimeContext: {},
       toolRegistry: {},
@@ -1156,82 +1308,99 @@ describe("executeTutorTurn", () => {
     expect(fakeDb.objectives[0]).toMatchObject({ status: "active" });
     expect(fakeDb.studyPlanRows[0]).toMatchObject({ currentObjectiveId: "objective_1" });
     expect(fakeDb.objectiveListRows[0]).toMatchObject({ currentObjectiveId: "objective_1" });
-    const appendCalls = appendEventMock.mock.calls as unknown as Array<[unknown, { eventType?: string }]>;
+    const appendCalls = appendEventMock.mock.calls as unknown as Array<
+      [unknown, { eventType?: string }]
+    >;
     expect(appendCalls.some(([, event]) => event.eventType === "objective.completed")).toBe(false);
     expect(appendCalls.some(([, event]) => event.eventType === "study_plan.updated")).toBe(false);
   });
 
-  it.each(["continue", "makes sense"])("does not complete an Objective from %s acknowledgement alone", async (message) => {
-    runSessionMock.mockImplementation(async function* () {
-      yield {
-        type: "message_complete",
-        data: { text: "Sure, let's keep going.", stopReason: "end_turn" },
-      };
-      yield {
-        type: "run_complete",
-        data: { runId: "run_1" },
-      };
-    });
+  it.each(["continue", "makes sense"])(
+    "does not complete an Objective from %s acknowledgement alone",
+    async (message) => {
+      runSessionMock.mockImplementation(async function* () {
+        yield {
+          type: "message_complete",
+          data: { text: "Sure, let's keep going.", stopReason: "end_turn" },
+        };
+        yield {
+          type: "run_complete",
+          data: { runId: "run_1" },
+        };
+      });
 
-    const fakeDb = new FakeDb();
-    fakeDb.objectives = [{ id: "objective_1", notebookId: "nb_1", status: "active" }];
-    fakeDb.studyPlanRows = [{ id: "study_plan_1", notebookId: "nb_1", currentObjectiveId: "objective_1" }];
-    fakeDb.objectiveListRows = [{ id: "olist_1", notebookId: "nb_1", currentObjectiveId: "objective_1" }];
-    const ctx = {
-      db: { db: fakeDb },
-      env: {
-        DEFAULT_TUTOR_MODEL: "test-model",
-        OPENROUTER_API_KEY: "test-key",
-        OPENROUTER_BASE_URL: "https://example.invalid",
-      },
-    } as unknown as AppContext;
+      const fakeDb = new FakeDb();
+      fakeDb.objectives = [{ id: "objective_1", notebookId: "nb_1", status: "active" }];
+      fakeDb.studyPlanRows = [
+        { id: "study_plan_1", notebookId: "nb_1", currentObjectiveId: "objective_1" },
+      ];
+      fakeDb.objectiveListRows = [
+        { id: "olist_1", notebookId: "nb_1", currentObjectiveId: "objective_1" },
+      ];
+      const ctx = {
+        db: { db: fakeDb },
+        env: {
+          DEFAULT_TUTOR_MODEL: "test-model",
+          OPENROUTER_API_KEY: "test-key",
+          OPENROUTER_BASE_URL: "https://example.invalid",
+        },
+      } as unknown as AppContext;
 
-    await executeTutorTurn({
-      ctx,
-      notebookId: "nb_1",
-      sessionId: "sess_1",
-      userId: "user_1",
-      activeMode: "learn",
-      selectedNodeRefs: [],
-      action: "prompt",
-      message,
-      promptContext: {
-        notebookTitle: "Notebook A",
-        activeMode: "learn",
-        selectedNodeRefs: [],
-        currentObjective: "Objective 1",
-        completedObjectivesCount: 0,
-        nextObjectives: ["Objective 2"],
-        additionalInstructions: [],
-      },
-      studyState: progressionStudyState as never,
-      previousRuntimeContext: {},
-      toolRegistry: {},
-      emitStreamEvent: () => undefined,
-      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-      run: {
-        runId: "run_1",
+      await executeTutorTurn({
+        ctx,
         notebookId: "nb_1",
         sessionId: "sess_1",
         userId: "user_1",
         activeMode: "learn",
         selectedNodeRefs: [],
-        modelConfig: { model: "test-model" },
-        budgets: {},
-        traceId: "trace_1",
-      } as never,
-    });
+        action: "prompt",
+        message,
+        promptContext: {
+          notebookTitle: "Notebook A",
+          activeMode: "learn",
+          selectedNodeRefs: [],
+          currentObjective: "Objective 1",
+          completedObjectivesCount: 0,
+          nextObjectives: ["Objective 2"],
+          additionalInstructions: [],
+        },
+        studyState: progressionStudyState as never,
+        previousRuntimeContext: {},
+        toolRegistry: {},
+        emitStreamEvent: () => undefined,
+        logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+        run: {
+          runId: "run_1",
+          notebookId: "nb_1",
+          sessionId: "sess_1",
+          userId: "user_1",
+          activeMode: "learn",
+          selectedNodeRefs: [],
+          modelConfig: { model: "test-model" },
+          budgets: {},
+          traceId: "trace_1",
+        } as never,
+      });
 
-    expect(fakeDb.objectives[0]).toMatchObject({ status: "active" });
-    const appendCalls = appendEventMock.mock.calls as unknown as Array<[unknown, { eventType?: string }]>;
-    expect(appendCalls.some(([, event]) => event.eventType === "objective.completed")).toBe(false);
-  });
+      expect(fakeDb.objectives[0]).toMatchObject({ status: "active" });
+      const appendCalls = appendEventMock.mock.calls as unknown as Array<
+        [unknown, { eventType?: string }]
+      >;
+      expect(appendCalls.some(([, event]) => event.eventType === "objective.completed")).toBe(
+        false,
+      );
+    },
+  );
 
   it("does not complete an Objective after weak incorrect mastery evidence from a quiz check", async () => {
     const fakeDb = new FakeDb();
     fakeDb.objectives = [{ id: "objective_1", notebookId: "nb_1", status: "active" }];
-    fakeDb.studyPlanRows = [{ id: "study_plan_1", notebookId: "nb_1", currentObjectiveId: "objective_1" }];
-    fakeDb.objectiveListRows = [{ id: "olist_1", notebookId: "nb_1", currentObjectiveId: "objective_1" }];
+    fakeDb.studyPlanRows = [
+      { id: "study_plan_1", notebookId: "nb_1", currentObjectiveId: "objective_1" },
+    ];
+    fakeDb.objectiveListRows = [
+      { id: "olist_1", notebookId: "nb_1", currentObjectiveId: "objective_1" },
+    ];
     const ctx = {
       db: { db: fakeDb },
       env: {
@@ -1290,15 +1459,21 @@ describe("executeTutorTurn", () => {
 
     expect(result.status).toBe("completed");
     expect(fakeDb.objectives[0]).toMatchObject({ status: "active" });
-    const appendCalls = appendEventMock.mock.calls as unknown as Array<[unknown, { eventType?: string }]>;
+    const appendCalls = appendEventMock.mock.calls as unknown as Array<
+      [unknown, { eventType?: string }]
+    >;
     expect(appendCalls.some(([, event]) => event.eventType === "objective.completed")).toBe(false);
   });
 
   it("completes an Objective when recent strong Mastery Evidence supports advancement", async () => {
     const fakeDb = new FakeDb();
     fakeDb.objectives = [{ id: "objective_1", notebookId: "nb_1", status: "active" }];
-    fakeDb.studyPlanRows = [{ id: "study_plan_1", notebookId: "nb_1", currentObjectiveId: "objective_1" }];
-    fakeDb.objectiveListRows = [{ id: "olist_1", notebookId: "nb_1", currentObjectiveId: "objective_1" }];
+    fakeDb.studyPlanRows = [
+      { id: "study_plan_1", notebookId: "nb_1", currentObjectiveId: "objective_1" },
+    ];
+    fakeDb.objectiveListRows = [
+      { id: "olist_1", notebookId: "nb_1", currentObjectiveId: "objective_1" },
+    ];
     const ctx = {
       db: { db: fakeDb },
       env: {
@@ -1357,7 +1532,15 @@ describe("executeTutorTurn", () => {
           completedObjectives: [],
           weakConcepts: [],
         },
-        coverage: { total: 0, planned: 0, introduced: 0, checked: 0, mastered: 0, needsReview: 0, gaps: [] },
+        coverage: {
+          total: 0,
+          planned: 0,
+          introduced: 0,
+          checked: 0,
+          mastered: 0,
+          needsReview: 0,
+          gaps: [],
+        },
         sourceLevels: [],
         learnerReadiness: [],
       } as never,
@@ -1408,7 +1591,10 @@ describe("executeTutorTurn", () => {
       expect.anything(),
       expect.objectContaining({
         eventType: "objective.completed",
-        payload: expect.objectContaining({ reason: "mastery_evidence", masteryEvidenceId: "mev_strong" }),
+        payload: expect.objectContaining({
+          reason: "mastery_evidence",
+          masteryEvidenceId: "mev_strong",
+        }),
       }),
     );
   });
@@ -1416,8 +1602,12 @@ describe("executeTutorTurn", () => {
   it("completes an Objective after a correct quiz check produces strong Mastery Evidence", async () => {
     const fakeDb = new FakeDb();
     fakeDb.objectives = [{ id: "objective_1", notebookId: "nb_1", status: "active" }];
-    fakeDb.studyPlanRows = [{ id: "study_plan_1", notebookId: "nb_1", currentObjectiveId: "objective_1" }];
-    fakeDb.objectiveListRows = [{ id: "olist_1", notebookId: "nb_1", currentObjectiveId: "objective_1" }];
+    fakeDb.studyPlanRows = [
+      { id: "study_plan_1", notebookId: "nb_1", currentObjectiveId: "objective_1" },
+    ];
+    fakeDb.objectiveListRows = [
+      { id: "olist_1", notebookId: "nb_1", currentObjectiveId: "objective_1" },
+    ];
     const ctx = {
       db: { db: fakeDb },
       env: {
@@ -1481,7 +1671,10 @@ describe("executeTutorTurn", () => {
       expect.anything(),
       expect.objectContaining({
         eventType: "objective.completed",
-        payload: expect.objectContaining({ reason: "mastery_evidence", masteryEvidenceId: "mev_quiz_correct" }),
+        payload: expect.objectContaining({
+          reason: "mastery_evidence",
+          masteryEvidenceId: "mev_quiz_correct",
+        }),
       }),
     );
   });
@@ -1489,8 +1682,12 @@ describe("executeTutorTurn", () => {
   it("does not complete an Objective from borderline failing Mastery Evidence", async () => {
     const fakeDb = new FakeDb();
     fakeDb.objectives = [{ id: "objective_1", notebookId: "nb_1", status: "active" }];
-    fakeDb.studyPlanRows = [{ id: "study_plan_1", notebookId: "nb_1", currentObjectiveId: "objective_1" }];
-    fakeDb.objectiveListRows = [{ id: "olist_1", notebookId: "nb_1", currentObjectiveId: "objective_1" }];
+    fakeDb.studyPlanRows = [
+      { id: "study_plan_1", notebookId: "nb_1", currentObjectiveId: "objective_1" },
+    ];
+    fakeDb.objectiveListRows = [
+      { id: "olist_1", notebookId: "nb_1", currentObjectiveId: "objective_1" },
+    ];
     const ctx = {
       db: { db: fakeDb },
       env: {
@@ -1549,7 +1746,15 @@ describe("executeTutorTurn", () => {
           completedObjectives: [],
           weakConcepts: [],
         },
-        coverage: { total: 0, planned: 0, introduced: 0, checked: 0, mastered: 0, needsReview: 0, gaps: [] },
+        coverage: {
+          total: 0,
+          planned: 0,
+          introduced: 0,
+          checked: 0,
+          mastered: 0,
+          needsReview: 0,
+          gaps: [],
+        },
         sourceLevels: [],
         learnerReadiness: [],
       } as never,
@@ -1587,7 +1792,9 @@ describe("executeTutorTurn", () => {
 
     expect(result.status).toBe("completed");
     expect(fakeDb.objectives[0]).toMatchObject({ status: "active" });
-    const appendCalls = appendEventMock.mock.calls as unknown as Array<[unknown, { eventType?: string }]>;
+    const appendCalls = appendEventMock.mock.calls as unknown as Array<
+      [unknown, { eventType?: string }]
+    >;
     expect(appendCalls.some(([, event]) => event.eventType === "objective.completed")).toBe(false);
   });
 
@@ -1605,8 +1812,12 @@ describe("executeTutorTurn", () => {
 
     const fakeDb = new FakeDb();
     fakeDb.objectives = [{ id: "objective_1", notebookId: "nb_1", status: "active" }];
-    fakeDb.studyPlanRows = [{ id: "study_plan_1", notebookId: "nb_1", currentObjectiveId: "objective_1" }];
-    fakeDb.objectiveListRows = [{ id: "olist_1", notebookId: "nb_1", currentObjectiveId: "objective_1" }];
+    fakeDb.studyPlanRows = [
+      { id: "study_plan_1", notebookId: "nb_1", currentObjectiveId: "objective_1" },
+    ];
+    fakeDb.objectiveListRows = [
+      { id: "olist_1", notebookId: "nb_1", currentObjectiveId: "objective_1" },
+    ];
     const ctx = {
       db: { db: fakeDb },
       env: {
@@ -1665,9 +1876,17 @@ describe("executeTutorTurn", () => {
           completedObjectives: [],
           weakConcepts: [],
         },
-        coverage: { total: 0, planned: 0, introduced: 0, checked: 0, mastered: 0, needsReview: 0, gaps: [] },
-      sourceLevels: [],
-      learnerReadiness: [],
+        coverage: {
+          total: 0,
+          planned: 0,
+          introduced: 0,
+          checked: 0,
+          mastered: 0,
+          needsReview: 0,
+          gaps: [],
+        },
+        sourceLevels: [],
+        learnerReadiness: [],
       } as never,
       previousRuntimeContext: {},
       toolRegistry: {},
@@ -1693,7 +1912,9 @@ describe("executeTutorTurn", () => {
     expect(result.status).toBe("completed");
     expect(fakeDb.objectives[0]).toMatchObject({ status: "active" });
     expect(fakeDb.studyPlanRows[0]).toMatchObject({ currentObjectiveId: "objective_1" });
-    const appendCalls = appendEventMock.mock.calls as unknown as Array<[unknown, { eventType?: string }]>;
+    const appendCalls = appendEventMock.mock.calls as unknown as Array<
+      [unknown, { eventType?: string }]
+    >;
     expect(appendCalls.some(([, event]) => event.eventType === "objective.completed")).toBe(false);
     expect(appendCalls.some(([, event]) => event.eventType === "study_plan.updated")).toBe(false);
   });

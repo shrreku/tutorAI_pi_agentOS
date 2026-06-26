@@ -43,9 +43,21 @@ function createSuccessApi(): SyntheticLearnerEvalRunnerApi {
             eventType: "TEXT_MESSAGE_CONTENT",
             payload: { text: "The derivative is the instantaneous rate of change." },
           },
-          { source: "tutor", eventType: "TOOL_CALL_START", payload: { toolName: "notebook.search" } },
-          { source: "tutor", eventType: "TOOL_CALL_COMPLETE", payload: { toolName: "notebook.search" } },
-          { source: "tutor", eventType: "TOOL_CALL_COMPLETE", payload: { toolName: "artifact.create_quiz" } },
+          {
+            source: "tutor",
+            eventType: "TOOL_CALL_START",
+            payload: { toolName: "notebook.search" },
+          },
+          {
+            source: "tutor",
+            eventType: "TOOL_CALL_COMPLETE",
+            payload: { toolName: "notebook.search" },
+          },
+          {
+            source: "tutor",
+            eventType: "TOOL_CALL_COMPLETE",
+            payload: { toolName: "artifact.create_quiz" },
+          },
           {
             source: "runtime",
             eventType: "learning.evaluate_response",
@@ -137,12 +149,22 @@ describe("synthetic learner eval runner", () => {
 
     expect(result.runRecord.status).toBe("passed");
     expect(observedStatuses[0]).toBe("running");
-    expect(observedKinds).toEqual(expect.arrayContaining(["run", "student", "tutor", "tool", "assertion"]));
-    expect(result.runRecord.observationEvents.map((event) => event.kind)).toEqual(expect.arrayContaining(["run", "student", "tutor", "tool", "assertion"]));
+    expect(observedKinds).toEqual(
+      expect.arrayContaining(["run", "student", "tutor", "tool", "assertion"]),
+    );
+    expect(result.runRecord.observationEvents.map((event) => event.kind)).toEqual(
+      expect.arrayContaining(["run", "student", "tutor", "tool", "assertion"]),
+    );
     expect(result.scenarioRun.evalEvidenceSnapshotRefs).toEqual(
       expect.arrayContaining([
-        { refType: "eval_evidence_snapshot", refId: "snap_slrun_traceable_live_run_scenario_lesson_remediation_execution" },
-        { refType: "eval_evidence_snapshot", refId: "snap_slrun_traceable_live_run_scenario_lesson_remediation_after" },
+        {
+          refType: "eval_evidence_snapshot",
+          refId: "snap_slrun_traceable_live_run_scenario_lesson_remediation_execution",
+        },
+        {
+          refType: "eval_evidence_snapshot",
+          refId: "snap_slrun_traceable_live_run_scenario_lesson_remediation_after",
+        },
       ]),
     );
     expect(result.scenarioRun.evalEvidenceSnapshots.length).toBeGreaterThanOrEqual(2);
@@ -155,7 +177,11 @@ describe("synthetic learner eval runner", () => {
         { refType: "session", refId: "sess_live_001" },
       ]),
     );
-    expect(result.scenarioRun.assertions.some((assertion) => assertion.details.reason === "unavailable_required_snapshot")).toBe(false);
+    expect(
+      result.scenarioRun.assertions.some(
+        (assertion) => assertion.details.reason === "unavailable_required_snapshot",
+      ),
+    ).toBe(false);
     expect(lines).toEqual(
       expect.arrayContaining([
         "STUDENT: Teach me the topic and check whether I am missing a key idea.",
@@ -305,13 +331,17 @@ describe("synthetic learner eval runner", () => {
       runId: "slrun_beat_llm_mastery_pinned",
     });
 
-    const scenario = matrix.scenarios.find((candidate) => candidate.id === "scenario_lesson_remediation");
+    const scenario = matrix.scenarios.find(
+      (candidate) => candidate.id === "scenario_lesson_remediation",
+    );
     expect(sentMessages[2]).toBe(scenario?.beats[2]?.scriptedMessage);
   });
 
   it("runs scenario-autonomous LLM actions with repair feedback and typed observations", async () => {
     const matrix = loadTracerBulletSyntheticLearnerEvalMatrix();
-    const scenario = matrix.scenarios.find((candidate) => candidate.id === "scenario_artifact_request");
+    const scenario = matrix.scenarios.find(
+      (candidate) => candidate.id === "scenario_artifact_request",
+    );
     if (!scenario) throw new Error("Missing scenario_artifact_request fixture.");
     scenario.runKind = "scenario_autonomous";
     let actionCalls = 0;
@@ -322,7 +352,10 @@ describe("synthetic learner eval runner", () => {
         if (actionCalls === 1) {
           return { action: "artifact.open", rationale: "Unsupported action name." };
         }
-        return { action: "artifact.list", rationale: "Check available artifacts before asking the tutor." };
+        return {
+          action: "artifact.list",
+          rationale: "Check available artifacts before asking the tutor.",
+        };
       },
       async generateLearnerResponse({ observation }) {
         return {
@@ -380,13 +413,22 @@ describe("synthetic learner eval runner", () => {
     expect(result.scenarioRun.learnerMode).toBe("scenario_autonomous_llm");
     expect(result.scenarioRun.actionRepairAttempts).toBe(1);
     expect(result.scenarioRun.simulatorEvidence[0]?.eventType).toBe("action_repaired");
-    expect(result.scenarioRun.artifactRefs).toEqual([{ refType: "artifact", refId: "artifact_quiz_1" }]);
-    expect(lines).toEqual(expect.arrayContaining(["SIMULATOR ACTION: artifact.list", "SIMULATOR OBSERVATION: ok - Listed learner-visible artifacts."]));
+    expect(result.scenarioRun.artifactRefs).toEqual([
+      { refType: "artifact", refId: "artifact_quiz_1" },
+    ]);
+    expect(lines).toEqual(
+      expect.arrayContaining([
+        "SIMULATOR ACTION: artifact.list",
+        "SIMULATOR OBSERVATION: ok - Listed learner-visible artifacts.",
+      ]),
+    );
   });
 
   it("runs full-autonomous LLM with oriented start context and session finish", async () => {
     const matrix = loadTracerBulletSyntheticLearnerEvalMatrix();
-    const scenario = matrix.scenarios.find((candidate) => candidate.id === "scenario_session_completion");
+    const scenario = matrix.scenarios.find(
+      (candidate) => candidate.id === "scenario_session_completion",
+    );
     if (!scenario) throw new Error("Missing scenario_session_completion fixture.");
     scenario.runKind = "full_autonomous";
     scenario.autonomousConfig = {
@@ -409,7 +451,11 @@ describe("synthetic learner eval runner", () => {
       syntheticLearnerModel: {
         async generateActionDecision(input) {
           prompts.push(input.prompt);
-          return { action: "session.finish", rationale: "The learner is done.", finishReason: "Finished autonomous smoke path." };
+          return {
+            action: "session.finish",
+            rationale: "The learner is done.",
+            finishReason: "Finished autonomous smoke path.",
+          };
         },
         async generateLearnerResponse() {
           throw new Error("session.finish should not request a learner response.");
@@ -480,7 +526,9 @@ describe("synthetic learner eval runner", () => {
 
     expect(result.runRecord.status).toBe("passed");
     expect(result.scenarioRuns).toHaveLength(9);
-    expect(new Set(result.scenarioRuns.map((run) => `${run.personaId}:${run.scenarioId}`))).toHaveLength(9);
+    expect(
+      new Set(result.scenarioRuns.map((run) => `${run.personaId}:${run.scenarioId}`)),
+    ).toHaveLength(9);
     expect(result.runRecord.scenarioRuns).toHaveLength(9);
     expect(result.runRecord.transcript[0]).toBe("RUN STARTED: slrun_traceable_suite");
     expect(result.runRecord.transcript.at(-1)).toBe("FINAL: passed - All 9 scenario runs passed.");
@@ -522,7 +570,9 @@ describe("synthetic learner eval runner", () => {
     expect(result.scenarioRun.screenshotRefs).toEqual([
       { refType: "screenshot", refId: "screenshot_artifact_no_object_leak" },
     ]);
-    expect(result.scenarioRun.assertions.some((assertion) => assertion.category === "browser")).toBe(true);
+    expect(
+      result.scenarioRun.assertions.some((assertion) => assertion.category === "browser"),
+    ).toBe(true);
     expect(lines).toEqual(expect.arrayContaining(["BROWSER PASSED: check_absence passed"]));
   });
 
@@ -558,7 +608,13 @@ describe("synthetic learner eval runner", () => {
     const lines: string[] = [];
     const snapshotIds: string[] = [];
     const endPhases: string[] = [];
-    const stableMastery = [{ ref: { refType: "turn" as const, refId: "turn_stable" }, overallScore: 0.62, confidence: 0.7 }];
+    const stableMastery = [
+      {
+        ref: { refType: "turn" as const, refId: "turn_stable" },
+        overallScore: 0.62,
+        confidence: 0.7,
+      },
+    ];
 
     const result = await runSyntheticLearnerEvalScenario({
       matrix,
@@ -570,13 +626,16 @@ describe("synthetic learner eval runner", () => {
           endPhases.push(input.phase ?? "full");
           return {
             sessionId: "sess_trait_snapshot",
-            events: [{
-              source: "notebook" as const,
-              eventType: input.phase === "estimation"
-                ? "learner_trait.estimation.planned"
-                : "session.digest.created",
-              payload: { timestamp: "2026-05-25T09:00:05.000Z" },
-            }],
+            events: [
+              {
+                source: "notebook" as const,
+                eventType:
+                  input.phase === "estimation"
+                    ? "learner_trait.estimation.planned"
+                    : "session.digest.created",
+                payload: { timestamp: "2026-05-25T09:00:05.000Z" },
+              },
+            ],
           };
         },
       },
@@ -590,11 +649,13 @@ describe("synthetic learner eval runner", () => {
             masteryEvidence: stableMastery,
             learnerTraitEstimates: [{ ref: { refType: "trait_estimate", refId: "lte_1" } }],
             personalizationRecommendations: [{ id: "pr_1", trait: "pacePreference" }],
-            sessionEvents: [{
-              ref: { refType: "trait_guardrail_decision", refId: "ltgd_1" },
-              eventType: "learner_trait.estimation.planned",
-              timestamp: "2026-05-25T09:00:05.000Z",
-            }],
+            sessionEvents: [
+              {
+                ref: { refType: "trait_guardrail_decision", refId: "ltgd_1" },
+                eventType: "learner_trait.estimation.planned",
+                timestamp: "2026-05-25T09:00:05.000Z",
+              },
+            ],
           });
         }
         return buildEvalEvidenceSnapshot({
@@ -602,11 +663,13 @@ describe("synthetic learner eval runner", () => {
           notebookId,
           capturedAt: "2026-05-25T09:00:04.000Z",
           masteryEvidence: stableMastery,
-          sessionEvents: [{
-            ref: { refType: "trait_signal", refId: "lts_1" },
-            eventType: "learner_trait.signal.recorded",
-            timestamp: "2026-05-25T09:00:04.500Z",
-          }],
+          sessionEvents: [
+            {
+              ref: { refType: "trait_signal", refId: "lts_1" },
+              eventType: "learner_trait.signal.recorded",
+              timestamp: "2026-05-25T09:00:04.500Z",
+            },
+          ],
         });
       },
       persistenceEvidence: {
@@ -631,18 +694,32 @@ describe("synthetic learner eval runner", () => {
       runId: "slrun_trait_snapshot_window",
     });
 
-    expect(snapshotIds).toEqual(expect.arrayContaining([
-      expect.stringContaining("before_estimation"),
-      expect.stringContaining("after_estimation"),
-    ]));
+    expect(snapshotIds).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("before_estimation"),
+        expect.stringContaining("after_estimation"),
+      ]),
+    );
     expect(endPhases).toEqual(["estimation", "crystallization"]);
-    expect(lines).toEqual(expect.arrayContaining([
-      "SESSION END: trait estimation boundary",
-      "SESSION END: crystallization boundary",
-    ]));
-    expect(result.scenarioRun.evalEvidenceSnapshots.some((snapshot) => snapshot.traitRecommendationOnlySnapshot)).toBe(true);
-    expect(result.scenarioRun.assertions.filter((assertion) =>
-      assertion.id === "persistence_trait_recommendation_only" || assertion.id === "persistence_trait_no_mastery_mutation",
-    ).every((assertion) => assertion.status === "passed")).toBe(true);
+    expect(lines).toEqual(
+      expect.arrayContaining([
+        "SESSION END: trait estimation boundary",
+        "SESSION END: crystallization boundary",
+      ]),
+    );
+    expect(
+      result.scenarioRun.evalEvidenceSnapshots.some(
+        (snapshot) => snapshot.traitRecommendationOnlySnapshot,
+      ),
+    ).toBe(true);
+    expect(
+      result.scenarioRun.assertions
+        .filter(
+          (assertion) =>
+            assertion.id === "persistence_trait_recommendation_only" ||
+            assertion.id === "persistence_trait_no_mastery_mutation",
+        )
+        .every((assertion) => assertion.status === "passed"),
+    ).toBe(true);
   });
 });

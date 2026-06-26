@@ -16,7 +16,8 @@
           render: function (ctx) {
             var h = ctx.helpers;
             var events = Array.isArray(ctx.content.events) ? ctx.content.events : [];
-            var conceptTitle = ctx.content.conceptTitle || (ctx.state.block && ctx.state.block.title) || "Concept";
+            var conceptTitle =
+              ctx.content.conceptTitle || (ctx.state.block && ctx.state.block.title) || "Concept";
             var opened = Array.isArray(ctx.state.canonicalState.openedEventIds)
               ? ctx.state.canonicalState.openedEventIds
               : [];
@@ -29,12 +30,14 @@
             );
             html += h.pendingOverlay(ctx.state);
             html += h.statusHtml(ctx.state);
-            html += '<div class="sa-card"><div class="sa-timeline" id="timeline"></div></div></div>';
+            html +=
+              '<div class="sa-card"><div class="sa-timeline" id="timeline"></div></div></div>';
             ctx.root.innerHTML = html;
 
             var timelineEl = document.getElementById("timeline");
             if (!events.length) {
-              timelineEl.innerHTML = '<div class="sa-empty">No timeline milestones are available yet.</div>';
+              timelineEl.innerHTML =
+                '<div class="sa-empty">No timeline milestones are available yet.</div>';
               return;
             }
 
@@ -42,7 +45,8 @@
               var id = event.id || "event_" + index;
               var el = document.createElement("div");
               el.className = "sa-timeline-item";
-              if (ctx.state.ui.activeId === id || opened.indexOf(id) >= 0) el.classList.add("is-active");
+              if (ctx.state.ui.activeId === id || opened.indexOf(id) >= 0)
+                el.classList.add("is-active");
               var pages =
                 event.pageStart != null
                   ? "p. " +

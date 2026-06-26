@@ -1,104 +1,128 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Study Map — TutorBook</title>
-<link rel="stylesheet" href="styles.css" />
-<link rel="stylesheet" href="themes/folio.css" />
-<link rel="stylesheet" href="themes/focus.css" />
-<link rel="stylesheet" href="themes/sunrise.css" />
-<link rel="stylesheet" href="themes/nocturne.css" />
-<link rel="stylesheet" href="themes/carbon.css" />
-</head>
-<body data-theme="mist">
-<div class="app">
-  <div data-include="topbar"></div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Study Map — TutorBook</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="themes/folio.css" />
+    <link rel="stylesheet" href="themes/focus.css" />
+    <link rel="stylesheet" href="themes/sunrise.css" />
+    <link rel="stylesheet" href="themes/nocturne.css" />
+    <link rel="stylesheet" href="themes/carbon.css" />
+  </head>
+  <body data-theme="mist">
+    <div class="app">
+      <div data-include="topbar"></div>
 
-  <div class="workspace" data-evidence>
-    <div class="workspace-main">
-      <div class="workspace-canvas">
-        <div class="canvas-toolbar">
-          <div class="surface-switch" data-surface>
-            <a href="study-map.html" class="active">Study Map</a>
-            <a href="curriculum.html">Curriculum</a>
-            <a href="source-wiki.html">Source Wiki</a>
+      <div class="workspace" data-evidence>
+        <div class="workspace-main">
+          <div class="workspace-canvas">
+            <div class="canvas-toolbar">
+              <div class="surface-switch" data-surface>
+                <a href="study-map.html" class="active">Study Map</a>
+                <a href="curriculum.html">Curriculum</a>
+                <a href="source-wiki.html">Source Wiki</a>
+              </div>
+              <div class="spacer"></div>
+              <button class="btn sm" data-evidence-open>🛡 Evidence</button>
+              <button class="btn sm">⤢ Fit</button>
+            </div>
+
+            <div class="map-canvas" style="height: 600px; position: relative">
+              <svg class="map-edges" viewBox="0 0 900 600" preserveAspectRatio="none">
+                <path d="M150,150 C260,150 250,150 360,130" />
+                <path class="active" d="M360,150 C460,180 500,200 560,150" />
+                <path d="M150,330 C260,330 280,300 360,300" />
+                <path d="M470,170 C470,230 470,250 470,300" />
+                <path d="M680,160 C740,180 740,220 700,260" />
+              </svg>
+
+              <div class="node xl" style="left: 30px; top: 40px">
+                <div class="type curriculum">CURRICULUM</div>
+                <div class="title">Ch. 7 · Substitution</div>
+                <div class="progress" style="margin: 8px 0"><span style="width: 38%"></span></div>
+                <div class="meta">3 / 8 modules · Next: SN1 elimination</div>
+              </div>
+
+              <div class="node xl" style="left: 30px; top: 250px">
+                <div class="type plan">LIVE PLAN</div>
+                <div class="title">Substitution Plan</div>
+                <ul style="margin: 6px 0; padding-left: 16px; font-size: 12px">
+                  <li>Obj 1 · Proton transfer ✓</li>
+                  <li style="color: var(--accent-deep); font-weight: 650">
+                    Obj 2 · Backside attack →
+                  </li>
+                  <li>Obj 3 · Product separation</li>
+                </ul>
+              </div>
+
+              <a class="node selected" href="page-concept.html" style="left: 360px; top: 60px">
+                <div class="type concept">CONCEPT</div>
+                <div class="title">SN2 Mechanism</div>
+                <div class="pill-row">
+                  <span class="badge red">Needs practice</span
+                  ><span class="badge green">Ready</span>
+                </div>
+              </a>
+
+              <a class="node" href="page-concept.html" style="left: 360px; top: 250px">
+                <div class="type objective">OBJECTIVE</div>
+                <div class="title">Backside attack stereochem</div>
+                <div class="meta">Obj 5.2</div>
+              </a>
+
+              <a class="node s" href="page-quiz.html" style="left: 610px; top: 96px"
+                ><div class="type objective">CHECKPOINT</div>
+                <div class="title">SN2 rate</div>
+                <div class="meta">☑ quiz</div></a
+              >
+              <a class="node xs" href="page-concept.html" style="left: 640px; top: 230px"
+                ><div class="title">Leaving groups</div></a
+              >
+              <a class="node xs" href="page-concept.html" style="left: 640px; top: 320px"
+                ><div class="title">Solvent effects</div></a
+              >
+
+              <div class="graph-legend">
+                <div class="lg-row">
+                  <span class="lg-dot" style="background: var(--orange)"></span> Curriculum
+                </div>
+                <div class="lg-row">
+                  <span class="lg-dot" style="background: var(--blue)"></span> Live plan
+                </div>
+                <div class="lg-row">
+                  <span class="lg-dot" style="background: var(--purple)"></span> Concept
+                </div>
+              </div>
+              <div class="minimap">
+                <div class="mm-node" style="left: 8px; top: 8px; width: 30px; height: 18px"></div>
+                <div class="mm-node" style="left: 8px; top: 40px; width: 30px; height: 18px"></div>
+                <div class="mm-node" style="left: 60px; top: 12px; width: 28px; height: 16px"></div>
+                <div
+                  class="mm-node"
+                  style="left: 100px; top: 30px; width: 18px; height: 10px"
+                ></div>
+                <div class="mm-view" style="left: 4px; top: 4px; width: 96px; height: 64px"></div>
+              </div>
+              <div class="zoom">
+                <button>+</button><button>−</button><button title="Fit">⤢</button>
+              </div>
+            </div>
           </div>
-          <div class="spacer"></div>
-          <button class="btn sm" data-evidence-open>🛡 Evidence</button>
-          <button class="btn sm">⤢ Fit</button>
+          <div data-include="statusbar"></div>
         </div>
 
-        <div class="map-canvas" style="height:600px;position:relative">
-          <svg class="map-edges" viewBox="0 0 900 600" preserveAspectRatio="none">
-            <path d="M150,150 C260,150 250,150 360,130" />
-            <path class="active" d="M360,150 C460,180 500,200 560,150" />
-            <path d="M150,330 C260,330 280,300 360,300" />
-            <path d="M470,170 C470,230 470,250 470,300" />
-            <path d="M680,160 C740,180 740,220 700,260" />
-          </svg>
-
-          <div class="node xl" style="left:30px;top:40px">
-            <div class="type curriculum">CURRICULUM</div>
-            <div class="title">Ch. 7 · Substitution</div>
-            <div class="progress" style="margin:8px 0"><span style="width:38%"></span></div>
-            <div class="meta">3 / 8 modules · Next: SN1 elimination</div>
-          </div>
-
-          <div class="node xl" style="left:30px;top:250px">
-            <div class="type plan">LIVE PLAN</div>
-            <div class="title">Substitution Plan</div>
-            <ul style="margin:6px 0;padding-left:16px;font-size:12px">
-              <li>Obj 1 · Proton transfer ✓</li>
-              <li style="color:var(--accent-deep);font-weight:650">Obj 2 · Backside attack →</li>
-              <li>Obj 3 · Product separation</li>
-            </ul>
-          </div>
-
-          <a class="node selected" href="page-concept.html" style="left:360px;top:60px">
-            <div class="type concept">CONCEPT</div>
-            <div class="title">SN2 Mechanism</div>
-            <div class="pill-row"><span class="badge red">Needs practice</span><span class="badge green">Ready</span></div>
-          </a>
-
-          <a class="node" href="page-concept.html" style="left:360px;top:250px">
-            <div class="type objective">OBJECTIVE</div>
-            <div class="title">Backside attack stereochem</div>
-            <div class="meta">Obj 5.2</div>
-          </a>
-
-          <a class="node s" href="page-quiz.html" style="left:610px;top:96px"><div class="type objective">CHECKPOINT</div><div class="title">SN2 rate</div><div class="meta">☑ quiz</div></a>
-          <a class="node xs" href="page-concept.html" style="left:640px;top:230px"><div class="title">Leaving groups</div></a>
-          <a class="node xs" href="page-concept.html" style="left:640px;top:320px"><div class="title">Solvent effects</div></a>
-
-          <div class="graph-legend">
-            <div class="lg-row"><span class="lg-dot" style="background:var(--orange)"></span> Curriculum</div>
-            <div class="lg-row"><span class="lg-dot" style="background:var(--blue)"></span> Live plan</div>
-            <div class="lg-row"><span class="lg-dot" style="background:var(--purple)"></span> Concept</div>
-          </div>
-          <div class="minimap">
-            <div class="mm-node" style="left:8px;top:8px;width:30px;height:18px"></div>
-            <div class="mm-node" style="left:8px;top:40px;width:30px;height:18px"></div>
-            <div class="mm-node" style="left:60px;top:12px;width:28px;height:16px"></div>
-            <div class="mm-node" style="left:100px;top:30px;width:18px;height:10px"></div>
-            <div class="mm-view" style="left:4px;top:4px;width:96px;height:64px"></div>
-          </div>
-          <div class="zoom"><button>+</button><button>−</button><button title="Fit">⤢</button></div>
-        </div>
+        <div data-include="tutor" data-context="SN2 mechanism"></div>
       </div>
-      <div data-include="statusbar"></div>
     </div>
 
-    <div data-include="tutor" data-context="SN2 mechanism"></div>
-  </div>
-</div>
-
-<script src="app.js"></script>
-<script src="themes/folio.js"></script>
-<script src="themes/focus.js"></script>
-<script src="themes/sunrise.js"></script>
-<script src="themes/nocturne.js"></script>
-<script src="themes/carbon.js"></script>
-<script src="partials.js"></script>
-</body>
+    <script src="app.js"></script>
+    <script src="themes/folio.js"></script>
+    <script src="themes/focus.js"></script>
+    <script src="themes/sunrise.js"></script>
+    <script src="themes/nocturne.js"></script>
+    <script src="themes/carbon.js"></script>
+    <script src="partials.js"></script>
+  </body>
 </html>

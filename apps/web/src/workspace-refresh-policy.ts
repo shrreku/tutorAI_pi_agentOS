@@ -15,7 +15,9 @@ export {
 } from "@studyagent/schemas";
 export type { WorkspaceRefreshHint, WorkspaceRefreshPolicy };
 
-export function shouldInvalidateArtifactsForEvent(eventType: (typeof WORKSPACE_REFRESH_EVENT_TYPES)[number]): boolean {
+export function shouldInvalidateArtifactsForEvent(
+  eventType: (typeof WORKSPACE_REFRESH_EVENT_TYPES)[number],
+): boolean {
   return resolveWorkspaceRefreshPolicy(eventType).targets.includes("artifacts");
 }
 
@@ -48,7 +50,9 @@ export function applyWorkspaceRefreshInvalidations(input: {
       void queryClient.invalidateQueries({ queryKey: ["reference-surface", notebookId, nodeId] });
     }
     for (const artifactId of policy.artifactIds) {
-      void queryClient.invalidateQueries({ queryKey: ["reference-surface", notebookId, artifactId] });
+      void queryClient.invalidateQueries({
+        queryKey: ["reference-surface", notebookId, artifactId],
+      });
     }
   }
   if (policy.targets.includes("quizAttempts")) {

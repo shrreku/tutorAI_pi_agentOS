@@ -9,7 +9,11 @@ const NEO4J_URI = process.env.NEO4J_URI ?? "bolt://localhost:7687";
 const NEO4J_USERNAME = process.env.NEO4J_USERNAME ?? "neo4j";
 const NEO4J_PASSWORD = process.env.NEO4J_PASSWORD ?? "studyagent-local";
 
-function canonicalSnapshot(notebookId: string, sourceId: string, conceptId: string): CanonicalProjectionSnapshot {
+function canonicalSnapshot(
+  notebookId: string,
+  sourceId: string,
+  conceptId: string,
+): CanonicalProjectionSnapshot {
   return {
     notebookId,
     scope: "source",
@@ -66,10 +70,9 @@ describe("Neo4j projection rebuild integration", () => {
 
   afterAll(async () => {
     if (session && connected) {
-      await session.run(
-        `MATCH (n) WHERE n.notebookId = $notebookId DETACH DELETE n`,
-        { notebookId },
-      );
+      await session.run(`MATCH (n) WHERE n.notebookId = $notebookId DETACH DELETE n`, {
+        notebookId,
+      });
       await session.close();
     }
     if (driver) await driver.close();

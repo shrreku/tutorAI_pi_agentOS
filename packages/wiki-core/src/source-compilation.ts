@@ -1,4 +1,8 @@
-import { buildPageConfidenceSummary, combineConfidence, reinforcementSignalFromCount } from "./confidence.js";
+import {
+  buildPageConfidenceSummary,
+  combineConfidence,
+  reinforcementSignalFromCount,
+} from "./confidence.js";
 import { normalizeGraphRelationKind } from "@studyagent/schemas";
 import {
   buildConceptLookup,
@@ -9,7 +13,11 @@ import {
   type ExistingConceptRow,
 } from "./concept-lookup.js";
 import { resolveClaimGraph, type RawExtractedClaim } from "./claim-graph-resolution.js";
-import { extractHumanBlocks, mergeAgentMarkdownWithHumanBlocks, type HumanBlock } from "./page-blocks.js";
+import {
+  extractHumanBlocks,
+  mergeAgentMarkdownWithHumanBlocks,
+  type HumanBlock,
+} from "./page-blocks.js";
 import {
   buildHeuristicConceptPageMarkdown,
   buildHeuristicTopicPageMarkdown,
@@ -100,7 +108,10 @@ function uniqueChunkIds(ids: string[]): string[] {
 }
 
 export function normalizeRelationType(value: string): NormalizedRelationType | null {
-  const normalized = value.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
   switch (normalized) {
     case "depends_on":
     case "supports":
@@ -133,7 +144,10 @@ function normalizeTextForMatch(value: string): string {
   return normalizeConceptKey(value);
 }
 
-function orderedConceptPairs(conceptIds: string[], conceptNames: Map<string, string>): Array<[string, string]> {
+function orderedConceptPairs(
+  conceptIds: string[],
+  conceptNames: Map<string, string>,
+): Array<[string, string]> {
   const uniq = [...new Set(conceptIds)];
   const pairs: Array<[string, string]> = [];
   for (let i = 0; i < uniq.length; i += 1) {
@@ -167,14 +181,38 @@ function inferConceptRelationsFromClaims(
       const toKey = escapeRegExp(normalizeTextForMatch(toName));
 
       const rules: Array<{ relationType: NormalizedRelationType; pattern: RegExp }> = [
-        { relationType: "depends_on", pattern: new RegExp(`\\b${fromKey}\\b.*\\bdepends on\\b.*\\b${toKey}\\b`) },
-        { relationType: "depends_on", pattern: new RegExp(`\\b${fromKey}\\b.*\\bis governed by\\b.*\\b${toKey}\\b`) },
-        { relationType: "depends_on", pattern: new RegExp(`\\b${toKey}\\b.*\\bgoverns\\b.*\\b${fromKey}\\b`) },
-        { relationType: "depends_on", pattern: new RegExp(`\\b${toKey}\\b.*\\bdefines\\b.*\\b${fromKey}\\b`) },
-        { relationType: "supports", pattern: new RegExp(`\\b${fromKey}\\b.*\\bimplies\\b.*\\b${toKey}\\b`) },
-        { relationType: "supports", pattern: new RegExp(`\\b${fromKey}\\b.*\\bindicates\\b.*\\b${toKey}\\b`) },
-        { relationType: "covers", pattern: new RegExp(`\\b${fromKey}\\b.*\\bapplies to\\b.*\\b${toKey}\\b`) },
-        { relationType: "example_of", pattern: new RegExp(`\\b${fromKey}\\b.*\\bis (?:an|a|the)\\b.*\\b${toKey}\\b`) },
+        {
+          relationType: "depends_on",
+          pattern: new RegExp(`\\b${fromKey}\\b.*\\bdepends on\\b.*\\b${toKey}\\b`),
+        },
+        {
+          relationType: "depends_on",
+          pattern: new RegExp(`\\b${fromKey}\\b.*\\bis governed by\\b.*\\b${toKey}\\b`),
+        },
+        {
+          relationType: "depends_on",
+          pattern: new RegExp(`\\b${toKey}\\b.*\\bgoverns\\b.*\\b${fromKey}\\b`),
+        },
+        {
+          relationType: "depends_on",
+          pattern: new RegExp(`\\b${toKey}\\b.*\\bdefines\\b.*\\b${fromKey}\\b`),
+        },
+        {
+          relationType: "supports",
+          pattern: new RegExp(`\\b${fromKey}\\b.*\\bimplies\\b.*\\b${toKey}\\b`),
+        },
+        {
+          relationType: "supports",
+          pattern: new RegExp(`\\b${fromKey}\\b.*\\bindicates\\b.*\\b${toKey}\\b`),
+        },
+        {
+          relationType: "covers",
+          pattern: new RegExp(`\\b${fromKey}\\b.*\\bapplies to\\b.*\\b${toKey}\\b`),
+        },
+        {
+          relationType: "example_of",
+          pattern: new RegExp(`\\b${fromKey}\\b.*\\bis (?:an|a|the)\\b.*\\b${toKey}\\b`),
+        },
       ];
 
       const matched = rules.find((rule) => rule.pattern.test(text));
@@ -211,8 +249,14 @@ function upsertConceptRelationCandidate(
   }
 
   existing.confidence = Math.max(existing.confidence, candidate.confidence);
-  existing.sourceClaimIds = uniqueChunkIds([...existing.sourceClaimIds, ...candidate.sourceClaimIds]);
-  existing.sourceChunkIds = uniqueChunkIds([...existing.sourceChunkIds, ...candidate.sourceChunkIds]);
+  existing.sourceClaimIds = uniqueChunkIds([
+    ...existing.sourceClaimIds,
+    ...candidate.sourceClaimIds,
+  ]);
+  existing.sourceChunkIds = uniqueChunkIds([
+    ...existing.sourceChunkIds,
+    ...candidate.sourceChunkIds,
+  ]);
 }
 
 function learnerSupportStatus(relatedClaims: Array<{ confidence: number }>): string | null {
@@ -239,7 +283,12 @@ export function buildConceptPageMarkdown(
 export function normalizeSourceSummaryMarkdown(markdown: string, sourceTitle: string): string {
   const trimmed = markdown.trim();
   if (!trimmed) {
-    return [`# ${sourceTitle}`, "", "## Overview", "Still improving — this source summary will grow as ingestion completes."].join("\n");
+    return [
+      `# ${sourceTitle}`,
+      "",
+      "## Overview",
+      "Still improving — this source summary will grow as ingestion completes.",
+    ].join("\n");
   }
   if (/^#\s/m.test(trimmed)) return trimmed;
   return [`# ${sourceTitle}`, "", "## Overview", trimmed].join("\n\n");
@@ -250,16 +299,30 @@ function topicTitleFromSummaryMarkdown(markdown: string, sourceTitle: string): s
   const heading = firstHeadingMatch?.[1]?.trim() ?? "";
   const sourceStem = sourceTitle.replace(/\.[a-z0-9]+$/i, "").trim();
   if (heading.length === 0) return sourceStem || sourceTitle;
-  if (/^(overview|summary|source summary|chapter\s+\d+|lesson\s+\d+)$/i.test(heading) && sourceStem.length > 0) {
+  if (
+    /^(overview|summary|source summary|chapter\s+\d+|lesson\s+\d+)$/i.test(heading) &&
+    sourceStem.length > 0
+  ) {
     return sourceStem;
   }
   return heading;
 }
 
-function buildTopicPageMarkdown(topicTitle: string, sourceSummaryMarkdown: string, claims: ClaimBullet[] = []): string {
+function buildTopicPageMarkdown(
+  topicTitle: string,
+  sourceSummaryMarkdown: string,
+  claims: ClaimBullet[] = [],
+): string {
   const trimmedSummary = sourceSummaryMarkdown.trim();
   const body = trimmedSummary.replace(/^#\s+.*(?:\r?\n)+/, "").trim();
-  const overviewBullets = body.length > 0 ? body.split(/\n+/).map((line) => line.replace(/^[-*]\s*/, "").trim()).filter(Boolean).slice(0, 6) : [];
+  const overviewBullets =
+    body.length > 0
+      ? body
+          .split(/\n+/)
+          .map((line) => line.replace(/^[-*]\s*/, "").trim())
+          .filter(Boolean)
+          .slice(0, 6)
+      : [];
   return buildHeuristicTopicPageMarkdown({
     topicTitle,
     overviewBullets,
@@ -291,7 +354,10 @@ function compileFingerprint(input: CompileSourceWikiInput): string {
     sourceId: input.sourceId,
     sourceVersionId: input.sourceVersionId,
     extraction: input.extraction,
-    human: input.priorWikiPages.map((p) => ({ pageKey: p.pageKey, blocks: extractHumanBlocks(p.markdown) })),
+    human: input.priorWikiPages.map((p) => ({
+      pageKey: p.pageKey,
+      blocks: extractHumanBlocks(p.markdown),
+    })),
     conceptIds: input.existingConcepts.map((c) => c.id).sort(),
   });
   let hash = 0;
@@ -306,7 +372,10 @@ export function compileSourceToWikiChangeSet(input: CompileSourceWikiInput): Wik
   const nextId = input.nextId ?? defaultNextId;
   const now = input.now ?? new Date();
   const chunkIdSet = new Set(input.chunkIds);
-  const maxConceptPages = typeof input.maxConceptPages === "number" && input.maxConceptPages > 0 ? Math.floor(input.maxConceptPages) : null;
+  const maxConceptPages =
+    typeof input.maxConceptPages === "number" && input.maxConceptPages > 0
+      ? Math.floor(input.maxConceptPages)
+      : null;
 
   if (input.chunkIds.length === 0) {
     return {
@@ -363,9 +432,17 @@ export function compileSourceToWikiChangeSet(input: CompileSourceWikiInput): Wik
             conceptType: concept.conceptType ?? "term",
             action: "update",
           });
-          registerConceptLookup(conceptLookup, existingId, [existing.canonicalName, ...mergedAliases, canonicalName]);
+          registerConceptLookup(conceptLookup, existingId, [
+            existing.canonicalName,
+            ...mergedAliases,
+            canonicalName,
+          ]);
         } else {
-          registerConceptLookup(conceptLookup, existingId, [existing.canonicalName, ...mergedAliases, canonicalName]);
+          registerConceptLookup(conceptLookup, existingId, [
+            existing.canonicalName,
+            ...mergedAliases,
+            canonicalName,
+          ]);
         }
       }
       continue;
@@ -389,9 +466,13 @@ export function compileSourceToWikiChangeSet(input: CompileSourceWikiInput): Wik
   for (const claim of input.extraction.claims) {
     const claimId = nextId("clm_");
     const ev =
-      claim.evidenceChunkId && chunkIdSet.has(claim.evidenceChunkId) ? claim.evidenceChunkId : input.chunkIds[0]!;
+      claim.evidenceChunkId && chunkIdSet.has(claim.evidenceChunkId)
+        ? claim.evidenceChunkId
+        : input.chunkIds[0]!;
     const chunkList = ev ? [ev] : [];
-    const hadChunkEvidence = Boolean(claim.evidenceChunkId && chunkIdSet.has(claim.evidenceChunkId));
+    const hadChunkEvidence = Boolean(
+      claim.evidenceChunkId && chunkIdSet.has(claim.evidenceChunkId),
+    );
     const confidenceComponents = {
       sourceSupport: hadChunkEvidence ? 0.76 : 0.58,
       extractionConfidence: 0.68,
@@ -401,7 +482,10 @@ export function compileSourceToWikiChangeSet(input: CompileSourceWikiInput): Wik
       reinforcementSignal: reinforcementSignalFromCount(0),
     };
     const linkedConceptIds = claim.conceptNames
-      .map((cn) => resolveConceptId(conceptLookup, cn.trim()) ?? conceptIdByName.get(cn.trim()) ?? null)
+      .map(
+        (cn) =>
+          resolveConceptId(conceptLookup, cn.trim()) ?? conceptIdByName.get(cn.trim()) ?? null,
+      )
       .filter(Boolean) as string[];
 
     rawClaims.push({
@@ -425,8 +509,12 @@ export function compileSourceToWikiChangeSet(input: CompileSourceWikiInput): Wik
 
   const relationCandidates = new Map<string, ConceptRelationCandidate>();
   for (const rel of normalizedRelations) {
-    const fromId = resolveConceptId(conceptLookup, rel.fromConcept.trim()) ?? conceptIdByName.get(rel.fromConcept.trim());
-    const toId = resolveConceptId(conceptLookup, rel.toConcept.trim()) ?? conceptIdByName.get(rel.toConcept.trim());
+    const fromId =
+      resolveConceptId(conceptLookup, rel.fromConcept.trim()) ??
+      conceptIdByName.get(rel.fromConcept.trim());
+    const toId =
+      resolveConceptId(conceptLookup, rel.toConcept.trim()) ??
+      conceptIdByName.get(rel.toConcept.trim());
     if (!fromId || !toId || fromId === toId) continue;
     upsertConceptRelationCandidate(relationCandidates, {
       fromId,
@@ -442,25 +530,30 @@ export function compileSourceToWikiChangeSet(input: CompileSourceWikiInput): Wik
     upsertConceptRelationCandidate(relationCandidates, relation);
   }
 
-  const conceptGraphRelations: WikiChangeSetGraphRelation[] = [...relationCandidates.values()].map((relation) => ({
-    id: nextId("gre_"),
-    sourceNodeType: "concept" as const,
-    sourceNodeId: relation.fromId,
-    targetNodeType: "concept" as const,
-    targetNodeId: relation.toId,
-    relationType: relation.relationType,
-    confidence: relation.confidence,
-    sourceClaimIds: relation.sourceClaimIds,
-    sourceChunkIds: relation.sourceChunkIds,
-    metadataJson: { ingestionSourceId: input.sourceId },
-  }));
+  const conceptGraphRelations: WikiChangeSetGraphRelation[] = [...relationCandidates.values()].map(
+    (relation) => ({
+      id: nextId("gre_"),
+      sourceNodeType: "concept" as const,
+      sourceNodeId: relation.fromId,
+      targetNodeType: "concept" as const,
+      targetNodeId: relation.toId,
+      relationType: relation.relationType,
+      confidence: relation.confidence,
+      sourceClaimIds: relation.sourceClaimIds,
+      sourceChunkIds: relation.sourceChunkIds,
+      metadataJson: { ingestionSourceId: input.sourceId },
+    }),
+  );
 
   const contradictionEdges = normalizedRelations
     .filter((r) => r.relationType === "contradicts")
     .map((r) => {
       const fromConceptId =
-        resolveConceptId(conceptLookup, r.fromConcept.trim()) ?? conceptIdByName.get(r.fromConcept.trim());
-      const toConceptId = resolveConceptId(conceptLookup, r.toConcept.trim()) ?? conceptIdByName.get(r.toConcept.trim());
+        resolveConceptId(conceptLookup, r.fromConcept.trim()) ??
+        conceptIdByName.get(r.fromConcept.trim());
+      const toConceptId =
+        resolveConceptId(conceptLookup, r.toConcept.trim()) ??
+        conceptIdByName.get(r.toConcept.trim());
       if (!fromConceptId || !toConceptId) return null;
       return { fromConceptId, toConceptId };
     })
@@ -482,8 +575,14 @@ export function compileSourceToWikiChangeSet(input: CompileSourceWikiInput): Wik
   const humanBlocksByPageKey = extractPriorHumanBlocks(input.priorWikiPages);
   const sourceSummaryPageKey = `source:${input.sourceId}`;
   const sourceSummaryChunkIds = uniqueChunkIds(insertedClaimMeta.flatMap((m) => m.chunkIds));
-  const sourceSummaryAgentMd = normalizeSourceSummaryMarkdown(input.extraction.sourceSummaryMarkdown, input.sourceTitle);
-  const sourceSummaryMerged = mergeAgentMarkdownWithHumanBlocks(sourceSummaryAgentMd, humanBlocksByPageKey.get(sourceSummaryPageKey) ?? []);
+  const sourceSummaryAgentMd = normalizeSourceSummaryMarkdown(
+    input.extraction.sourceSummaryMarkdown,
+    input.sourceTitle,
+  );
+  const sourceSummaryMerged = mergeAgentMarkdownWithHumanBlocks(
+    sourceSummaryAgentMd,
+    humanBlocksByPageKey.get(sourceSummaryPageKey) ?? [],
+  );
   const topicTitle = topicTitleFromSummaryMarkdown(sourceSummaryAgentMd, input.sourceTitle);
   const existingTopicPages: ExistingTopicPageRef[] = input.priorWikiPages
     .filter((page) => page.pageType === "topic")
@@ -505,16 +604,30 @@ export function compileSourceToWikiChangeSet(input: CompileSourceWikiInput): Wik
     .map((concept, index) => ({
       concept,
       index,
-      relatedClaims: insertedClaimMeta.filter((claim) => claim.conceptIds.includes(resolveConceptId(conceptLookup, concept.name.trim()) ?? conceptIdByName.get(concept.name.trim()) ?? "")),
+      relatedClaims: insertedClaimMeta.filter((claim) =>
+        claim.conceptIds.includes(
+          resolveConceptId(conceptLookup, concept.name.trim()) ??
+            conceptIdByName.get(concept.name.trim()) ??
+            "",
+        ),
+      ),
     }))
     .sort((left, right) => {
-      if (right.relatedClaims.length !== left.relatedClaims.length) return right.relatedClaims.length - left.relatedClaims.length;
+      if (right.relatedClaims.length !== left.relatedClaims.length)
+        return right.relatedClaims.length - left.relatedClaims.length;
       return left.index - right.index;
     });
-  const selectedConcepts = maxConceptPages ? conceptRanking.slice(0, maxConceptPages) : conceptRanking;
+  const selectedConcepts = maxConceptPages
+    ? conceptRanking.slice(0, maxConceptPages)
+    : conceptRanking;
   const selectedConceptIds = new Set(
     selectedConcepts
-      .map(({ concept }) => resolveConceptId(conceptLookup, concept.name.trim()) ?? conceptIdByName.get(concept.name.trim()) ?? null)
+      .map(
+        ({ concept }) =>
+          resolveConceptId(conceptLookup, concept.name.trim()) ??
+          conceptIdByName.get(concept.name.trim()) ??
+          null,
+      )
       .filter((conceptId): conceptId is string => Boolean(conceptId)),
   );
 
@@ -569,7 +682,9 @@ export function compileSourceToWikiChangeSet(input: CompileSourceWikiInput): Wik
             if (topicResolution.legacyPageKeysToRetire.includes(p.pageKey)) return true;
             return p.pageKey === `topic:${input.sourceId}` && p.pageKey !== topicPageKey;
           }
-          const conceptId = p.pageKey.startsWith("concept:") ? p.pageKey.slice("concept:".length) : null;
+          const conceptId = p.pageKey.startsWith("concept:")
+            ? p.pageKey.slice("concept:".length)
+            : null;
           if (!conceptId) return true;
           return !maxConceptPages || selectedConceptIds.has(conceptId);
         })
@@ -613,7 +728,10 @@ export function compileSourceToWikiChangeSet(input: CompileSourceWikiInput): Wik
       pageKey: sourceSummaryPageKey,
       title: `Source · ${input.sourceTitle}`,
       markdown: sourceSummaryMerged,
-      blocks: pageBlocksFromMarkdown(sourceSummaryAgentMd, humanBlocksByPageKey.get(sourceSummaryPageKey) ?? []),
+      blocks: pageBlocksFromMarkdown(
+        sourceSummaryAgentMd,
+        humanBlocksByPageKey.get(sourceSummaryPageKey) ?? [],
+      ),
       sourceClaimIds: insertedClaimMeta.map((m) => m.id),
       sourceChunkIds: sourceSummaryChunkIds.length ? sourceSummaryChunkIds : input.chunkIds,
       structuredJson: { sourceId: input.sourceId, sourceVersionId: input.sourceVersionId },
@@ -665,7 +783,10 @@ export function compileSourceToWikiChangeSet(input: CompileSourceWikiInput): Wik
     if (!cid) continue;
     const pageKey = conceptPageKey(cid);
     const humanBlocks = humanBlocksByPageKey.get(pageKey) ?? [];
-    const claimBullets = relatedClaims.map((claim) => ({ text: claim.text, confidence: claim.confidence }));
+    const claimBullets = relatedClaims.map((claim) => ({
+      text: claim.text,
+      confidence: claim.confidence,
+    }));
     const conceptHeuristic = buildHeuristicConceptPageMarkdown({
       conceptName: concept.name.trim(),
       claims: claimBullets,

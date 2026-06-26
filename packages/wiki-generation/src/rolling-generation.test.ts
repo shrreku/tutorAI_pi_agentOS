@@ -57,7 +57,8 @@ describe("evaluatePagePolishQuality", () => {
   it("rejects learner-unsafe debug metadata", () => {
     const issues = evaluatePagePolishQuality({
       pageType: "concept",
-      markdown: "# Concept\n## Definition\nclm_abc123 is referenced.\n## Intuition\nSource-backed note.\n## Source-backed notes\nEvidence from the source.",
+      markdown:
+        "# Concept\n## Definition\nclm_abc123 is referenced.\n## Intuition\nSource-backed note.\n## Source-backed notes\nEvidence from the source.",
       sourceClaimIds: ["clm_abc123"],
     });
     expect(issues.some((issue) => issue.code === "learner_unsafe_metadata")).toBe(true);

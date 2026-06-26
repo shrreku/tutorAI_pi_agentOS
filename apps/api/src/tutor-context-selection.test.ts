@@ -24,15 +24,32 @@ describe("tutor context selection ladder", () => {
           id: "plan_1",
           title: "Calculus I",
           status: "active",
-          currentObjective: { id: "obj_1", title: "Differentiate polynomial functions", status: "not_started" },
+          currentObjective: {
+            id: "obj_1",
+            title: "Differentiate polynomial functions",
+            status: "not_started",
+          },
           upcomingObjectives: [],
           completedObjectives: [],
           weakConcepts: [{ id: "concept_chain_rule", name: "chain rule" }],
         },
-        coverage: { total: 0, planned: 0, introduced: 0, checked: 0, mastered: 0, needsReview: 0, gaps: [] },
+        coverage: {
+          total: 0,
+          planned: 0,
+          introduced: 0,
+          checked: 0,
+          mastered: 0,
+          needsReview: 0,
+          gaps: [],
+        },
         sourceLevels: [],
         learnerReadiness: [],
-        learnerProgressSummary: { strengths: [], weakConcepts: [], needsReview: [], readyToAdvance: [] },
+        learnerProgressSummary: {
+          strengths: [],
+          weakConcepts: [],
+          needsReview: [],
+          readyToAdvance: [],
+        },
       },
     });
 
@@ -116,7 +133,9 @@ describe("tutor context selection ladder", () => {
       studyState: null,
       objectivePathConceptIds: ["concept_chain_rule", "concept_product_rule"],
     });
-    expect(plan.query).toContain("objective path concepts: concept_chain_rule, concept_product_rule");
+    expect(plan.query).toContain(
+      "objective path concepts: concept_chain_rule, concept_product_rule",
+    );
 
     const reason = buildTutorContextSelectionReason({
       plan,
@@ -125,7 +144,9 @@ describe("tutor context selection ladder", () => {
       usedSourceScopeFallback: false,
       sourceIds: ["src_1"],
     });
-    expect(reason).toContain("Bounded retrieval by objective-path concepts: concept_chain_rule, concept_product_rule");
+    expect(reason).toContain(
+      "Bounded retrieval by objective-path concepts: concept_chain_rule, concept_product_rule",
+    );
   });
 
   it("preserves recent mistake concepts separately from objective-path concepts", () => {

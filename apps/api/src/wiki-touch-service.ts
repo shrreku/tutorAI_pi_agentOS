@@ -16,12 +16,12 @@ import {
 } from "@studyagent/wiki-core";
 import { appendEventWithTutorCacheInvalidation as appendEvent } from "./agentic-cache-invalidation.js";
 import type { AppContext } from "./context.js";
-import {
-  buildEvidenceFromClaimAndChunkIds,
-  loadConceptClaimIds,
-} from "./node-open-target.js";
+import { buildEvidenceFromClaimAndChunkIds, loadConceptClaimIds } from "./node-open-target.js";
 import { buildReferenceSurface } from "./reference-surface.js";
-import { compilePageBlockPlansToInteractiveBlocks, executeWikiPagePolish } from "@studyagent/wiki-generation";
+import {
+  compilePageBlockPlansToInteractiveBlocks,
+  executeWikiPagePolish,
+} from "@studyagent/wiki-generation";
 
 const DEFAULT_FOREGROUND_BUDGET_MS = 30_000;
 
@@ -104,11 +104,22 @@ async function loadConcept(ctx: AppContext, notebookId: string, conceptId: strin
   return concept ?? null;
 }
 
-async function loadWikiPageByKey(ctx: AppContext, notebookId: string, pageKey: string, pageType: "concept" | "topic") {
+async function loadWikiPageByKey(
+  ctx: AppContext,
+  notebookId: string,
+  pageKey: string,
+  pageType: "concept" | "topic",
+) {
   const [page] = await ctx.db.db
     .select()
     .from(wikiPages)
-    .where(and(eq(wikiPages.notebookId, notebookId), eq(wikiPages.pageType, pageType), eq(wikiPages.pageKey, pageKey)))
+    .where(
+      and(
+        eq(wikiPages.notebookId, notebookId),
+        eq(wikiPages.pageType, pageType),
+        eq(wikiPages.pageKey, pageKey),
+      ),
+    )
     .limit(1);
   return page ?? null;
 }
@@ -117,7 +128,12 @@ async function loadConceptClaims(ctx: AppContext, conceptId: string) {
   const claimIds = await loadConceptClaimIds(ctx, conceptId);
   if (!claimIds.length) return [];
   const rows = await ctx.db.db
-    .select({ id: claims.id, claimText: claims.claimText, confidence: claims.confidence, status: claims.status })
+    .select({
+      id: claims.id,
+      claimText: claims.claimText,
+      confidence: claims.confidence,
+      status: claims.status,
+    })
     .from(claims)
     .where(inArray(claims.id, claimIds))
     .limit(20);
@@ -128,7 +144,12 @@ async function loadConceptClaims(ctx: AppContext, conceptId: string) {
 
 async function createHeuristicConceptPage(
   ctx: AppContext,
-  input: { notebookId: string; conceptId: string; title: string; toolCtx?: WikiTouchInput["toolCtx"] },
+  input: {
+    notebookId: string;
+    conceptId: string;
+    title: string;
+    toolCtx?: WikiTouchInput["toolCtx"];
+  },
 ): Promise<WikiPageRow> {
   const relatedClaims = await loadConceptClaims(ctx, input.conceptId);
   const heuristic = buildHeuristicConceptPageMarkdown({
@@ -185,7 +206,12 @@ async function createHeuristicConceptPage(
 
 async function createHeuristicTopicPage(
   ctx: AppContext,
-  input: { notebookId: string; pageKey: string; title: string; toolCtx?: WikiTouchInput["toolCtx"] },
+  input: {
+    notebookId: string;
+    pageKey: string;
+    title: string;
+    toolCtx?: WikiTouchInput["toolCtx"];
+  },
 ): Promise<WikiPageRow> {
   const now = new Date();
   const pageId = `wp_${crypto.randomUUID().replaceAll("-", "")}`;
@@ -271,7 +297,11 @@ function shouldPolish(page: WikiPageRow): boolean {
   return readiness !== "ready_to_study" || (page.qualityScore ?? 0) < 0.7;
 }
 
-async function reloadWikiPage(ctx: AppContext, notebookId: string, pageId: string): Promise<WikiPageRow | null> {
+async function reloadWikiPage(
+  ctx: AppContext,
+  notebookId: string,
+  pageId: string,
+): Promise<WikiPageRow | null> {
   const [page] = await ctx.db.db
     .select()
     .from(wikiPages)
@@ -331,7 +361,8 @@ async function runTouchPolish(
     idempotencyKey: `touch_fg:${input.page.id}:${input.page.pageKey}`,
     ...(input.conceptId ? { conceptId: input.conceptId } : {}),
   });
-  const sleep = runtime.sleep ?? ((ms: number) => new Promise((resolve) => setTimeout(resolve, ms)));
+  const sleep =
+    runtime.sleep ?? ((ms: number) => new Promise((resolve) => setTimeout(resolve, ms)));
   const timeoutPromise = sleep(input.foregroundBudgetMs).then(() => "timeout" as const);
   const raced = await Promise.race([
     polishPromise.then((value) => ({ kind: "done" as const, value })),
@@ -396,7 +427,12 @@ async function runTouchPolish(
     });
     return {
       ...base,
-      referenceSurface: await buildTouchReferenceSurface(ctx, input.page, null, input.toolCtx?.userId),
+      referenceSurface: await buildTouchReferenceSurface(
+        ctx,
+        input.page,
+        null,
+        input.toolCtx?.userId,
+      ),
     };
   }
 
@@ -486,7 +522,12 @@ async function runTouchPolish(
   });
   return {
     ...base,
-    referenceSurface: await buildTouchReferenceSurface(ctx, input.page, null, input.toolCtx?.userId),
+    referenceSurface: await buildTouchReferenceSurface(
+      ctx,
+      input.page,
+      null,
+      input.toolCtx?.userId,
+    ),
   };
 }
 
@@ -589,24 +630,37 @@ export async function touchConceptPage(
     createTopicShells: false,
     toolCtx: input.toolCtx,
   });
-  const [page] = await ctx.db.db.select().from(wikiPages).where(eq(wikiPages.id, ensured.pageRef.refId)).limit(1);
+  const [page] = await ctx.db.db
+    .select()
+    .from(wikiPages)
+    .where(eq(wikiPages.id, ensured.pageRef.refId))
+    .limit(1);
   if (!page || !shouldPolish(page)) {
     return {
       ...ensured,
-      referenceSurface: await buildTouchReferenceSurface(ctx, page ?? ({} as WikiPageRow), null, input.toolCtx?.userId),
+      referenceSurface: await buildTouchReferenceSurface(
+        ctx,
+        page ?? ({} as WikiPageRow),
+        null,
+        input.toolCtx?.userId,
+      ),
     };
   }
   const concept = await loadConcept(ctx, input.notebookId, input.conceptId);
-  return runTouchPolish(ctx, {
-    notebookId: input.notebookId,
-    page,
-    pageType: "concept",
-    title: input.title ?? concept?.canonicalName ?? "Concept",
-    conceptId: input.conceptId,
-    foregroundBudgetMs: input.foregroundBudgetMs ?? DEFAULT_FOREGROUND_BUDGET_MS,
-    trigger: input.trigger ?? "tutor_touch",
-    toolCtx: input.toolCtx,
-  }, runtime);
+  return runTouchPolish(
+    ctx,
+    {
+      notebookId: input.notebookId,
+      page,
+      pageType: "concept",
+      title: input.title ?? concept?.canonicalName ?? "Concept",
+      conceptId: input.conceptId,
+      foregroundBudgetMs: input.foregroundBudgetMs ?? DEFAULT_FOREGROUND_BUDGET_MS,
+      trigger: input.trigger ?? "tutor_touch",
+      toolCtx: input.toolCtx,
+    },
+    runtime,
+  );
 }
 
 export async function touchTopicPage(
@@ -614,27 +668,38 @@ export async function touchTopicPage(
   input: WikiTouchInput,
   runtime: TouchRuntime = {},
 ): Promise<WikiTouchResult> {
-  if (!input.title && !input.topicKey) throw new Error("title or topicKey is required for topic touch.");
+  if (!input.title && !input.topicKey)
+    throw new Error("title or topicKey is required for topic touch.");
   const ensured = await ensureTopicPage(ctx, {
     notebookId: input.notebookId,
     title: input.title ?? input.topicKey ?? "Topic",
     ...(input.topicKey ? { topicKey: input.topicKey } : {}),
     toolCtx: input.toolCtx,
   });
-  const [page] = await ctx.db.db.select().from(wikiPages).where(eq(wikiPages.id, ensured.pageRef.refId)).limit(1);
+  const [page] = await ctx.db.db
+    .select()
+    .from(wikiPages)
+    .where(eq(wikiPages.id, ensured.pageRef.refId))
+    .limit(1);
   if (!page || !shouldPolish(page)) {
     return {
       ...ensured,
-      referenceSurface: page ? await buildTouchReferenceSurface(ctx, page, null, input.toolCtx?.userId) : undefined,
+      referenceSurface: page
+        ? await buildTouchReferenceSurface(ctx, page, null, input.toolCtx?.userId)
+        : undefined,
     };
   }
-  return runTouchPolish(ctx, {
-    notebookId: input.notebookId,
-    page,
-    pageType: "topic",
-    title: input.title ?? page.title.replace(/^Topic ·\s*/, ""),
-    foregroundBudgetMs: input.foregroundBudgetMs ?? DEFAULT_FOREGROUND_BUDGET_MS,
-    trigger: input.trigger ?? "topic_touch",
-    toolCtx: input.toolCtx,
-  }, runtime);
+  return runTouchPolish(
+    ctx,
+    {
+      notebookId: input.notebookId,
+      page,
+      pageType: "topic",
+      title: input.title ?? page.title.replace(/^Topic ·\s*/, ""),
+      foregroundBudgetMs: input.foregroundBudgetMs ?? DEFAULT_FOREGROUND_BUDGET_MS,
+      trigger: input.trigger ?? "topic_touch",
+      toolCtx: input.toolCtx,
+    },
+    runtime,
+  );
 }

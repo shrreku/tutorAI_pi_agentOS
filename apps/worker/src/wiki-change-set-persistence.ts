@@ -50,7 +50,10 @@ async function appendEventTx(
   });
 }
 
-export async function applyWikiChangeSet(dbClient: DbClient, input: ApplyWikiChangeSetInput): Promise<KnowledgeCommitResult> {
+export async function applyWikiChangeSet(
+  dbClient: DbClient,
+  input: ApplyWikiChangeSetInput,
+): Promise<KnowledgeCommitResult> {
   const { changeSet } = input;
   const now = new Date(changeSet.compiledAt);
 
@@ -86,7 +89,11 @@ export async function applyWikiChangeSet(dbClient: DbClient, input: ApplyWikiCha
         message: "Learning plan bootstrap has not completed yet.",
       }),
       search: sourceReadinessComponent(true, { updatedAt: readyAt }),
-      projection: sourceReadinessComponent(false, { status: "pending", updatedAt: readyAt, message: "Graph projection has not run yet." }),
+      projection: sourceReadinessComponent(false, {
+        status: "pending",
+        updatedAt: readyAt,
+        message: "Graph projection has not run yet.",
+      }),
       learnerSourceWiki: sourceReadinessComponent(false, {
         status: "pending",
         updatedAt: readyAt,
@@ -116,25 +123,28 @@ export async function applyWikiChangeSet(dbClient: DbClient, input: ApplyWikiCha
 
     for (const concept of changeSet.concepts) {
       if (concept.action === "create") {
-        await tx.insert(concepts).values({
-          id: concept.id,
-          notebookId: changeSet.notebookId,
-          canonicalName: concept.canonicalName,
-          aliases: concept.aliases,
-          conceptType: concept.conceptType,
-          description: null,
-          confidence: 0.75,
-          metadataJson: { ingestionSourceId: changeSet.sourceId },
-          createdAt: now,
-          updatedAt: now,
-        }).onConflictDoUpdate({
-          target: concepts.id,
-          set: {
+        await tx
+          .insert(concepts)
+          .values({
+            id: concept.id,
+            notebookId: changeSet.notebookId,
+            canonicalName: concept.canonicalName,
             aliases: concept.aliases,
             conceptType: concept.conceptType,
+            description: null,
+            confidence: 0.75,
+            metadataJson: { ingestionSourceId: changeSet.sourceId },
+            createdAt: now,
             updatedAt: now,
-          },
-        });
+          })
+          .onConflictDoUpdate({
+            target: concepts.id,
+            set: {
+              aliases: concept.aliases,
+              conceptType: concept.conceptType,
+              updatedAt: now,
+            },
+          });
       } else {
         await tx
           .update(concepts)
@@ -167,17 +177,24 @@ export async function applyWikiChangeSet(dbClient: DbClient, input: ApplyWikiCha
       counts.claims += 1;
 
       for (const link of claim.conceptLinks) {
-        await tx.insert(claimConceptLinks).values({
-          claimId: claim.id,
-          conceptId: link.conceptId,
-          role: link.role,
-          confidence: link.confidence,
-        }).onConflictDoUpdate({
-          target: [claimConceptLinks.claimId, claimConceptLinks.conceptId, claimConceptLinks.role],
-          set: {
+        await tx
+          .insert(claimConceptLinks)
+          .values({
+            claimId: claim.id,
+            conceptId: link.conceptId,
+            role: link.role,
             confidence: link.confidence,
-          },
-        });
+          })
+          .onConflictDoUpdate({
+            target: [
+              claimConceptLinks.claimId,
+              claimConceptLinks.conceptId,
+              claimConceptLinks.role,
+            ],
+            set: {
+              confidence: link.confidence,
+            },
+          });
         counts.claimLinks += 1;
       }
     }
@@ -216,12 +233,24 @@ export async function applyWikiChangeSet(dbClient: DbClient, input: ApplyWikiCha
     if (changeSet.deleteWikiPageKeys.length > 0) {
       await tx
         .delete(wikiPages)
-        .where(and(eq(wikiPages.notebookId, changeSet.notebookId), inArray(wikiPages.pageKey, changeSet.deleteWikiPageKeys)));
+        .where(
+          and(
+            eq(wikiPages.notebookId, changeSet.notebookId),
+            inArray(wikiPages.pageKey, changeSet.deleteWikiPageKeys),
+          ),
+        );
     }
 
     for (const page of changeSet.wikiPages) {
       if (page.pageType === "source_summary" || page.pageType === "topic") {
-        await tx.delete(wikiPages).where(and(eq(wikiPages.notebookId, changeSet.notebookId), eq(wikiPages.pageKey, page.pageKey)));
+        await tx
+          .delete(wikiPages)
+          .where(
+            and(
+              eq(wikiPages.notebookId, changeSet.notebookId),
+              eq(wikiPages.pageKey, page.pageKey),
+            ),
+          );
       }
 
       await tx.insert(wikiPages).values({
@@ -263,7 +292,11 @@ export async function applyWikiChangeSet(dbClient: DbClient, input: ApplyWikiCha
       await appendEventTx(tx, {
         notebookId: changeSet.notebookId,
         eventType: "wiki.compilation.warnings",
-        payload: { sourceId: changeSet.sourceId, fingerprint: changeSet.fingerprint, warnings: changeSet.warnings },
+        payload: {
+          sourceId: changeSet.sourceId,
+          fingerprint: changeSet.fingerprint,
+          warnings: changeSet.warnings,
+        },
       });
       counts.events += 1;
     }

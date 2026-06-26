@@ -19,11 +19,21 @@ import {
 import type { DbClient } from "@studyagent/db";
 import { appendEventWithTutorCacheInvalidation as appendEvent } from "./agentic-cache-invalidation.js";
 import { collectLearnerTraitEvidencePacket } from "./learner-trait-evidence-collector.js";
-import { planLearnerTraitEstimation, persistLearnerTraitEstimationPlan } from "./learner-trait-estimation-planner.js";
-import { readCurrentLearnerTraitEstimates, upsertCurrentLearnerTraitEstimate } from "./learner-trait-store.js";
+import {
+  planLearnerTraitEstimation,
+  persistLearnerTraitEstimationPlan,
+} from "./learner-trait-estimation-planner.js";
+import {
+  readCurrentLearnerTraitEstimates,
+  upsertCurrentLearnerTraitEstimate,
+} from "./learner-trait-store.js";
 import { fetchOpenRouterJsonCompletion } from "@studyagent/llm-client";
 
-const EXPLICIT_SOURCES = new Set(["explicit_self_report", "tutor_recorded_preference", "onboarding_profile"]);
+const EXPLICIT_SOURCES = new Set([
+  "explicit_self_report",
+  "tutor_recorded_preference",
+  "onboarding_profile",
+]);
 const EXPLICIT_CAP = 0.95;
 const INFERRED_CAP = 0.72;
 const CONTRADICTION_CAP = 0.62;
@@ -40,10 +50,13 @@ function learnerTraitSignalPriority(source: LearnerTraitSignal["source"]): numbe
   return 7;
 }
 
-export function prioritizeLearnerTraitSignalsForEvidencePacket(signals: LearnerTraitSignal[]): LearnerTraitSignal[] {
+export function prioritizeLearnerTraitSignalsForEvidencePacket(
+  signals: LearnerTraitSignal[],
+): LearnerTraitSignal[] {
   return [...signals]
     .sort((left, right) => {
-      const priorityDiff = learnerTraitSignalPriority(left.source) - learnerTraitSignalPriority(right.source);
+      const priorityDiff =
+        learnerTraitSignalPriority(left.source) - learnerTraitSignalPriority(right.source);
       if (priorityDiff !== 0) return priorityDiff;
       if (right.strength !== left.strength) return right.strength - left.strength;
       return right.observedAt.localeCompare(left.observedAt);
@@ -80,7 +93,10 @@ export function detectLearnerTraitEstimationTrigger(input: {
     if (EXPLICIT_SOURCES.has(signal.source)) {
       reasons.add("explicit_preference_change");
     }
-    if (signal.source === "mastery_evidence_pattern" && (signal.trait === "confidenceStyle" || signal.trait === "metacognitiveAccuracy")) {
+    if (
+      signal.source === "mastery_evidence_pattern" &&
+      (signal.trait === "confidenceStyle" || signal.trait === "metacognitiveAccuracy")
+    ) {
       reasons.add("mastery_self_report_contradiction");
     }
     if (signal.source === "tutor_observation" && signal.strength >= 0.65) {
@@ -100,7 +116,15 @@ export function detectLearnerTraitEstimationTrigger(input: {
       traitFamilies.add(trait);
     }
     const estimate = input.currentEstimates?.find((candidate) => candidate.trait === trait);
-    if (estimate && signals.some((signal) => signal.suggestedValue && signal.suggestedValue !== estimate.value && signal.strength >= 0.75)) {
+    if (
+      estimate &&
+      signals.some(
+        (signal) =>
+          signal.suggestedValue &&
+          signal.suggestedValue !== estimate.value &&
+          signal.strength >= 0.75,
+      )
+    ) {
       reasons.add("strong_estimate_contradiction");
     }
   }
@@ -130,10 +154,15 @@ export function buildLearnerTraitEvidencePacket(input: {
   now?: () => Date;
 }): LearnerTraitEvidencePacket {
   const scopedSignals = prioritizeLearnerTraitSignalsForEvidencePacket(
-    input.signals.filter((signal) => signal.notebookId === input.notebookId && signal.userId === input.userId),
+    input.signals.filter(
+      (signal) => signal.notebookId === input.notebookId && signal.userId === input.userId,
+    ),
   );
   const scopedEstimates = (input.currentEstimates ?? []).filter((estimate) => {
-    return (!estimate.notebookId || estimate.notebookId === input.notebookId) && (!estimate.userId || estimate.userId === input.userId);
+    return (
+      (!estimate.notebookId || estimate.notebookId === input.notebookId) &&
+      (!estimate.userId || estimate.userId === input.userId)
+    );
   });
   const packet = {
     packetId: `ltp_${crypto.randomUUID().replaceAll("-", "")}`,
@@ -151,14 +180,19 @@ export function buildLearnerTraitEvidencePacket(input: {
       evidenceRef: entry.evidenceRef,
       summary: truncateSummary(entry.summary),
     })),
-    contradictionRefs: dedupeEvidenceRefs(input.contradictionRefs ?? scopedEstimates.flatMap((estimate) => estimate.contradictionRefs ?? [])),
+    contradictionRefs: dedupeEvidenceRefs(
+      input.contradictionRefs ??
+        scopedEstimates.flatMap((estimate) => estimate.contradictionRefs ?? []),
+    ),
     builtAt: (input.now ?? (() => new Date()))().toISOString(),
   };
 
   return learnerTraitEvidencePacketSchema.parse(packet);
 }
 
-export function createOpenRouterLearnerTraitEstimatorClient(config: LearnerTraitEstimatorModelConfig): LearnerTraitEstimatorClient {
+export function createOpenRouterLearnerTraitEstimatorClient(
+  config: LearnerTraitEstimatorModelConfig,
+): LearnerTraitEstimatorClient {
   return {
     async propose(packet) {
       const raw = await fetchOpenRouterJsonCompletion(
@@ -170,62 +204,91 @@ export function createOpenRouterLearnerTraitEstimatorClient(config: LearnerTrait
           label: "Learner trait estimator",
         },
         [
-            {
-              role: "system",
-              content: [
-                "Return strict JSON for internal StudyAgent learner trait estimate proposals.",
-                "Proposals must be evidence-backed, recommendation-only, and must not mutate mastery, curriculum, artifacts, or source-grounding state.",
-                "Return shape: { proposals: [...] }.",
-              ].join("\n"),
-            },
-            {
-              role: "user",
-              content: JSON.stringify({
-                task: "Propose learner trait estimate updates from this bounded evidence packet.",
-                packet,
-              }),
-            },
+          {
+            role: "system",
+            content: [
+              "Return strict JSON for internal StudyAgent learner trait estimate proposals.",
+              "Proposals must be evidence-backed, recommendation-only, and must not mutate mastery, curriculum, artifacts, or source-grounding state.",
+              "Return shape: { proposals: [...] }.",
+            ].join("\n"),
+          },
+          {
+            role: "user",
+            content: JSON.stringify({
+              task: "Propose learner trait estimate updates from this bounded evidence packet.",
+              packet,
+            }),
+          },
         ],
       );
-      const proposals = typeof raw === "object" && raw !== null && Array.isArray((raw as { proposals?: unknown }).proposals)
-        ? (raw as { proposals: unknown[] }).proposals
-        : raw;
+      const proposals =
+        typeof raw === "object" &&
+        raw !== null &&
+        Array.isArray((raw as { proposals?: unknown }).proposals)
+          ? (raw as { proposals: unknown[] }).proposals
+          : raw;
       const parsed = Array.isArray(proposals) ? proposals : [proposals];
-      return parsed.map((proposal, index) => learnerTraitProposalSchema.parse(normalizeLearnerTraitProposal(proposal, packet, index)));
+      return parsed.map((proposal, index) =>
+        learnerTraitProposalSchema.parse(normalizeLearnerTraitProposal(proposal, packet, index)),
+      );
     },
   };
 }
 
-function normalizeLearnerTraitProposal(raw: unknown, packet: LearnerTraitEvidencePacket, index: number): unknown {
+function normalizeLearnerTraitProposal(
+  raw: unknown,
+  packet: LearnerTraitEvidencePacket,
+  index: number,
+): unknown {
   if (!isRecord(raw)) return raw;
   const parsedTrait = learnerTraitKeySchema.safeParse(raw.trait);
   const trait = parsedTrait.success ? parsedTrait.data : undefined;
   const value = trait ? normalizeTraitValue(trait, raw.value, packet) : raw.value;
   const matchingSignals = trait ? packet.signals.filter((signal) => signal.trait === trait) : [];
   const explicitSignal = matchingSignals.find((signal) => EXPLICIT_SOURCES.has(signal.source));
-  const fallbackEvidenceRefs = matchingSignals.flatMap((signal) => signal.evidenceRefs.length ? signal.evidenceRefs : [{ refType: "trait_signal" as const, refId: signal.id }]);
-  const evidenceRefs = Array.isArray(raw.evidenceRefs) && raw.evidenceRefs.length ? raw.evidenceRefs : fallbackEvidenceRefs;
-  const updateReason = typeof raw.updateReason === "string" && raw.updateReason.trim()
-    ? raw.updateReason
-    : typeof raw.rationale === "string" && raw.rationale.trim()
-      ? raw.rationale
-      : typeof raw.reason === "string" && raw.reason.trim()
-        ? raw.reason
-        : "Proposed from bounded learner trait evidence.";
-  const recommendationText = typeof raw.recommendationText === "string" && raw.recommendationText.trim()
-    ? raw.recommendationText
-    : typeof raw.recommendation === "string" && raw.recommendation.trim()
-      ? raw.recommendation
-      : `Use this ${String(trait ?? "trait")} estimate as internal adaptation guidance only.`;
+  const fallbackEvidenceRefs = matchingSignals.flatMap((signal) =>
+    signal.evidenceRefs.length
+      ? signal.evidenceRefs
+      : [{ refType: "trait_signal" as const, refId: signal.id }],
+  );
+  const evidenceRefs =
+    Array.isArray(raw.evidenceRefs) && raw.evidenceRefs.length
+      ? raw.evidenceRefs
+      : fallbackEvidenceRefs;
+  const updateReason =
+    typeof raw.updateReason === "string" && raw.updateReason.trim()
+      ? raw.updateReason
+      : typeof raw.rationale === "string" && raw.rationale.trim()
+        ? raw.rationale
+        : typeof raw.reason === "string" && raw.reason.trim()
+          ? raw.reason
+          : "Proposed from bounded learner trait evidence.";
+  const recommendationText =
+    typeof raw.recommendationText === "string" && raw.recommendationText.trim()
+      ? raw.recommendationText
+      : typeof raw.recommendation === "string" && raw.recommendation.trim()
+        ? raw.recommendation
+        : `Use this ${String(trait ?? "trait")} estimate as internal adaptation guidance only.`;
 
   return {
     ...raw,
-    proposalId: typeof raw.proposalId === "string" ? raw.proposalId : `ltprop_${packet.packetId}_${index + 1}`,
+    proposalId:
+      typeof raw.proposalId === "string"
+        ? raw.proposalId
+        : `ltprop_${packet.packetId}_${index + 1}`,
     notebookId: typeof raw.notebookId === "string" ? raw.notebookId : packet.notebookId,
     userId: typeof raw.userId === "string" ? raw.userId : packet.userId,
     ...(value !== undefined ? { value } : {}),
-    confidence: typeof raw.confidence === "number" && Number.isFinite(raw.confidence) ? raw.confidence : strongestSignalConfidence(matchingSignals),
-    lane: raw.lane === "explicit" || raw.lane === "inferred" ? raw.lane : explicitSignal ? "explicit" : "inferred",
+    confidence:
+      typeof raw.confidence === "number" && Number.isFinite(raw.confidence)
+        ? raw.confidence
+        : strongestSignalConfidence(matchingSignals),
+    lane:
+      raw.lane === "explicit" || raw.lane === "inferred"
+        ? raw.lane
+        : explicitSignal
+          ? "explicit"
+          : "inferred",
     evidenceRefs,
     contradictionRefs: Array.isArray(raw.contradictionRefs) ? raw.contradictionRefs : [],
     updateReason,
@@ -235,15 +298,25 @@ function normalizeLearnerTraitProposal(raw: unknown, packet: LearnerTraitEvidenc
 }
 
 function strongestSignalConfidence(signals: LearnerTraitSignal[]): number {
-  const confidence = Math.max(0, ...signals.map((signal) => Math.min(signal.confidence, signal.strength)));
+  const confidence = Math.max(
+    0,
+    ...signals.map((signal) => Math.min(signal.confidence, signal.strength)),
+  );
   return confidence > 0 ? Math.min(0.9, confidence) : 0.65;
 }
 
-function normalizeTraitValue(trait: LearnerTraitProposal["trait"], value: unknown, packet: LearnerTraitEvidencePacket): unknown {
+function normalizeTraitValue(
+  trait: LearnerTraitProposal["trait"],
+  value: unknown,
+  packet: LearnerTraitEvidencePacket,
+): unknown {
   const direct = learnerTraitValueByKeySchema.safeParse({ trait, value });
   if (direct.success) return direct.data.value;
   if (typeof value === "string") {
-    const normalized = value.trim().toLowerCase().replace(/[\s-]+/g, "_");
+    const normalized = value
+      .trim()
+      .toLowerCase()
+      .replace(/[\s-]+/g, "_");
     const aliases: Record<string, string> = {
       slowly: "slow",
       slower: "slow",
@@ -266,7 +339,9 @@ function normalizeTraitValue(trait: LearnerTraitProposal["trait"], value: unknow
     const parsed = learnerTraitValueByKeySchema.safeParse({ trait, value: aliased });
     if (parsed.success) return parsed.data.value;
   }
-  const signalValue = packet.signals.find((signal) => signal.trait === trait && signal.suggestedValue !== undefined)?.suggestedValue;
+  const signalValue = packet.signals.find(
+    (signal) => signal.trait === trait && signal.suggestedValue !== undefined,
+  )?.suggestedValue;
   return signalValue ?? value;
 }
 
@@ -282,26 +357,46 @@ export function applyLearnerTraitProposalGuardrails(input: {
 }): LearnerTraitGuardrailDecision {
   const now = (input.now ?? (() => new Date()))().toISOString();
   const reasons: string[] = [];
-  const proposalEvidenceKeys = new Set(input.proposal.evidenceRefs.map((ref) => `${ref.refType}:${ref.refId}`));
+  const proposalEvidenceKeys = new Set(
+    input.proposal.evidenceRefs.map((ref) => `${ref.refType}:${ref.refId}`),
+  );
   const packetEvidenceKeys = new Set([
-    ...input.packet.signals.flatMap((signal) => signal.evidenceRefs.map((ref) => `${ref.refType}:${ref.refId}`)),
+    ...input.packet.signals.flatMap((signal) =>
+      signal.evidenceRefs.map((ref) => `${ref.refType}:${ref.refId}`),
+    ),
     ...input.packet.signals.map((signal) => `trait_signal:${signal.id}`),
-    ...input.packet.masteryEvidenceSummaries.map((entry) => `${entry.evidenceRef.refType}:${entry.evidenceRef.refId}`),
-    ...input.packet.sessionSummaries.map((entry) => `${entry.evidenceRef.refType}:${entry.evidenceRef.refId}`),
+    ...input.packet.masteryEvidenceSummaries.map(
+      (entry) => `${entry.evidenceRef.refType}:${entry.evidenceRef.refId}`,
+    ),
+    ...input.packet.sessionSummaries.map(
+      (entry) => `${entry.evidenceRef.refType}:${entry.evidenceRef.refId}`,
+    ),
   ]);
   const missingEvidence = [...proposalEvidenceKeys].filter((key) => !packetEvidenceKeys.has(key));
-  const supportingSignals = input.packet.signals.filter((signal) =>
-    signal.trait === input.proposal.trait &&
-    (proposalEvidenceKeys.has(`trait_signal:${signal.id}`) || signal.evidenceRefs.some((ref) => proposalEvidenceKeys.has(`${ref.refType}:${ref.refId}`))),
+  const supportingSignals = input.packet.signals.filter(
+    (signal) =>
+      signal.trait === input.proposal.trait &&
+      (proposalEvidenceKeys.has(`trait_signal:${signal.id}`) ||
+        signal.evidenceRefs.some((ref) => proposalEvidenceKeys.has(`${ref.refType}:${ref.refId}`))),
   );
-  const explicitCurrent = input.currentEstimates?.find((estimate) => estimate.trait === input.proposal.trait && estimate.lane === "explicit");
+  const explicitCurrent = input.currentEstimates?.find(
+    (estimate) => estimate.trait === input.proposal.trait && estimate.lane === "explicit",
+  );
 
   if (!input.proposal.evidenceRefs.length) reasons.push("missing evidence refs");
   if (missingEvidence.length) reasons.push("proposal cites evidence outside packet");
-  if (input.proposal.lane === "inferred" && supportingSignals.length <= 1 && input.proposal.confidence > 0.55) {
+  if (
+    input.proposal.lane === "inferred" &&
+    supportingSignals.length <= 1 &&
+    input.proposal.confidence > 0.55
+  ) {
     reasons.push("one-off inferred evidence");
   }
-  if (explicitCurrent && input.proposal.lane === "inferred" && explicitCurrent.value !== input.proposal.value) {
+  if (
+    explicitCurrent &&
+    input.proposal.lane === "inferred" &&
+    explicitCurrent.value !== input.proposal.value
+  ) {
     reasons.push("preserve explicit preference over conflicting inferred evidence");
   }
 
@@ -310,10 +405,11 @@ export function applyLearnerTraitProposalGuardrails(input: {
     input.proposal.contradictionRefs.length ? CONTRADICTION_CAP : 1,
     supportingSignals.length <= 1 && input.proposal.lane === "inferred" ? 0.55 : 1,
   );
-  const reject = reasons.some((reason) =>
-    reason === "missing evidence refs" ||
-    reason === "proposal cites evidence outside packet" ||
-    reason === "preserve explicit preference over conflicting inferred evidence",
+  const reject = reasons.some(
+    (reason) =>
+      reason === "missing evidence refs" ||
+      reason === "proposal cites evidence outside packet" ||
+      reason === "preserve explicit preference over conflicting inferred evidence",
   );
 
   if (reject) {
@@ -371,22 +467,26 @@ export function derivePersonalizationRecommendations(input: {
   estimates: LearnerTraitEstimate[];
 }): PersonalizationRecommendation[] {
   const parsed = input.estimates.map((estimate) => learnerTraitEstimateSchema.parse(estimate));
-  return parsed.flatMap((estimate) => {
-    const recommendation = recommendationForEstimate(estimate);
-    if (!recommendation) return [];
-    return [personalizationRecommendationSchema.parse({
-      id: `ltr_${estimate.trait}`,
-      notebookId: input.notebookId,
-      userId: input.userId,
-      trait: estimate.trait,
-      lane: estimate.lane,
-      recommendation: recommendation.text,
-      adaptationType: recommendation.type,
-      learnerFacingSafe: true,
-      includeRawLabel: false,
-      evidenceRefs: estimate.evidenceRefs,
-    })];
-  }).slice(0, 6);
+  return parsed
+    .flatMap((estimate) => {
+      const recommendation = recommendationForEstimate(estimate);
+      if (!recommendation) return [];
+      return [
+        personalizationRecommendationSchema.parse({
+          id: `ltr_${estimate.trait}`,
+          notebookId: input.notebookId,
+          userId: input.userId,
+          trait: estimate.trait,
+          lane: estimate.lane,
+          recommendation: recommendation.text,
+          adaptationType: recommendation.type,
+          learnerFacingSafe: true,
+          includeRawLabel: false,
+          evidenceRefs: estimate.evidenceRefs,
+        }),
+      ];
+    })
+    .slice(0, 6);
 }
 
 export async function loadPersonalizationRecommendationsForTutorContext(
@@ -417,7 +517,9 @@ export async function runLearnerTraitEstimationCycle(input: {
     notebookId: input.notebookId,
     userId: input.userId,
     ...(input.sessionId ? { sessionId: input.sessionId } : {}),
-    ...(input.explicitAgentDecision !== undefined ? { explicitAgentDecision: input.explicitAgentDecision } : {}),
+    ...(input.explicitAgentDecision !== undefined
+      ? { explicitAgentDecision: input.explicitAgentDecision }
+      : {}),
     ...(input.endedWithoutTurns ? { endedWithoutTurns: true } : {}),
   });
   await persistLearnerTraitEstimationPlan(input.dbClient, plan);
@@ -456,9 +558,19 @@ export async function runLearnerTraitEstimationCycle(input: {
       notebookId: input.notebookId,
       ...(input.sessionId ? { sessionId: input.sessionId } : {}),
       eventType: "learner_trait.estimator.failed",
-      payload: { packetId: packet.packetId, message: error instanceof Error ? error.message : String(error) },
+      payload: {
+        packetId: packet.packetId,
+        message: error instanceof Error ? error.message : String(error),
+      },
     });
-    return { plan, trigger: plan.trigger, packet, proposals: [], guardrailDecisions: [], persistedEstimateIds: [] };
+    return {
+      plan,
+      trigger: plan.trigger,
+      packet,
+      proposals: [],
+      guardrailDecisions: [],
+      persistedEstimateIds: [],
+    };
   }
 
   const currentEstimates = packet.currentEstimates;
@@ -489,7 +601,14 @@ export async function runLearnerTraitEstimationCycle(input: {
     });
   }
 
-  return { plan, trigger: plan.trigger, packet, proposals, guardrailDecisions, persistedEstimateIds };
+  return {
+    plan,
+    trigger: plan.trigger,
+    packet,
+    proposals,
+    guardrailDecisions,
+    persistedEstimateIds,
+  };
 }
 
 function truncateSummary(value: string, maxLength = 600): string {
@@ -506,34 +625,94 @@ function dedupeEvidenceRefs(refs: LearnerTraitEvidenceRef[]): LearnerTraitEviden
   });
 }
 
-function recommendationForEstimate(estimate: ReturnType<typeof learnerTraitEstimateSchema.parse>): { type: PersonalizationRecommendation["adaptationType"]; text: string } | null {
+function recommendationForEstimate(
+  estimate: ReturnType<typeof learnerTraitEstimateSchema.parse>,
+): { type: PersonalizationRecommendation["adaptationType"]; text: string } | null {
   switch (estimate.trait) {
     case "pacePreference":
-      if (estimate.value === "slow") return { type: "pace", text: "Use smaller steps and pause for checkpoints before advancing." };
-      if (estimate.value === "fast") return { type: "pace", text: "Keep explanations concise and offer acceleration only when mastery evidence supports it." };
+      if (estimate.value === "slow")
+        return {
+          type: "pace",
+          text: "Use smaller steps and pause for checkpoints before advancing.",
+        };
+      if (estimate.value === "fast")
+        return {
+          type: "pace",
+          text: "Keep explanations concise and offer acceleration only when mastery evidence supports it.",
+        };
       return { type: "pace", text: "Use a balanced pace with brief checks for understanding." };
     case "depthPreference":
-      if (estimate.value === "formal") return { type: "depth", text: "Include precise definitions and formal reasoning when explaining." };
-      if (estimate.value === "intuitive") return { type: "depth", text: "Start with intuition before moving to formal details." };
-      return { type: "depth", text: "Balance intuition with enough formal structure to stay source-grounded." };
+      if (estimate.value === "formal")
+        return {
+          type: "depth",
+          text: "Include precise definitions and formal reasoning when explaining.",
+        };
+      if (estimate.value === "intuitive")
+        return { type: "depth", text: "Start with intuition before moving to formal details." };
+      return {
+        type: "depth",
+        text: "Balance intuition with enough formal structure to stay source-grounded.",
+      };
     case "examplePreference":
-      return { type: "examples", text: `Prefer ${estimate.value.replaceAll("_", " ")} examples when teaching new ideas.` };
+      return {
+        type: "examples",
+        text: `Prefer ${estimate.value.replaceAll("_", " ")} examples when teaching new ideas.`,
+      };
     case "assessmentPreference":
-      return { type: "assessment", text: `Check understanding with ${estimate.value.replaceAll("_", " ")} style practice.` };
+      return {
+        type: "assessment",
+        text: `Check understanding with ${estimate.value.replaceAll("_", " ")} style practice.`,
+      };
     case "confidenceStyle":
-      if (estimate.value === "underconfident") return { type: "confidence_support", text: "Use evidence-backed encouragement and avoid unnecessary remediation when answers are strong." };
-      if (estimate.value === "overconfident") return { type: "confidence_support", text: "Verify understanding with short checks before advancing from self-reported confidence." };
-      return { type: "confidence_support", text: "Use normal confidence calibration and connect feedback to evidence." };
+      if (estimate.value === "underconfident")
+        return {
+          type: "confidence_support",
+          text: "Use evidence-backed encouragement and avoid unnecessary remediation when answers are strong.",
+        };
+      if (estimate.value === "overconfident")
+        return {
+          type: "confidence_support",
+          text: "Verify understanding with short checks before advancing from self-reported confidence.",
+        };
+      return {
+        type: "confidence_support",
+        text: "Use normal confidence calibration and connect feedback to evidence.",
+      };
     case "helpSeekingStyle":
-      if (estimate.value === "avoids_help") return { type: "help_seeking", text: "Offer low-friction hints and checkpoints without waiting for the learner to ask." };
-      if (estimate.value === "asks_early") return { type: "help_seeking", text: "Answer clarifying questions directly, then return to the current objective." };
-      return { type: "help_seeking", text: "Let the learner try first, then provide targeted feedback." };
+      if (estimate.value === "avoids_help")
+        return {
+          type: "help_seeking",
+          text: "Offer low-friction hints and checkpoints without waiting for the learner to ask.",
+        };
+      if (estimate.value === "asks_early")
+        return {
+          type: "help_seeking",
+          text: "Answer clarifying questions directly, then return to the current objective.",
+        };
+      return {
+        type: "help_seeking",
+        text: "Let the learner try first, then provide targeted feedback.",
+      };
     case "sourceFamiliarity":
-      if (estimate.value === "unfamiliar") return { type: "source_grounding", text: "Introduce source terms gently and ground answers in visible source references." };
-      return { type: "source_grounding", text: "Use source-grounded explanations without over-explaining familiar context." };
+      if (estimate.value === "unfamiliar")
+        return {
+          type: "source_grounding",
+          text: "Introduce source terms gently and ground answers in visible source references.",
+        };
+      return {
+        type: "source_grounding",
+        text: "Use source-grounded explanations without over-explaining familiar context.",
+      };
     case "urgencyContext":
-      if (estimate.value === "exam_prep" || estimate.value === "deadline_pressure") return { type: "urgency", text: "Prioritize high-yield practice, concise summaries, and concrete next actions." };
-      return { type: "urgency", text: "Keep the session exploratory while maintaining the current learning path." };
+      if (estimate.value === "exam_prep" || estimate.value === "deadline_pressure")
+        return {
+          type: "urgency",
+          text: "Prioritize high-yield practice, concise summaries, and concrete next actions.",
+        };
+      return {
+        type: "urgency",
+        text: "Keep the session exploratory while maintaining the current learning path.",
+      };
     default:
       return null;
   }

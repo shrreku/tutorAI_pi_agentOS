@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { deriveArtifactLifecycleEventType, resolveArtifactConsentPolicy } from "./artifact-lifecycle.js";
+import {
+  deriveArtifactLifecycleEventType,
+  resolveArtifactConsentPolicy,
+} from "./artifact-lifecycle.js";
 import { buildAdaptiveSessionPlanPatch } from "./curriculum-adaptation.js";
 import { extractContextRefsFromToolSummary } from "./mastery-context-refs.js";
 import { buildTutorSessionDigestPayload } from "./tutor-session-crystallization.js";
@@ -116,10 +119,23 @@ describe("tutor regression scenarios", () => {
       objectiveList: null,
       sessionPlan: null,
       studyPlan: null,
-      coverage: { total: 0, planned: 0, introduced: 0, checked: 0, mastered: 0, needsReview: 0, gaps: [] },
+      coverage: {
+        total: 0,
+        planned: 0,
+        introduced: 0,
+        checked: 0,
+        mastered: 0,
+        needsReview: 0,
+        gaps: [],
+      },
       sourceLevels: [],
       learnerReadiness: [],
-      learnerProgressSummary: { strengths: [], weakConcepts: [], needsReview: [], readyToAdvance: [] },
+      learnerProgressSummary: {
+        strengths: [],
+        weakConcepts: [],
+        needsReview: [],
+        readyToAdvance: [],
+      },
     } as unknown as NotebookStudyState;
 
     const summary = formatLearnerStateSummary(state);
@@ -150,7 +166,15 @@ describe("tutor regression scenarios", () => {
           { id: "concept_2", name: "product rule" },
         ],
       },
-      coverage: { total: 0, planned: 0, introduced: 0, checked: 0, mastered: 0, needsReview: 0, gaps: [] },
+      coverage: {
+        total: 0,
+        planned: 0,
+        introduced: 0,
+        checked: 0,
+        mastered: 0,
+        needsReview: 0,
+        gaps: [],
+      },
       sourceLevels: [],
       learnerReadiness: [],
       learnerProgressSummary: {
@@ -215,7 +239,11 @@ describe("tutor regression scenarios", () => {
 
   it("models pedagogical runtime flow from intent routing to digest finalization payload", () => {
     const intent = detectLearnerIntent("teach me derivatives");
-    const routing = buildIntentRoutingInstruction(intent, true, "Differentiate polynomial functions");
+    const routing = buildIntentRoutingInstruction(
+      intent,
+      true,
+      "Differentiate polynomial functions",
+    );
     expect(routing).toContain("Begin teaching this objective directly");
 
     const adaptivePatch = buildAdaptiveSessionPlanPatch({
@@ -225,7 +253,12 @@ describe("tutor regression scenarios", () => {
       currentObjectiveId: "obj_core",
       objectives: [
         { id: "obj_intro", title: "Intro", status: "completed", targetConceptIds: ["c0"] },
-        { id: "obj_core", title: "Core derivatives", status: "in_progress", targetConceptIds: ["c_chain"] },
+        {
+          id: "obj_core",
+          title: "Core derivatives",
+          status: "in_progress",
+          targetConceptIds: ["c_chain"],
+        },
       ],
       weakConceptIds: ["c_chain"],
       diagnosticConceptIds: ["c_chain"],

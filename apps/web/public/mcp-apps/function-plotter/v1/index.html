@@ -34,7 +34,8 @@
           render: function (ctx) {
             var h = ctx.helpers;
             var params = ctx.content.parameters || {};
-            if (typeof params.expression === "string") ctx.state.ui.expression = params.expression.replace(/\^/g, "**");
+            if (typeof params.expression === "string")
+              ctx.state.ui.expression = params.expression.replace(/\^/g, "**");
             if (typeof params.a === "number") ctx.state.ui.a = params.a;
             if (typeof params.xMin === "number") ctx.state.ui.xMin = params.xMin;
             if (typeof params.xMax === "number") ctx.state.ui.xMax = params.xMax;
@@ -45,12 +46,17 @@
             html += h.pendingOverlay(ctx.state);
             html += h.statusHtml(ctx.state);
             html += '<div class="sa-card sa-stack">';
-            html += '<div class="sa-canvas-wrap"><canvas id="plot" width="640" height="260"></canvas></div>';
-            html += '<label class="sa-field-label" for="param">Parameter a = <span id="param-value"></span></label>';
-            html += '<input class="sa-input" id="param" type="range" min="-3" max="3" step="0.1" />';
+            html +=
+              '<div class="sa-canvas-wrap"><canvas id="plot" width="640" height="260"></canvas></div>';
+            html +=
+              '<label class="sa-field-label" for="param">Parameter a = <span id="param-value"></span></label>';
+            html +=
+              '<input class="sa-input" id="param" type="range" min="-3" max="3" step="0.1" />';
             html += '<label class="sa-field-label" for="note">What do you observe?</label>';
-            html += '<textarea class="sa-textarea" id="note" placeholder="Describe how the curve changes when you move the slider…"></textarea>';
-            html += '<div class="sa-row"><button class="sa-btn sa-btn-primary" id="submit">Submit observation</button></div>';
+            html +=
+              '<textarea class="sa-textarea" id="note" placeholder="Describe how the curve changes when you move the slider…"></textarea>';
+            html +=
+              '<div class="sa-row"><button class="sa-btn sa-btn-primary" id="submit">Submit observation</button></div>';
             html += "</div></div>";
             ctx.root.innerHTML = html;
 

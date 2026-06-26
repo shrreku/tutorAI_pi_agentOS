@@ -1,6 +1,10 @@
 import React, { useEffect, useState } from "react";
 import type { EvidenceReadModel, EvidenceRef } from "@studyagent/schemas";
-import { learnerFacingNodeTypeLabel, learnerFacingPipelineStatus, learnerSafeCopy } from "@studyagent/schemas";
+import {
+  learnerFacingNodeTypeLabel,
+  learnerFacingPipelineStatus,
+  learnerSafeCopy,
+} from "@studyagent/schemas";
 
 type ProvenanceData = EvidenceReadModel;
 
@@ -37,7 +41,9 @@ function ConfidenceBar({ value }: { value: number }) {
   const color = value > 0.8 ? "#10b981" : value > 0.5 ? "#f59e0b" : "#ef4444";
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      <div style={{ flex: 1, height: 5, background: "#e5e7eb", borderRadius: 3, overflow: "hidden" }}>
+      <div
+        style={{ flex: 1, height: 5, background: "#e5e7eb", borderRadius: 3, overflow: "hidden" }}
+      >
         <div style={{ width: `${pct}%`, height: "100%", background: color, borderRadius: 3 }} />
       </div>
       <span style={{ fontSize: 11, fontWeight: 600, color, minWidth: 32 }}>{pct}%</span>
@@ -84,7 +90,9 @@ export const ProvenanceDrawer: React.FC<ProvenanceDrawerProps> = ({
     setLoading(true);
     setFetchError(null);
     const params = isDeveloperMode ? "?devMode=true" : "";
-    fetch(`/api/v1/notebooks/${encodeURIComponent(notebookId)}/nodes/${encodeURIComponent(nodeId)}/provenance${params}`)
+    fetch(
+      `/api/v1/notebooks/${encodeURIComponent(notebookId)}/nodes/${encodeURIComponent(nodeId)}/provenance${params}`,
+    )
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then((data: ProvenanceData) => setProvenance(data))
       .catch((err: Error) => setFetchError(err.message))
@@ -118,26 +126,58 @@ export const ProvenanceDrawer: React.FC<ProvenanceDrawerProps> = ({
       <style>{`@keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }`}</style>
 
       {/* Header */}
-      <div style={{ padding: "14px 16px", borderBottom: "1px solid #e5e7eb", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+      <div
+        style={{
+          padding: "14px 16px",
+          borderBottom: "1px solid #e5e7eb",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+        }}
+      >
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-            <span style={{ background: badge.bg, color: badge.text, padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700, textTransform: "capitalize" }}>
+            <span
+              style={{
+                background: badge.bg,
+                color: badge.text,
+                padding: "2px 8px",
+                borderRadius: 4,
+                fontSize: 11,
+                fontWeight: 700,
+                textTransform: "capitalize",
+              }}
+            >
               {learnerFacingNodeTypeLabel(nodeType ?? "node", { devMode: isDeveloperMode })}
             </span>
             <h2 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "#111827" }}>Evidence</h2>
           </div>
           {nodeTitle && <div style={{ fontSize: 13, color: "#6b7280" }}>{nodeTitle}</div>}
         </div>
-        <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#9ca3af", padding: "0 4px", lineHeight: 1 }}>×</button>
+        <button
+          onClick={onClose}
+          style={{
+            background: "none",
+            border: "none",
+            fontSize: 22,
+            cursor: "pointer",
+            color: "#9ca3af",
+            padding: "0 4px",
+            lineHeight: 1,
+          }}
+        >
+          ×
+        </button>
       </div>
 
       {/* Content */}
       <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
-
         {/* Confidence (from node properties) */}
         {confidence !== undefined && (
           <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", marginBottom: 6 }}>CONFIDENCE</div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", marginBottom: 6 }}>
+              CONFIDENCE
+            </div>
             <ConfidenceBar value={confidence} />
           </div>
         )}
@@ -147,7 +187,17 @@ export const ProvenanceDrawer: React.FC<ProvenanceDrawerProps> = ({
         )}
 
         {fetchError && (
-          <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, padding: 10, fontSize: 12, color: "#991b1b", marginBottom: 12 }}>
+          <div
+            style={{
+              background: "#fef2f2",
+              border: "1px solid #fecaca",
+              borderRadius: 6,
+              padding: 10,
+              fontSize: 12,
+              color: "#991b1b",
+              marginBottom: 12,
+            }}
+          >
             Could not load evidence: {fetchError}
           </div>
         )}
@@ -162,17 +212,51 @@ export const ProvenanceDrawer: React.FC<ProvenanceDrawerProps> = ({
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {learnerChunks.map((chunk) => (
-                    <div key={chunk.id} style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 6, padding: "8px 10px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                        <span style={{ fontSize: 10, fontWeight: 600, color: "#6b7280", textTransform: "uppercase" }}>{chunk.chunkType ?? "chunk"}</span>
-                        {(chunk.pageStart != null) && (
+                    <div
+                      key={chunk.id}
+                      style={{
+                        background: "#f9fafb",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: 6,
+                        padding: "8px 10px",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          marginBottom: 4,
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 600,
+                            color: "#6b7280",
+                            textTransform: "uppercase",
+                          }}
+                        >
+                          {chunk.chunkType ?? "chunk"}
+                        </span>
+                        {chunk.pageStart != null && (
                           <span style={{ fontSize: 10, color: "#9ca3af" }}>
-                            p.{chunk.pageStart}{chunk.pageEnd && chunk.pageEnd !== chunk.pageStart ? `-${chunk.pageEnd}` : ""}
+                            p.{chunk.pageStart}
+                            {chunk.pageEnd && chunk.pageEnd !== chunk.pageStart
+                              ? `-${chunk.pageEnd}`
+                              : ""}
                           </span>
                         )}
                       </div>
                       {chunk.sourceTitle && (
-                        <div style={{ fontSize: 11, color: "#4b5563", fontWeight: 600, marginBottom: 4 }}>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            color: "#4b5563",
+                            fontWeight: 600,
+                            marginBottom: 4,
+                          }}
+                        >
                           {chunk.sourceTitle}
                         </div>
                       )}
@@ -194,13 +278,44 @@ export const ProvenanceDrawer: React.FC<ProvenanceDrawerProps> = ({
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {learnerClaims.map((claim) => {
                     return (
-                      <div key={claim.id} style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 6, padding: "8px 10px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                        <span style={{ fontSize: 11, fontWeight: 600, color: "#374151", textTransform: "capitalize" }}>
-                          {learnerSafeCopy(claim.label, { devMode: isDeveloperMode })}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: 12, color: "#1f2937", lineHeight: 1.5, marginBottom: 4 }}>{claim.text}</div>
+                      <div
+                        key={claim.id}
+                        style={{
+                          background: "#f9fafb",
+                          border: "1px solid #e5e7eb",
+                          borderRadius: 6,
+                          padding: "8px 10px",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            marginBottom: 4,
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: 11,
+                              fontWeight: 600,
+                              color: "#374151",
+                              textTransform: "capitalize",
+                            }}
+                          >
+                            {learnerSafeCopy(claim.label, { devMode: isDeveloperMode })}
+                          </span>
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 12,
+                            color: "#1f2937",
+                            lineHeight: 1.5,
+                            marginBottom: 4,
+                          }}
+                        >
+                          {claim.text}
+                        </div>
                       </div>
                     );
                   })}
@@ -216,8 +331,20 @@ export const ProvenanceDrawer: React.FC<ProvenanceDrawerProps> = ({
             )}
 
             {reviewClaims.length > 0 && !isDeveloperMode && (
-              <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 6, padding: 10, color: "#6b7280", fontSize: 12, lineHeight: 1.45 }}>
-                {reviewClaims.length} inferred, generated, draft, or low-confidence claim{reviewClaims.length === 1 ? "" : "s"} hidden from learner view. Enable Dev mode to inspect them.
+              <div
+                style={{
+                  background: "#f9fafb",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 6,
+                  padding: 10,
+                  color: "#6b7280",
+                  fontSize: 12,
+                  lineHeight: 1.45,
+                }}
+              >
+                {reviewClaims.length} inferred, generated, draft, or low-confidence claim
+                {reviewClaims.length === 1 ? "" : "s"} hidden from learner view. Enable Dev mode to
+                inspect them.
               </div>
             )}
           </>
@@ -233,14 +360,48 @@ export const ProvenanceDrawer: React.FC<ProvenanceDrawerProps> = ({
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {reviewClaims.map((claim) => {
-                    const sc = STATUS_COLORS[claim.status ?? ""] ?? { bg: "#f3f4f6", text: "#374151" };
+                    const sc = STATUS_COLORS[claim.status ?? ""] ?? {
+                      bg: "#f3f4f6",
+                      text: "#374151",
+                    };
                     return (
-                      <div key={claim.id} style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 6, padding: "8px 10px" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                          <span style={{ fontSize: 11, fontWeight: 600, color: "#374151", textTransform: "capitalize" }}>
+                      <div
+                        key={claim.id}
+                        style={{
+                          background: "#fffbeb",
+                          border: "1px solid #fde68a",
+                          borderRadius: 6,
+                          padding: "8px 10px",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            marginBottom: 4,
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: 11,
+                              fontWeight: 600,
+                              color: "#374151",
+                              textTransform: "capitalize",
+                            }}
+                          >
                             {learnerSafeCopy(claim.label, { devMode: true })}
                           </span>
-                          <span style={{ background: sc.bg, color: sc.text, padding: "1px 6px", borderRadius: 9999, fontSize: 10, fontWeight: 600 }}>
+                          <span
+                            style={{
+                              background: sc.bg,
+                              color: sc.text,
+                              padding: "1px 6px",
+                              borderRadius: 9999,
+                              fontSize: 10,
+                              fontWeight: 600,
+                            }}
+                          >
                             {claim.statementKind
                               ? learnerFacingPipelineStatus(claim.statementKind, { devMode: true })
                               : claim.status
@@ -248,7 +409,16 @@ export const ProvenanceDrawer: React.FC<ProvenanceDrawerProps> = ({
                                 : null}
                           </span>
                         </div>
-                        <div style={{ fontSize: 12, color: "#1f2937", lineHeight: 1.5, marginBottom: 4 }}>{claim.text}</div>
+                        <div
+                          style={{
+                            fontSize: 12,
+                            color: "#1f2937",
+                            lineHeight: 1.5,
+                            marginBottom: 4,
+                          }}
+                        >
+                          {claim.text}
+                        </div>
                         <ConfidenceBar value={claim.confidence ?? 0} />
                       </div>
                     );
@@ -256,9 +426,34 @@ export const ProvenanceDrawer: React.FC<ProvenanceDrawerProps> = ({
                 </div>
               </div>
             )}
-            <div style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", marginBottom: 6 }}>DEVELOPER INFO</div>
-            <pre style={{ background: "#1f2937", color: "#f3f4f6", padding: 12, borderRadius: 6, fontSize: 10, overflowX: "auto", margin: 0, lineHeight: 1.5 }}>
-              {JSON.stringify({ nodeId, nodeType, entityType: provenance?.entityType, entity: provenance?.entity, learnerRefs: provenance?.learnerRefs.length ?? 0, developerRefs: provenance?.developerRefs.length ?? 0, ...(metadata ?? {}) }, null, 2)}
+            <div style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", marginBottom: 6 }}>
+              DEVELOPER INFO
+            </div>
+            <pre
+              style={{
+                background: "#1f2937",
+                color: "#f3f4f6",
+                padding: 12,
+                borderRadius: 6,
+                fontSize: 10,
+                overflowX: "auto",
+                margin: 0,
+                lineHeight: 1.5,
+              }}
+            >
+              {JSON.stringify(
+                {
+                  nodeId,
+                  nodeType,
+                  entityType: provenance?.entityType,
+                  entity: provenance?.entity,
+                  learnerRefs: provenance?.learnerRefs.length ?? 0,
+                  developerRefs: provenance?.developerRefs.length ?? 0,
+                  ...(metadata ?? {}),
+                },
+                null,
+                2,
+              )}
             </pre>
           </div>
         )}
@@ -268,7 +463,17 @@ export const ProvenanceDrawer: React.FC<ProvenanceDrawerProps> = ({
       <div style={{ padding: "10px 16px", borderTop: "1px solid #e5e7eb" }}>
         <button
           onClick={onClose}
-          style={{ width: "100%", padding: "7px 12px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: "pointer", color: "#1f2937" }}
+          style={{
+            width: "100%",
+            padding: "7px 12px",
+            background: "#f3f4f6",
+            border: "1px solid #d1d5db",
+            borderRadius: 6,
+            fontSize: 13,
+            fontWeight: 500,
+            cursor: "pointer",
+            color: "#1f2937",
+          }}
         >
           Close
         </button>

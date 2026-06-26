@@ -7,7 +7,8 @@ const recordLearnerTraitSignalMock = vi.fn(async (_db: unknown, signal: unknown)
 }));
 
 vi.mock("./learner-trait-store.js", () => ({
-  recordLearnerTraitSignal: (db: unknown, signal: unknown) => recordLearnerTraitSignalMock(db, signal),
+  recordLearnerTraitSignal: (db: unknown, signal: unknown) =>
+    recordLearnerTraitSignalMock(db, signal),
 }));
 
 describe("tutor write provider learner trait signals", () => {

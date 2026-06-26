@@ -1,5 +1,9 @@
 export function stableTopicId(sourceId: string, title: string): string {
-  const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "overview";
+  const slug =
+    title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "") || "overview";
   return `topic_${sourceId}_${slug}`.slice(0, 180);
 }
 

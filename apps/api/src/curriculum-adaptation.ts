@@ -39,7 +39,11 @@ export function buildAdaptiveSessionPlanPatch(input: {
   const activeObjectiveIds = input.objectiveIdsOrdered.filter((id) => {
     const objective = objectiveById.get(id);
     if (!objective) return false;
-    return objective.status !== "completed" && objective.status !== "merged" && objective.status !== "superseded";
+    return (
+      objective.status !== "completed" &&
+      objective.status !== "merged" &&
+      objective.status !== "superseded"
+    );
   });
 
   const moduleAdvancementReady =
@@ -48,15 +52,25 @@ export function buildAdaptiveSessionPlanPatch(input: {
     input.adaptivePlanSignals ??
     buildAdaptivePlanSignals({
       weakConceptIds: input.weakConceptIds,
-      ...(input.misconceptionConceptIds !== undefined ? { misconceptionConceptIds: input.misconceptionConceptIds } : {}),
-      ...(input.diagnosticConceptIds !== undefined ? { diagnosticConceptIds: input.diagnosticConceptIds } : {}),
+      ...(input.misconceptionConceptIds !== undefined
+        ? { misconceptionConceptIds: input.misconceptionConceptIds }
+        : {}),
+      ...(input.diagnosticConceptIds !== undefined
+        ? { diagnosticConceptIds: input.diagnosticConceptIds }
+        : {}),
       ...(input.recentWeakConceptFrequencyById !== undefined
         ? { recentWeakConceptFrequencyById: input.recentWeakConceptFrequencyById }
         : {}),
-      ...(input.sourceCoverageGap !== undefined ? { sourceCoverageGap: input.sourceCoverageGap } : {}),
-      ...(input.vagueLearnerMessage !== undefined ? { vagueLearnerMessage: input.vagueLearnerMessage } : {}),
+      ...(input.sourceCoverageGap !== undefined
+        ? { sourceCoverageGap: input.sourceCoverageGap }
+        : {}),
+      ...(input.vagueLearnerMessage !== undefined
+        ? { vagueLearnerMessage: input.vagueLearnerMessage }
+        : {}),
       moduleAdvancementReady,
-      ...(input.nextModuleObjectiveIds !== undefined ? { nextObjectiveIds: input.nextModuleObjectiveIds } : {}),
+      ...(input.nextModuleObjectiveIds !== undefined
+        ? { nextObjectiveIds: input.nextModuleObjectiveIds }
+        : {}),
     });
 
   if (!shouldApplyDurablePlanChange(effectiveSignals)) {
@@ -69,8 +83,12 @@ export function buildAdaptiveSessionPlanPatch(input: {
   const ranked = activeObjectiveIds
     .map((id, index) => {
       const objective = objectiveById.get(id)!;
-      const diagnosticTargetCount = objective.targetConceptIds.filter((conceptId) => diagnosticIds.has(conceptId)).length;
-      const weakTargetCount = objective.targetConceptIds.filter((conceptId) => input.weakConceptIds.includes(conceptId)).length;
+      const diagnosticTargetCount = objective.targetConceptIds.filter((conceptId) =>
+        diagnosticIds.has(conceptId),
+      ).length;
+      const weakTargetCount = objective.targetConceptIds.filter((conceptId) =>
+        input.weakConceptIds.includes(conceptId),
+      ).length;
       const weakFrequencyScore = objective.targetConceptIds.reduce(
         (sum, conceptId) => sum + (weakFrequencyById[conceptId] ?? 0),
         0,
@@ -78,7 +96,14 @@ export function buildAdaptiveSessionPlanPatch(input: {
       const misconceptionTargetCount = objective.targetConceptIds.filter((conceptId) =>
         misconceptionIds.has(conceptId),
       ).length;
-      return { id, index, weakTargetCount, weakFrequencyScore, misconceptionTargetCount, diagnosticTargetCount };
+      return {
+        id,
+        index,
+        weakTargetCount,
+        weakFrequencyScore,
+        misconceptionTargetCount,
+        diagnosticTargetCount,
+      };
     })
     .sort((a, b) => {
       if (a.id === input.currentObjectiveId) return -1;
@@ -90,12 +115,14 @@ export function buildAdaptiveSessionPlanPatch(input: {
         return b.misconceptionTargetCount - a.misconceptionTargetCount;
       }
       if (b.weakTargetCount !== a.weakTargetCount) return b.weakTargetCount - a.weakTargetCount;
-      if (b.weakFrequencyScore !== a.weakFrequencyScore) return b.weakFrequencyScore - a.weakFrequencyScore;
+      if (b.weakFrequencyScore !== a.weakFrequencyScore)
+        return b.weakFrequencyScore - a.weakFrequencyScore;
       return a.index - b.index;
     });
 
   const timeBudget = input.timeBudgetMinutes ?? null;
-  const objectiveCap = timeBudget !== null && timeBudget <= 25 ? 1 : timeBudget !== null && timeBudget <= 45 ? 2 : 3;
+  const objectiveCap =
+    timeBudget !== null && timeBudget <= 25 ? 1 : timeBudget !== null && timeBudget <= 45 ? 2 : 3;
   const plannedObjectiveIds = ranked.slice(0, objectiveCap).map((entry) => entry.id);
   if (!plannedObjectiveIds.length && (input.nextModuleObjectiveIds ?? []).length) {
     plannedObjectiveIds.push(...(input.nextModuleObjectiveIds ?? []).slice(0, objectiveCap));
@@ -105,7 +132,10 @@ export function buildAdaptiveSessionPlanPatch(input: {
   }
 
   const needsRemediation = ranked.some(
-    (entry) => entry.weakTargetCount > 0 || entry.misconceptionTargetCount > 0 || entry.diagnosticTargetCount > 0,
+    (entry) =>
+      entry.weakTargetCount > 0 ||
+      entry.misconceptionTargetCount > 0 ||
+      entry.diagnosticTargetCount > 0,
   );
   const sessionGoal = needsRemediation
     ? "Repair misconceptions and stabilize weak concepts with targeted checkpoints."

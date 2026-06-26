@@ -11,17 +11,17 @@ vi.mock("../hosted-beta/learner-gate.js", () => ({
   })),
 }));
 
-const {
-  appendEventMock,
-  disposeSessionMock,
-  replaceRuntimeMock,
-  crystallizeSessionMock,
-} = vi.hoisted(() => ({
-  appendEventMock: vi.fn(async () => ({ id: "evt_1" })),
-  disposeSessionMock: vi.fn(async () => undefined),
-  replaceRuntimeMock: vi.fn(async () => ({ replaced: false, disposedSessionId: null, binding: null })),
-  crystallizeSessionMock: vi.fn(async () => ({ artifactId: "artifact_digest_1" })),
-}));
+const { appendEventMock, disposeSessionMock, replaceRuntimeMock, crystallizeSessionMock } =
+  vi.hoisted(() => ({
+    appendEventMock: vi.fn(async () => ({ id: "evt_1" })),
+    disposeSessionMock: vi.fn(async () => undefined),
+    replaceRuntimeMock: vi.fn(async () => ({
+      replaced: false,
+      disposedSessionId: null,
+      binding: null,
+    })),
+    crystallizeSessionMock: vi.fn(async () => ({ artifactId: "artifact_digest_1" })),
+  }));
 
 vi.mock("@studyagent/db", async () => {
   const actual = await vi.importActual<typeof import("@studyagent/db")>("@studyagent/db");
@@ -36,7 +36,9 @@ vi.mock("../auth.js", () => ({
 }));
 
 vi.mock("@studyagent/agent-runtime", async () => {
-  const actual = await vi.importActual<typeof import("@studyagent/agent-runtime")>("@studyagent/agent-runtime");
+  const actual = await vi.importActual<typeof import("@studyagent/agent-runtime")>(
+    "@studyagent/agent-runtime",
+  );
   return {
     ...actual,
     disposeStudyAgentTutorSession: disposeSessionMock,
@@ -91,7 +93,10 @@ class FakeDb {
             const chain = this;
             return {
               ...chain,
-              then(onFulfilled: (value: unknown[]) => unknown, onRejected?: (reason: unknown) => unknown) {
+              then(
+                onFulfilled: (value: unknown[]) => unknown,
+                onRejected?: (reason: unknown) => unknown,
+              ) {
                 return chain.limit(Number.MAX_SAFE_INTEGER).then(onFulfilled, onRejected);
               },
             };
@@ -104,16 +109,18 @@ class FakeDb {
               return Promise.resolve(db.turns.slice(0, limitCount));
             }
             if (table === notebooks) {
-              return Promise.resolve([
-                {
-                  id: "nb_1",
-                  ownerId: "user_1",
-                  title: "Notebook",
-                  disabledAt: null,
-                  settingsJson: {},
-                  workspaceType: "personal_learner",
-                },
-              ].slice(0, limitCount));
+              return Promise.resolve(
+                [
+                  {
+                    id: "nb_1",
+                    ownerId: "user_1",
+                    title: "Notebook",
+                    disabledAt: null,
+                    settingsJson: {},
+                    workspaceType: "personal_learner",
+                  },
+                ].slice(0, limitCount),
+              );
             }
             return Promise.resolve([]);
           },
@@ -257,7 +264,12 @@ describe("tutor lifecycle routes", () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toEqual({ sessionId: "sess_3", status: "completed", artifactId: null, reason: "ended_without_turns" });
+    expect(response.json()).toEqual({
+      sessionId: "sess_3",
+      status: "completed",
+      artifactId: null,
+      reason: "ended_without_turns",
+    });
     expect(crystallizeSessionMock).not.toHaveBeenCalled();
     expect(disposeSessionMock).toHaveBeenCalledWith("sess_3");
   });
@@ -307,7 +319,12 @@ describe("tutor lifecycle routes", () => {
         assistantMessage: "Let's start.",
       }),
     );
-    expect(response.json()).toEqual({ sessionId: "sess_4", status: "completed", artifactId: "artifact_digest_1", reason: "crystallized" });
+    expect(response.json()).toEqual({
+      sessionId: "sess_4",
+      status: "completed",
+      artifactId: "artifact_digest_1",
+      reason: "crystallized",
+    });
   });
 
   it("returns not found when ending an already completed session", async () => {

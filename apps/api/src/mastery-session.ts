@@ -28,7 +28,8 @@ export async function maybeRunRuntimeMasteryEvaluation(
     fallbackPendingEvaluation?: PendingMasteryEvaluation | null;
   },
 ): Promise<{ evaluated: boolean; runtimeContext: Record<string, unknown> }> {
-  const pending = readPendingEvaluation(input.runtimeContext) ?? input.fallbackPendingEvaluation ?? null;
+  const pending =
+    readPendingEvaluation(input.runtimeContext) ?? input.fallbackPendingEvaluation ?? null;
   const evaluatedTurnIds = readEvaluatedTurnIds(input.runtimeContext);
   if (
     !shouldTriggerRuntimeMasteryEvaluation({
@@ -42,20 +43,30 @@ export async function maybeRunRuntimeMasteryEvaluation(
   }
 
   const judge = createOpenRouterMasteryEvaluatorJudge(ctx.env);
-  const result = await runRuntimeMasteryEvaluation(ctx.db, {
-    notebookId: input.notebookId,
-    userId: input.userId,
-    sessionId: input.sessionId,
-    turnId: pending.turnId,
-    ...(input.runId ? { runId: input.runId } : {}),
-    learnerMessage: input.learnerMessage,
-    pending,
-    masterySnapshot: input.masterySnapshot,
-    sourceRefs: (pending.sourceRefs ?? input.sourceRefs) as Array<{ refType: "source"; refId: string }>,
-    ...(pending.contextRefs ?? input.contextRefs
-      ? { contextRefs: (pending.contextRefs ?? input.contextRefs) as MasteryEvidenceInput["contextRefs"] }
-      : {}),
-  }, judge ? { judge, analyticsContext: ctx } : { analyticsContext: ctx });
+  const result = await runRuntimeMasteryEvaluation(
+    ctx.db,
+    {
+      notebookId: input.notebookId,
+      userId: input.userId,
+      sessionId: input.sessionId,
+      turnId: pending.turnId,
+      ...(input.runId ? { runId: input.runId } : {}),
+      learnerMessage: input.learnerMessage,
+      pending,
+      masterySnapshot: input.masterySnapshot,
+      sourceRefs: (pending.sourceRefs ?? input.sourceRefs) as Array<{
+        refType: "source";
+        refId: string;
+      }>,
+      ...((pending.contextRefs ?? input.contextRefs)
+        ? {
+            contextRefs: (pending.contextRefs ??
+              input.contextRefs) as MasteryEvidenceInput["contextRefs"],
+          }
+        : {}),
+    },
+    judge ? { judge, analyticsContext: ctx } : { analyticsContext: ctx },
+  );
   const lastRuntimeMasteryEvidence = result?.evidence
     ? summarizeRuntimeMasteryEvidenceForContext(result.evidence)
     : null;
@@ -158,7 +169,8 @@ export function summarizeToolMasteryEvidenceForContext(
 ): ReturnType<typeof summarizeRuntimeMasteryEvidenceForContext> {
   if (!output || typeof output !== "object" || Array.isArray(output)) return null;
   const record = output as Record<string, unknown>;
-  const masteryEvidenceId = typeof record.masteryEvidenceId === "string" ? record.masteryEvidenceId : null;
+  const masteryEvidenceId =
+    typeof record.masteryEvidenceId === "string" ? record.masteryEvidenceId : null;
   const correctnessLabel =
     record.correctnessLabel === "correct" ||
     record.correctnessLabel === "partial" ||
@@ -184,8 +196,12 @@ export function summarizeToolMasteryEvidenceForContext(
       : null;
   if (!masteryEvidenceId || !correctnessLabel || !tutoringIntervention || !readiness) return null;
 
-  const inputRecord = input && typeof input === "object" && !Array.isArray(input) ? (input as Record<string, unknown>) : {};
-  const objectiveId = typeof inputRecord.objectiveId === "string" ? inputRecord.objectiveId : undefined;
+  const inputRecord =
+    input && typeof input === "object" && !Array.isArray(input)
+      ? (input as Record<string, unknown>)
+      : {};
+  const objectiveId =
+    typeof inputRecord.objectiveId === "string" ? inputRecord.objectiveId : undefined;
 
   return {
     evidenceId: masteryEvidenceId,
@@ -210,9 +226,9 @@ type MasteryEvidenceContextSummary = {
   tutoringIntervention: MasteryEvidence["tutoringIntervention"];
 };
 
-function summarizeRuntimeMasteryEvidenceForContext(evidence: MasteryEvidence):
-  | MasteryEvidenceContextSummary
-  | null {
+function summarizeRuntimeMasteryEvidenceForContext(
+  evidence: MasteryEvidence,
+): MasteryEvidenceContextSummary | null {
   if (!evidence.objectiveId) return null;
   return {
     evidenceId: evidence.id,
@@ -244,14 +260,18 @@ export function buildMasteryRuntimeContextPatch(input: {
     ...(input.objectiveId !== undefined ? { objectiveId: input.objectiveId } : {}),
     ...(input.sourceRefs !== undefined ? { sourceRefs: input.sourceRefs } : {}),
     ...(input.contextRefs !== undefined ? { contextRefs: input.contextRefs } : {}),
-    ...(input.sourceScopePolicy !== undefined ? { sourceScopePolicy: input.sourceScopePolicy } : {}),
+    ...(input.sourceScopePolicy !== undefined
+      ? { sourceScopePolicy: input.sourceScopePolicy }
+      : {}),
     ...(input.referenceAnswer !== undefined ? { referenceAnswer: input.referenceAnswer } : {}),
   });
 
   return {
     ...input.previousRuntimeContext,
     pendingMasteryEvaluation: pending,
-    lastEvaluablePromptTurnId: pending ? input.turnId : input.previousRuntimeContext.lastEvaluablePromptTurnId ?? null,
+    lastEvaluablePromptTurnId: pending
+      ? input.turnId
+      : (input.previousRuntimeContext.lastEvaluablePromptTurnId ?? null),
   };
 }
 
@@ -281,14 +301,21 @@ export async function loadSessionRuntimeContext(
     .where(eq(tutorSessions.id, sessionId))
     .limit(1);
   const value = session?.runtimeContextJson;
-  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
 }
 
 function parseRefs(value: unknown): Array<{ refType: string; refId: string }> {
   if (!Array.isArray(value)) return [];
   return value
-    .filter((ref): ref is Record<string, unknown> => Boolean(ref && typeof ref === "object" && !Array.isArray(ref)))
-    .filter((ref): ref is { refType: string; refId: string } => typeof ref.refType === "string" && typeof ref.refId === "string");
+    .filter((ref): ref is Record<string, unknown> =>
+      Boolean(ref && typeof ref === "object" && !Array.isArray(ref)),
+    )
+    .filter(
+      (ref): ref is { refType: string; refId: string } =>
+        typeof ref.refType === "string" && typeof ref.refId === "string",
+    );
 }
 
 function isJsonRecord(value: unknown): value is Record<string, unknown> {

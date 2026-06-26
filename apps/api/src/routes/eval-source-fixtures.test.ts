@@ -106,7 +106,12 @@ describe("eval source fixture import route", () => {
 
     expect(response.statusCode).toBe(201);
     const body = response.json() as {
-      notebook: { id: string; ownerId: string; title: string; settingsJson: Record<string, unknown> };
+      notebook: {
+        id: string;
+        ownerId: string;
+        title: string;
+        settingsJson: Record<string, unknown>;
+      };
       seededRowCounts: Record<string, number>;
     };
 

@@ -34,7 +34,12 @@ export async function applyAdaptiveSessionPlanFromMasteryEvidence(
       sessionGoal: sessionPlans.sessionGoal,
     })
     .from(sessionPlans)
-    .where(and(eq(sessionPlans.notebookId, input.evidence.notebookId), eq(sessionPlans.status, "active")))
+    .where(
+      and(
+        eq(sessionPlans.notebookId, input.evidence.notebookId),
+        eq(sessionPlans.status, "active"),
+      ),
+    )
     .orderBy(desc(sessionPlans.updatedAt))
     .limit(1);
 
@@ -76,7 +81,12 @@ export async function applyAdaptiveSessionPlanFromMasteryEvidence(
   const [studyPlan] = await dbClient.db
     .select({ weakConceptIds: studyPlans.weakConceptIds })
     .from(studyPlans)
-    .where(and(eq(studyPlans.notebookId, input.evidence.notebookId), eq(studyPlans.userId, input.evidence.userId)))
+    .where(
+      and(
+        eq(studyPlans.notebookId, input.evidence.notebookId),
+        eq(studyPlans.userId, input.evidence.userId),
+      ),
+    )
     .limit(1);
 
   const [studentProfile] = await dbClient.db
@@ -94,10 +104,16 @@ export async function applyAdaptiveSessionPlanFromMasteryEvidence(
   const timeBudgetMinutes = typeof rawTimeBudget === "number" ? rawTimeBudget : null;
 
   const misconceptionRows = await dbClient.db
-    .select({ conceptId: learningState.conceptId, misconceptionJson: learningState.misconceptionJson })
+    .select({
+      conceptId: learningState.conceptId,
+      misconceptionJson: learningState.misconceptionJson,
+    })
     .from(learningState)
     .where(
-      and(eq(learningState.notebookId, input.evidence.notebookId), eq(learningState.userId, input.evidence.userId)),
+      and(
+        eq(learningState.notebookId, input.evidence.notebookId),
+        eq(learningState.userId, input.evidence.userId),
+      ),
     );
   const misconceptionConceptIds = misconceptionRows
     .filter(
@@ -121,7 +137,9 @@ export async function applyAdaptiveSessionPlanFromMasteryEvidence(
     )
     .orderBy(desc(quizAttempts.createdAt))
     .limit(20);
-  const diagnosticConceptIds = [...new Set(recentIncorrectAttempts.flatMap((attempt) => attempt.conceptIds ?? []))];
+  const diagnosticConceptIds = [
+    ...new Set(recentIncorrectAttempts.flatMap((attempt) => attempt.conceptIds ?? [])),
+  ];
 
   const weakConceptIds = (() => {
     const nextWeak = new Set([...(studyPlan?.weakConceptIds ?? []), ...input.weakConceptIds]);
@@ -134,8 +152,12 @@ export async function applyAdaptiveSessionPlanFromMasteryEvidence(
 
   const adaptivePlanSignals = buildAdaptivePlanSignalsFromMasteryEvidence(input.evidence, {
     weakConceptIds,
-    ...(input.sourceCoverageGap !== undefined ? { sourceCoverageGap: input.sourceCoverageGap } : {}),
-    ...(input.vagueLearnerMessage !== undefined ? { vagueLearnerMessage: input.vagueLearnerMessage } : {}),
+    ...(input.sourceCoverageGap !== undefined
+      ? { sourceCoverageGap: input.sourceCoverageGap }
+      : {}),
+    ...(input.vagueLearnerMessage !== undefined
+      ? { vagueLearnerMessage: input.vagueLearnerMessage }
+      : {}),
   });
 
   const adaptivePatch = buildAdaptiveSessionPlanPatch({

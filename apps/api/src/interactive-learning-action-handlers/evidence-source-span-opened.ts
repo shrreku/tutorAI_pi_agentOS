@@ -1,8 +1,13 @@
 import { appendEventWithTutorCacheInvalidation as appendEvent } from "../agentic-cache-invalidation.js";
-import { loadInteractiveBlockState, mergeInteractiveBlockState } from "../interactive-learning-state.js";
+import {
+  loadInteractiveBlockState,
+  mergeInteractiveBlockState,
+} from "../interactive-learning-state.js";
 import type { ActionContext, ActionHandlerOutcome } from "./types.js";
 
-export async function handleEvidenceSourceSpanOpened(actionCtx: ActionContext): Promise<ActionHandlerOutcome> {
+export async function handleEvidenceSourceSpanOpened(
+  actionCtx: ActionContext,
+): Promise<ActionHandlerOutcome> {
   const { ctx, notebookId, envelope, payload } = actionCtx;
   const spanPayload = payload as { evidenceRefId?: string; spanId?: string; index?: number };
   const openedId = spanPayload.evidenceRefId ?? spanPayload.spanId;

@@ -29,7 +29,9 @@ export async function probeOpenRouterConnectivity(
       signal: controller.signal,
     });
     if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
+      const body = (await response.json().catch(() => null)) as {
+        error?: { message?: string };
+      } | null;
       return {
         reachable: false,
         latencyMs: Date.now() - started,

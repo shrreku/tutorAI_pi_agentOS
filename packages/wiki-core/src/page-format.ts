@@ -1,5 +1,9 @@
 import type { EvidenceRef, GenerationMode, PageReadiness } from "@studyagent/schemas";
-import { extractHumanBlocks, mergeAgentMarkdownWithHumanBlocks, type HumanBlock } from "./page-blocks.js";
+import {
+  extractHumanBlocks,
+  mergeAgentMarkdownWithHumanBlocks,
+  type HumanBlock,
+} from "./page-blocks.js";
 import { derivePageReadiness } from "./page-readiness.js";
 
 export type HeuristicPageResult = {
@@ -30,9 +34,13 @@ function readinessQuote(label: string): string {
 function classifyClaims(claims: ClaimBullet[]) {
   return {
     definition: claims.filter((claim) => /definition|define|means|refers to/i.test(claim.text)),
-    formula: claims.filter((claim) => /formula|equation|proportional|equals|=|\\frac|\\Delta|\\partial/i.test(claim.text)),
+    formula: claims.filter((claim) =>
+      /formula|equation|proportional|equals|=|\\frac|\\Delta|\\partial/i.test(claim.text),
+    ),
     example: claims.filter((claim) => /example|application|used|appl|case study/i.test(claim.text)),
-    misconception: claims.filter((claim) => /not|only|except|unlike|misconception|confus/i.test(claim.text)),
+    misconception: claims.filter((claim) =>
+      /not|only|except|unlike|misconception|confus/i.test(claim.text),
+    ),
     general: claims.filter((claim) => claim.confidence >= 0.45),
   };
 }
@@ -78,17 +86,25 @@ export type HeuristicCurriculumPageInput = {
   existingMarkdown?: string;
 };
 
-export function buildHeuristicCurriculumPageMarkdown(input: HeuristicCurriculumPageInput): HeuristicPageResult {
-  const activeModule = input.modules.find((module) => module.moduleId === input.activeModuleId) ?? input.modules[0];
+export function buildHeuristicCurriculumPageMarkdown(
+  input: HeuristicCurriculumPageInput,
+): HeuristicPageResult {
+  const activeModule =
+    input.modules.find((module) => module.moduleId === input.activeModuleId) ?? input.modules[0];
   const readiness = heuristicReadiness(input.sourceTitles.length, input.modules.length);
   const readinessLabel =
-    readiness === "ready_to_study" ? "Ready to study" : readiness === "needs_more_source_support" ? "Needs more source support" : "Still improving";
+    readiness === "ready_to_study"
+      ? "Ready to study"
+      : readiness === "needs_more_source_support"
+        ? "Needs more source support"
+        : "Still improving";
 
   const agentMarkdown = [
     `# ${input.curriculumTitle}`,
     readinessQuote(readinessLabel),
     "## Path purpose",
-    input.purpose?.trim() || "This curriculum organizes your uploaded sources into a guided study path.",
+    input.purpose?.trim() ||
+      "This curriculum organizes your uploaded sources into a guided study path.",
     "",
     "## Source coverage",
     bulletList(
@@ -140,7 +156,9 @@ export type HeuristicModulePageInput = {
   existingMarkdown?: string;
 };
 
-export function buildHeuristicModulePageMarkdown(input: HeuristicModulePageInput): HeuristicPageResult {
+export function buildHeuristicModulePageMarkdown(
+  input: HeuristicModulePageInput,
+): HeuristicPageResult {
   const evidenceCount = input.sourceSections.length + input.concepts.length;
   const readiness = heuristicReadiness(evidenceCount, input.topics.length);
   const readinessLabel =
@@ -152,7 +170,8 @@ export function buildHeuristicModulePageMarkdown(input: HeuristicModulePageInput
     `# ${input.moduleTitle}`,
     readinessQuote(readinessLabel),
     "## What this module teaches",
-    input.summary?.trim() || "Still improving — this module summary will deepen as generation completes.",
+    input.summary?.trim() ||
+      "Still improving — this module summary will deepen as generation completes.",
     "",
     "## Source coverage",
     bulletList(
@@ -216,7 +235,9 @@ export type HeuristicTopicPageInput = {
   existingMarkdown?: string;
 };
 
-export function buildHeuristicTopicPageMarkdown(input: HeuristicTopicPageInput): HeuristicPageResult {
+export function buildHeuristicTopicPageMarkdown(
+  input: HeuristicTopicPageInput,
+): HeuristicPageResult {
   const claims = input.claims ?? [];
   const backed = backedClaims(claims);
   const evidenceRefs = input.evidenceRefs ?? [];
@@ -296,7 +317,9 @@ export type HeuristicConceptPageInput = {
   existingMarkdown?: string;
 };
 
-export function buildHeuristicConceptPageMarkdown(input: HeuristicConceptPageInput): HeuristicPageResult {
+export function buildHeuristicConceptPageMarkdown(
+  input: HeuristicConceptPageInput,
+): HeuristicPageResult {
   const claims = input.claims ?? [];
   const backed = backedClaims(claims);
   const classified = classifyClaims(backed);
@@ -369,7 +392,9 @@ export function buildHeuristicConceptPageMarkdown(input: HeuristicConceptPageInp
     "## How to use this page",
     "Study these notes, then use tutor chat for teaching, checks, and connections to your current objective.",
     "",
-    evidenceRefs.length > 0 ? "## Evidence\n- Use the Evidence explorer below to inspect supporting excerpts." : "",
+    evidenceRefs.length > 0
+      ? "## Evidence\n- Use the Evidence explorer below to inspect supporting excerpts."
+      : "",
   ]
     .filter(Boolean)
     .join("\n");

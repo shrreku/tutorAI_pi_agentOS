@@ -14,7 +14,9 @@ import type { AppContext } from "./context.js";
 import { executeTutorTurn } from "./tutor-turn.js";
 
 vi.mock("@studyagent/agent-runtime", async () => {
-  const actual = await vi.importActual<typeof import("@studyagent/agent-runtime")>("@studyagent/agent-runtime");
+  const actual = await vi.importActual<typeof import("@studyagent/agent-runtime")>(
+    "@studyagent/agent-runtime",
+  );
   return {
     ...actual,
     runStudyAgentTutorSession: (input: Parameters<typeof actual.runStudyAgentTutorSession>[0]) =>
@@ -51,7 +53,15 @@ vi.mock("./study-state.js", () => ({
     objectiveList: null,
     sessionPlan: { id: "plan_1" },
     studyPlan: null,
-    coverage: { total: 0, planned: 0, introduced: 0, checked: 0, mastered: 0, needsReview: 0, gaps: [] },
+    coverage: {
+      total: 0,
+      planned: 0,
+      introduced: 0,
+      checked: 0,
+      mastered: 0,
+      needsReview: 0,
+      gaps: [],
+    },
     sourceLevels: [],
     learnerReadiness: [],
   })),
@@ -63,17 +73,19 @@ vi.mock("./mastery-session.js", () => ({
 }));
 
 class IntegrationFakeDb {
-  sessions = [{
-    id: "sess_host_int",
-    notebookId: "nb_1",
-    userId: "user_1",
-    mode: "learn",
-    status: "active",
-    selectedNodeRefsJson: [{ refType: "source", refId: "src_1" }],
-    runtimeContextJson: {},
-    startedAt: new Date("2026-05-15T00:00:00.000Z"),
-    endedAt: null,
-  }];
+  sessions = [
+    {
+      id: "sess_host_int",
+      notebookId: "nb_1",
+      userId: "user_1",
+      mode: "learn",
+      status: "active",
+      selectedNodeRefsJson: [{ refType: "source", refId: "src_1" }],
+      runtimeContextJson: {},
+      startedAt: new Date("2026-05-15T00:00:00.000Z"),
+      endedAt: null,
+    },
+  ];
   turns: Array<Record<string, unknown>> = [];
   runs: Array<Record<string, unknown>> = [];
   toolCalls: Array<Record<string, unknown>> = [];
@@ -84,8 +96,19 @@ class IntegrationFakeDb {
       from(table: unknown) {
         return {
           where(_condition: unknown) {
-            if (table === tutorTurns && selection && typeof selection === "object" && "maxTurnIndex" in selection) {
-              return Promise.resolve([{ maxTurnIndex: db.turns.length ? Number(db.turns[db.turns.length - 1]?.turnIndex ?? -1) : null }]);
+            if (
+              table === tutorTurns &&
+              selection &&
+              typeof selection === "object" &&
+              "maxTurnIndex" in selection
+            ) {
+              return Promise.resolve([
+                {
+                  maxTurnIndex: db.turns.length
+                    ? Number(db.turns[db.turns.length - 1]?.turnIndex ?? -1)
+                    : null,
+                },
+              ]);
             }
             return this;
           },
@@ -135,7 +158,15 @@ const baseStudyState = {
   objectiveList: null,
   sessionPlan: { id: "plan_1" },
   studyPlan: null,
-  coverage: { total: 0, planned: 0, introduced: 0, checked: 0, mastered: 0, needsReview: 0, gaps: [] },
+  coverage: {
+    total: 0,
+    planned: 0,
+    introduced: 0,
+    checked: 0,
+    mastered: 0,
+    needsReview: 0,
+    gaps: [],
+  },
   sourceLevels: [],
   learnerReadiness: [],
 } as never;

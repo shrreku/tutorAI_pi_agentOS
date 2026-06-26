@@ -12,7 +12,9 @@ type BackgroundPolishRequest = {
   trigger?: string;
 };
 
-function isBackgroundPolishPending(structured: Record<string, unknown> | null | undefined): boolean {
+function isBackgroundPolishPending(
+  structured: Record<string, unknown> | null | undefined,
+): boolean {
   const status = structured?.backgroundPolishStatus;
   return status === "pending" || status === "enqueued";
 }

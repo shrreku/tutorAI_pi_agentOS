@@ -12,13 +12,15 @@ const quizSurface: ReferenceSurface = {
   surfaceType: "artifact",
   summary: null,
   status: "ready",
-  blocks: [{
-    id: "questions",
-    kind: "question_list",
-    title: "Questions",
-    content: [{ id: "q1", prompt: "What is x?", choices: ["x", "y"], answer: "x" }],
-    evidenceRefs: [],
-  }],
+  blocks: [
+    {
+      id: "questions",
+      kind: "question_list",
+      title: "Questions",
+      content: [{ id: "q1", prompt: "What is x?", choices: ["x", "y"], answer: "x" }],
+      evidenceRefs: [],
+    },
+  ],
   interactiveBlocks: [],
   scopeRefs: [],
   sourceRefs: [],
@@ -30,25 +32,31 @@ const quizSurface: ReferenceSurface = {
 
 describe("TutorPanel artifact review", () => {
   it("derives tutor panel actions from the server reference surface when available", () => {
-    const review = buildTutorPanelArtifactReview({
-      id: "artifact_quiz",
-      title: "Quiz",
-      artifactType: "quiz",
-      status: "ready",
-      view: { confidence: 0.9, quality: { sourceBacked: true, needsReview: false, issues: [] } },
-    }, quizSurface);
+    const review = buildTutorPanelArtifactReview(
+      {
+        id: "artifact_quiz",
+        title: "Quiz",
+        artifactType: "quiz",
+        status: "ready",
+        view: { confidence: 0.9, quality: { sourceBacked: true, needsReview: false, issues: [] } },
+      },
+      quizSurface,
+    );
 
     expect(review.actions).toEqual(expect.arrayContaining(["practice", "ask_tutor"]));
     expect(review.actions).not.toContain("review");
   });
 
   it("maps learner-facing primary actions away from provenance vocabulary", () => {
-    expect(mapLearnerPrimaryActions(["ask_tutor", "open_provenance"])).toEqual(["ask_tutor", "open_evidence"]);
+    expect(mapLearnerPrimaryActions(["ask_tutor", "open_provenance"])).toEqual([
+      "ask_tutor",
+      "open_evidence",
+    ]);
   });
 
   it("normalizes assistant markdown without exposing internal ids", () => {
     const normalized = normalizeAssistantMessageText(
-      'msg_123 Your quiz is created | # Question | Difficulty | --- | --- | Q1 | Easy | Q2 | Medium',
+      "msg_123 Your quiz is created | # Question | Difficulty | --- | --- | Q1 | Easy | Q2 | Medium",
     );
 
     expect(normalized).not.toContain("msg_123");

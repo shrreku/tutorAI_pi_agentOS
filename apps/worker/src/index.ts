@@ -30,10 +30,20 @@ import { processIngestionPipelineJob } from "./ingestion-pipeline.js";
 import { processNextGenerationJob } from "./generation-job-processor.js";
 import { enqueueDegradedInitialBuildRetries } from "./retry-degraded-generation.js";
 import { applyClaimDecay } from "./wiki-decay.js";
-import { runOneShotDrain, getNotebookOwnerId, learnerHasOtherRunningJob, releaseIngestionJob, MAX_CONSECUTIVE_LEARNER_SKIPS } from "./one-shot-drain.js";
+import {
+  runOneShotDrain,
+  getNotebookOwnerId,
+  learnerHasOtherRunningJob,
+  releaseIngestionJob,
+  MAX_CONSECUTIVE_LEARNER_SKIPS,
+} from "./one-shot-drain.js";
 
 function createS3(env: ReturnType<typeof loadEnv>): S3Client | null {
-  if (!env.OBJECT_STORAGE_ENDPOINT || !env.OBJECT_STORAGE_ACCESS_KEY || !env.OBJECT_STORAGE_SECRET_KEY) {
+  if (
+    !env.OBJECT_STORAGE_ENDPOINT ||
+    !env.OBJECT_STORAGE_ACCESS_KEY ||
+    !env.OBJECT_STORAGE_SECRET_KEY
+  ) {
     return null;
   }
   return new S3Client({
@@ -238,12 +248,14 @@ async function startBullMqIngestionWorker(
     const attempts = typeof job?.opts?.attempts === "number" ? job.opts.attempts : 1;
     const attemptsMade = job?.attemptsMade ?? attempts;
     if (job && attemptsMade >= attempts) {
-      void releaseBullMqIngestionReservation(dbClient, String(job.id ?? ""), job.data, err).catch((releaseError) => {
-        console.error("failed to release BullMQ ingestion reservation", {
-          jobId: String(job.id ?? ""),
-          error: releaseError instanceof Error ? releaseError.message : String(releaseError),
-        });
-      });
+      void releaseBullMqIngestionReservation(dbClient, String(job.id ?? ""), job.data, err).catch(
+        (releaseError) => {
+          console.error("failed to release BullMQ ingestion reservation", {
+            jobId: String(job.id ?? ""),
+            error: releaseError instanceof Error ? releaseError.message : String(releaseError),
+          });
+        },
+      );
     }
     console.error("ingestion job failed", {
       backend: "bullmq",
@@ -282,10 +294,13 @@ async function startPostgresIngestionWorker(
 
   const scheduleDrain = (delayMs = 0) => {
     if (drainTimer) return;
-    drainTimer = setTimeout(() => {
-      drainTimer = null;
-      void drainReadyJobs();
-    }, Math.max(0, delayMs));
+    drainTimer = setTimeout(
+      () => {
+        drainTimer = null;
+        void drainReadyJobs();
+      },
+      Math.max(0, delayMs),
+    );
   };
 
   const scheduleNextQueuedJob = async () => {
@@ -333,9 +348,13 @@ async function startPostgresIngestionWorker(
     }
   };
 
-  const listenerHandle = await listener.listen(INGESTION_JOB_CHANNEL, () => scheduleDrain(), () => {
-    console.log("StudyAgent worker listening on Postgres ingestion queue");
-  });
+  const listenerHandle = await listener.listen(
+    INGESTION_JOB_CHANNEL,
+    () => scheduleDrain(),
+    () => {
+      console.log("StudyAgent worker listening on Postgres ingestion queue");
+    },
+  );
   scheduleDrain();
 
   return async () => {
@@ -498,7 +517,10 @@ async function releaseBullMqIngestionReservation(
   });
 }
 
-async function settleIngestionReservation(dbClient: DbClient, job: ClaimedIngestionJob): Promise<void> {
+async function settleIngestionReservation(
+  dbClient: DbClient,
+  job: ClaimedIngestionJob,
+): Promise<void> {
   if (!job.ingestionReservationId) {
     return;
   }

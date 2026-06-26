@@ -7,10 +7,15 @@ import { recordFlashcardReview } from "../assessment-artifacts.js";
 import type { ActionContext, ActionHandlerOutcome } from "./types.js";
 import { isRecord } from "./shared.js";
 
-export async function handleFlashcardReviewRated(actionCtx: ActionContext): Promise<ActionHandlerOutcome> {
+export async function handleFlashcardReviewRated(
+  actionCtx: ActionContext,
+): Promise<ActionHandlerOutcome> {
   const { ctx, notebookId, userId, envelope, payload, artifactId } = actionCtx;
   if (!artifactId) {
-    return { ok: false, error: { code: "bad_request", message: "Flashcard actions require an artifact reference." } };
+    return {
+      ok: false,
+      error: { code: "bad_request", message: "Flashcard actions require an artifact reference." },
+    };
   }
 
   const flashcardPayload = payload as z.infer<typeof flashcardReviewRatedPayloadSchema>;
@@ -25,9 +30,9 @@ export async function handleFlashcardReviewRated(actionCtx: ActionContext): Prom
 
   const artifactPayload = (artifact.payloadJson ?? {}) as Record<string, unknown>;
   const cards = Array.isArray(artifactPayload.cards) ? artifactPayload.cards : [];
-  const selectedCard = cards.find((card) => isRecord(card) && card.id === flashcardPayload.cardId) as
-    | { conceptId?: string }
-    | undefined;
+  const selectedCard = cards.find(
+    (card) => isRecord(card) && card.id === flashcardPayload.cardId,
+  ) as { conceptId?: string } | undefined;
 
   const conceptIds = (
     flashcardPayload.conceptIds?.length

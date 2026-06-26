@@ -111,7 +111,13 @@ export async function registerEventStreamRoutes(
         const rows = await ctx.db.db
           .select()
           .from(events)
-          .where(and(eq(events.notebookId, notebookId), eq(events.sessionId, sessionId), gt(events.sequenceNo, cursor)))
+          .where(
+            and(
+              eq(events.notebookId, notebookId),
+              eq(events.sessionId, sessionId),
+              gt(events.sequenceNo, cursor),
+            ),
+          )
           .orderBy(asc(events.sequenceNo))
           .limit(100);
 
@@ -138,7 +144,12 @@ export async function registerEventStreamRoutes(
         }
       });
       const unsubscribe = notifier.subscribe((event) => {
-        if (event.notebookId !== notebookId || event.sessionId !== sessionId || event.sequenceNo <= cursor) return;
+        if (
+          event.notebookId !== notebookId ||
+          event.sessionId !== sessionId ||
+          event.sequenceNo <= cursor
+        )
+          return;
         drain();
       });
 
@@ -239,7 +250,12 @@ export function parseEventNotificationPayload(payload: string): EventNotificatio
     if (typeof parsed.notebookId !== "string" || !parsed.notebookId) return null;
     if (typeof parsed.sequenceNo !== "number" || !Number.isFinite(parsed.sequenceNo)) return null;
     if (typeof parsed.eventType !== "string" || !parsed.eventType) return null;
-    const sessionId = parsed.sessionId == null ? null : typeof parsed.sessionId === "string" ? parsed.sessionId : null;
+    const sessionId =
+      parsed.sessionId == null
+        ? null
+        : typeof parsed.sessionId === "string"
+          ? parsed.sessionId
+          : null;
     return {
       notebookId: parsed.notebookId,
       sessionId,

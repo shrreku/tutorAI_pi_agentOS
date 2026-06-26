@@ -27,19 +27,27 @@ export const studyAgentCompactionOutputSchema = studyAgentCompactionInputSchema.
 export type StudyAgentCompactionInput = z.infer<typeof studyAgentCompactionInputSchema>;
 export type StudyAgentCompactionOutput = z.infer<typeof studyAgentCompactionOutputSchema>;
 
-export function compactStudyAgentContext(input: StudyAgentCompactionInput): StudyAgentCompactionOutput {
+export function compactStudyAgentContext(
+  input: StudyAgentCompactionInput,
+): StudyAgentCompactionOutput {
   const parsed = studyAgentCompactionInputSchema.parse(input);
   const compressedContext = [
     `notebook=${parsed.notebookId}`,
     `mode=${parsed.activeMode}`,
     parsed.activeConceptIds.length ? `concepts=${parsed.activeConceptIds.join(",")}` : undefined,
-    parsed.activeObjectiveIds.length ? `objectives=${parsed.activeObjectiveIds.join(",")}` : undefined,
+    parsed.activeObjectiveIds.length
+      ? `objectives=${parsed.activeObjectiveIds.join(",")}`
+      : undefined,
     parsed.latestLearnerMessage ? `learner=${truncate(parsed.latestLearnerMessage)}` : undefined,
     parsed.latestTutorQuestion ? `tutor=${truncate(parsed.latestTutorQuestion)}` : undefined,
-    parsed.currentLearningStateSummary ? `state=${truncate(parsed.currentLearningStateSummary)}` : undefined,
+    parsed.currentLearningStateSummary
+      ? `state=${truncate(parsed.currentLearningStateSummary)}`
+      : undefined,
     parsed.sourceIds.length ? `sources=${parsed.sourceIds.join(",")}` : undefined,
     parsed.citationIds.length ? `citations=${parsed.citationIds.join(",")}` : undefined,
-    parsed.openArtifactProposals.length ? `artifacts=${parsed.openArtifactProposals.length}` : undefined,
+    parsed.openArtifactProposals.length
+      ? `artifacts=${parsed.openArtifactProposals.length}`
+      : undefined,
   ]
     .filter(Boolean)
     .join(" | ");

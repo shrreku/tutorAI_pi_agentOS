@@ -18,7 +18,9 @@ const PROCESSING_STATUSES = new Set([
   "ingesting",
 ]);
 
-export function getLearnerRetryCount(metadataJson: Record<string, unknown> | null | undefined): number {
+export function getLearnerRetryCount(
+  metadataJson: Record<string, unknown> | null | undefined,
+): number {
   const value = metadataJson?.learnerRetryCount;
   return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : 0;
 }
@@ -126,6 +128,8 @@ export function resolveIngestionStatus(input: {
   };
 }
 
-export function terminalFailureStatus(metadataJson: Record<string, unknown>): "failed" | "ingestion_review" {
+export function terminalFailureStatus(
+  metadataJson: Record<string, unknown>,
+): "failed" | "ingestion_review" {
   return getLearnerRetryCount(metadataJson) >= 1 ? "ingestion_review" : "failed";
 }

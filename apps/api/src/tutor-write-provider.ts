@@ -10,7 +10,10 @@ import { createMasteryWriteHandlers } from "./tutor-write-mastery.js";
 import { createInteractiveSurfaceWriteHandlers } from "./tutor-write-interactive-surfaces.js";
 import { createWikiWriteHandlers } from "./tutor-write-wiki.js";
 
-export { findCoverageRecordForScope, selectPreferredCoverageGapRow } from "./tutor-write-coverage.js";
+export {
+  findCoverageRecordForScope,
+  selectPreferredCoverageGapRow,
+} from "./tutor-write-coverage.js";
 export { sanitizeArtifactSourceNodeRefs } from "./tutor-write-artifacts.js";
 
 export function createTutorWriteToolProvider(appCtx: AppContext): RuntimeWriteToolProvider {

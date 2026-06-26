@@ -90,18 +90,45 @@ export function inferSourceLevelFromSignals(input: {
 
   const haystack = [input.title, input.backgroundSummary].filter(Boolean).join(" ").toLowerCase();
   if (/\b(ph\.?d|doctoral|dissertation|graduate)\b/.test(haystack)) {
-    return { sourceId: "", level: "graduate", confidence: 0.72, lastUpdatedReason: "inferred_from_title_or_profile" };
+    return {
+      sourceId: "",
+      level: "graduate",
+      confidence: 0.72,
+      lastUpdatedReason: "inferred_from_title_or_profile",
+    };
   }
-  if (/\b(undergrad|undergraduate|university|calculus ii|linear algebra|college)\b/.test(haystack)) {
-    return { sourceId: "", level: "undergraduate", confidence: 0.7, lastUpdatedReason: "inferred_from_title_or_profile" };
+  if (
+    /\b(undergrad|undergraduate|university|calculus ii|linear algebra|college)\b/.test(haystack)
+  ) {
+    return {
+      sourceId: "",
+      level: "undergraduate",
+      confidence: 0.7,
+      lastUpdatedReason: "inferred_from_title_or_profile",
+    };
   }
   if (/\b(high school|secondary|gcse|a-level|introductory)\b/.test(haystack)) {
-    return { sourceId: "", level: "high_school", confidence: 0.7, lastUpdatedReason: "inferred_from_title_or_profile" };
+    return {
+      sourceId: "",
+      level: "high_school",
+      confidence: 0.7,
+      lastUpdatedReason: "inferred_from_title_or_profile",
+    };
   }
   if (/\b(professional|industry|practitioner|certification)\b/.test(haystack)) {
-    return { sourceId: "", level: "professional", confidence: 0.68, lastUpdatedReason: "inferred_from_title_or_profile" };
+    return {
+      sourceId: "",
+      level: "professional",
+      confidence: 0.68,
+      lastUpdatedReason: "inferred_from_title_or_profile",
+    };
   }
-  return { sourceId: "", level: "unknown", confidence: null, lastUpdatedReason: "no_level_signals" };
+  return {
+    sourceId: "",
+    level: "unknown",
+    confidence: null,
+    lastUpdatedReason: "no_level_signals",
+  };
 }
 
 export function buildConceptLearnerReadiness(input: {
@@ -126,7 +153,12 @@ export function buildSelfReportedLearnerReadiness(input: {
   if (inferred.level === "unknown") return null;
   return learnerReadinessSchema.parse({
     targetRef: { refType: "source", refId: "notebook_profile" },
-    readiness: inferred.level === "high_school" ? "foundational" : inferred.level === "graduate" ? "advanced" : "developing",
+    readiness:
+      inferred.level === "high_school"
+        ? "foundational"
+        : inferred.level === "graduate"
+          ? "advanced"
+          : "developing",
     inferredLevel: inferred.level,
     evidenceRefs: [{ refType: "self_report", refId: input.profileId }],
     confidence: inferred.confidence,

@@ -141,7 +141,13 @@ describe("workspace read model visibility", () => {
       { id: "concept_1", nodeType: "concept", labels: [], properties: { title: "Vectors" } },
     ];
     const edges: GraphCanvasEdge[] = [
-      { id: "e1", source: "claim_1", target: "concept_1", relationType: "SUPPORTS", properties: {} },
+      {
+        id: "e1",
+        source: "claim_1",
+        target: "concept_1",
+        relationType: "SUPPORTS",
+        properties: {},
+      },
     ];
     const catalog = buildNodeCatalog("study_map", { nodes }, emptyContext, false);
     const filtered = filterCanvasByVisibility({ nodes, edges }, catalog, false);
@@ -204,9 +210,27 @@ describe("source wiki topic groups", () => {
       { id: "page_1", nodeType: "wiki_page", labels: [], properties: { title: "Velocity page" } },
     ];
     const edges: GraphCanvasEdge[] = [
-      { id: "e0", source: "topic_kinematics", target: "topic_page_kinematics", relationType: "CONTAINS_PAGE", properties: {} },
-      { id: "e1", source: "topic_page_kinematics", target: "concept_1", relationType: "CONTAINS_CONCEPT", properties: {} },
-      { id: "e2", source: "topic_page_kinematics", target: "page_1", relationType: "CONTAINS_PAGE", properties: {} },
+      {
+        id: "e0",
+        source: "topic_kinematics",
+        target: "topic_page_kinematics",
+        relationType: "CONTAINS_PAGE",
+        properties: {},
+      },
+      {
+        id: "e1",
+        source: "topic_page_kinematics",
+        target: "concept_1",
+        relationType: "CONTAINS_CONCEPT",
+        properties: {},
+      },
+      {
+        id: "e2",
+        source: "topic_page_kinematics",
+        target: "page_1",
+        relationType: "CONTAINS_PAGE",
+        properties: {},
+      },
     ];
     const catalog = buildNodeCatalog("source_wiki_map", { nodes }, emptyContext, false);
     const topics = buildSourceWikiTopicGroups({ nodes, edges }, "src_1", catalog);
@@ -240,21 +264,42 @@ describe("source wiki topic groups", () => {
   it("keeps source wiki learner edges when they route through a topic node", () => {
     const nodes: GraphCanvasNode[] = [
       { id: "src_1", nodeType: "source", labels: [], properties: { title: "Lecture" } },
-      { id: "topic_1", nodeType: "topic", labels: [], properties: { title: "Kinematics", sourceId: "src_1" } },
+      {
+        id: "topic_1",
+        nodeType: "topic",
+        labels: [],
+        properties: { title: "Kinematics", sourceId: "src_1" },
+      },
       { id: "concept_1", nodeType: "concept", labels: [], properties: { title: "Velocity" } },
       { id: "page_1", nodeType: "wiki_page", labels: [], properties: { title: "Velocity page" } },
     ];
     const edges: GraphCanvasEdge[] = [
       { id: "e1", source: "src_1", target: "topic_1", relationType: "HAS_TOPIC", properties: {} },
-      { id: "e2", source: "topic_1", target: "concept_1", relationType: "CONTAINS_CONCEPT", properties: {} },
-      { id: "e3", source: "topic_1", target: "page_1", relationType: "CONTAINS_PAGE", properties: {} },
+      {
+        id: "e2",
+        source: "topic_1",
+        target: "concept_1",
+        relationType: "CONTAINS_CONCEPT",
+        properties: {},
+      },
+      {
+        id: "e3",
+        source: "topic_1",
+        target: "page_1",
+        relationType: "CONTAINS_PAGE",
+        properties: {},
+      },
     ];
     const catalog = buildNodeCatalog("source_wiki_map", { nodes }, emptyContext, false);
     const filtered = filterCanvasByVisibility({ nodes, edges }, catalog, false);
-    expect(filtered.nodes.map((node) => node.id)).toEqual(["src_1", "topic_1", "concept_1", "page_1"]);
+    expect(filtered.nodes.map((node) => node.id)).toEqual([
+      "src_1",
+      "topic_1",
+      "concept_1",
+      "page_1",
+    ]);
     expect(filtered.edges.map((edge) => edge.id)).toEqual(["e1", "e2", "e3"]);
   });
-
 });
 
 describe("page readiness augmentation", () => {
@@ -276,7 +321,11 @@ describe("page readiness augmentation", () => {
                         status: "published",
                         qualityScore: 0.84,
                         sourceClaimIds: ["claim_1", "claim_2"],
-                        structuredJson: { conceptId: "cnc_1", generationMode: "llm_polished", pageReadiness: "ready_to_study" },
+                        structuredJson: {
+                          conceptId: "cnc_1",
+                          generationMode: "llm_polished",
+                          pageReadiness: "ready_to_study",
+                        },
                       },
                     ]),
                 };
@@ -306,11 +355,22 @@ describe("page readiness augmentation", () => {
 describe("study map emphasis", () => {
   it("marks current objective and path concepts in the catalog", () => {
     const nodes: GraphCanvasNode[] = [
-      { id: "obj_current", nodeType: "objective", labels: [], properties: { title: "Solve equations" } },
+      {
+        id: "obj_current",
+        nodeType: "objective",
+        labels: [],
+        properties: { title: "Solve equations" },
+      },
       { id: "concept_1", nodeType: "concept", labels: [], properties: { title: "Algebra" } },
     ];
     const edges: GraphCanvasEdge[] = [
-      { id: "e1", source: "obj_current", target: "concept_1", relationType: "COVERS", properties: {} },
+      {
+        id: "e1",
+        source: "obj_current",
+        target: "concept_1",
+        relationType: "COVERS",
+        properties: {},
+      },
     ];
     const catalog = buildNodeCatalog(
       "study_map",
@@ -322,7 +382,9 @@ describe("study map emphasis", () => {
       },
       false,
     );
-    expect(catalog.find((entry) => entry.node.id === "obj_current")?.emphasis).toBe("current_objective");
+    expect(catalog.find((entry) => entry.node.id === "obj_current")?.emphasis).toBe(
+      "current_objective",
+    );
     expect(catalog.find((entry) => entry.node.id === "concept_1")?.emphasis).toBe("current_path");
     expect(loadStudyPlanContext).toBeDefined();
     void edges;

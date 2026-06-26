@@ -27,11 +27,17 @@ function clearCheckoutQueryParam(): void {
 
 export function CreditsPage() {
   const queryClient = useQueryClient();
-  const [checkoutStatus, setCheckoutStatus] = useState<"success" | "cancelled" | null>(() => readCheckoutStatus());
+  const [checkoutStatus, setCheckoutStatus] = useState<"success" | "cancelled" | null>(() =>
+    readCheckoutStatus(),
+  );
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [activePackId, setActivePackId] = useState<string | null>(null);
 
-  const { data: credits, isLoading: creditsLoading, error: creditsError } = useQuery({
+  const {
+    data: credits,
+    isLoading: creditsLoading,
+    error: creditsError,
+  } = useQuery({
     queryKey: ["credits"],
     queryFn: fetchCredits,
   });
@@ -98,7 +104,9 @@ export function CreditsPage() {
 
       {isLoading && <div className="tb-card">Loading credit balance…</div>}
       {error && (
-        <pre className="tb-error">{error instanceof Error ? error.message : "Failed to load credits"}</pre>
+        <pre className="tb-error">
+          {error instanceof Error ? error.message : "Failed to load credits"}
+        </pre>
       )}
 
       {!isLoading && !error && summary && (
@@ -107,7 +115,13 @@ export function CreditsPage() {
             <strong>{percent}% remaining</strong>
             {exhausted ? <span className="tb-credits-exhausted">Exhausted</span> : null}
           </div>
-          <div className="tb-credits-bar" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}>
+          <div
+            className="tb-credits-bar"
+            role="progressbar"
+            aria-valuenow={percent}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          >
             <div
               className="tb-credits-bar-fill"
               data-exhausted={exhausted}
@@ -116,12 +130,14 @@ export function CreditsPage() {
           </div>
           {exhausted ? (
             <p className="tb-credits-message">
-              Your tutor credits are used up. You can still review your workspace, but new tutor turns are paused until
-              more credits are available. Buy more below, redeem an access code, or contact support.
+              Your tutor credits are used up. You can still review your workspace, but new tutor
+              turns are paused until more credits are available. Buy more below, redeem an access
+              code, or contact support.
             </p>
           ) : (
             <p className="tb-credits-message">
-              Credits are consumed as you chat with the tutor. Upload and review your study materials anytime.
+              Credits are consumed as you chat with the tutor. Upload and review your study
+              materials anytime.
             </p>
           )}
         </div>
@@ -132,7 +148,9 @@ export function CreditsPage() {
       {checkoutEnabled && (
         <section className="tb-card">
           <h2>Buy more credits</h2>
-          <p className="tb-muted">Secure checkout via Stripe. Purchased credits are added to your account after payment.</p>
+          <p className="tb-muted">
+            Secure checkout via Stripe. Purchased credits are added to your account after payment.
+          </p>
           <ul className="tb-credit-pack-list">
             {sortedPacks.map((pack: CreditCheckoutPack) => (
               <li key={pack.id} className="tb-credit-pack-item">
@@ -148,7 +166,9 @@ export function CreditsPage() {
                     disabled={checkoutMutation.isPending}
                     onClick={() => checkoutMutation.mutate(pack.id)}
                   >
-                    {checkoutMutation.isPending && activePackId === pack.id ? "Redirecting…" : "Buy"}
+                    {checkoutMutation.isPending && activePackId === pack.id
+                      ? "Redirecting…"
+                      : "Buy"}
                   </button>
                 </div>
               </li>
@@ -162,7 +182,8 @@ export function CreditsPage() {
         <section className="tb-card">
           <h2>Need more credits?</h2>
           <p className="tb-muted">
-            Redeem an access code from the sidebar, or contact support if you need additional beta access.
+            Redeem an access code from the sidebar, or contact support if you need additional beta
+            access.
           </p>
         </section>
       )}

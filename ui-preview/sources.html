@@ -1,86 +1,119 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Sources — TutorBook</title>
-<link rel="stylesheet" href="styles.css" />
-<link rel="stylesheet" href="themes/folio.css" />
-<link rel="stylesheet" href="themes/focus.css" />
-<link rel="stylesheet" href="themes/sunrise.css" />
-<link rel="stylesheet" href="themes/nocturne.css" />
-<link rel="stylesheet" href="themes/carbon.css" />
-</head>
-<body data-theme="mist">
-<div class="app">
-  <div data-include="topbar"></div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sources — TutorBook</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="themes/folio.css" />
+    <link rel="stylesheet" href="themes/focus.css" />
+    <link rel="stylesheet" href="themes/sunrise.css" />
+    <link rel="stylesheet" href="themes/nocturne.css" />
+    <link rel="stylesheet" href="themes/carbon.css" />
+  </head>
+  <body data-theme="mist">
+    <div class="app">
+      <div data-include="topbar"></div>
 
-  <div class="page-head">
-    <a class="back-link" href="study-map.html" style="margin-bottom:10px">← Back to study map</a>
-    <div class="between">
-      <div>
-        <h1>Sources</h1>
-        <p class="ph-sub">Organic Chemistry I · 6 sources · 1,200 pages analysed</p>
-      </div>
-      <button class="btn primary">+ Add source</button>
-    </div>
-  </div>
-
-  <div class="page-body">
-    <div class="upload-zone" style="margin-bottom:20px">
-      <div class="uz-ico">📥</div>
-      <div style="font-weight:650;color:var(--text)">Drop files to ingest, or click to browse</div>
-      <div class="mt-4">PDF, PPTX, DOCX, or paste a web link · TutorBook indexes & generates study aids automatically</div>
-      <div class="row gap-8" style="justify-content:center;margin-top:14px">
-        <button class="btn">Browse files</button>
-        <button class="btn">Paste link</button>
-      </div>
-    </div>
-
-    <div class="src-table">
-      <a class="src-row" href="page-source.html">
-        <div class="src-ico pdf">PDF</div>
-        <div><div class="src-name">Clayden_OrgChem.pdf</div><div class="src-sub">412 pages · added Jun 12</div></div>
-        <div class="src-state"><span class="badge green"><span class="dot-i"></span> Indexed</span></div>
-      </a>
-      <a class="src-row" href="page-source.html">
-        <div class="src-ico pdf">PDF</div>
-        <div><div class="src-name">SN2_Mechanisms.pdf</div><div class="src-sub">38 pages · added Jun 18</div></div>
-        <div class="src-state"><span class="badge green"><span class="dot-i"></span> Indexed</span></div>
-      </a>
-      <a class="src-row" href="page-source.html">
-        <div class="src-ico ppt">PPT</div>
-        <div><div class="src-name">Lecture_07_Substitution.pptx</div><div class="src-sub">54 slides · added Jun 20</div></div>
-        <div class="src-state"><span class="badge green"><span class="dot-i"></span> Indexed</span></div>
-      </a>
-      <div class="src-row">
-        <div class="src-ico doc">DOC</div>
-        <div style="flex:1"><div class="src-name">Problem_set_3.docx</div><div class="src-sub">9 pages · added Jun 25</div></div>
-        <div class="src-state" style="display:flex;align-items:center;gap:10px">
-          <div class="progress" style="width:96px"><span style="width:64%"></span></div>
-          <span class="badge yellow">Processing · 64%</span>
+      <div class="page-head">
+        <a class="back-link" href="study-map.html" style="margin-bottom: 10px"
+          >← Back to study map</a
+        >
+        <div class="between">
+          <div>
+            <h1>Sources</h1>
+            <p class="ph-sub">Organic Chemistry I · 6 sources · 1,200 pages analysed</p>
+          </div>
+          <button class="btn primary">+ Add source</button>
         </div>
       </div>
-      <a class="src-row" href="page-source.html">
-        <div class="src-ico web">WEB</div>
-        <div><div class="src-name">Wikipedia · Nucleophilic substitution</div><div class="src-sub">1 page · added Jun 21</div></div>
-        <div class="src-state"><span class="badge green"><span class="dot-i"></span> Indexed</span></div>
-      </a>
-      <div class="src-row">
-        <div class="src-ico pdf">PDF</div>
-        <div style="flex:1"><div class="src-name">Stereochemistry_notes.pdf</div><div class="src-sub">22 pages · added Jun 26</div></div>
-        <div class="src-state"><span class="badge gray">Queued</span></div>
+
+      <div class="page-body">
+        <div class="upload-zone" style="margin-bottom: 20px">
+          <div class="uz-ico">📥</div>
+          <div style="font-weight: 650; color: var(--text)">
+            Drop files to ingest, or click to browse
+          </div>
+          <div class="mt-4">
+            PDF, PPTX, DOCX, or paste a web link · TutorBook indexes & generates study aids
+            automatically
+          </div>
+          <div class="row gap-8" style="justify-content: center; margin-top: 14px">
+            <button class="btn">Browse files</button>
+            <button class="btn">Paste link</button>
+          </div>
+        </div>
+
+        <div class="src-table">
+          <a class="src-row" href="page-source.html">
+            <div class="src-ico pdf">PDF</div>
+            <div>
+              <div class="src-name">Clayden_OrgChem.pdf</div>
+              <div class="src-sub">412 pages · added Jun 12</div>
+            </div>
+            <div class="src-state">
+              <span class="badge green"><span class="dot-i"></span> Indexed</span>
+            </div>
+          </a>
+          <a class="src-row" href="page-source.html">
+            <div class="src-ico pdf">PDF</div>
+            <div>
+              <div class="src-name">SN2_Mechanisms.pdf</div>
+              <div class="src-sub">38 pages · added Jun 18</div>
+            </div>
+            <div class="src-state">
+              <span class="badge green"><span class="dot-i"></span> Indexed</span>
+            </div>
+          </a>
+          <a class="src-row" href="page-source.html">
+            <div class="src-ico ppt">PPT</div>
+            <div>
+              <div class="src-name">Lecture_07_Substitution.pptx</div>
+              <div class="src-sub">54 slides · added Jun 20</div>
+            </div>
+            <div class="src-state">
+              <span class="badge green"><span class="dot-i"></span> Indexed</span>
+            </div>
+          </a>
+          <div class="src-row">
+            <div class="src-ico doc">DOC</div>
+            <div style="flex: 1">
+              <div class="src-name">Problem_set_3.docx</div>
+              <div class="src-sub">9 pages · added Jun 25</div>
+            </div>
+            <div class="src-state" style="display: flex; align-items: center; gap: 10px">
+              <div class="progress" style="width: 96px"><span style="width: 64%"></span></div>
+              <span class="badge yellow">Processing · 64%</span>
+            </div>
+          </div>
+          <a class="src-row" href="page-source.html">
+            <div class="src-ico web">WEB</div>
+            <div>
+              <div class="src-name">Wikipedia · Nucleophilic substitution</div>
+              <div class="src-sub">1 page · added Jun 21</div>
+            </div>
+            <div class="src-state">
+              <span class="badge green"><span class="dot-i"></span> Indexed</span>
+            </div>
+          </a>
+          <div class="src-row">
+            <div class="src-ico pdf">PDF</div>
+            <div style="flex: 1">
+              <div class="src-name">Stereochemistry_notes.pdf</div>
+              <div class="src-sub">22 pages · added Jun 26</div>
+            </div>
+            <div class="src-state"><span class="badge gray">Queued</span></div>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
-</div>
 
-<script src="app.js"></script>
-<script src="themes/folio.js"></script>
-<script src="themes/focus.js"></script>
-<script src="themes/sunrise.js"></script>
-<script src="themes/nocturne.js"></script>
-<script src="themes/carbon.js"></script>
-<script src="partials.js"></script>
-</body>
+    <script src="app.js"></script>
+    <script src="themes/folio.js"></script>
+    <script src="themes/focus.js"></script>
+    <script src="themes/sunrise.js"></script>
+    <script src="themes/nocturne.js"></script>
+    <script src="themes/carbon.js"></script>
+    <script src="partials.js"></script>
+  </body>
 </html>

@@ -4,7 +4,10 @@ import type { AppContext } from "../context.js";
 import { withAdminAccess } from "../hosted-beta/route-guards.js";
 import { captureNotebookEvalEvidenceSnapshot } from "../eval-evidence-snapshot-capture.js";
 
-export async function registerEvalEvidenceSnapshotRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
+export async function registerEvalEvidenceSnapshotRoutes(
+  app: FastifyInstance,
+  ctx: AppContext,
+): Promise<void> {
   app.get<{
     Params: { notebookId: string };
     Querystring: { snapshotId?: string };
@@ -21,7 +24,8 @@ export async function registerEvalEvidenceSnapshotRoutes(app: FastifyInstance, c
         });
         return reply.send({ snapshot });
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Failed to capture eval evidence snapshot";
+        const message =
+          error instanceof Error ? error.message : "Failed to capture eval evidence snapshot";
         if (message === "Notebook not found") {
           return reply.status(404).send({ code: "not_found", message });
         }

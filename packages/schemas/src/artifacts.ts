@@ -15,7 +15,11 @@ export const artifactTypeSchema = z.enum([
   "concept_card",
 ]);
 
-export { noteArtifactPayloadSchema, notePersonalizationMetadataSchema, notePersonalizationSectionSchema } from "./note-personalization.js";
+export {
+  noteArtifactPayloadSchema,
+  notePersonalizationMetadataSchema,
+  notePersonalizationSectionSchema,
+} from "./note-personalization.js";
 
 const quizGenerationStateSchema = z.object({
   status: z.enum(["draft", "resuming", "complete"]).default("draft"),
@@ -29,27 +33,37 @@ const quizGenerationStateSchema = z.object({
 });
 
 export const quizArtifactPayloadSchema = z.object({
-  questions: z.array(z.object({
-    prompt: z.string().min(1),
-    answer: z.string().min(1).optional(),
-    referenceAnswer: z.string().min(1).optional(),
-    explanation: z.string().min(1).optional(),
-    choices: z.array(z.string().min(1)).optional(),
-    difficulty: z.string().min(1).optional(),
-    conceptIds: z.array(idSchema).default([]),
-  }).refine((question) => Boolean(question.answer ?? question.referenceAnswer), {
-    message: "Quiz questions require answer or referenceAnswer.",
-  })).default([]),
+  questions: z
+    .array(
+      z
+        .object({
+          prompt: z.string().min(1),
+          answer: z.string().min(1).optional(),
+          referenceAnswer: z.string().min(1).optional(),
+          explanation: z.string().min(1).optional(),
+          choices: z.array(z.string().min(1)).optional(),
+          difficulty: z.string().min(1).optional(),
+          conceptIds: z.array(idSchema).default([]),
+        })
+        .refine((question) => Boolean(question.answer ?? question.referenceAnswer), {
+          message: "Quiz questions require answer or referenceAnswer.",
+        }),
+    )
+    .default([]),
   generationState: quizGenerationStateSchema.optional(),
 });
 
 export const flashcardsArtifactPayloadSchema = z.object({
-  cards: z.array(z.object({
-    front: z.string().min(1),
-    back: z.string().min(1),
-    conceptIds: z.array(idSchema).default([]),
-    ambiguityWarning: z.string().min(1).optional(),
-  })).min(1),
+  cards: z
+    .array(
+      z.object({
+        front: z.string().min(1),
+        back: z.string().min(1),
+        conceptIds: z.array(idSchema).default([]),
+        ambiguityWarning: z.string().min(1).optional(),
+      }),
+    )
+    .min(1),
 });
 
 export const workedExampleArtifactPayloadSchema = z.object({
@@ -60,25 +74,33 @@ export const workedExampleArtifactPayloadSchema = z.object({
 });
 
 export const formulaSheetArtifactPayloadSchema = z.object({
-  formulas: z.array(z.object({
-    symbol: z.string().min(1).optional(),
-    expression: z.string().min(1),
-    meaning: z.string().min(1),
-    assumptions: z.string().min(1).optional(),
-    units: z.string().min(1).optional(),
-    exampleUsage: z.string().min(1).optional(),
-  })).min(1),
+  formulas: z
+    .array(
+      z.object({
+        symbol: z.string().min(1).optional(),
+        expression: z.string().min(1),
+        meaning: z.string().min(1),
+        assumptions: z.string().min(1).optional(),
+        units: z.string().min(1).optional(),
+        exampleUsage: z.string().min(1).optional(),
+      }),
+    )
+    .min(1),
 });
 
 export const comparisonPageArtifactPayloadSchema = z.object({
   leftTitle: z.string().min(1),
   rightTitle: z.string().min(1),
-  comparisonRows: z.array(z.object({
-    dimension: z.string().min(1),
-    left: z.string().min(1),
-    right: z.string().min(1),
-    takeaway: z.string().min(1).optional(),
-  })).min(1),
+  comparisonRows: z
+    .array(
+      z.object({
+        dimension: z.string().min(1),
+        left: z.string().min(1),
+        right: z.string().min(1),
+        takeaway: z.string().min(1).optional(),
+      }),
+    )
+    .min(1),
   checkpointQuestion: z.string().min(1).optional(),
 });
 
@@ -128,7 +150,17 @@ export const learningArtifactSectionSchema = z.object({
 });
 
 export const learningArtifactActionSchema = z.object({
-  id: z.enum(["study", "practice", "revise", "ask_tutor", "approve", "edit", "archive", "open_source", "review"]),
+  id: z.enum([
+    "study",
+    "practice",
+    "revise",
+    "ask_tutor",
+    "approve",
+    "edit",
+    "archive",
+    "open_source",
+    "review",
+  ]),
   label: z.string().min(1),
   intent: z.enum(["primary", "secondary", "danger"]).default("secondary"),
 });

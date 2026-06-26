@@ -8,7 +8,10 @@ import {
 } from "@studyagent/schemas";
 import { detectLearnerTraitEstimationTrigger } from "./learner-trait-estimation.js";
 import { deriveMasteryEvidencePatternSignals } from "./learner-trait-mastery-patterns.js";
-import { readCurrentLearnerTraitEstimates, readRecentLearnerTraitSignals } from "./learner-trait-store.js";
+import {
+  readCurrentLearnerTraitEstimates,
+  readRecentLearnerTraitSignals,
+} from "./learner-trait-store.js";
 
 const MASTERY_EVIDENCE_LIMIT = 20;
 
@@ -58,7 +61,12 @@ export async function planLearnerTraitEstimation(
     dbClient.db
       .select()
       .from(masteryEvidence)
-      .where(and(eq(masteryEvidence.notebookId, input.notebookId), eq(masteryEvidence.userId, input.userId)))
+      .where(
+        and(
+          eq(masteryEvidence.notebookId, input.notebookId),
+          eq(masteryEvidence.userId, input.userId),
+        ),
+      )
       .orderBy(desc(masteryEvidence.createdAt))
       .limit(MASTERY_EVIDENCE_LIMIT),
   ]);
@@ -74,7 +82,9 @@ export async function planLearnerTraitEstimation(
   const trigger = detectLearnerTraitEstimationTrigger({
     signals: planningSignals,
     currentEstimates,
-    ...(input.explicitAgentDecision !== undefined ? { explicitAgentDecision: input.explicitAgentDecision } : {}),
+    ...(input.explicitAgentDecision !== undefined
+      ? { explicitAgentDecision: input.explicitAgentDecision }
+      : {}),
   });
 
   const skipReason = trigger.shouldEstimate ? undefined : inferSkipReason(planningSignals);
@@ -99,7 +109,10 @@ export async function persistLearnerTraitEstimationPlan(
   await appendEvent(dbClient, {
     notebookId: plan.notebookId,
     ...(plan.sessionId ? { sessionId: plan.sessionId } : {}),
-    eventType: plan.decision === "run" ? "learner_trait.estimation.planned" : "learner_trait.estimation.skipped",
+    eventType:
+      plan.decision === "run"
+        ? "learner_trait.estimation.planned"
+        : "learner_trait.estimation.skipped",
     payload: {
       planId: plan.planId,
       decision: plan.decision,
@@ -112,11 +125,12 @@ export async function persistLearnerTraitEstimationPlan(
 
 function inferSkipReason(signals: LearnerTraitSignal[]): LearnerTraitEstimationSkipReason {
   if (!signals.length) return "no_trait_relevant_signals";
-  const hasExplicitOrRepeated = signals.some((signal) =>
-    signal.source === "explicit_self_report" ||
-    signal.source === "tutor_recorded_preference" ||
-    signal.source === "onboarding_profile" ||
-    signal.strength >= 0.65,
+  const hasExplicitOrRepeated = signals.some(
+    (signal) =>
+      signal.source === "explicit_self_report" ||
+      signal.source === "tutor_recorded_preference" ||
+      signal.source === "onboarding_profile" ||
+      signal.strength >= 0.65,
   );
   return hasExplicitOrRepeated ? "no_trait_relevant_signals" : "one_off_low_signal_observation";
 }

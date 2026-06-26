@@ -40,11 +40,14 @@ describe("agentic tutor cache invalidation", () => {
       skipped: false,
       namespaces: [TUTOR_AGENTIC_CACHE_NAMESPACES.retrievalRows],
     });
-    expect(invalidateAgenticCacheScopeMock).toHaveBeenCalledWith({}, {
-      namespace: TUTOR_AGENTIC_CACHE_NAMESPACES.retrievalRows,
-      scopeType: "notebook",
-      scopeId: "nb_1",
-    });
+    expect(invalidateAgenticCacheScopeMock).toHaveBeenCalledWith(
+      {},
+      {
+        namespace: TUTOR_AGENTIC_CACHE_NAMESPACES.retrievalRows,
+        scopeType: "notebook",
+        scopeId: "nb_1",
+      },
+    );
   });
 
   it("does not invalidate tutor read caches for profile-only events anymore", async () => {

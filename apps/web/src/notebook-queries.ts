@@ -6,7 +6,9 @@ export function notebookSourcesQueryKey(notebookId: string | null | undefined) {
   return ["notebook-sources", notebookId] as const;
 }
 
-export async function fetchNotebookSources(notebookId: string | null | undefined): Promise<SourceLearnerView[]> {
+export async function fetchNotebookSources(
+  notebookId: string | null | undefined,
+): Promise<SourceLearnerView[]> {
   if (!notebookId) return [];
   const res = await api(`/notebooks/${encodeURIComponent(notebookId)}/sources`);
   if (!res.ok) {
@@ -35,7 +37,14 @@ export function notebookGraphQueryKey(
   isDeveloperMode: boolean,
   refreshToken: number,
 ) {
-  return ["notebook-graph", notebookId, viewMode, sourceScope, isDeveloperMode, refreshToken] as const;
+  return [
+    "notebook-graph",
+    notebookId,
+    viewMode,
+    sourceScope,
+    isDeveloperMode,
+    refreshToken,
+  ] as const;
 }
 
 export async function fetchNotebookGraphQuery(input: {
@@ -99,7 +108,9 @@ export async function saveGraphNodeLayout(input: {
 }
 
 export async function clearGraphLayout(notebookId: string): Promise<void> {
-  const res = await api(`/notebooks/${encodeURIComponent(notebookId)}/graph/layout`, { method: "DELETE" });
+  const res = await api(`/notebooks/${encodeURIComponent(notebookId)}/graph/layout`, {
+    method: "DELETE",
+  });
   if (!res.ok) {
     throw new Error(`Failed to clear layout (${res.status})`);
   }

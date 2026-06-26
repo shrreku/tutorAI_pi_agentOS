@@ -85,7 +85,10 @@ function sanitizeAnalyticsValue(value: unknown, depth: number): unknown {
     return value.slice(0, 500);
   }
   if (Array.isArray(value)) {
-    return value.slice(0, 50).map((entry) => sanitizeAnalyticsValue(entry, depth)).filter((entry) => entry !== undefined);
+    return value
+      .slice(0, 50)
+      .map((entry) => sanitizeAnalyticsValue(entry, depth))
+      .filter((entry) => entry !== undefined);
   }
   if (typeof value === "object") {
     return sanitizeProductAnalyticsProperties(value as Record<string, unknown>, depth);
@@ -93,7 +96,10 @@ function sanitizeAnalyticsValue(value: unknown, depth: number): unknown {
   return undefined;
 }
 
-export async function getActivationStatus(dbClient: DbClient, userId: string): Promise<ActivationStatus> {
+export async function getActivationStatus(
+  dbClient: DbClient,
+  userId: string,
+): Promise<ActivationStatus> {
   const rows = await dbClient.db
     .select({ eventName: productAnalyticsEvents.eventName })
     .from(productAnalyticsEvents)
@@ -126,44 +132,51 @@ export async function isActivatedLearner(dbClient: DbClient, userId: string): Pr
 }
 
 export async function getActivationSummary(dbClient: DbClient): Promise<ActivationSummary> {
-  const [trackedUsersRow, templateRows, tutorRows, assessmentRows, feedbackRows] = await Promise.all([
-    dbClient.db
-      .select({
-        count: sql<number>`count(distinct ${productAnalyticsEvents.userId})`,
-      })
-      .from(productAnalyticsEvents)
-      .where(sql`${productAnalyticsEvents.userId} is not null`),
-    dbClient.db
-      .select({ count: sql<number>`count(distinct ${productAnalyticsEvents.userId})` })
-      .from(productAnalyticsEvents)
-      .where(
-        and(eq(productAnalyticsEvents.eventName, "template_start"), sql`${productAnalyticsEvents.userId} is not null`),
-      ),
-    dbClient.db
-      .select({ count: sql<number>`count(distinct ${productAnalyticsEvents.userId})` })
-      .from(productAnalyticsEvents)
-      .where(
-        and(eq(productAnalyticsEvents.eventName, "tutor_session"), sql`${productAnalyticsEvents.userId} is not null`),
-      ),
-    dbClient.db
-      .select({ count: sql<number>`count(distinct ${productAnalyticsEvents.userId})` })
-      .from(productAnalyticsEvents)
-      .where(
-        and(
-          inArray(productAnalyticsEvents.eventName, ["mastery_check", "quiz_interaction"]),
-          sql`${productAnalyticsEvents.userId} is not null`,
+  const [trackedUsersRow, templateRows, tutorRows, assessmentRows, feedbackRows] =
+    await Promise.all([
+      dbClient.db
+        .select({
+          count: sql<number>`count(distinct ${productAnalyticsEvents.userId})`,
+        })
+        .from(productAnalyticsEvents)
+        .where(sql`${productAnalyticsEvents.userId} is not null`),
+      dbClient.db
+        .select({ count: sql<number>`count(distinct ${productAnalyticsEvents.userId})` })
+        .from(productAnalyticsEvents)
+        .where(
+          and(
+            eq(productAnalyticsEvents.eventName, "template_start"),
+            sql`${productAnalyticsEvents.userId} is not null`,
+          ),
         ),
-      ),
-    dbClient.db
-      .select({ count: sql<number>`count(distinct ${productAnalyticsEvents.userId})` })
-      .from(productAnalyticsEvents)
-      .where(
-        and(
-          eq(productAnalyticsEvents.eventName, "learning_feedback_submitted"),
-          sql`${productAnalyticsEvents.userId} is not null`,
+      dbClient.db
+        .select({ count: sql<number>`count(distinct ${productAnalyticsEvents.userId})` })
+        .from(productAnalyticsEvents)
+        .where(
+          and(
+            eq(productAnalyticsEvents.eventName, "tutor_session"),
+            sql`${productAnalyticsEvents.userId} is not null`,
+          ),
         ),
-      ),
-  ]);
+      dbClient.db
+        .select({ count: sql<number>`count(distinct ${productAnalyticsEvents.userId})` })
+        .from(productAnalyticsEvents)
+        .where(
+          and(
+            inArray(productAnalyticsEvents.eventName, ["mastery_check", "quiz_interaction"]),
+            sql`${productAnalyticsEvents.userId} is not null`,
+          ),
+        ),
+      dbClient.db
+        .select({ count: sql<number>`count(distinct ${productAnalyticsEvents.userId})` })
+        .from(productAnalyticsEvents)
+        .where(
+          and(
+            eq(productAnalyticsEvents.eventName, "learning_feedback_submitted"),
+            sql`${productAnalyticsEvents.userId} is not null`,
+          ),
+        ),
+    ]);
 
   const templateStart = Number(templateRows[0]?.count ?? 0);
   const tutorSession = Number(tutorRows[0]?.count ?? 0);
@@ -179,8 +192,7 @@ export async function getActivationSummary(dbClient: DbClient): Promise<Activati
         sql`${productAnalyticsEvents.userId} is not null`,
       ),
     )
-    .groupBy(productAnalyticsEvents.userId)
-    .having(sql`
+    .groupBy(productAnalyticsEvents.userId).having(sql`
       count(*) filter (where ${productAnalyticsEvents.eventName} = 'template_start') > 0
       and count(*) filter (where ${productAnalyticsEvents.eventName} = 'tutor_session') > 0
       and count(*) filter (

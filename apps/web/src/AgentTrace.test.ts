@@ -75,17 +75,72 @@ describe("agent trace helpers", () => {
   });
 
   it("merges live run, thinking, narration, and tool chunks in chronological order", () => {
-    let run = updateLiveTraceRun(null, { type: "SESSION_STARTED", runId: "run_1", timestamp: 1000 });
-    run = updateLiveTraceRun(run, { type: "RUN_STARTED", runId: "run_1", model: "deepseek/deepseek-v4-flash", timestamp: 1100 });
-    run = updateLiveTraceRun(run, { type: "THINKING_START", thinkingId: "think_1", timestamp: 1120 });
-    run = updateLiveTraceRun(run, { type: "THINKING_CONTENT", thinkingId: "think_1", delta: "Need to inspect the study plan.", timestamp: 1130 });
-    run = updateLiveTraceRun(run, { type: "THINKING_END", thinkingId: "think_1", content: "Need to inspect the study plan.", durationMs: 80, timestamp: 1140 });
-    run = updateLiveTraceRun(run, { type: "RUNTIME_NARRATION_START", narrationId: "narr_1", timestamp: 1145 });
-    run = updateLiveTraceRun(run, { type: "RUNTIME_NARRATION_CONTENT", narrationId: "narr_1", delta: "Checking the active study plan first.", timestamp: 1150 });
-    run = updateLiveTraceRun(run, { type: "RUNTIME_NARRATION_END", narrationId: "narr_1", content: "Checking the active study plan first.", durationMs: 20, timestamp: 1160 });
-    run = updateLiveTraceRun(run, { type: "TOOL_CALL_START", toolCallId: "tool_1", toolName: "artifact.create_quiz", timestamp: 1200 });
-    run = updateLiveTraceRun(run, { type: "TOOL_CALL_ARGS", toolCallId: "tool_1", args: "{\"questionCount\":3}", timestamp: 1250 });
-    run = updateLiveTraceRun(run, { type: "TOOL_CALL_END", toolCallId: "tool_1", toolName: "artifact.create_quiz", result: "{\"status\":\"ready\"}", timestamp: 1500 });
+    let run = updateLiveTraceRun(null, {
+      type: "SESSION_STARTED",
+      runId: "run_1",
+      timestamp: 1000,
+    });
+    run = updateLiveTraceRun(run, {
+      type: "RUN_STARTED",
+      runId: "run_1",
+      model: "deepseek/deepseek-v4-flash",
+      timestamp: 1100,
+    });
+    run = updateLiveTraceRun(run, {
+      type: "THINKING_START",
+      thinkingId: "think_1",
+      timestamp: 1120,
+    });
+    run = updateLiveTraceRun(run, {
+      type: "THINKING_CONTENT",
+      thinkingId: "think_1",
+      delta: "Need to inspect the study plan.",
+      timestamp: 1130,
+    });
+    run = updateLiveTraceRun(run, {
+      type: "THINKING_END",
+      thinkingId: "think_1",
+      content: "Need to inspect the study plan.",
+      durationMs: 80,
+      timestamp: 1140,
+    });
+    run = updateLiveTraceRun(run, {
+      type: "RUNTIME_NARRATION_START",
+      narrationId: "narr_1",
+      timestamp: 1145,
+    });
+    run = updateLiveTraceRun(run, {
+      type: "RUNTIME_NARRATION_CONTENT",
+      narrationId: "narr_1",
+      delta: "Checking the active study plan first.",
+      timestamp: 1150,
+    });
+    run = updateLiveTraceRun(run, {
+      type: "RUNTIME_NARRATION_END",
+      narrationId: "narr_1",
+      content: "Checking the active study plan first.",
+      durationMs: 20,
+      timestamp: 1160,
+    });
+    run = updateLiveTraceRun(run, {
+      type: "TOOL_CALL_START",
+      toolCallId: "tool_1",
+      toolName: "artifact.create_quiz",
+      timestamp: 1200,
+    });
+    run = updateLiveTraceRun(run, {
+      type: "TOOL_CALL_ARGS",
+      toolCallId: "tool_1",
+      args: '{"questionCount":3}',
+      timestamp: 1250,
+    });
+    run = updateLiveTraceRun(run, {
+      type: "TOOL_CALL_END",
+      toolCallId: "tool_1",
+      toolName: "artifact.create_quiz",
+      result: '{"status":"ready"}',
+      timestamp: 1500,
+    });
 
     expect(run).toMatchObject({
       id: "run_1",
@@ -143,37 +198,34 @@ describe("agent trace helpers", () => {
   it("shows the live trace body expanded by default", () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const markup = renderToStaticMarkup(
-      React.createElement(
-        QueryClientProvider,
-        {
-          client,
-          children: React.createElement(AgentTrace, {
-            traceTurn: null,
-            liveRun: {
-              id: "run_1",
-              status: "running",
-              runType: "tutor_turn",
-              model: "deepseek/deepseek-v4-flash",
-              startedAt: 1000,
-              nextSequence: 1,
-              tools: [
-                {
-                  id: "tool_1",
-                  toolName: "artifact.create_quiz",
-                  status: "started",
-                  input: { questionCount: 3 },
-                  startedAt: 1200,
-                  sequence: 0,
-                },
-              ],
-              thinking: [],
-              narration: [],
-            },
-            runStatus: "running",
-            showDiagnostics: true,
-          }),
-        },
-      ),
+      React.createElement(QueryClientProvider, {
+        client,
+        children: React.createElement(AgentTrace, {
+          traceTurn: null,
+          liveRun: {
+            id: "run_1",
+            status: "running",
+            runType: "tutor_turn",
+            model: "deepseek/deepseek-v4-flash",
+            startedAt: 1000,
+            nextSequence: 1,
+            tools: [
+              {
+                id: "tool_1",
+                toolName: "artifact.create_quiz",
+                status: "started",
+                input: { questionCount: 3 },
+                startedAt: 1200,
+                sequence: 0,
+              },
+            ],
+            thinking: [],
+            narration: [],
+          },
+          runStatus: "running",
+          showDiagnostics: true,
+        }),
+      }),
     );
 
     expect(markup).toContain("Agent trace");
@@ -183,35 +235,32 @@ describe("agent trace helpers", () => {
   it("renders per-tool collapsible details for learner view", () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const markup = renderToStaticMarkup(
-      React.createElement(
-        QueryClientProvider,
-        {
-          client,
-          children: React.createElement(AgentTrace, {
-            traceTurn: null,
-            liveRun: {
-              id: "run_1",
-              status: "running",
-              runType: "tutor_turn",
-              startedAt: 1000,
-              nextSequence: 1,
-              tools: [
-                {
-                  id: "tool_1",
-                  toolName: "source.get_span",
-                  status: "started",
-                  input: { sourceId: "src_1" },
-                  startedAt: 1200,
-                  sequence: 0,
-                },
-              ],
-              thinking: [],
-              narration: [],
-            },
-            runStatus: "running",
-          }),
-        },
-      ),
+      React.createElement(QueryClientProvider, {
+        client,
+        children: React.createElement(AgentTrace, {
+          traceTurn: null,
+          liveRun: {
+            id: "run_1",
+            status: "running",
+            runType: "tutor_turn",
+            startedAt: 1000,
+            nextSequence: 1,
+            tools: [
+              {
+                id: "tool_1",
+                toolName: "source.get_span",
+                status: "started",
+                input: { sourceId: "src_1" },
+                startedAt: 1200,
+                sequence: 0,
+              },
+            ],
+            thinking: [],
+            narration: [],
+          },
+          runStatus: "running",
+        }),
+      }),
     );
 
     expect(markup).toContain("tutor-runtime-work-shell");
@@ -239,7 +288,10 @@ describe("agent trace helpers", () => {
             status: "completed",
             latencyMs: 40,
             input: { sourceId: "src_1" },
-            output: { text: "Heat flows from hot to cold.", citation: { sourceTitle: "Thermo.pdf" } },
+            output: {
+              text: "Heat flows from hot to cold.",
+              citation: { sourceTitle: "Thermo.pdf" },
+            },
             nodeRefs: [],
           },
           {
@@ -258,34 +310,82 @@ describe("agent trace helpers", () => {
       "Read span · Thermo.pdf · 40ms",
       "Generated quiz · Heat transfer quiz · 90ms",
     ]);
-    expect(phases.find((phase) => phase.label.startsWith("Read span"))?.detail).toContain("Heat flows");
+    expect(phases.find((phase) => phase.label.startsWith("Read span"))?.detail).toContain(
+      "Heat flows",
+    );
   });
 
   it("renders cursor-style thought, narration, and tool sections in learner view", () => {
-    let liveRun = updateLiveTraceRun(null, { type: "RUN_STARTED", runId: "run_1", timestamp: 1000 });
-    liveRun = updateLiveTraceRun(liveRun, { type: "THINKING_START", thinkingId: "think_1", timestamp: 1010 });
-    liveRun = updateLiveTraceRun(liveRun, { type: "THINKING_CONTENT", thinkingId: "think_1", delta: "Need to inspect the study plan.", timestamp: 1020 });
-    liveRun = updateLiveTraceRun(liveRun, { type: "THINKING_END", thinkingId: "think_1", content: "Need to inspect the study plan.", durationMs: 1200, timestamp: 1030 });
-    liveRun = updateLiveTraceRun(liveRun, { type: "RUNTIME_NARRATION_START", narrationId: "narr_1", timestamp: 1040 });
-    liveRun = updateLiveTraceRun(liveRun, { type: "RUNTIME_NARRATION_CONTENT", narrationId: "narr_1", delta: "Checking the active study plan first.", timestamp: 1050 });
-    liveRun = updateLiveTraceRun(liveRun, { type: "RUNTIME_NARRATION_END", narrationId: "narr_1", content: "Checking the active study plan first.", timestamp: 1060 });
-    liveRun = updateLiveTraceRun(liveRun, { type: "TOOL_CALL_START", toolCallId: "tool_1", toolName: "wiki.search", timestamp: 1070 });
-    liveRun = updateLiveTraceRun(liveRun, { type: "TOOL_CALL_ARGS", toolCallId: "tool_1", args: "{\"query\":\"entropy\"}", timestamp: 1080 });
-    liveRun = updateLiveTraceRun(liveRun, { type: "TOOL_CALL_END", toolCallId: "tool_1", toolName: "wiki.search", result: "{}", timestamp: 1090 });
+    let liveRun = updateLiveTraceRun(null, {
+      type: "RUN_STARTED",
+      runId: "run_1",
+      timestamp: 1000,
+    });
+    liveRun = updateLiveTraceRun(liveRun, {
+      type: "THINKING_START",
+      thinkingId: "think_1",
+      timestamp: 1010,
+    });
+    liveRun = updateLiveTraceRun(liveRun, {
+      type: "THINKING_CONTENT",
+      thinkingId: "think_1",
+      delta: "Need to inspect the study plan.",
+      timestamp: 1020,
+    });
+    liveRun = updateLiveTraceRun(liveRun, {
+      type: "THINKING_END",
+      thinkingId: "think_1",
+      content: "Need to inspect the study plan.",
+      durationMs: 1200,
+      timestamp: 1030,
+    });
+    liveRun = updateLiveTraceRun(liveRun, {
+      type: "RUNTIME_NARRATION_START",
+      narrationId: "narr_1",
+      timestamp: 1040,
+    });
+    liveRun = updateLiveTraceRun(liveRun, {
+      type: "RUNTIME_NARRATION_CONTENT",
+      narrationId: "narr_1",
+      delta: "Checking the active study plan first.",
+      timestamp: 1050,
+    });
+    liveRun = updateLiveTraceRun(liveRun, {
+      type: "RUNTIME_NARRATION_END",
+      narrationId: "narr_1",
+      content: "Checking the active study plan first.",
+      timestamp: 1060,
+    });
+    liveRun = updateLiveTraceRun(liveRun, {
+      type: "TOOL_CALL_START",
+      toolCallId: "tool_1",
+      toolName: "wiki.search",
+      timestamp: 1070,
+    });
+    liveRun = updateLiveTraceRun(liveRun, {
+      type: "TOOL_CALL_ARGS",
+      toolCallId: "tool_1",
+      args: '{"query":"entropy"}',
+      timestamp: 1080,
+    });
+    liveRun = updateLiveTraceRun(liveRun, {
+      type: "TOOL_CALL_END",
+      toolCallId: "tool_1",
+      toolName: "wiki.search",
+      result: "{}",
+      timestamp: 1090,
+    });
 
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const markup = renderToStaticMarkup(
-      React.createElement(
-        QueryClientProvider,
-        {
-          client,
-          children: React.createElement(AgentTrace, {
-            traceTurn: null,
-            liveRun,
-            runStatus: "running",
-          }),
-        },
-      ),
+      React.createElement(QueryClientProvider, {
+        client,
+        children: React.createElement(AgentTrace, {
+          traceTurn: null,
+          liveRun,
+          runStatus: "running",
+        }),
+      }),
     );
 
     expect(markup).toContain("tutor-runtime-thought");
@@ -298,25 +398,46 @@ describe("agent trace helpers", () => {
   });
 
   it("renders a lone thought inside a flat work beat", () => {
-    let liveRun = updateLiveTraceRun(null, { type: "RUN_STARTED", runId: "run_1", timestamp: 1000 });
-    liveRun = updateLiveTraceRun(liveRun, { type: "RUNTIME_NARRATION_END", narrationId: "narr_1", content: "Let me check that.", timestamp: 1010 });
-    liveRun = updateLiveTraceRun(liveRun, { type: "THINKING_START", thinkingId: "think_1", timestamp: 1020 });
-    liveRun = updateLiveTraceRun(liveRun, { type: "THINKING_END", thinkingId: "think_1", content: "Need the concept id.", durationMs: 400, timestamp: 1030 });
-    liveRun = updateLiveTraceRun(liveRun, { type: "RUNTIME_NARRATION_END", narrationId: "narr_2", content: "Here is the answer.", timestamp: 1040 });
+    let liveRun = updateLiveTraceRun(null, {
+      type: "RUN_STARTED",
+      runId: "run_1",
+      timestamp: 1000,
+    });
+    liveRun = updateLiveTraceRun(liveRun, {
+      type: "RUNTIME_NARRATION_END",
+      narrationId: "narr_1",
+      content: "Let me check that.",
+      timestamp: 1010,
+    });
+    liveRun = updateLiveTraceRun(liveRun, {
+      type: "THINKING_START",
+      thinkingId: "think_1",
+      timestamp: 1020,
+    });
+    liveRun = updateLiveTraceRun(liveRun, {
+      type: "THINKING_END",
+      thinkingId: "think_1",
+      content: "Need the concept id.",
+      durationMs: 400,
+      timestamp: 1030,
+    });
+    liveRun = updateLiveTraceRun(liveRun, {
+      type: "RUNTIME_NARRATION_END",
+      narrationId: "narr_2",
+      content: "Here is the answer.",
+      timestamp: 1040,
+    });
 
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const markup = renderToStaticMarkup(
-      React.createElement(
-        QueryClientProvider,
-        {
-          client,
-          children: React.createElement(AgentTrace, {
-            traceTurn: null,
-            liveRun,
-            runStatus: "running",
-          }),
-        },
-      ),
+      React.createElement(QueryClientProvider, {
+        client,
+        children: React.createElement(AgentTrace, {
+          traceTurn: null,
+          liveRun,
+          runStatus: "running",
+        }),
+      }),
     );
 
     expect(markup).toContain("tutor-runtime-thought");
@@ -374,7 +495,9 @@ describe("agent trace helpers", () => {
     ]);
 
     expect(model.steps.map((step) => step.kind)).toEqual(["thought", "narration", "tool"]);
-    expect(model.steps.find((step) => step.kind === "narration")?.content).toContain("Checking the active study plan");
+    expect(model.steps.find((step) => step.kind === "narration")?.content).toContain(
+      "Checking the active study plan",
+    );
     expect(model.steps.find((step) => step.kind === "tool")?.summary).toContain("Searched");
   });
 
@@ -438,7 +561,9 @@ describe("agent trace helpers", () => {
     const model = buildRuntimeWorkViewForDisplay(null, runs);
     expect(model.steps.map((step) => step.kind)).toEqual(["thought", "narration", "tool", "tool"]);
     const narration = model.steps.find((step) => step.kind === "narration");
-    expect(narration?.content).toBe("Let me look up the specific objectives and the source material.");
+    expect(narration?.content).toBe(
+      "Let me look up the specific objectives and the source material.",
+    );
     expect(model.steps.filter((step) => step.kind === "thought")).toHaveLength(1);
   });
 
@@ -556,13 +681,16 @@ describe("agent trace helpers", () => {
       },
     ]);
 
-    expect(grouped.map((step) => step.kind)).toEqual(["work-segment", "narration", "work-segment", "narration"]);
-    expect(grouped[0]?.kind === "work-segment" ? grouped[0].items.length : 0).toBe(2);
-    expect(grouped[2]?.kind === "work-segment" ? grouped[2].items.map((item) => item.kind) : []).toEqual([
-      "thought",
-      "tool",
-      "tool",
+    expect(grouped.map((step) => step.kind)).toEqual([
+      "work-segment",
+      "narration",
+      "work-segment",
+      "narration",
     ]);
+    expect(grouped[0]?.kind === "work-segment" ? grouped[0].items.length : 0).toBe(2);
+    expect(
+      grouped[2]?.kind === "work-segment" ? grouped[2].items.map((item) => item.kind) : [],
+    ).toEqual(["thought", "tool", "tool"]);
   });
 
   it("interleaves persisted thoughts, tools, and narrations by timestamp", () => {
@@ -651,10 +779,23 @@ describe("agent trace helpers", () => {
       completedAt: runStart + 71_000,
       nextSequence: 4,
       thinking: [
-        { id: "think_1", content: "Plan the turn.", status: "completed" as const, startedAt: runStart + 1_000, sequence: 0, durationMs: 400 },
+        {
+          id: "think_1",
+          content: "Plan the turn.",
+          status: "completed" as const,
+          startedAt: runStart + 1_000,
+          sequence: 0,
+          durationMs: 400,
+        },
       ],
       narration: [
-        { id: "narr_1", content: "Let me check the study plan.", status: "completed" as const, startedAt: runStart + 1_500, sequence: 2 },
+        {
+          id: "narr_1",
+          content: "Let me check the study plan.",
+          status: "completed" as const,
+          startedAt: runStart + 1_500,
+          sequence: 2,
+        },
       ],
       tools: [
         {
@@ -706,11 +847,30 @@ describe("agent trace helpers", () => {
       completedAt: runStart + 71_000,
       nextSequence: 5,
       thinking: [
-        { id: "think_1", content: "Plan the turn.", status: "completed" as const, startedAt: runStart + 1_000, sequence: 0, durationMs: 400 },
+        {
+          id: "think_1",
+          content: "Plan the turn.",
+          status: "completed" as const,
+          startedAt: runStart + 1_000,
+          sequence: 0,
+          durationMs: 400,
+        },
       ],
       narration: [
-        { id: "narr_1", content: "Let me check the study plan.", status: "completed" as const, startedAt: runStart + 1_500, sequence: 2 },
-        { id: "narr_2", content: "Here is what we should focus on next.", status: "completed" as const, startedAt: runStart + 5_000, sequence: 4 },
+        {
+          id: "narr_1",
+          content: "Let me check the study plan.",
+          status: "completed" as const,
+          startedAt: runStart + 1_500,
+          sequence: 2,
+        },
+        {
+          id: "narr_2",
+          content: "Here is what we should focus on next.",
+          status: "completed" as const,
+          startedAt: runStart + 5_000,
+          sequence: 4,
+        },
       ],
       tools: [
         {
@@ -791,7 +951,9 @@ describe("agent trace helpers", () => {
       "thought",
       "narration",
     ]);
-    expect(groupRuntimeSteps(model.steps).filter((step) => step.kind === "narration")).toHaveLength(2);
+    expect(groupRuntimeSteps(model.steps).filter((step) => step.kind === "narration")).toHaveLength(
+      2,
+    );
   });
 
   it("keeps only the active thought or tool expanded while streaming", () => {
@@ -849,7 +1011,9 @@ describe("agent trace helpers", () => {
     });
 
     expect(focus.activeItemId).toBeNull();
-    expect(focus.settledBeatIds.has(displaySteps[0]?.kind === "work-segment" ? displaySteps[0].id : "")).toBe(true);
+    expect(
+      focus.settledBeatIds.has(displaySteps[0]?.kind === "work-segment" ? displaySteps[0].id : ""),
+    ).toBe(true);
   });
 
   it("collapses work once the final assistant response starts streaming", () => {
@@ -884,27 +1048,61 @@ describe("agent trace helpers", () => {
   });
 
   it("keeps tool summaries visible after a beat is settled by narration", () => {
-    let liveRun = updateLiveTraceRun(null, { type: "RUN_STARTED", runId: "run_1", timestamp: Date.parse("2026-05-13T00:00:00.000Z") });
-    liveRun = updateLiveTraceRun(liveRun, { type: "THINKING_END", thinkingId: "think_1", content: "Plan the turn.", durationMs: 300, timestamp: Date.parse("2026-05-13T00:00:01.000Z") });
-    liveRun = updateLiveTraceRun(liveRun, { type: "TOOL_CALL_START", toolCallId: "tool_1", toolName: "study_plan.get_current", timestamp: Date.parse("2026-05-13T00:00:02.000Z") });
-    liveRun = updateLiveTraceRun(liveRun, { type: "TOOL_CALL_END", toolCallId: "tool_1", toolName: "study_plan.get_current", result: "{}", timestamp: Date.parse("2026-05-13T00:00:03.000Z") });
-    liveRun = updateLiveTraceRun(liveRun, { type: "TOOL_CALL_START", toolCallId: "tool_2", toolName: "learning.get_state", timestamp: Date.parse("2026-05-13T00:00:04.000Z") });
-    liveRun = updateLiveTraceRun(liveRun, { type: "TOOL_CALL_END", toolCallId: "tool_2", toolName: "learning.get_state", result: "{}", timestamp: Date.parse("2026-05-13T00:00:05.000Z") });
-    liveRun = updateLiveTraceRun(liveRun, { type: "RUNTIME_NARRATION_END", narrationId: "narr_1", content: "Checked the study plan and learning state.", timestamp: Date.parse("2026-05-13T00:00:06.000Z") });
+    let liveRun = updateLiveTraceRun(null, {
+      type: "RUN_STARTED",
+      runId: "run_1",
+      timestamp: Date.parse("2026-05-13T00:00:00.000Z"),
+    });
+    liveRun = updateLiveTraceRun(liveRun, {
+      type: "THINKING_END",
+      thinkingId: "think_1",
+      content: "Plan the turn.",
+      durationMs: 300,
+      timestamp: Date.parse("2026-05-13T00:00:01.000Z"),
+    });
+    liveRun = updateLiveTraceRun(liveRun, {
+      type: "TOOL_CALL_START",
+      toolCallId: "tool_1",
+      toolName: "study_plan.get_current",
+      timestamp: Date.parse("2026-05-13T00:00:02.000Z"),
+    });
+    liveRun = updateLiveTraceRun(liveRun, {
+      type: "TOOL_CALL_END",
+      toolCallId: "tool_1",
+      toolName: "study_plan.get_current",
+      result: "{}",
+      timestamp: Date.parse("2026-05-13T00:00:03.000Z"),
+    });
+    liveRun = updateLiveTraceRun(liveRun, {
+      type: "TOOL_CALL_START",
+      toolCallId: "tool_2",
+      toolName: "learning.get_state",
+      timestamp: Date.parse("2026-05-13T00:00:04.000Z"),
+    });
+    liveRun = updateLiveTraceRun(liveRun, {
+      type: "TOOL_CALL_END",
+      toolCallId: "tool_2",
+      toolName: "learning.get_state",
+      result: "{}",
+      timestamp: Date.parse("2026-05-13T00:00:05.000Z"),
+    });
+    liveRun = updateLiveTraceRun(liveRun, {
+      type: "RUNTIME_NARRATION_END",
+      narrationId: "narr_1",
+      content: "Checked the study plan and learning state.",
+      timestamp: Date.parse("2026-05-13T00:00:06.000Z"),
+    });
 
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const markup = renderToStaticMarkup(
-      React.createElement(
-        QueryClientProvider,
-        {
-          client,
-          children: React.createElement(AgentTrace, {
-            traceTurn: null,
-            liveRun,
-            runStatus: "running",
-          }),
-        },
-      ),
+      React.createElement(QueryClientProvider, {
+        client,
+        children: React.createElement(AgentTrace, {
+          traceTurn: null,
+          liveRun,
+          runStatus: "running",
+        }),
+      }),
     );
 
     expect(markup).toContain("tutor-runtime-tool-line-summary");
@@ -955,7 +1153,9 @@ describe("agent trace helpers", () => {
       stripFinalDuplicate: true,
     });
     expect(model.steps.map((step) => step.kind)).toEqual(["narration"]);
-    expect(model.steps[0]?.kind === "narration" ? model.steps[0].content : "").toBe("Let me check the study plan.");
+    expect(model.steps[0]?.kind === "narration" ? model.steps[0].content : "").toBe(
+      "Let me check the study plan.",
+    );
   });
 
   it("describes study plan and learning state tools with useful detail", () => {
@@ -998,9 +1198,15 @@ describe("agent trace helpers", () => {
       },
     ]);
 
-    const studyPlanTool = model.steps.find((step) => step.kind === "tool" && step.toolName === "study_plan.get_current");
-    const learningTool = model.steps.find((step) => step.kind === "tool" && step.toolName === "learning.get_state");
-    expect(studyPlanTool?.kind === "tool" ? studyPlanTool.detail : "").toContain("Understand Fourier's law");
+    const studyPlanTool = model.steps.find(
+      (step) => step.kind === "tool" && step.toolName === "study_plan.get_current",
+    );
+    const learningTool = model.steps.find(
+      (step) => step.kind === "tool" && step.toolName === "learning.get_state",
+    );
+    expect(studyPlanTool?.kind === "tool" ? studyPlanTool.detail : "").toContain(
+      "Understand Fourier's law",
+    );
     expect(learningTool?.kind === "tool" ? learningTool.detail : "").toContain("mastery 0.42");
     expect(model.durationMs).toBe(4000);
   });
@@ -1055,7 +1261,7 @@ describe("agent trace helpers", () => {
     expect(phases.map((phase) => phase.label)).toEqual([
       "Thinking",
       "Checking the active study plan first.",
-      "Searching · \"entropy\"",
+      'Searching · "entropy"',
     ]);
   });
 });

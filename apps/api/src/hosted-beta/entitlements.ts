@@ -31,7 +31,10 @@ export async function getUserProductState(
   return row ?? null;
 }
 
-export async function ensureUserProductState(ctx: AppContext, userId: string): Promise<UserProductState> {
+export async function ensureUserProductState(
+  ctx: AppContext,
+  userId: string,
+): Promise<UserProductState> {
   const existing = await getUserProductState(ctx, userId);
   if (existing) {
     return existing;
@@ -99,7 +102,10 @@ export async function hasAcceptedBetaConsent(ctx: AppContext, userId: string): P
   return Boolean(row);
 }
 
-export async function getLatestBetaConsent(ctx: AppContext, userId: string): Promise<BetaConsent | null> {
+export async function getLatestBetaConsent(
+  ctx: AppContext,
+  userId: string,
+): Promise<BetaConsent | null> {
   const [row] = await ctx.db.db
     .select()
     .from(betaConsents)

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { eventTypeSchema } from "@studyagent/schemas";
-import { WORKSPACE_REFRESH_EVENT_TYPES, shouldInvalidateArtifactsForEvent } from "./workspace-refresh-policy.js";
+import {
+  WORKSPACE_REFRESH_EVENT_TYPES,
+  shouldInvalidateArtifactsForEvent,
+} from "./workspace-refresh-policy.js";
 
 describe("app event listener contract", () => {
   it("subscribes only to schema-defined event names", () => {

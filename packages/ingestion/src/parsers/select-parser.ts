@@ -10,7 +10,10 @@ export type ParserSelectionOptions = {
   llamaParse?: { apiKey: string; baseUrl: string; tier: LlamaParseTier };
 };
 
-export function parserForSourceType(sourceType: string, opts?: ParserSelectionOptions): ParserAdapter {
+export function parserForSourceType(
+  sourceType: string,
+  opts?: ParserSelectionOptions,
+): ParserAdapter {
   switch (sourceType) {
     case "markdown":
       return markdownTextParserAdapter;

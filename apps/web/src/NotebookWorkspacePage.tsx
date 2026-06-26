@@ -3,7 +3,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Whiteboard from "./Whiteboard.js";
 import TutorPanel from "./TutorPanel.js";
 import type { SourceLearnerView } from "@studyagent/schemas";
-import { applyWorkspaceRefreshInvalidations, resolveWorkspaceRefreshPolicy } from "./workspace-refresh-policy.js";
+import {
+  applyWorkspaceRefreshInvalidations,
+  resolveWorkspaceRefreshPolicy,
+} from "./workspace-refresh-policy.js";
 import { NotebookWorkspaceSyncBridge } from "./notebook-workspace-sync-bridge.js";
 import { WorkspaceShellProvider } from "./workspace-shell-context.js";
 import { notebookSourcesQueryKey, fetchNotebookSources } from "./notebook-queries.js";
@@ -41,7 +44,9 @@ export function NotebookWorkspacePage({
   const [error, setError] = useState<string | null>(null);
   const [splitPercent, setSplitPercent] = useState<number>(35);
   const [theme] = useState<"mist" | "atlas" | "folio">("mist");
-  const [selectedNodeRefs, setSelectedNodeRefs] = useState<Array<{ refType: string; refId: string }>>([]);
+  const [selectedNodeRefs, setSelectedNodeRefs] = useState<
+    Array<{ refType: string; refId: string }>
+  >([]);
   const [graphRefreshToken, setGraphRefreshToken] = useState(0);
   const queryClient = useQueryClient();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -58,7 +63,9 @@ export function NotebookWorkspacePage({
 
   const sourceSummary = useMemo(() => {
     const ready = activeSources.filter((source) => source.tutoringReady).length;
-    const improving = activeSources.filter((source) => source.tutoringReady && (!source.sourceWikiReady || !source.projectionReady)).length;
+    const improving = activeSources.filter(
+      (source) => source.tutoringReady && (!source.sourceWikiReady || !source.projectionReady),
+    ).length;
     const processing = activeSources.filter(sourceIsProcessing).length;
     const failed = activeSources.filter(sourceIsFailed).length;
     return { total: activeSources.length, ready, improving, processing, failed };
@@ -146,7 +153,9 @@ export function NotebookWorkspacePage({
               {sourceSummary.improving > 0 ? ` · ${sourceSummary.improving} improving` : ""}
               {sourceSummary.failed > 0 ? ` · ${sourceSummary.failed} failed` : ""}
               {" · "}
-              {selectedNodeRefs.length ? `${selectedNodeRefs.length} graph item selected` : "Whole notebook context"}
+              {selectedNodeRefs.length
+                ? `${selectedNodeRefs.length} graph item selected`
+                : "Whole notebook context"}
             </div>
           </div>
           <div className="study-topbar-actions">
@@ -157,11 +166,19 @@ export function NotebookWorkspacePage({
               placeholder="Search notebook, Study Map, Source Wiki"
               aria-label="Search notebook"
             />
-            <button type="button" className="study-secondary-button" onClick={() => navigate("/app")}>
+            <button
+              type="button"
+              className="study-secondary-button"
+              onClick={() => navigate("/app")}
+            >
               Dashboard
             </button>
             {showEvalRuns ? (
-              <button type="button" className="study-secondary-button" onClick={() => navigate("/eval-runs")}>
+              <button
+                type="button"
+                className="study-secondary-button"
+                onClick={() => navigate("/eval-runs")}
+              >
                 Eval runs
               </button>
             ) : null}
@@ -175,7 +192,11 @@ export function NotebookWorkspacePage({
                 e.target.value = "";
               }}
             />
-            <button type="button" className="study-primary-button" onClick={() => uploadInputRef.current?.click()}>
+            <button
+              type="button"
+              className="study-primary-button"
+              onClick={() => uploadInputRef.current?.click()}
+            >
               Add source
             </button>
           </div>
@@ -205,8 +226,15 @@ export function NotebookWorkspacePage({
                 className="study-split"
                 style={{ userSelect: isDragging.current ? "none" : "auto" }}
               >
-                <div className="study-split-pane" style={{ width: `${splitPercent}%`, flexShrink: 0 }}>
-                  <TutorPanel key={notebookId} notebookId={notebookId} selectedNodeRefs={selectedNodeRefs} />
+                <div
+                  className="study-split-pane"
+                  style={{ width: `${splitPercent}%`, flexShrink: 0 }}
+                >
+                  <TutorPanel
+                    key={notebookId}
+                    notebookId={notebookId}
+                    selectedNodeRefs={selectedNodeRefs}
+                  />
                 </div>
                 <div className="study-divider" onMouseDown={startDrag} aria-hidden="true" />
                 <div className="study-split-pane" style={{ flex: 1 }}>

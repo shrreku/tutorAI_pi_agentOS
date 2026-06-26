@@ -8,13 +8,23 @@ import {
 
 describe("workspaceRefreshPolicyForEvent", () => {
   it("maps source readiness events to source and graph refreshes", () => {
-    expect(resolveWorkspaceRefreshPolicy("source.tutoring_ready").targets).toEqual(expect.arrayContaining(["sources", "graph", "sourceFiles"]));
-    expect(resolveWorkspaceRefreshPolicy("source.readiness.updated").targets).toEqual(expect.arrayContaining(["sources", "graph", "sourceFiles"]));
+    expect(resolveWorkspaceRefreshPolicy("source.tutoring_ready").targets).toEqual(
+      expect.arrayContaining(["sources", "graph", "sourceFiles"]),
+    );
+    expect(resolveWorkspaceRefreshPolicy("source.readiness.updated").targets).toEqual(
+      expect.arrayContaining(["sources", "graph", "sourceFiles"]),
+    );
   });
 
   it("maps planning and mastery events to graph and study-state refreshes", () => {
-    expect(resolveWorkspaceRefreshPolicy("session_plan.updated").targets).toEqual(["graph", "studyState"]);
-    expect(resolveWorkspaceRefreshPolicy("learning.mastery_evidence.recorded").targets).toEqual(["graph", "studyState"]);
+    expect(resolveWorkspaceRefreshPolicy("session_plan.updated").targets).toEqual([
+      "graph",
+      "studyState",
+    ]);
+    expect(resolveWorkspaceRefreshPolicy("learning.mastery_evidence.recorded").targets).toEqual([
+      "graph",
+      "studyState",
+    ]);
   });
 
   it("maps artifact events to every artifact surface that can show stale data", () => {
@@ -27,12 +37,14 @@ describe("workspaceRefreshPolicyForEvent", () => {
   });
 
   it("merges server-authored refresh hints with event policy targets", () => {
-    expect(resolveWorkspaceRefreshPolicy("reference.regenerated", {
-      targets: ["referenceSurfaces", "graph", "curriculum"],
-      nodeIds: ["artifact_1"],
-      artifactIds: [],
-      sourceIds: [],
-    })).toMatchObject({
+    expect(
+      resolveWorkspaceRefreshPolicy("reference.regenerated", {
+        targets: ["referenceSurfaces", "graph", "curriculum"],
+        nodeIds: ["artifact_1"],
+        artifactIds: [],
+        sourceIds: [],
+      }),
+    ).toMatchObject({
       label: "reference regenerated",
       targets: expect.arrayContaining(["referenceSurfaces", "graph", "curriculum"]),
       nodeIds: ["artifact_1"],
@@ -71,8 +83,12 @@ describe("applyWorkspaceRefreshInvalidations", () => {
       onGraphProjectionUpdated,
     });
 
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["quiz-attempts", "nb_1", "artifact_1"] });
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ["quiz-attempts", "nb_1", "artifact_1"],
+    });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["reference-surface", "nb_1"] });
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["reference-surface", "nb_1", "src_1"] });
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ["reference-surface", "nb_1", "src_1"],
+    });
   });
 });

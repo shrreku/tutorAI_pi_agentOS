@@ -5,9 +5,7 @@ import { buildGenerationIdempotencyKey } from "@studyagent/schemas";
 import { and, eq } from "drizzle-orm";
 import { finishGenerationJob } from "./generation-job-lifecycle.js";
 import { recordGenerationMetric } from "./generation-metrics.js";
-import {
-  markGenerationTargetComplete,
-} from "./generation-target-registry.js";
+import { markGenerationTargetComplete } from "./generation-target-registry.js";
 import {
   ensureModuleObjectives,
   isPolishFailure,
@@ -69,13 +67,23 @@ export async function runInitialBuild(
   const [moduleRow] = await dbClient.db
     .select()
     .from(curriculumModules)
-    .where(and(eq(curriculumModules.id, input.moduleId), eq(curriculumModules.notebookId, input.notebookId)))
+    .where(
+      and(
+        eq(curriculumModules.id, input.moduleId),
+        eq(curriculumModules.notebookId, input.notebookId),
+      ),
+    )
     .limit(1);
   if (!moduleRow) {
     await appendEvent(dbClient, {
       notebookId: input.notebookId,
       eventType: "generation.initial_build.failed",
-      payload: { curriculumId: input.curriculumId, moduleId: input.moduleId, ok: false, reason: "module_missing" },
+      payload: {
+        curriculumId: input.curriculumId,
+        moduleId: input.moduleId,
+        ok: false,
+        reason: "module_missing",
+      },
     });
     recordGenerationMetric({
       eventType: "generation.initial_build.failed",
@@ -102,29 +110,37 @@ export async function runInitialBuild(
   const modulePage = await loadModulePage(dbClient, input.notebookId, input.moduleId);
   if (modulePage) {
     const modulePolishResult = await runPolishJobTracked(env, dbClient, {
-        notebookId: input.notebookId,
-        pageId: modulePage.id,
-        pageKey: modulePage.pageKey,
-        pageType: "module",
-        title: moduleRow.title,
-        generationMode: "initial_build",
-        trigger: "initial_build",
-        sourceId: input.sourceId,
-        curriculumId: input.curriculumId,
-        moduleId: input.moduleId,
-        idempotencyKey: `${idempotencyKey}:module_page`,
-      });
+      notebookId: input.notebookId,
+      pageId: modulePage.id,
+      pageKey: modulePage.pageKey,
+      pageType: "module",
+      title: moduleRow.title,
+      generationMode: "initial_build",
+      trigger: "initial_build",
+      sourceId: input.sourceId,
+      curriculumId: input.curriculumId,
+      moduleId: input.moduleId,
+      idempotencyKey: `${idempotencyKey}:module_page`,
+    });
     polishResults.push(modulePolishResult);
     modulePolishFailed = isPolishFailure(modulePolishResult);
   }
 
   const firstObjectiveId = objectiveIds[0];
   const [firstObjective] = firstObjectiveId
-    ? await dbClient.db.select().from(objectives).where(eq(objectives.id, firstObjectiveId)).limit(1)
+    ? await dbClient.db
+        .select()
+        .from(objectives)
+        .where(eq(objectives.id, firstObjectiveId))
+        .limit(1)
     : [];
-  const coreConceptIds = selectCoreConceptIdsForFirstObjective(firstObjective?.targetConceptIds ?? moduleRow.targetConceptIds ?? []);
+  const coreConceptIds = selectCoreConceptIdsForFirstObjective(
+    firstObjective?.targetConceptIds ?? moduleRow.targetConceptIds ?? [],
+  );
 
-  const topicPages = await loadTopicPagesForConcepts(dbClient, input.notebookId, coreConceptIds, [moduleRow.title]);
+  const topicPages = await loadTopicPagesForConcepts(dbClient, input.notebookId, coreConceptIds, [
+    moduleRow.title,
+  ]);
   for (const topicPage of topicPages) {
     polishResults.push(
       await runPolishJobTracked(env, dbClient, {

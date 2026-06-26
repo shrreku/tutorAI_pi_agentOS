@@ -5,7 +5,11 @@ export const MCP_APP_BRIDGE_CHANNEL = "studyagent-mcp-app";
 
 export const MCP_APP_SANDBOX_ATTR = "allow-scripts";
 
-const FORBIDDEN_SANDBOX_PERMISSIONS = ["allow-same-origin", "allow-top-navigation", "allow-popups"] as const;
+const FORBIDDEN_SANDBOX_PERMISSIONS = [
+  "allow-same-origin",
+  "allow-top-navigation",
+  "allow-popups",
+] as const;
 
 export type McpAppBundleManifest = {
   bundleId: string;
@@ -102,7 +106,11 @@ export const MCP_APP_BUNDLE_REGISTRY: McpAppBundleManifest[] = [
     blockKind: "source_reader",
     resourceUri: "ui://studyagent/source-reader/v1",
     assetPath: "/mcp-apps/source-reader/v1/index.html",
-    supportedActions: ["source_reader.annotation_created", "evidence.source_span_opened", "tutor.help_requested"],
+    supportedActions: [
+      "source_reader.annotation_created",
+      "evidence.source_span_opened",
+      "tutor.help_requested",
+    ],
     sandboxPolicy: [MCP_APP_SANDBOX_ATTR],
     fallbackSupported: true,
     blockSchemaVersion: "1",
@@ -158,17 +166,21 @@ function simulationTemplateId(block: InteractiveLearningBlock): string {
   if (block.content && typeof block.content === "object" && block.content !== null) {
     const record = block.content as Record<string, unknown>;
     if (typeof record.simulationTemplateId === "string") return record.simulationTemplateId;
-    if (typeof record.templateId === "string") return record.templateId.split("/").pop() ?? "function-plotter";
+    if (typeof record.templateId === "string")
+      return record.templateId.split("/").pop() ?? "function-plotter";
   }
   return "function-plotter";
 }
 
-export function resolveBundleForBlock(block: InteractiveLearningBlock): McpAppBundleManifest | null {
+export function resolveBundleForBlock(
+  block: InteractiveLearningBlock,
+): McpAppBundleManifest | null {
   if (block.kind === "simulation") {
     const templateId = simulationTemplateId(block);
     return (
       MCP_APP_BUNDLE_REGISTRY.find(
-        (entry) => entry.blockKind === "simulation_template" && entry.simulationTemplateId === templateId,
+        (entry) =>
+          entry.blockKind === "simulation_template" && entry.simulationTemplateId === templateId,
       ) ?? null
     );
   }

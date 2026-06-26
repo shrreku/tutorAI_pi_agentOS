@@ -152,7 +152,12 @@ describe("architecture deepening integration", () => {
             labels: ["Objective"],
             properties: { title: "Understand the derivative", status: "in_progress" },
           },
-          { id: conceptId, nodeType: "concept", labels: ["Concept"], properties: { canonicalName: "Derivative" } },
+          {
+            id: conceptId,
+            nodeType: "concept",
+            labels: ["Concept"],
+            properties: { canonicalName: "Derivative" },
+          },
           {
             id: "art_draft",
             nodeType: "artifact",
@@ -160,7 +165,15 @@ describe("architecture deepening integration", () => {
             properties: { title: "Draft derivative note", status: "draft", artifactType: "note" },
           },
         ],
-        edges: [{ id: "e1", source: "obj_chain", target: conceptId, relationType: "covers", properties: {} }],
+        edges: [
+          {
+            id: "e1",
+            source: "obj_chain",
+            target: conceptId,
+            relationType: "covers",
+            properties: {},
+          },
+        ],
       },
       {
         devMode: false,
@@ -182,7 +195,9 @@ describe("architecture deepening integration", () => {
     expect(studyMap.emphasis.currentObjectiveId).toBe("obj_chain");
     expect(studyMap.nodes.some((node) => node.id === "art_draft")).toBe(false);
     expect(
-      studyMap.nodeCatalog.some((entry) => entry.node.id === conceptId && entry.referenceSurfaceTarget),
+      studyMap.nodeCatalog.some(
+        (entry) => entry.node.id === conceptId && entry.referenceSurfaceTarget,
+      ),
     ).toBe(true);
 
     const lifecycle = resolveArtifactLifecycleOutcome({
@@ -194,7 +209,9 @@ describe("architecture deepening integration", () => {
       sourceRefs: [{ refType: "chunk", refId: "chk_1" }],
     });
     expect(lifecycle.lifecycle.status).toBe("proposed");
-    expect(learnerVisibilityForArtifact({ artifactType: "quiz", status: lifecycle.lifecycle.status })).toBe("learner");
+    expect(
+      learnerVisibilityForArtifact({ artifactType: "quiz", status: lifecycle.lifecycle.status }),
+    ).toBe("learner");
 
     const quality = decideArtifactQuality({
       artifactType: "quiz",
@@ -204,7 +221,11 @@ describe("architecture deepening integration", () => {
     });
     expect(quality.canBecomeReady).toBe(true);
 
-    const surface = await buildReferenceSurface(makeConceptSurfaceCtx(conceptId), "nb_chain", conceptId);
+    const surface = await buildReferenceSurface(
+      makeConceptSurfaceCtx(conceptId),
+      "nb_chain",
+      conceptId,
+    );
     expect(surface.surfaceType).toBe("concept");
     expect(surface.blocks.length).toBeGreaterThan(0);
 
@@ -236,7 +257,7 @@ function makeStudyMapCtx(overrides: {
           ? overrides.studyPlan
             ? [{ id: "plan_chain", ...overrides.studyPlan }]
             : []
-          : overrides.artifacts ?? [],
+          : (overrides.artifacts ?? []),
       ),
     then(onFulfilled: (value: unknown[]) => unknown, onRejected?: (reason: unknown) => unknown) {
       return chain(table).limit().then(onFulfilled, onRejected);

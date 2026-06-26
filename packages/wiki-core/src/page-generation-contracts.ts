@@ -9,7 +9,10 @@ import {
 import { compileInteractiveBlockPlan } from "./interactive-block-compiler.js";
 
 export function buildIdempotencyKey(
-  target: Pick<GenerationTarget, "notebookId" | "targetType" | "pageKey" | "targetRef" | "generationMode">,
+  target: Pick<
+    GenerationTarget,
+    "notebookId" | "targetType" | "pageKey" | "targetRef" | "generationMode"
+  >,
 ): string {
   return buildGenerationIdempotencyKey({
     notebookId: target.notebookId,

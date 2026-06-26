@@ -15,7 +15,11 @@ export function AccountPage() {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const { data: workspaces = [], isLoading, error } = useQuery({
+  const {
+    data: workspaces = [],
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ["account-workspaces"],
     queryFn: fetchNotebooks,
   });
@@ -68,10 +72,16 @@ export function AccountPage() {
   return (
     <div>
       <h1>Account &amp; data</h1>
-      <p className="tb-lead">Delete personal workspaces, uploaded sources, or request full account deletion.</p>
+      <p className="tb-lead">
+        Delete personal workspaces, uploaded sources, or request full account deletion.
+      </p>
 
       {isLoading && <div className="tb-card">Loading workspaces…</div>}
-      {error && <pre className="tb-error">{error instanceof Error ? error.message : "Failed to load workspaces"}</pre>}
+      {error && (
+        <pre className="tb-error">
+          {error instanceof Error ? error.message : "Failed to load workspaces"}
+        </pre>
+      )}
       {statusMessage && <div className="tb-card">{statusMessage}</div>}
       {errorMessage && <pre className="tb-error">{errorMessage}</pre>}
 
@@ -94,7 +104,11 @@ export function AccountPage() {
                   className="tb-button"
                   disabled={deleteWorkspaceMutation.isPending}
                   onClick={() => {
-                    if (window.confirm(`Delete workspace "${workspace.title}"? This cannot be undone.`)) {
+                    if (
+                      window.confirm(
+                        `Delete workspace "${workspace.title}"? This cannot be undone.`,
+                      )
+                    ) {
                       deleteWorkspaceMutation.mutate(workspace.id);
                     }
                   }}
@@ -112,7 +126,9 @@ export function AccountPage() {
       <section className="tb-card">
         <h2>Uploaded sources</h2>
         {sourcesLoading && <p>Loading sources…</p>}
-        {!sourcesLoading && sources.length === 0 ? <p>No uploaded sources in personal workspaces.</p> : null}
+        {!sourcesLoading && sources.length === 0 ? (
+          <p>No uploaded sources in personal workspaces.</p>
+        ) : null}
         <ul className="tb-account-workspace-list">
           {sources.map((source) => (
             <li key={source.id} className="tb-account-workspace-item">
@@ -142,8 +158,8 @@ export function AccountPage() {
       <section className="tb-card">
         <h2>Request account deletion</h2>
         <p>
-          Full account deletion spans identity, database records, uploaded files, and analytics systems. Submit a request
-          and we will process it manually during beta.
+          Full account deletion spans identity, database records, uploaded files, and analytics
+          systems. Submit a request and we will process it manually during beta.
         </p>
         <label className="tb-field">
           <span>Notes (optional)</span>

@@ -19,7 +19,8 @@ export function deriveMasteryEvidencePatternSignals(input: {
   for (const row of input.masteryRows) {
     const evidence = row.evidenceJson;
     const evidenceType = typeof evidence.evidenceType === "string" ? evidence.evidenceType : null;
-    const correctnessLabel = typeof evidence.correctnessLabel === "string" ? evidence.correctnessLabel : null;
+    const correctnessLabel =
+      typeof evidence.correctnessLabel === "string" ? evidence.correctnessLabel : null;
     const confidence = typeof evidence.confidence === "number" ? evidence.confidence : null;
     if (evidenceType !== "self_report") continue;
 

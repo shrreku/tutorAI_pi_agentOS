@@ -60,7 +60,9 @@ export class ReferenceSurfaceFakeDb {
                   limit(limitCount: number) {
                     let resolved = tableRows;
                     if (db.nodeId && limitCount === 1) {
-                      resolved = tableRows.filter((row) => (row as { id?: string }).id === db.nodeId);
+                      resolved = tableRows.filter(
+                        (row) => (row as { id?: string }).id === db.nodeId,
+                      );
                     }
                     return Promise.resolve(resolved.slice(0, limitCount));
                   },

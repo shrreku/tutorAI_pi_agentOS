@@ -43,15 +43,17 @@ export async function enqueueDegradedInitialBuildRetries(
   for (const notebookId of notebookIds) {
     const moduleRow =
       degradedModules.find((row) => row.notebookId === notebookId) ??
-      (await dbClient.db
-        .select({
-          notebookId: wikiPages.notebookId,
-          moduleId: sql<string>`replace(${wikiPages.pageKey}, 'module:', '')`.as("module_id"),
-        })
-        .from(wikiPages)
-        .where(and(eq(wikiPages.notebookId, notebookId), eq(wikiPages.pageType, "module")))
-        .orderBy(asc(wikiPages.createdAt))
-        .limit(1))[0];
+      (
+        await dbClient.db
+          .select({
+            notebookId: wikiPages.notebookId,
+            moduleId: sql<string>`replace(${wikiPages.pageKey}, 'module:', '')`.as("module_id"),
+          })
+          .from(wikiPages)
+          .where(and(eq(wikiPages.notebookId, notebookId), eq(wikiPages.pageType, "module")))
+          .orderBy(asc(wikiPages.createdAt))
+          .limit(1)
+      )[0];
     if (!moduleRow) continue;
     const row = { notebookId, moduleId: moduleRow.moduleId };
     const [curriculum] = await dbClient.db

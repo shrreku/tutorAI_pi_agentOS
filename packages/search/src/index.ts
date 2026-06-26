@@ -3,7 +3,11 @@ import { buildScoreExplanation } from "./score-explanation.js";
 import { collectSourceRefs } from "./wiki-search-mapper.js";
 
 export { resolveOpenRouterEmbeddingModelId } from "./embedding-model.js";
-export { embedTextsOpenRouter, type OpenRouterEmbedClientOptions, type EmbedTextsResult } from "./openrouter-embeddings.js";
+export {
+  embedTextsOpenRouter,
+  type OpenRouterEmbedClientOptions,
+  type EmbedTextsResult,
+} from "./openrouter-embeddings.js";
 export {
   lexicalSearchNotebook,
   vectorSearchNotebook,
@@ -27,7 +31,9 @@ export {
   type SearchResultType,
 } from "./rrf.js";
 
-export function rrfResultsToHits(results: import("./rrf.js").UnifiedSearchResult[]): UnifiedSearchHit[] {
+export function rrfResultsToHits(
+  results: import("./rrf.js").UnifiedSearchResult[],
+): UnifiedSearchHit[] {
   return results.map((r) => ({
     id: r.id,
     type: r.type,

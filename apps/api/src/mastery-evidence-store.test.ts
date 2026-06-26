@@ -44,7 +44,12 @@ describe("persistMasteryEvidence", () => {
       triggerSource: "tutor_tool",
       sourceRefs: [],
       contextRefs: [],
-      evaluatorProvenance: { mode: "deterministic", model: null, fallbackUsed: false, notes: "test" },
+      evaluatorProvenance: {
+        mode: "deterministic",
+        model: null,
+        fallbackUsed: false,
+        notes: "test",
+      },
     };
 
     const dbClient = {

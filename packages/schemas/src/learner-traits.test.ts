@@ -65,18 +65,20 @@ describe("learner trait model", () => {
   });
 
   it("rejects trait values outside the shared vocabulary", () => {
-    expect(() => learnerTraitValuesSchema.parse({
-      pacePreference: "reckless",
-      depthPreference: "balanced",
-      helpSeekingStyle: "asks_early",
-      confidenceStyle: "calibrated",
-      metacognitiveAccuracy: "medium",
-      persistenceStyle: "steady",
-      sourceFamiliarity: "familiar",
-      assessmentPreference: "quiz",
-      examplePreference: "concrete",
-      urgencyContext: "exam_prep",
-    })).toThrow();
+    expect(() =>
+      learnerTraitValuesSchema.parse({
+        pacePreference: "reckless",
+        depthPreference: "balanced",
+        helpSeekingStyle: "asks_early",
+        confidenceStyle: "calibrated",
+        metacognitiveAccuracy: "medium",
+        persistenceStyle: "steady",
+        sourceFamiliarity: "familiar",
+        assessmentPreference: "quiz",
+        examplePreference: "concrete",
+        urgencyContext: "exam_prep",
+      }),
+    ).toThrow();
   });
 
   it("keeps real learner trait estimates evidence-backed", () => {
@@ -202,12 +204,48 @@ describe("learner trait model", () => {
   it("derives recommendation-only archetype buckets from confident matching estimates", () => {
     const buckets = deriveLearnerTraitArchetypeBuckets({
       estimates: [
-        { trait: "pacePreference", value: "fast", confidence: 0.8, evidenceRefs: [], lastUpdatedReason: "repeated skips" },
-        { trait: "depthPreference", value: "intuitive", confidence: 0.8, evidenceRefs: [], lastUpdatedReason: "asks for gist" },
-        { trait: "helpSeekingStyle", value: "avoids_help", confidence: 0.8, evidenceRefs: [], lastUpdatedReason: "does not ask for hints" },
-        { trait: "confidenceStyle", value: "overconfident", confidence: 0.8, evidenceRefs: [], lastUpdatedReason: "claims mastery" },
-        { trait: "metacognitiveAccuracy", value: "low", confidence: 0.8, evidenceRefs: [], lastUpdatedReason: "mismatch with mastery" },
-        { trait: "persistenceStyle", value: "stubborn", confidence: 0.8, evidenceRefs: [], lastUpdatedReason: "persists through errors" },
+        {
+          trait: "pacePreference",
+          value: "fast",
+          confidence: 0.8,
+          evidenceRefs: [],
+          lastUpdatedReason: "repeated skips",
+        },
+        {
+          trait: "depthPreference",
+          value: "intuitive",
+          confidence: 0.8,
+          evidenceRefs: [],
+          lastUpdatedReason: "asks for gist",
+        },
+        {
+          trait: "helpSeekingStyle",
+          value: "avoids_help",
+          confidence: 0.8,
+          evidenceRefs: [],
+          lastUpdatedReason: "does not ask for hints",
+        },
+        {
+          trait: "confidenceStyle",
+          value: "overconfident",
+          confidence: 0.8,
+          evidenceRefs: [],
+          lastUpdatedReason: "claims mastery",
+        },
+        {
+          trait: "metacognitiveAccuracy",
+          value: "low",
+          confidence: 0.8,
+          evidenceRefs: [],
+          lastUpdatedReason: "mismatch with mastery",
+        },
+        {
+          trait: "persistenceStyle",
+          value: "stubborn",
+          confidence: 0.8,
+          evidenceRefs: [],
+          lastUpdatedReason: "persists through errors",
+        },
       ],
     });
 

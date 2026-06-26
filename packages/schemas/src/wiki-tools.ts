@@ -31,7 +31,9 @@ export const wikiSearchResultRowSchema = z.object({
 export const wikiSearchResponsePayloadSchema = z.object({
   results: z.array(wikiSearchResultRowSchema),
   retrievalMode: z.enum(["hybrid", "lexical", "lexical_fallback"]).optional(),
-  fallbackReason: z.enum(["timeout", "http_error", "missing_api_key", "dimension_mismatch", "unknown"]).optional(),
+  fallbackReason: z
+    .enum(["timeout", "http_error", "missing_api_key", "dimension_mismatch", "unknown"])
+    .optional(),
   boundarySignals: z.array(boundarySignalSchema).default([]),
   warnings: z
     .array(

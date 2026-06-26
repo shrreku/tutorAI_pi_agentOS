@@ -21,7 +21,10 @@ export function resolveGenerationModeFromWikiRecord(
 ): GenerationMode {
   const parsed = generationModeSchema.safeParse(structuredJson?.generationMode);
   if (parsed.success) return parsed.data;
-  if (structuredJson?.regeneratedMode === "ai" || typeof structuredJson?.lastPolishedAt === "string") {
+  if (
+    structuredJson?.regeneratedMode === "ai" ||
+    typeof structuredJson?.lastPolishedAt === "string"
+  ) {
     return "llm_polished";
   }
   if (structuredJson?.touchTrigger === "tutor_touch") return "tutor_touch";

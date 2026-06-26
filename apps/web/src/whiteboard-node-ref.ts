@@ -24,9 +24,16 @@ export function mapGraphNodeTypeToRefType(nodeType: string): string {
   return byType[nodeType] ?? "whiteboard_node";
 }
 
-export function mapGraphNodeToNodeRef(node: { id: string; nodeType: string; properties?: Record<string, unknown> }): WhiteboardNodeRef {
+export function mapGraphNodeToNodeRef(node: {
+  id: string;
+  nodeType: string;
+  properties?: Record<string, unknown>;
+}): WhiteboardNodeRef {
   if (node.nodeType === "weak_concept") {
-    const conceptId = node.properties && typeof node.properties.conceptId === "string" ? node.properties.conceptId : null;
+    const conceptId =
+      node.properties && typeof node.properties.conceptId === "string"
+        ? node.properties.conceptId
+        : null;
     if (conceptId) {
       return {
         refType: "concept",

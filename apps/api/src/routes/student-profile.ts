@@ -6,39 +6,50 @@ import { withOwnedNotebook } from "../hosted-beta/route-guards.js";
 import { readStudentProfile, upsertStudentProfile } from "../student-profile.js";
 import { recordLearnerTraitSignal } from "../learner-trait-store.js";
 
-export async function registerStudentProfileRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
-  app.get<{ Params: { notebookId: string } }>("/notebooks/:notebookId/student-profile", async (request, reply) => {
-    const { notebookId } = request.params;
-    return withOwnedNotebook(ctx, request, reply, notebookId, async (actor) => {
-      const profile = await readStudentProfile(ctx.db, notebookId, actor.id);
-      return reply.send({ studentProfile: profile });
-    });
-  });
-
-  app.patch<{ Params: { notebookId: string } }>("/notebooks/:notebookId/student-profile", async (request, reply) => {
-    const { notebookId } = request.params;
-    return withOwnedNotebook(ctx, request, reply, notebookId, async (actor) => {
-      const parsed = studentProfileUpdatePreferencesInputSchema.safeParse(normalizeStudentProfilePatch(request.body ?? {}));
-
-      if (!parsed.success) {
-        return reply.status(400).send({ code: "bad_request", message: parsed.error.flatten() });
-      }
-
-      const result = await upsertStudentProfile(ctx.db, {
-        notebookId,
-        userId: parsed.data.userId ?? actor.id,
-        patch: parsed.data,
+export async function registerStudentProfileRoutes(
+  app: FastifyInstance,
+  ctx: AppContext,
+): Promise<void> {
+  app.get<{ Params: { notebookId: string } }>(
+    "/notebooks/:notebookId/student-profile",
+    async (request, reply) => {
+      const { notebookId } = request.params;
+      return withOwnedNotebook(ctx, request, reply, notebookId, async (actor) => {
+        const profile = await readStudentProfile(ctx.db, notebookId, actor.id);
+        return reply.send({ studentProfile: profile });
       });
-      await recordPreferenceSignals(ctx, {
-        notebookId,
-        userId: parsed.data.userId ?? actor.id,
-        studentProfileId: result.profile.id,
-        patch: parsed.data,
-      });
+    },
+  );
 
-      return reply.send({ studentProfile: result.profile });
-    });
-  });
+  app.patch<{ Params: { notebookId: string } }>(
+    "/notebooks/:notebookId/student-profile",
+    async (request, reply) => {
+      const { notebookId } = request.params;
+      return withOwnedNotebook(ctx, request, reply, notebookId, async (actor) => {
+        const parsed = studentProfileUpdatePreferencesInputSchema.safeParse(
+          normalizeStudentProfilePatch(request.body ?? {}),
+        );
+
+        if (!parsed.success) {
+          return reply.status(400).send({ code: "bad_request", message: parsed.error.flatten() });
+        }
+
+        const result = await upsertStudentProfile(ctx.db, {
+          notebookId,
+          userId: parsed.data.userId ?? actor.id,
+          patch: parsed.data,
+        });
+        await recordPreferenceSignals(ctx, {
+          notebookId,
+          userId: parsed.data.userId ?? actor.id,
+          studentProfileId: result.profile.id,
+          patch: parsed.data,
+        });
+
+        return reply.send({ studentProfile: result.profile });
+      });
+    },
+  );
 }
 
 async function recordPreferenceSignals(
@@ -53,8 +64,14 @@ async function recordPreferenceSignals(
   const candidates: Array<{ trait: string; value: unknown }> = [
     { trait: "pacePreference", value: input.patch.pacePreference },
     { trait: "depthPreference", value: input.patch.depthPreference },
-    { trait: "examplePreference", value: recordPreferenceValue(input.patch.examplePreferencesJson) },
-    { trait: "assessmentPreference", value: recordPreferenceValue(input.patch.assessmentPreferenceJson) },
+    {
+      trait: "examplePreference",
+      value: recordPreferenceValue(input.patch.examplePreferencesJson),
+    },
+    {
+      trait: "assessmentPreference",
+      value: recordPreferenceValue(input.patch.assessmentPreferenceJson),
+    },
   ];
 
   for (const candidate of candidates) {
@@ -91,7 +108,10 @@ function normalizeStudentProfilePatch(body: unknown): unknown {
   if (normalized.examplePreferencesJson === undefined && input.examplePreference !== undefined) {
     normalized.examplePreferencesJson = { preference: input.examplePreference };
   }
-  if (normalized.assessmentPreferenceJson === undefined && input.assessmentPreference !== undefined) {
+  if (
+    normalized.assessmentPreferenceJson === undefined &&
+    input.assessmentPreference !== undefined
+  ) {
     normalized.assessmentPreferenceJson = { preference: input.assessmentPreference };
   }
   if (normalized.constraintsJson === undefined && input.constraints !== undefined) {

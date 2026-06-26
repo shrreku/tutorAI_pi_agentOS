@@ -73,7 +73,7 @@ export const STUDYAGENT_TUTOR_SYSTEM_PROMPT_TEMPLATE_V1 = [
   "Use tools for notebook facts, source evidence, wiki operations, artifacts, and learning-state reads.",
   "Use the smallest sufficient tool sequence.",
   "Do not claim persistent state changes unless they happen through a tool call.",
-  "Do not narrate tool planning or tool use in the learner-facing answer. Keep phrases like \"let me search\", \"let me check\", and \"now I will save\" out of the final response.",
+  'Do not narrate tool planning or tool use in the learner-facing answer. Keep phrases like "let me search", "let me check", and "now I will save" out of the final response.',
   "If a learner asks for a named source section and retrieval warns that the requested section was not found, say the source section is not available in the indexed notebook and ask for the correct source/page instead of teaching from outside knowledge.",
   "Boundary signals are advisory: reconcile them with retrieved source evidence. If the uploaded source scope is exhausted for the learner's request, say so plainly and offer review, practice, upload-more-source, or outside-source extension; outside-source teaching requires learner consent.",
   "After tools finish, answer directly from the evidence in student-friendly language.",
@@ -163,7 +163,9 @@ export type StudyAgentRuntimeRun = {
   startedAt: string;
 };
 
-export function resolveModelConfig(input: Partial<StudyAgentModelConfig> = {}): StudyAgentModelConfig {
+export function resolveModelConfig(
+  input: Partial<StudyAgentModelConfig> = {},
+): StudyAgentModelConfig {
   return {
     provider: "openrouter",
     model: input.model ?? "openrouter/auto",
@@ -224,7 +226,8 @@ export function buildStudyAgentHostStateSignature(
   options: StudyAgentHostStateSignatureOptions = {},
 ): string {
   const promptTemplateVersion = options.promptTemplateVersion ?? "v1";
-  const toolContractCatalogFingerprint = options.toolContractCatalogFingerprint ?? buildToolContractCatalogFingerprint();
+  const toolContractCatalogFingerprint =
+    options.toolContractCatalogFingerprint ?? buildToolContractCatalogFingerprint();
   const promptFingerprint = stableHash(
     stableJsonStringify({
       notebookTitle: context.notebookTitle,
@@ -253,7 +256,8 @@ export function buildStudyAgentHostStateSignature(
 
 function stableJsonStringify(value: unknown): string {
   if (value === null || typeof value !== "object") return JSON.stringify(value);
-  if (Array.isArray(value)) return `[${value.map((entry) => stableJsonStringify(entry)).join(",")}]`;
+  if (Array.isArray(value))
+    return `[${value.map((entry) => stableJsonStringify(entry)).join(",")}]`;
   return `{${Object.entries(value as Record<string, unknown>)
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([key, entry]) => `${JSON.stringify(key)}:${stableJsonStringify(entry)}`)
@@ -290,9 +294,13 @@ export function buildStudyAgentSystemPrompt(
     "[Notebook Context]",
     `Notebook: ${context.notebookTitle}`,
     `Mode: ${context.activeMode}`,
-    context.selectedGraphRegion ? `Selected graph region: ${context.selectedGraphRegion}` : undefined,
+    context.selectedGraphRegion
+      ? `Selected graph region: ${context.selectedGraphRegion}`
+      : undefined,
     selectedRefs ? `Selected graph refs: ${selectedRefs}` : "Selected graph refs: none",
-    context.curriculumTrackSummary ? `Curriculum track: ${context.curriculumTrackSummary}` : undefined,
+    context.curriculumTrackSummary
+      ? `Curriculum track: ${context.curriculumTrackSummary}`
+      : undefined,
     context.moduleSummary ? `Current module: ${context.moduleSummary}` : undefined,
     context.objectiveListSummary ? `Objective list: ${context.objectiveListSummary}` : undefined,
     context.sessionPlanSummary ? `Session plan: ${context.sessionPlanSummary}` : undefined,
@@ -317,7 +325,7 @@ export function buildStudyAgentSystemPrompt(
     "Use tools for notebook facts, source evidence, wiki operations, artifacts, and learning-state reads.",
     "Use the smallest sufficient tool sequence.",
     "Do not claim persistent state changes unless they happen through a tool call.",
-    "Do not narrate tool planning or tool use in the learner-facing answer. Keep phrases like \"let me search\", \"let me check\", and \"now I will save\" out of the final response.",
+    'Do not narrate tool planning or tool use in the learner-facing answer. Keep phrases like "let me search", "let me check", and "now I will save" out of the final response.',
     "After tools finish, answer directly from the evidence in student-friendly language.",
     "",
     "[Citation and Provenance Rules]",
@@ -341,16 +349,22 @@ export function buildStudyAgentSystemPrompt(
     .join("\n");
 }
 
-export function buildStudyAgentSystemPromptVariables(context: StudyAgentPromptContext): StudyAgentSystemPromptVariables {
+export function buildStudyAgentSystemPromptVariables(
+  context: StudyAgentPromptContext,
+): StudyAgentSystemPromptVariables {
   const selectedRefs = context.selectedNodeRefs
     .map((ref) => `${ref.refType}:${ref.refId}`)
     .join(", ");
   const notebookContext = [
     `Notebook: ${context.notebookTitle}`,
     `Mode: ${context.activeMode}`,
-    context.selectedGraphRegion ? `Selected graph region: ${context.selectedGraphRegion}` : undefined,
+    context.selectedGraphRegion
+      ? `Selected graph region: ${context.selectedGraphRegion}`
+      : undefined,
     selectedRefs ? `Selected graph refs: ${selectedRefs}` : "Selected graph refs: none",
-    context.curriculumTrackSummary ? `Curriculum track: ${context.curriculumTrackSummary}` : undefined,
+    context.curriculumTrackSummary
+      ? `Curriculum track: ${context.curriculumTrackSummary}`
+      : undefined,
     context.moduleSummary ? `Current module: ${context.moduleSummary}` : undefined,
     context.objectiveListSummary ? `Objective list: ${context.objectiveListSummary}` : undefined,
     context.sessionPlanSummary ? `Session plan: ${context.sessionPlanSummary}` : undefined,
@@ -379,7 +393,9 @@ export type CreateRuntimeToolRegistryOptions = {
   writeProvider?: RuntimeWriteToolProvider;
 };
 
-export function createRuntimeToolRegistry(options: CreateRuntimeToolRegistryOptions = {}): ToolRegistry {
+export function createRuntimeToolRegistry(
+  options: CreateRuntimeToolRegistryOptions = {},
+): ToolRegistry {
   const registry = new ToolRegistry();
   registerRuntimeToolsV1(registry, {
     read: options.readProvider ?? createNoopRuntimeReadToolProvider(),

@@ -71,7 +71,9 @@ function numberFromDb(value: unknown): number {
   return 0;
 }
 
-function normalizeTemplateReadinessAudit(row: Partial<Record<keyof TemplateReadinessAudit, unknown>> | undefined): TemplateReadinessAudit {
+function normalizeTemplateReadinessAudit(
+  row: Partial<Record<keyof TemplateReadinessAudit, unknown>> | undefined,
+): TemplateReadinessAudit {
   return {
     readySources: numberFromDb(row?.readySources),
     chunks: numberFromDb(row?.chunks),
@@ -99,7 +101,9 @@ export async function loadTemplateReadinessAudit(
   ctx: AppContext,
   notebookId: string,
 ): Promise<TemplateReadinessAudit> {
-  const rows = await ctx.db.sql<Array<Partial<Record<keyof TemplateReadinessAudit, number | string>>>>`
+  const rows = await ctx.db.sql<
+    Array<Partial<Record<keyof TemplateReadinessAudit, number | string>>>
+  >`
     with input as (select ${notebookId}::text as notebook_id)
     select
       (
@@ -200,7 +204,10 @@ async function requireAdmin(ctx: AppContext, request: FastifyRequest, reply: Fas
   }
 }
 
-export async function registerStudyTemplateRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
+export async function registerStudyTemplateRoutes(
+  app: FastifyInstance,
+  ctx: AppContext,
+): Promise<void> {
   app.get("/study-templates", async (request, reply) => {
     try {
       const { productState } = await requireLearner(ctx, request);
@@ -226,7 +233,11 @@ export async function registerStudyTemplateRoutes(app: FastifyInstance, ctx: App
     try {
       const { actor, productState } = await requireLearner(ctx, request);
       const { id } = request.params;
-      const [row] = await ctx.db.db.select().from(studyTemplates).where(eq(studyTemplates.id, id)).limit(1);
+      const [row] = await ctx.db.db
+        .select()
+        .from(studyTemplates)
+        .where(eq(studyTemplates.id, id))
+        .limit(1);
       if (!row || !isTemplateAccessibleToLearner(row, productState.onboardingJson)) {
         return reply.status(404).send({ code: "not_found", message: "Study template not found" });
       }
@@ -277,7 +288,9 @@ export async function registerStudyTemplateRoutes(app: FastifyInstance, ctx: App
       !body.notebookId ||
       typeof body.estimatedMinutes !== "number"
     ) {
-      return reply.status(400).send({ code: "bad_request", message: "Missing required template fields" });
+      return reply
+        .status(400)
+        .send({ code: "bad_request", message: "Missing required template fields" });
     }
 
     const id = `st_${crypto.randomUUID().replaceAll("-", "")}`;
@@ -300,7 +313,11 @@ export async function registerStudyTemplateRoutes(app: FastifyInstance, ctx: App
       updatedAt: now,
     });
 
-    const [created] = await ctx.db.db.select().from(studyTemplates).where(eq(studyTemplates.id, id)).limit(1);
+    const [created] = await ctx.db.db
+      .select()
+      .from(studyTemplates)
+      .where(eq(studyTemplates.id, id))
+      .limit(1);
     return reply.status(201).send({ template: created });
   });
 
@@ -324,7 +341,11 @@ export async function registerStudyTemplateRoutes(app: FastifyInstance, ctx: App
     if (!actor) return;
 
     const { id } = request.params;
-    const [existing] = await ctx.db.db.select().from(studyTemplates).where(eq(studyTemplates.id, id)).limit(1);
+    const [existing] = await ctx.db.db
+      .select()
+      .from(studyTemplates)
+      .where(eq(studyTemplates.id, id))
+      .limit(1);
     if (!existing) {
       return reply.status(404).send({ code: "not_found", message: "Study template not found" });
     }
@@ -344,7 +365,8 @@ export async function registerStudyTemplateRoutes(app: FastifyInstance, ctx: App
       if (!isTemplateReadinessComplete(readiness) || !isSourceRightsReviewed(sourceRights)) {
         return reply.status(400).send({
           code: "bad_request",
-          message: "Published templates require readiness status ready and source rights status reviewed",
+          message:
+            "Published templates require readiness status ready and source rights status reviewed",
         });
       }
       const audit = await loadTemplateReadinessAudit(ctx, existing.notebookId);
@@ -352,7 +374,8 @@ export async function registerStudyTemplateRoutes(app: FastifyInstance, ctx: App
       if (missingRequirements.length > 0) {
         return reply.status(400).send({
           code: "template_not_ready",
-          message: "Published templates require generated study content, not only readiness metadata.",
+          message:
+            "Published templates require generated study content, not only readiness metadata.",
           missingRequirements,
           audit,
         });
@@ -375,7 +398,11 @@ export async function registerStudyTemplateRoutes(app: FastifyInstance, ctx: App
     if (typeof body.sortOrder === "number") updates.sortOrder = body.sortOrder;
 
     await ctx.db.db.update(studyTemplates).set(updates).where(eq(studyTemplates.id, id));
-    const [updated] = await ctx.db.db.select().from(studyTemplates).where(eq(studyTemplates.id, id)).limit(1);
+    const [updated] = await ctx.db.db
+      .select()
+      .from(studyTemplates)
+      .where(eq(studyTemplates.id, id))
+      .limit(1);
     return reply.send({ template: updated });
   });
 }

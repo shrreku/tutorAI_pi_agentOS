@@ -10,7 +10,9 @@ const {
 } = vi.hoisted(() => ({
   lexicalSearchNotebookMock: vi.fn(),
   hybridSearchNotebookMock: vi.fn(),
-  expandRetrievalChunksWithParentsMock: vi.fn(async (_db: unknown, rows: UnifiedSearchResult[]) => rows),
+  expandRetrievalChunksWithParentsMock: vi.fn(
+    async (_db: unknown, rows: UnifiedSearchResult[]) => rows,
+  ),
 }));
 
 vi.mock("@studyagent/search", async () => {
@@ -151,9 +153,20 @@ describe("wiki.search retrieval cache", () => {
     const provider = createTutorReadToolProvider(ctx);
 
     const result = (await provider.wikiSearch(
-      { query: "teach entropy", maxResults: 2, selectedNodeRefs: [], conceptIds: [], includeGraphExpansion: false },
+      {
+        query: "teach entropy",
+        maxResults: 2,
+        selectedNodeRefs: [],
+        conceptIds: [],
+        includeGraphExpansion: false,
+      },
       { notebookId: "nb_1", selectedNodeRefs: [] } as never,
-    )) as { results: Array<{ refId: string }>; retrievalMode?: string; fallbackReason?: string; warnings?: Array<{ code: string }> };
+    )) as {
+      results: Array<{ refId: string }>;
+      retrievalMode?: string;
+      fallbackReason?: string;
+      warnings?: Array<{ code: string }>;
+    };
 
     expect(result.results.map((item) => item.refId)).toEqual(["chunk_lexical"]);
     expect(result.retrievalMode).toBe("lexical_fallback");
@@ -189,7 +202,13 @@ describe("wiki.search retrieval cache", () => {
     const provider = createTutorReadToolProvider(ctx);
 
     const result = (await provider.wikiSearch(
-      { query: "teach entropy", maxResults: 2, selectedNodeRefs: [], conceptIds: [], includeGraphExpansion: false },
+      {
+        query: "teach entropy",
+        maxResults: 2,
+        selectedNodeRefs: [],
+        conceptIds: [],
+        includeGraphExpansion: false,
+      },
       { notebookId: "nb_1", selectedNodeRefs: [] } as never,
     )) as { results: Array<{ refId: string }>; retrievalMode?: string };
 
@@ -224,11 +243,21 @@ describe("wiki.search retrieval cache", () => {
     const provider = createTutorReadToolProvider(ctx);
 
     const result = (await provider.wikiSearch(
-      { query: "Section 2.2.2 temperature dependence of k", maxResults: 2, selectedNodeRefs: [], conceptIds: [], includeGraphExpansion: false },
+      {
+        query: "Section 2.2.2 temperature dependence of k",
+        maxResults: 2,
+        selectedNodeRefs: [],
+        conceptIds: [],
+        includeGraphExpansion: false,
+      },
       { notebookId: "nb_1", selectedNodeRefs: [] } as never,
     )) as { warnings?: Array<{ code: string; message: string }> };
 
-    expect(result.warnings?.map((warning) => warning.code)).toContain("requested_section_not_found");
-    expect(result.warnings?.find((warning) => warning.code === "requested_section_not_found")?.message).toContain("2.2.2");
+    expect(result.warnings?.map((warning) => warning.code)).toContain(
+      "requested_section_not_found",
+    );
+    expect(
+      result.warnings?.find((warning) => warning.code === "requested_section_not_found")?.message,
+    ).toContain("2.2.2");
   });
 });

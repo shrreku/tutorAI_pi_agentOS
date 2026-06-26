@@ -34,28 +34,29 @@ export function buildSourceReadinessFromSignals(input: SourceReadinessSignals) {
       ? !wikiReady
         ? "degraded"
         : projectionConfigured
-        ? "pending"
-        : "degraded"
+          ? "pending"
+          : "degraded"
       : learnerSourceWikiReady
-      ? "ready"
-      : projectionReady
-      ? "pending"
-      : "degraded";
+        ? "ready"
+        : projectionReady
+          ? "pending"
+          : "degraded";
 
   const learnerSourceWikiMessage =
     mode === "ingestion"
       ? !wikiReady
-        ? enrichmentReason ?? "Source Wiki is still improving."
+        ? (enrichmentReason ?? "Source Wiki is still improving.")
         : projectionConfigured
-        ? "Source Wiki is usable, but Study Map links are still projecting."
-        : "Source Wiki is usable, but Study Map projection is unavailable."
+          ? "Source Wiki is usable, but Study Map links are still projecting."
+          : "Source Wiki is usable, but Study Map projection is unavailable."
       : learnerSourceWikiReady
-      ? null
-      : !wikiReady
-      ? "Source Wiki pages are still compiling."
-      : !planningReady
-      ? "Learning plan bootstrap is still improving."
-      : projectionMessage ?? "Source Wiki is usable, but Study Map links may still be improving.";
+        ? null
+        : !wikiReady
+          ? "Source Wiki pages are still compiling."
+          : !planningReady
+            ? "Learning plan bootstrap is still improving."
+            : (projectionMessage ??
+              "Source Wiki is usable, but Study Map links may still be improving.");
 
   return buildSourceReadiness({
     retrieval: sourceReadinessComponent(retrievalReady, {
@@ -66,17 +67,30 @@ export function buildSourceReadinessFromSignals(input: SourceReadinessSignals) {
     wiki: sourceReadinessComponent(wikiReady, {
       updatedAt,
       status: wikiReady ? "ready" : "degraded",
-      message: mode === "ingestion" ? (wikiReady ? null : enrichmentReason ?? "Source Wiki is still improving.") : null,
+      message:
+        mode === "ingestion"
+          ? wikiReady
+            ? null
+            : (enrichmentReason ?? "Source Wiki is still improving.")
+          : null,
     }),
     planning: sourceReadinessComponent(planningReady, {
       updatedAt,
       status: planningReady ? "ready" : "degraded",
-      message: planningReady ? null : mode === "ingestion" ? enrichmentReason ?? "Learning plan bootstrap is still improving." : "Learning plan bootstrap did not produce a planning context.",
+      message: planningReady
+        ? null
+        : mode === "ingestion"
+          ? (enrichmentReason ?? "Learning plan bootstrap is still improving.")
+          : "Learning plan bootstrap did not produce a planning context.",
     }),
     projection: sourceReadinessComponent(projectionReady, {
       updatedAt,
       status: projectionReady ? "ready" : projectionConfigured ? "pending" : "degraded",
-      message: projectionReady ? null : projectionConfigured ? "Study Map projection is queued." : projectionMessage ?? "Study Map projection is still improving.",
+      message: projectionReady
+        ? null
+        : projectionConfigured
+          ? "Study Map projection is queued."
+          : (projectionMessage ?? "Study Map projection is still improving."),
     }),
     learnerSourceWiki: sourceReadinessComponent(learnerSourceWikiReady, {
       updatedAt,
@@ -86,7 +100,7 @@ export function buildSourceReadinessFromSignals(input: SourceReadinessSignals) {
     tutoring: sourceReadinessComponent(tutoringReady, {
       updatedAt,
       status: tutoringReady ? "ready" : "pending",
-      message: tutoringReady ? null : enrichmentReason ?? "Tutor is still preparing this source.",
+      message: tutoringReady ? null : (enrichmentReason ?? "Tutor is still preparing this source."),
     }),
   });
 }
@@ -134,4 +148,3 @@ export function buildSourceReadinessAfterEnrichment(input: PostEnrichmentSourceR
     mode: "postEnrichment",
   });
 }
-

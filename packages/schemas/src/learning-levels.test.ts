@@ -14,8 +14,12 @@ describe("learning level contracts", () => {
   });
 
   it("infers source level from title and profile signals", () => {
-    expect(inferSourceLevelFromSignals({ title: "Graduate thermodynamics seminar" }).level).toBe("graduate");
-    expect(inferSourceLevelFromSignals({ title: "High school physics notes" }).level).toBe("high_school");
+    expect(inferSourceLevelFromSignals({ title: "Graduate thermodynamics seminar" }).level).toBe(
+      "graduate",
+    );
+    expect(inferSourceLevelFromSignals({ title: "High school physics notes" }).level).toBe(
+      "high_school",
+    );
     expect(inferSourceLevelFromSignals({ title: "Random notes" }).level).toBe("unknown");
   });
 

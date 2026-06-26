@@ -24,7 +24,8 @@ type AccessCodesResponse = {
 };
 
 export function AdminAccessCodesPage() {
-  const { data, error, loading, reload } = useAdminFetch<AccessCodesResponse>("/admin/access-codes");
+  const { data, error, loading, reload } =
+    useAdminFetch<AccessCodesResponse>("/admin/access-codes");
   const [code, setCode] = useState("");
   const [codeType, setCodeType] = useState<"single_use" | "campaign">("single_use");
   const [maxRedemptions, setMaxRedemptions] = useState("10");
@@ -55,10 +56,20 @@ export function AdminAccessCodesPage() {
             tutorCreditsCents: Number.parseInt(tutorCreditsCents, 10) || 0,
             ingestionCreditsCents: Number.parseInt(ingestionCreditsCents, 10) || 0,
             ...(pilotTags.trim()
-              ? { pilotTags: pilotTags.split(",").map((tag) => tag.trim()).filter(Boolean) }
+              ? {
+                  pilotTags: pilotTags
+                    .split(",")
+                    .map((tag) => tag.trim())
+                    .filter(Boolean),
+                }
               : {}),
             ...(templateIds.trim()
-              ? { templateIds: templateIds.split(",").map((id) => id.trim()).filter(Boolean) }
+              ? {
+                  templateIds: templateIds
+                    .split(",")
+                    .map((id) => id.trim())
+                    .filter(Boolean),
+                }
               : {}),
           },
         }),
@@ -92,11 +103,18 @@ export function AdminAccessCodesPage() {
       <form className="tb-form" onSubmit={(event) => void createCode(event)}>
         <label className="tb-field">
           <span>Code (optional — auto-generated if blank)</span>
-          <input className="tb-input" value={code} onChange={(event) => setCode(event.target.value)} />
+          <input
+            className="tb-input"
+            value={code}
+            onChange={(event) => setCode(event.target.value)}
+          />
         </label>
         <label className="tb-field">
           <span>Code type</span>
-          <select value={codeType} onChange={(event) => setCodeType(event.target.value as "single_use" | "campaign")}>
+          <select
+            value={codeType}
+            onChange={(event) => setCodeType(event.target.value as "single_use" | "campaign")}
+          >
             <option value="single_use">Single use</option>
             <option value="campaign">Campaign</option>
           </select>
@@ -116,7 +134,11 @@ export function AdminAccessCodesPage() {
         <fieldset className="tb-field">
           <legend>Grant bundle</legend>
           <label>
-            <input type="checkbox" checked={studyAccess} onChange={(event) => setStudyAccess(event.target.checked)} />
+            <input
+              type="checkbox"
+              checked={studyAccess}
+              onChange={(event) => setStudyAccess(event.target.checked)}
+            />
             Study access
           </label>
           <label>
@@ -174,62 +196,62 @@ export function AdminAccessCodesPage() {
       <AdminLoadingState loading={loading} error={error} />
       {data ? (
         <>
-        <AdminTable>
-          <thead>
-            <tr>
-              <th>Code</th>
-              <th>Type</th>
-              <th>Grants</th>
-              <th>Redemptions</th>
-              <th>Revoked</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.accessCodes.map((row) => (
-              <tr key={row.id}>
-                <td>{row.code}</td>
-                <td>{row.codeType}</td>
-                <td>
-                  <pre style={{ margin: 0, whiteSpace: "pre-wrap" }}>
-                    {JSON.stringify(row.grantsJson ?? {}, null, 0)}
-                  </pre>
-                </td>
-                <td>
-                  {row.redemptionCount}
-                  {row.maxRedemptions != null ? ` / ${row.maxRedemptions}` : ""}
-                </td>
-                <td>{row.revokedAt ? "Yes" : "No"}</td>
-                <td>
-                  {!row.revokedAt ? (
-                    <button type="button" disabled={busy} onClick={() => void revoke(row.id)}>
-                      Revoke
-                    </button>
-                  ) : null}
-                </td>
+          <AdminTable>
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Type</th>
+                <th>Grants</th>
+                <th>Redemptions</th>
+                <th>Revoked</th>
+                <th>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </AdminTable>
-        <h2>Recent redemptions</h2>
-        <AdminTable>
-          <thead>
-            <tr>
-              <th>Code ID</th>
-              <th>User ID</th>
-              <th>Redeemed</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.redemptions.map((row) => (
-              <tr key={row.id}>
-                <td>{row.accessCodeId}</td>
-                <td>{row.userId}</td>
-                <td>{new Date(row.redeemedAt).toLocaleString()}</td>
+            </thead>
+            <tbody>
+              {data.accessCodes.map((row) => (
+                <tr key={row.id}>
+                  <td>{row.code}</td>
+                  <td>{row.codeType}</td>
+                  <td>
+                    <pre style={{ margin: 0, whiteSpace: "pre-wrap" }}>
+                      {JSON.stringify(row.grantsJson ?? {}, null, 0)}
+                    </pre>
+                  </td>
+                  <td>
+                    {row.redemptionCount}
+                    {row.maxRedemptions != null ? ` / ${row.maxRedemptions}` : ""}
+                  </td>
+                  <td>{row.revokedAt ? "Yes" : "No"}</td>
+                  <td>
+                    {!row.revokedAt ? (
+                      <button type="button" disabled={busy} onClick={() => void revoke(row.id)}>
+                        Revoke
+                      </button>
+                    ) : null}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </AdminTable>
+          <h2>Recent redemptions</h2>
+          <AdminTable>
+            <thead>
+              <tr>
+                <th>Code ID</th>
+                <th>User ID</th>
+                <th>Redeemed</th>
               </tr>
-            ))}
-          </tbody>
-        </AdminTable>
+            </thead>
+            <tbody>
+              {data.redemptions.map((row) => (
+                <tr key={row.id}>
+                  <td>{row.accessCodeId}</td>
+                  <td>{row.userId}</td>
+                  <td>{new Date(row.redeemedAt).toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </AdminTable>
         </>
       ) : null}
     </div>

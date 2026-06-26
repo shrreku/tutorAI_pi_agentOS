@@ -113,11 +113,11 @@ The docs in this folder describe the target product and design direction while p
 
 Behavior and anatomy live in the numbered docs below. **Pixel-level visuals** live in [`ui-example/`](../../ui-example/README.md) — PNG exports from Pencil design files, grouped by theme:
 
-| Theme | Role | Folder | Notes |
-|-------|------|--------|-------|
-| **Mist Glass** | Implementation baseline (hosted beta) | [`ui-example/mist-glass/`](../../ui-example/mist-glass/README.md) | Most complete kit — 84 PNGs from `nodes.pen` |
-| **Folio** | Design north star (needs iteration) | [`ui-example/folio/`](../../ui-example/folio/README.md) | Preferred aesthetic — editorial ivory, serif — 34 PNGs. Improvement order: completeness → polish → structural change |
-| **Focus** | Exploration archive | [`ui-example/focus/`](../../ui-example/focus/README.md) | Minimalist slate variant — 17 PNGs |
+| Theme          | Role                                  | Folder                                                            | Notes                                                                                                                |
+| -------------- | ------------------------------------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| **Mist Glass** | Implementation baseline (hosted beta) | [`ui-example/mist-glass/`](../../ui-example/mist-glass/README.md) | Most complete kit — 84 PNGs from `nodes.pen`                                                                         |
+| **Folio**      | Design north star (needs iteration)   | [`ui-example/folio/`](../../ui-example/folio/README.md)           | Preferred aesthetic — editorial ivory, serif — 34 PNGs. Improvement order: completeness → polish → structural change |
+| **Focus**      | Exploration archive                   | [`ui-example/focus/`](../../ui-example/focus/README.md)           | Minimalist slate variant — 17 PNGs                                                                                   |
 
 Detailed Mist Glass inventory and Pencil IDs: [`NODES_PEN.md`](../../NODES_PEN.md). Folio north star: [13-folio-design-kit](./13-folio-design-kit.md) + [`ui-example/folio/`](../../ui-example/folio/README.md).
 
@@ -129,11 +129,11 @@ Interactive layout paradigms (not theme swaps): [`design-variations/`](../../des
 
 ### Screenshot folder → spec doc map
 
-| `ui-example` folder | Primary spec |
-|---------------------|--------------|
-| `node-pack/`, `node-components/` | [06-node-design-system](./06-node-design-system.md) |
-| `workspace-components/`, `workspace-screens/` | [03-app-shell-and-navigation](./03-app-shell-and-navigation.md), [05-workspace-study-map-source-wiki](./05-workspace-study-map-source-wiki.md) |
-| `chat-components/`, `chat-showcases/` | [04-tutor-chat](./04-tutor-chat.md) |
-| `reference-components/`, `reference-surfaces/` | [07-reference-surfaces-evidence](./07-reference-surfaces-evidence.md), [08-artifacts](./08-artifacts.md) |
-| `evidence-components/`, `evidence-pages/`, `evidence-workspace/` | [07-reference-surfaces-evidence](./07-reference-surfaces-evidence.md) |
-| `indices/` | Canvas navigation frames from Pencil — use with `NODES_PEN.md` |
+| `ui-example` folder                                              | Primary spec                                                                                                                                   |
+| ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `node-pack/`, `node-components/`                                 | [06-node-design-system](./06-node-design-system.md)                                                                                            |
+| `workspace-components/`, `workspace-screens/`                    | [03-app-shell-and-navigation](./03-app-shell-and-navigation.md), [05-workspace-study-map-source-wiki](./05-workspace-study-map-source-wiki.md) |
+| `chat-components/`, `chat-showcases/`                            | [04-tutor-chat](./04-tutor-chat.md)                                                                                                            |
+| `reference-components/`, `reference-surfaces/`                   | [07-reference-surfaces-evidence](./07-reference-surfaces-evidence.md), [08-artifacts](./08-artifacts.md)                                       |
+| `evidence-components/`, `evidence-pages/`, `evidence-workspace/` | [07-reference-surfaces-evidence](./07-reference-surfaces-evidence.md)                                                                          |
+| `indices/`                                                       | Canvas navigation frames from Pencil — use with `NODES_PEN.md`                                                                                 |

@@ -10,17 +10,28 @@ import {
   type AccessCodeGrants,
   type AccessCodeType,
 } from "../hosted-beta/access-codes.js";
-import { requireAdminAccess, requireBetaConsent, requireStudyAccess, sendAuthOrEntitlementError } from "../hosted-beta/entitlements.js";
+import {
+  requireAdminAccess,
+  requireBetaConsent,
+  requireStudyAccess,
+  sendAuthOrEntitlementError,
+} from "../hosted-beta/entitlements.js";
 import { recordProductAnalytics } from "../hosted-beta/product-analytics.js";
 
-function sendAccessCodeError(reply: Parameters<typeof sendAuthOrEntitlementError>[0], error: unknown) {
+function sendAccessCodeError(
+  reply: Parameters<typeof sendAuthOrEntitlementError>[0],
+  error: unknown,
+) {
   if (error instanceof AccessCodeError) {
     return reply.status(error.statusCode).send({ code: error.code, message: error.message });
   }
   return sendAuthOrEntitlementError(reply, error);
 }
 
-export async function registerAccessCodeRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
+export async function registerAccessCodeRoutes(
+  app: FastifyInstance,
+  ctx: AppContext,
+): Promise<void> {
   app.post<{ Body: { code: string } }>("/access-codes/redeem", async (request, reply) => {
     let actorId: string | undefined;
     try {
@@ -50,7 +61,10 @@ export async function registerAccessCodeRoutes(app: FastifyInstance, ctx: AppCon
           grants: result.grants,
         },
       }).catch(() => undefined);
-      if ((result.grants.tutorCreditsCents ?? 0) > 0 || (result.grants.ingestionCreditsCents ?? 0) > 0) {
+      if (
+        (result.grants.tutorCreditsCents ?? 0) > 0 ||
+        (result.grants.ingestionCreditsCents ?? 0) > 0
+      ) {
         await recordProductAnalytics(ctx, {
           userId: actor.id,
           eventName: "credit_top_up",
@@ -89,7 +103,9 @@ export async function registerAccessCodeRoutes(app: FastifyInstance, ctx: AppCon
       const { actor } = await requireAdminAccess(ctx, request);
       const body = request.body;
       if (!body?.codeType || !body.grants) {
-        return reply.status(400).send({ code: "bad_request", message: "codeType and grants are required" });
+        return reply
+          .status(400)
+          .send({ code: "bad_request", message: "codeType and grants are required" });
       }
 
       const created = await createAccessCode(ctx.db, {

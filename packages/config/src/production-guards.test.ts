@@ -27,10 +27,12 @@ function productionEnv(overrides: Record<string, string> = {}): NodeJS.ProcessEn
 
 describe("production environment guards", () => {
   it("accepts a complete hosted production auth and provider configuration", () => {
-    const env = loadEnv(productionEnv({
-      INGESTION_TRIGGER_MAX_JOBS: "2",
-      INGESTION_TRIGGER_MIN_INTERVAL_SECONDS: "300",
-    }));
+    const env = loadEnv(
+      productionEnv({
+        INGESTION_TRIGGER_MAX_JOBS: "2",
+        INGESTION_TRIGGER_MIN_INTERVAL_SECONDS: "300",
+      }),
+    );
 
     expect(env.DISABLE_AUTH).toBe(false);
     expect(env.WORKOS_REDIRECT_URI).toBe("https://tutorbook.me/auth/callback");

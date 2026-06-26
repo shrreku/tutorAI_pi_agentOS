@@ -10,7 +10,9 @@ import { evaluateSyntheticLearnerAssertions as _evaluateSyntheticLearnerAssertio
 const evaluateSyntheticLearnerAssertions = _evaluateSyntheticLearnerAssertions;
 import { decideObjectiveCompletion } from "./objective-progression.js";
 
-function referenceSurfaceSupportsRegeneration(surface: ReferenceSurface | null | undefined): boolean {
+function referenceSurfaceSupportsRegeneration(
+  surface: ReferenceSurface | null | undefined,
+): boolean {
   if (!surface) return false;
   if (!surface.primaryActions.includes("regenerate")) return false;
   if (surface.surfaceType === "source") return false;
@@ -41,16 +43,20 @@ describe("architecture remediation cross-track gate", () => {
   });
 
   it("proves mastery-backed objective completion requires strong evidence", () => {
-    expect(decideObjectiveCompletion({
-      objectiveTitle: "Objective 1",
-      targetConceptIds: ["cnc_1"],
-      conceptMasteryById: { cnc_1: 0.8 },
-    }).shouldComplete).toBe(true);
-    expect(decideObjectiveCompletion({
-      objectiveTitle: "Objective 1",
-      targetConceptIds: ["cnc_1"],
-      conceptMasteryById: { cnc_1: 0.4 },
-    }).shouldComplete).toBe(false);
+    expect(
+      decideObjectiveCompletion({
+        objectiveTitle: "Objective 1",
+        targetConceptIds: ["cnc_1"],
+        conceptMasteryById: { cnc_1: 0.8 },
+      }).shouldComplete,
+    ).toBe(true);
+    expect(
+      decideObjectiveCompletion({
+        objectiveTitle: "Objective 1",
+        targetConceptIds: ["cnc_1"],
+        conceptMasteryById: { cnc_1: 0.4 },
+      }).shouldComplete,
+    ).toBe(false);
   });
 
   it("proves reference surface regeneration honors server primaryActions", () => {
@@ -72,10 +78,12 @@ describe("architecture remediation cross-track gate", () => {
       quality: { confidence: 0.9, sourceBacked: true, needsReview: false },
     };
     expect(referenceSurfaceSupportsRegeneration(baseSurface)).toBe(false);
-    expect(referenceSurfaceSupportsRegeneration({
-      ...baseSurface,
-      primaryActions: ["ask_tutor", "regenerate"],
-    })).toBe(true);
+    expect(
+      referenceSurfaceSupportsRegeneration({
+        ...baseSurface,
+        primaryActions: ["ask_tutor", "regenerate"],
+      }),
+    ).toBe(true);
   });
 
   it("proves trait recommendation-only assertions fail forbidden product deltas", () => {
@@ -83,7 +91,9 @@ describe("architecture remediation cross-track gate", () => {
       id: "snap_before",
       notebookId: "nb_gate",
       capturedAt: "2026-05-29T00:00:00.000Z",
-      masteryEvidence: [{ ref: { refType: "turn", refId: "turn_1" }, overallScore: 0.5, confidence: 0.6 }],
+      masteryEvidence: [
+        { ref: { refType: "turn", refId: "turn_1" }, overallScore: 0.5, confidence: 0.6 },
+      ],
     });
     const after = buildEvalEvidenceSnapshot({
       id: "snap_after",
@@ -99,10 +109,12 @@ describe("architecture remediation cross-track gate", () => {
     const assertions = evaluateSyntheticLearnerAssertions({
       assertionRefs: [{ refType: "assertion", refId: "persistence_trait_recommendation_only" }],
       persistence: {
-        sessionEvents: [{
-          ref: { refType: "trait_guardrail_decision", refId: "ltgd_1" },
-          eventType: "learner_trait.estimation.planned",
-        }],
+        sessionEvents: [
+          {
+            ref: { refType: "trait_guardrail_decision", refId: "ltgd_1" },
+            eventType: "learner_trait.estimation.planned",
+          },
+        ],
         traitRecommendationOnlySnapshot: snapshot,
       },
     });

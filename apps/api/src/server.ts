@@ -37,21 +37,22 @@ import { registerFeedbackRoutes } from "./routes/feedback.js";
 import { registerAccessCodeRoutes } from "./routes/access-codes.js";
 import { registerStripeCheckoutRoutes } from "./routes/stripe-checkout.js";
 import { registerMetricsRoute } from "./routes/metrics.js";
-import { getRequestCorrelationContext, registerRequestCorrelationHooks } from "./request-correlation.js";
+import {
+  getRequestCorrelationContext,
+  registerRequestCorrelationHooks,
+} from "./request-correlation.js";
 import { ensureObjectStorageBucket } from "./storage-bootstrap.js";
 import { probeOpenRouterConnectivity } from "./openrouter-connectivity.js";
 
 const requestStartTimes = new WeakMap<object, number>();
 const PROVIDER_HEALTH_CACHE_TTL_MS = 60_000;
 
-let providerHealthCache:
-  | {
-      checkedAt: number;
-      reachable: boolean;
-      latencyMs?: number;
-      error?: string;
-    }
-  | null = null;
+let providerHealthCache: {
+  checkedAt: number;
+  reachable: boolean;
+  latencyMs?: number;
+  error?: string;
+} | null = null;
 
 export async function buildServer(): Promise<{
   app: ReturnType<typeof Fastify>;
@@ -92,7 +93,11 @@ export async function buildServer(): Promise<{
   await registerMetricsRoute(app);
   app.get("/health", async (_request, reply) => {
     const checks: Record<string, string> = {
-      auth: ctx.env.DISABLE_AUTH ? "dev_disabled_auth" : isWorkOSConfigured(ctx) ? "workos" : "unconfigured",
+      auth: ctx.env.DISABLE_AUTH
+        ? "dev_disabled_auth"
+        : isWorkOSConfigured(ctx)
+          ? "workos"
+          : "unconfigured",
       ingestionTrigger:
         ctx.env.INGESTION_TRIGGER_MODE === "external"
           ? ctx.env.INGESTION_TRIGGER_URL && ctx.env.INGESTION_TRIGGER_TOKEN
@@ -101,7 +106,10 @@ export async function buildServer(): Promise<{
           : ctx.env.INGESTION_TRIGGER_MODE,
     };
     let ok = true;
-    if (checks.ingestionTrigger === "external_unconfigured" && process.env.NODE_ENV === "production") {
+    if (
+      checks.ingestionTrigger === "external_unconfigured" &&
+      process.env.NODE_ENV === "production"
+    ) {
       ok = false;
     }
 
@@ -140,7 +148,8 @@ export async function buildServer(): Promise<{
         checks.objectStorage = "ok";
       } catch (error) {
         checks.objectStorage = "error";
-        checks.objectStorageError = error instanceof Error ? error.message : "object_storage_unavailable";
+        checks.objectStorageError =
+          error instanceof Error ? error.message : "object_storage_unavailable";
         ok = false;
       }
     } else {

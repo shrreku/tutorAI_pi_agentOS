@@ -121,6 +121,6 @@ describe("heuristic concept pages", () => {
     });
 
     expect(result.markdown).toContain("My personal mnemonic for entropy.");
-    expect(result.markdown).toContain("<!-- studyagent:owner=human id=\"note-1\" -->");
+    expect(result.markdown).toContain('<!-- studyagent:owner=human id="note-1" -->');
   });
 });

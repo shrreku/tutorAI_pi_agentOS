@@ -7,9 +7,7 @@ import {
 import type { AppContext } from "./context.js";
 import { requestInteractiveSurfaceLaunch } from "./interactive-surface-launch.js";
 
-export function createInteractiveSurfaceWriteHandlers(
-  appCtx: AppContext,
-): {
+export function createInteractiveSurfaceWriteHandlers(appCtx: AppContext): {
   launchInteractiveSurface(
     input: LaunchInteractiveSurfaceInput,
     ctx: ToolContext,

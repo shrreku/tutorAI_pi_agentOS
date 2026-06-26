@@ -1,6 +1,14 @@
 import Fastify from "fastify";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { agentRuns, artifacts, concepts, notebooks, sources, tutorSessions, tutorTurns } from "@studyagent/db";
+import {
+  agentRuns,
+  artifacts,
+  concepts,
+  notebooks,
+  sources,
+  tutorSessions,
+  tutorTurns,
+} from "@studyagent/db";
 import type { AppContext } from "../context.js";
 import { registerTutorRoutes } from "./tutor.js";
 
@@ -11,13 +19,12 @@ vi.mock("../hosted-beta/learner-gate.js", () => ({
   })),
 }));
 
-const {
-  appendEventMock,
-  recordLearnerTraitSignalMock,
-  runSessionMock,
-} = vi.hoisted(() => ({
+const { appendEventMock, recordLearnerTraitSignalMock, runSessionMock } = vi.hoisted(() => ({
   appendEventMock: vi.fn(async () => ({ id: "evt_1" })),
-  recordLearnerTraitSignalMock: vi.fn(async (dbClient, signal) => ({ signal, eventId: "evt_trait_1" })),
+  recordLearnerTraitSignalMock: vi.fn(async (dbClient, signal) => ({
+    signal,
+    eventId: "evt_trait_1",
+  })),
   runSessionMock: vi.fn(),
 }));
 
@@ -54,7 +61,15 @@ vi.mock("../study-state.js", () => ({
     objectiveList: null,
     sessionPlan: null,
     studyPlan: null,
-    coverage: { total: 0, planned: 0, introduced: 0, checked: 0, mastered: 0, needsReview: 0, gaps: [] },
+    coverage: {
+      total: 0,
+      planned: 0,
+      introduced: 0,
+      checked: 0,
+      mastered: 0,
+      needsReview: 0,
+      gaps: [],
+    },
     sourceLevels: [],
     learnerReadiness: [],
   })),
@@ -63,7 +78,9 @@ vi.mock("../study-state.js", () => ({
 }));
 
 vi.mock("../tutor-tool-provider.js", async () => {
-  const actual = await vi.importActual<typeof import("../tutor-tool-provider.js")>("../tutor-tool-provider.js");
+  const actual = await vi.importActual<typeof import("../tutor-tool-provider.js")>(
+    "../tutor-tool-provider.js",
+  );
   return {
     ...actual,
     createTutorReadToolProvider: vi.fn(() => ({})),
@@ -75,7 +92,9 @@ vi.mock("../tutor-write-provider.js", () => ({
 }));
 
 vi.mock("../learner-trait-estimation.js", async () => {
-  const actual = await vi.importActual<typeof import("../learner-trait-estimation.js")>("../learner-trait-estimation.js");
+  const actual = await vi.importActual<typeof import("../learner-trait-estimation.js")>(
+    "../learner-trait-estimation.js",
+  );
   return {
     ...actual,
     loadPersonalizationRecommendationsForTutorContext: vi.fn(async () => []),
@@ -83,7 +102,9 @@ vi.mock("../learner-trait-estimation.js", async () => {
 });
 
 vi.mock("../learner-trait-store.js", async () => {
-  const actual = await vi.importActual<typeof import("../learner-trait-store.js")>("../learner-trait-store.js");
+  const actual = await vi.importActual<typeof import("../learner-trait-store.js")>(
+    "../learner-trait-store.js",
+  );
   return {
     ...actual,
     recordLearnerTraitSignal: recordLearnerTraitSignalMock,
@@ -92,7 +113,9 @@ vi.mock("../learner-trait-store.js", async () => {
 });
 
 vi.mock("@studyagent/agent-runtime", async () => {
-  const actual = await vi.importActual<typeof import("@studyagent/agent-runtime")>("@studyagent/agent-runtime");
+  const actual = await vi.importActual<typeof import("@studyagent/agent-runtime")>(
+    "@studyagent/agent-runtime",
+  );
   return {
     ...actual,
     runStudyAgentTutorSession: runSessionMock,
@@ -124,12 +147,26 @@ function tutorSessionFilterFromWhere(condition: unknown): {
   const collect = (node: unknown) => {
     if (!node || typeof node !== "object") return;
     const chunk = node as { value?: unknown; queryChunks?: unknown[] };
-    if (typeof chunk.value === "string" && chunk.value && !chunk.value.includes("=") && chunk.value !== "(" && chunk.value !== ")" && chunk.value !== " and ") {
+    if (
+      typeof chunk.value === "string" &&
+      chunk.value &&
+      !chunk.value.includes("=") &&
+      chunk.value !== "(" &&
+      chunk.value !== ")" &&
+      chunk.value !== " and "
+    ) {
       literals.push(chunk.value);
     }
     if (Array.isArray(chunk.value)) {
       for (const part of chunk.value) {
-        if (typeof part === "string" && part && !part.includes("=") && part !== "(" && part !== ")" && part !== " and ") {
+        if (
+          typeof part === "string" &&
+          part &&
+          !part.includes("=") &&
+          part !== "(" &&
+          part !== ")" &&
+          part !== " and "
+        ) {
           literals.push(part);
         }
       }
@@ -162,7 +199,9 @@ class FakeDb {
     return {
       from(table: unknown) {
         const makeTurnAggregate = () => {
-          const maxTurnIndex = db.turns.length ? Number(db.turns[db.turns.length - 1]?.turnIndex ?? -1) : null;
+          const maxTurnIndex = db.turns.length
+            ? Number(db.turns[db.turns.length - 1]?.turnIndex ?? -1)
+            : null;
           return [{ maxTurnIndex }];
         };
         return {
@@ -170,7 +209,12 @@ class FakeDb {
             if (table === tutorSessions) {
               db.tutorSessionFilter = tutorSessionFilterFromWhere(condition);
             }
-            if (table === tutorTurns && selection && typeof selection === "object" && "maxTurnIndex" in (selection as Record<string, unknown>)) {
+            if (
+              table === tutorTurns &&
+              selection &&
+              typeof selection === "object" &&
+              "maxTurnIndex" in (selection as Record<string, unknown>)
+            ) {
               return Promise.resolve(makeTurnAggregate());
             }
             return this;
@@ -185,7 +229,8 @@ class FakeDb {
               const filter = db.tutorSessionFilter;
               db.tutorSessionFilter = null;
               if (filter?.id) rows = rows.filter((session) => session.id === filter.id);
-              if (filter?.notebookId) rows = rows.filter((session) => session.notebookId === filter.notebookId);
+              if (filter?.notebookId)
+                rows = rows.filter((session) => session.notebookId === filter.notebookId);
               if (filter?.userId) rows = rows.filter((session) => session.userId === filter.userId);
               return Promise.resolve(rows.slice(0, limitCount));
             }
@@ -193,7 +238,11 @@ class FakeDb {
             if (table === artifacts) return Promise.resolve(db.artifacts.slice(0, limitCount));
             if (table === concepts) return Promise.resolve(db.concepts.slice(0, limitCount));
             if (table === tutorTurns) {
-              if (selection && typeof selection === "object" && "maxTurnIndex" in (selection as Record<string, unknown>)) {
+              if (
+                selection &&
+                typeof selection === "object" &&
+                "maxTurnIndex" in (selection as Record<string, unknown>)
+              ) {
                 return Promise.resolve(makeTurnAggregate());
               }
               return Promise.resolve(db.turns.slice(0, limitCount));
@@ -318,14 +367,23 @@ describe("tutor chat route", () => {
     expect(response.body).not.toContain("tutor.message.delta");
 
     expect(fakeDb.turns).toHaveLength(1);
-    const savedRefs = (fakeDb.turns[0]?.selectedNodeRefsJson as Array<{ refType: string; refId: string }>) ?? [];
+    const savedRefs =
+      (fakeDb.turns[0]?.selectedNodeRefsJson as Array<{ refType: string; refId: string }>) ?? [];
     expect(savedRefs).toEqual([{ refType: "source", refId: "src_1" }]);
 
-    const appendCalls = appendEventMock.mock.calls as unknown as Array<[unknown, { eventType?: string } | undefined]>;
+    const appendCalls = appendEventMock.mock.calls as unknown as Array<
+      [unknown, { eventType?: string } | undefined]
+    >;
     expect(appendCalls.some((call) => call[1]?.eventType === "tutor.message.delta")).toBe(false);
-    expect(appendCalls.some((call) => call[1]?.eventType === "session.context.selected")).toBe(false);
-    expect(appendCalls.some((call) => call[1]?.eventType === "agent.thinking.completed")).toBe(true);
-    expect(appendCalls.some((call) => call[1]?.eventType === "agent.narration.completed")).toBe(true);
+    expect(appendCalls.some((call) => call[1]?.eventType === "session.context.selected")).toBe(
+      false,
+    );
+    expect(appendCalls.some((call) => call[1]?.eventType === "agent.thinking.completed")).toBe(
+      true,
+    );
+    expect(appendCalls.some((call) => call[1]?.eventType === "agent.narration.completed")).toBe(
+      true,
+    );
   });
 
   it("propagates request correlation into SSE headers, run persistence, and durable event payloads", async () => {
@@ -381,8 +439,11 @@ describe("tutor chat route", () => {
     });
 
     expect(response.statusCode).toBe(200);
-    const savedRefs = (fakeDb.turns[0]?.selectedNodeRefsJson as Array<{ refType: string; refId: string }>) ?? [];
-    expect(savedRefs).toEqual(expect.arrayContaining([{ refType: "artifact", refId: "artifact_1" }]));
+    const savedRefs =
+      (fakeDb.turns[0]?.selectedNodeRefsJson as Array<{ refType: string; refId: string }>) ?? [];
+    expect(savedRefs).toEqual(
+      expect.arrayContaining([{ refType: "artifact", refId: "artifact_1" }]),
+    );
   });
 
   it("does not reuse a requested session from another notebook", async () => {
@@ -410,7 +471,11 @@ describe("tutor chat route", () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.headers["x-studyagent-session-id"]).not.toBe("sess_other");
-    expect(fakeDb.sessions.some((session) => session.id !== "sess_other" && session.notebookId === "nb_1")).toBe(true);
+    expect(
+      fakeDb.sessions.some(
+        (session) => session.id !== "sess_other" && session.notebookId === "nb_1",
+      ),
+    ).toBe(true);
   });
 
   it("drops selected refs that belong to another notebook", async () => {
@@ -421,12 +486,16 @@ describe("tutor chat route", () => {
       url: "/notebooks/nb_1/tutor/chat",
       payload: {
         messages: [{ role: "user", content: "teach me" }],
-        data: { activeMode: "learn", selectedNodeRefs: [{ refType: "source", refId: "src_other" }] },
+        data: {
+          activeMode: "learn",
+          selectedNodeRefs: [{ refType: "source", refId: "src_other" }],
+        },
       },
     });
 
     expect(response.statusCode).toBe(200);
-    const savedRefs = (fakeDb.turns[0]?.selectedNodeRefsJson as Array<{ refType: string; refId: string }>) ?? [];
+    const savedRefs =
+      (fakeDb.turns[0]?.selectedNodeRefsJson as Array<{ refType: string; refId: string }>) ?? [];
     expect(savedRefs).not.toContainEqual({ refType: "source", refId: "src_other" });
   });
 

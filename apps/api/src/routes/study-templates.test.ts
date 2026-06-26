@@ -97,7 +97,10 @@ function createListDb(
                 limit: async (count: number) => tableRows.slice(0, count),
               };
             },
-            then(onFulfilled: (value: TemplateRow[]) => unknown, onRejected?: (reason: unknown) => unknown) {
+            then(
+              onFulfilled: (value: TemplateRow[]) => unknown,
+              onRejected?: (reason: unknown) => unknown,
+            ) {
               return Promise.resolve(tableRows).then(onFulfilled, onRejected);
             },
           };
@@ -131,24 +134,25 @@ describe("study template helpers", () => {
     expect(isSourceRightsReviewed({ status: "reviewed" })).toBe(true);
     expect(isLearnerVisibleTemplate(createTemplate())).toBe(true);
     expect(isLearnerVisibleTemplate(createTemplate({ status: "draft" }))).toBe(false);
-    expect(isLearnerVisibleTemplate(createTemplate({ readinessJson: { status: "pending" } }))).toBe(false);
-    expect(isLearnerVisibleTemplate(createTemplate({ sourceRightsJson: { status: "pending" } }))).toBe(false);
+    expect(isLearnerVisibleTemplate(createTemplate({ readinessJson: { status: "pending" } }))).toBe(
+      false,
+    );
+    expect(
+      isLearnerVisibleTemplate(createTemplate({ sourceRightsJson: { status: "pending" } })),
+    ).toBe(false);
     const restricted = createTemplate({
       readinessJson: { status: "ready", requiresAccessGrant: true },
     });
     expect(isTemplateAccessibleToLearner(restricted, {})).toBe(false);
-    expect(
-      isTemplateAccessibleToLearner(restricted, { grantedTemplateIds: ["st_1"] }),
-    ).toBe(true);
+    expect(isTemplateAccessibleToLearner(restricted, { grantedTemplateIds: ["st_1"] })).toBe(true);
   });
 
   it("requires generated content for content readiness", () => {
     expect(isTemplateContentReady(COMPLETE_AUDIT)).toBe(true);
     expect(isTemplateContentReady({ ...COMPLETE_AUDIT, sessionPlans: 0 })).toBe(false);
-    expect(missingTemplateReadinessRequirements({ ...COMPLETE_AUDIT, wikiPages: 0, objectives: 0 })).toEqual([
-      "published wiki page",
-      "active objective",
-    ]);
+    expect(
+      missingTemplateReadinessRequirements({ ...COMPLETE_AUDIT, wikiPages: 0, objectives: 0 }),
+    ).toEqual(["published wiki page", "active objective"]);
   });
 
   it("maps template summary fields", () => {

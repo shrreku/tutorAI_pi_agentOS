@@ -282,7 +282,10 @@ describe("stripe checkout routes", () => {
 
   it("rejects webhook requests with invalid signatures", async () => {
     const app = Fastify();
-    const { ctx } = createStripeTestContext({ checkoutEnabled: true, stripeWebhookSecret: "whsec_test" });
+    const { ctx } = createStripeTestContext({
+      checkoutEnabled: true,
+      stripeWebhookSecret: "whsec_test",
+    });
     await registerStripeCheckoutRoutes(app, ctx);
 
     const response = await app.inject({
@@ -292,7 +295,10 @@ describe("stripe checkout routes", () => {
         "content-type": "application/json",
         "stripe-signature": "t=1710000000,v1=bad",
       },
-      payload: JSON.stringify({ type: "checkout.session.completed", data: { object: { id: "cs_bad" } } }),
+      payload: JSON.stringify({
+        type: "checkout.session.completed",
+        data: { object: { id: "cs_bad" } },
+      }),
     });
 
     expect(response.statusCode).toBe(400);

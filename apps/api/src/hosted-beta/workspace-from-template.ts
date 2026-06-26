@@ -51,7 +51,11 @@ export async function createWorkspaceFromTemplate(
     .limit(1);
 
   if (!template || !isTemplateAccessibleToLearner(template, productState.onboardingJson)) {
-    throw new WorkspaceFromTemplateError("template_not_found", "Study template not found or not available.", 404);
+    throw new WorkspaceFromTemplateError(
+      "template_not_found",
+      "Study template not found or not available.",
+      404,
+    );
   }
 
   const id = `nb_${crypto.randomUUID().replaceAll("-", "")}`;
@@ -78,7 +82,12 @@ export async function createWorkspaceFromTemplate(
   await appendEvent(ctx.db, {
     notebookId: id,
     eventType: "graph.node.created",
-    payload: { kind: "workspace", notebookId: id, studyTemplateId: template.id, templateNotebookId: template.notebookId },
+    payload: {
+      kind: "workspace",
+      notebookId: id,
+      studyTemplateId: template.id,
+      templateNotebookId: template.notebookId,
+    },
   });
 
   await recordProductAnalyticsEvent(ctx, actorId, "workspace_created_from_template", {
@@ -115,7 +124,9 @@ export async function listPersonalWorkspaces(
     )
     .orderBy(desc(notebooks.updatedAt));
 
-  const templateIds = [...new Set(rows.map((row) => row.studyTemplateId).filter(Boolean))] as string[];
+  const templateIds = [
+    ...new Set(rows.map((row) => row.studyTemplateId).filter(Boolean)),
+  ] as string[];
   const templateById = new Map<string, ReturnType<typeof toTemplateSummary>>();
 
   if (templateIds.length > 0) {

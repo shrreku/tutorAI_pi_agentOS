@@ -31,32 +31,32 @@ Highest-risk remaining gaps:
 
 ## Status Matrix
 
-| Finding | Current status | Remediation ticket |
-| --- | --- | --- |
-| 1. Tutor Turn Interface too wide | Fixed in Phase 1, verified 2026-05-28 | T01 |
-| 2. Cached Pi sessions ignore fresh host state | Fixed in Phase 1, verified 2026-05-28 | T02 |
-| 3. Pi-executed `learning.evaluate_response` can lose turn identity | Fixed in Phase 1, verified 2026-05-28 | T03 |
-| 4. Session lifecycle split | Fixed in Phase 1, verified 2026-05-28 | T04 |
-| 5. Mastery runtime trigger ownership shallow | Fixed in Phase 1, verified 2026-05-28 | T05 |
-| 6. Vague confirmations complete objectives | Fixed, regression verified 2026-05-28 | T06 |
-| 7. Wiki/enrichment not atomic | Fixed in Phase 2, verified 2026-05-28 | T07 |
-| 8. Source projection rebuild not true rebuild | Fixed in Phase 2, verified 2026-05-28 | T08 |
-| 9. `tutoring_ready` does not mean wiki/graph ready | Fixed in Phase 2, verified 2026-05-28 | T09 |
-| 10. Graph relation semantics duplicated/inconsistent | Fixed in Phase 2, verified 2026-05-28 | T10 |
-| 11. Source Wiki learner-safety split | Fixed in Phase 2, verified 2026-05-28 | T11 |
-| 12. Workspace refresh web-local allowlist | Fixed in Phase 3, verified 2026-05-28 | T12 |
-| 13. Artifact review duplicated | Fixed in Phase 3, verified 2026-05-28 | T13 |
-| 14. Whiteboard too many state machines | Fixed in Phase 3, verified 2026-05-28 | T14 |
-| 15. Learner/debug vocabulary leaks | Fixed in Phase 3, verified 2026-05-28 | T15 |
-| 16. Reference Surface `primaryActions` ignored by web | Fixed in Phase 3, verified 2026-05-28 | T16 |
-| 17. Synthetic Learner live eval observation mostly completed-run JSON | Fixed in Phase 4, verified 2026-05-28 | T17 |
-| 18. Synthetic Learner evidence snapshots optional | Fixed in Phase 4, verified 2026-05-28 | T18 |
-| 19. Issue candidates only final failed scenarios | Fixed in Phase 4, verified 2026-05-28 | T19 |
-| 20. `runKind` mostly recorded while `learnerMode` drives behavior | Fixed in Phase 4, verified 2026-05-28 | T20 |
-| 21. Learner trait signals route-side durable writes | Fixed in Phase 5, verified 2026-05-29 | T21 |
-| 22. Learner trait estimation cadence too close to every session end | Fixed in Phase 5, verified 2026-05-29 | T22 |
-| 23. Learner trait evidence packets omit planned context | Fixed in Phase 5, verified 2026-05-29 | T23 |
-| 24. Recommendation-only trait assertions shallow | Fixed in Phase 4, verified 2026-05-28 | T24 |
+| Finding                                                               | Current status                        | Remediation ticket |
+| --------------------------------------------------------------------- | ------------------------------------- | ------------------ |
+| 1. Tutor Turn Interface too wide                                      | Fixed in Phase 1, verified 2026-05-28 | T01                |
+| 2. Cached Pi sessions ignore fresh host state                         | Fixed in Phase 1, verified 2026-05-28 | T02                |
+| 3. Pi-executed `learning.evaluate_response` can lose turn identity    | Fixed in Phase 1, verified 2026-05-28 | T03                |
+| 4. Session lifecycle split                                            | Fixed in Phase 1, verified 2026-05-28 | T04                |
+| 5. Mastery runtime trigger ownership shallow                          | Fixed in Phase 1, verified 2026-05-28 | T05                |
+| 6. Vague confirmations complete objectives                            | Fixed, regression verified 2026-05-28 | T06                |
+| 7. Wiki/enrichment not atomic                                         | Fixed in Phase 2, verified 2026-05-28 | T07                |
+| 8. Source projection rebuild not true rebuild                         | Fixed in Phase 2, verified 2026-05-28 | T08                |
+| 9. `tutoring_ready` does not mean wiki/graph ready                    | Fixed in Phase 2, verified 2026-05-28 | T09                |
+| 10. Graph relation semantics duplicated/inconsistent                  | Fixed in Phase 2, verified 2026-05-28 | T10                |
+| 11. Source Wiki learner-safety split                                  | Fixed in Phase 2, verified 2026-05-28 | T11                |
+| 12. Workspace refresh web-local allowlist                             | Fixed in Phase 3, verified 2026-05-28 | T12                |
+| 13. Artifact review duplicated                                        | Fixed in Phase 3, verified 2026-05-28 | T13                |
+| 14. Whiteboard too many state machines                                | Fixed in Phase 3, verified 2026-05-28 | T14                |
+| 15. Learner/debug vocabulary leaks                                    | Fixed in Phase 3, verified 2026-05-28 | T15                |
+| 16. Reference Surface `primaryActions` ignored by web                 | Fixed in Phase 3, verified 2026-05-28 | T16                |
+| 17. Synthetic Learner live eval observation mostly completed-run JSON | Fixed in Phase 4, verified 2026-05-28 | T17                |
+| 18. Synthetic Learner evidence snapshots optional                     | Fixed in Phase 4, verified 2026-05-28 | T18                |
+| 19. Issue candidates only final failed scenarios                      | Fixed in Phase 4, verified 2026-05-28 | T19                |
+| 20. `runKind` mostly recorded while `learnerMode` drives behavior     | Fixed in Phase 4, verified 2026-05-28 | T20                |
+| 21. Learner trait signals route-side durable writes                   | Fixed in Phase 5, verified 2026-05-29 | T21                |
+| 22. Learner trait estimation cadence too close to every session end   | Fixed in Phase 5, verified 2026-05-29 | T22                |
+| 23. Learner trait evidence packets omit planned context               | Fixed in Phase 5, verified 2026-05-29 | T23                |
+| 24. Recommendation-only trait assertions shallow                      | Fixed in Phase 4, verified 2026-05-28 | T24                |
 
 ## Program Invariants
 

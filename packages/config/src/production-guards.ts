@@ -33,14 +33,20 @@ export function validateProductionEnv(env: StudyAgentEnv, nodeEnv = process.env.
     errors.push("PUBLIC_API_BASE_URL must use https in production");
   }
   if (
-    env.WORKOS_REDIRECT_URI
-    && env.PUBLIC_WEB_BASE_URL.startsWith("https://")
-    && !env.WORKOS_REDIRECT_URI.startsWith(`${env.PUBLIC_WEB_BASE_URL.replace(/\/$/, "")}/`)
+    env.WORKOS_REDIRECT_URI &&
+    env.PUBLIC_WEB_BASE_URL.startsWith("https://") &&
+    !env.WORKOS_REDIRECT_URI.startsWith(`${env.PUBLIC_WEB_BASE_URL.replace(/\/$/, "")}/`)
   ) {
     errors.push("WORKOS_REDIRECT_URI must be under PUBLIC_WEB_BASE_URL in production");
   }
-  if (!env.OBJECT_STORAGE_ENDPOINT || !env.OBJECT_STORAGE_ACCESS_KEY || !env.OBJECT_STORAGE_SECRET_KEY) {
-    errors.push("OBJECT_STORAGE_ENDPOINT, OBJECT_STORAGE_ACCESS_KEY, and OBJECT_STORAGE_SECRET_KEY are required in production");
+  if (
+    !env.OBJECT_STORAGE_ENDPOINT ||
+    !env.OBJECT_STORAGE_ACCESS_KEY ||
+    !env.OBJECT_STORAGE_SECRET_KEY
+  ) {
+    errors.push(
+      "OBJECT_STORAGE_ENDPOINT, OBJECT_STORAGE_ACCESS_KEY, and OBJECT_STORAGE_SECRET_KEY are required in production",
+    );
   }
   if (!env.OPENROUTER_API_KEY) {
     errors.push("OPENROUTER_API_KEY is required in production");
@@ -52,13 +58,17 @@ export function validateProductionEnv(env: StudyAgentEnv, nodeEnv = process.env.
     errors.push("POSTHOG_API_KEY is required in production");
   }
   if (
-    env.INGESTION_TRIGGER_MODE === "external"
-    && (!env.INGESTION_TRIGGER_URL || !env.INGESTION_TRIGGER_TOKEN)
+    env.INGESTION_TRIGGER_MODE === "external" &&
+    (!env.INGESTION_TRIGGER_URL || !env.INGESTION_TRIGGER_TOKEN)
   ) {
-    errors.push("INGESTION_TRIGGER_URL and INGESTION_TRIGGER_TOKEN are required for external ingestion triggers");
+    errors.push(
+      "INGESTION_TRIGGER_URL and INGESTION_TRIGGER_TOKEN are required for external ingestion triggers",
+    );
   }
   if (env.PAID_CREDIT_CHECKOUT_ENABLED && (!env.STRIPE_SECRET_KEY || !env.STRIPE_WEBHOOK_SECRET)) {
-    errors.push("STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET are required when paid checkout is enabled");
+    errors.push(
+      "STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET are required when paid checkout is enabled",
+    );
   }
 
   if (errors.length > 0) {

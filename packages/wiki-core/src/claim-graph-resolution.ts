@@ -57,7 +57,11 @@ export type ResolveClaimGraphInput = {
   nextRelationId: () => string;
 };
 
-function claimLiteFromRaw(claim: RawExtractedClaim, sourceId: string, createdAtMs: number): ClaimLite {
+function claimLiteFromRaw(
+  claim: RawExtractedClaim,
+  sourceId: string,
+  createdAtMs: number,
+): ClaimLite {
   return {
     id: claim.id,
     sourceId,
@@ -128,7 +132,10 @@ export function resolveClaimGraph(input: ResolveClaimGraphInput): ResolvedClaimG
       supportScore: raw.confidenceComponents.sourceSupport,
       confidenceComponents: raw.confidenceComponents,
       resolution: { kind: "active", reason: "newly_extracted" },
-      evidenceRefs: raw.evidenceChunkIds.map((chunkId) => ({ kind: "source_chunk" as const, chunkId })),
+      evidenceRefs: raw.evidenceChunkIds.map((chunkId) => ({
+        kind: "source_chunk" as const,
+        chunkId,
+      })),
     };
   });
 
@@ -211,7 +218,10 @@ export function resolveClaimGraph(input: ResolveClaimGraphInput): ResolvedClaimG
       confidence: 0.65,
       sourceClaimIds: [pair.a, pair.b],
       sourceChunkIds: [],
-      metadataJson: { wikiLifecycle: "claim_contradiction", ingestionSourceId: input.ingestionSourceId },
+      metadataJson: {
+        wikiLifecycle: "claim_contradiction",
+        ingestionSourceId: input.ingestionSourceId,
+      },
     });
     events.push({
       eventType: "wiki.claim.contradicted",
@@ -244,12 +254,20 @@ export function resolveClaimGraph(input: ResolveClaimGraphInput): ResolvedClaimG
         code: "claim.contradiction_resolved",
         message: "Claim marked contradicted from concept-level contradicts relation.",
         severity: "warn",
-        context: { claimId, pairedClaimId: claim.resolution.kind === "contradicted" ? claim.resolution.pairedClaimId : undefined },
+        context: {
+          claimId,
+          pairedClaimId:
+            claim.resolution.kind === "contradicted" ? claim.resolution.pairedClaimId : undefined,
+        },
       });
     }
   }
 
-  if (supersedePlans.length === 0 && contradictionPairs.length === 0 && warnings.some((w) => w.severity === "error")) {
+  if (
+    supersedePlans.length === 0 &&
+    contradictionPairs.length === 0 &&
+    warnings.some((w) => w.severity === "error")
+  ) {
     warnings.push({
       code: "claim.resolution_degraded",
       message: "Claim graph resolution completed with errors only.",

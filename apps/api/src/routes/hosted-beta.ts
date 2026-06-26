@@ -1,6 +1,11 @@
 import { eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
-import { getCreditSummaryForLearner, grantTrialBudgetIfNeeded, userProductState, users } from "@studyagent/db";
+import {
+  getCreditSummaryForLearner,
+  grantTrialBudgetIfNeeded,
+  userProductState,
+  users,
+} from "@studyagent/db";
 import type { AppContext } from "../context.js";
 import { AuthError, buildWorkOSAuthorizeUrl, isWorkOSConfigured, requireActor } from "../auth.js";
 import {
@@ -12,10 +17,15 @@ import {
 } from "../hosted-beta/entitlements.js";
 import { recordProductAnalytics } from "../hosted-beta/product-analytics.js";
 
-export async function registerHostedBetaRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
+export async function registerHostedBetaRoutes(
+  app: FastifyInstance,
+  ctx: AppContext,
+): Promise<void> {
   app.get("/auth/workos/login", async (_request, reply) => {
     if (!isWorkOSConfigured(ctx)) {
-      return reply.status(503).send({ code: "workos_unconfigured", message: "WorkOS login is not configured" });
+      return reply
+        .status(503)
+        .send({ code: "workos_unconfigured", message: "WorkOS login is not configured" });
     }
     const authorizeUrl = buildWorkOSAuthorizeUrl(ctx);
     return reply.redirect(authorizeUrl);
@@ -176,7 +186,8 @@ export async function registerHostedBetaRoutes(app: FastifyInstance, ctx: AppCon
       return reply.send({
         onboarding: {
           completed: Boolean(onboardingJson.completed || onboardingJson.skipped),
-          studyGoal: typeof onboardingJson.studyGoal === "string" ? onboardingJson.studyGoal : undefined,
+          studyGoal:
+            typeof onboardingJson.studyGoal === "string" ? onboardingJson.studyGoal : undefined,
           level: typeof onboardingJson.level === "string" ? onboardingJson.level : undefined,
           skipped: Boolean(onboardingJson.skipped),
         },

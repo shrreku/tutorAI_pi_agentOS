@@ -35,10 +35,11 @@ describe("tools runtime registry", () => {
     });
     assertToolCatalogMatchesRegistry(registry);
 
-    const names = registry.list().map((t) => t.name).sort();
-    expect(names).toEqual(
-      TOOL_CONTRACT_CATALOG.map((contract) => contract.name).sort(),
-    );
+    const names = registry
+      .list()
+      .map((t) => t.name)
+      .sort();
+    expect(names).toEqual(TOOL_CONTRACT_CATALOG.map((contract) => contract.name).sort());
   });
 
   it("looks up tool contracts from the shared catalog", () => {
@@ -54,7 +55,10 @@ describe("tools runtime registry", () => {
     registerReadToolsV1(registry, provider);
 
     expect(READ_TOOL_CONTRACTS.map((contract) => contract.name).sort()).toEqual(
-      registry.list().map((tool) => tool.name).sort(),
+      registry
+        .list()
+        .map((tool) => tool.name)
+        .sort(),
     );
 
     for (const contract of READ_TOOL_CONTRACTS) {
@@ -136,9 +140,9 @@ describe("tools runtime registry", () => {
     const registry = new ToolRegistry();
     registerWriteToolsV1(registry, createNoopRuntimeWriteToolProvider());
 
-    await expect(executeTool(registry, "artifact.create_quiz", { title: "Quiz", prompt: "p" }, baseContext)).rejects.toThrow(
-      "Write tool artifact.create_quiz requires session, run, and turn identity",
-    );
+    await expect(
+      executeTool(registry, "artifact.create_quiz", { title: "Quiz", prompt: "p" }, baseContext),
+    ).rejects.toThrow("Write tool artifact.create_quiz requires session, run, and turn identity");
   });
 
   it("rejects learning.evaluate_response without tutor turn identity", async () => {
@@ -156,7 +160,9 @@ describe("tools runtime registry", () => {
         },
         baseContext,
       ),
-    ).rejects.toThrow("Write tool learning.evaluate_response requires session, run, and turn identity");
+    ).rejects.toThrow(
+      "Write tool learning.evaluate_response requires session, run, and turn identity",
+    );
   });
 
   it("rejects learner_trait.record_signal without tutor turn identity", async () => {
@@ -164,8 +170,15 @@ describe("tools runtime registry", () => {
     registerWriteToolsV1(registry, createNoopRuntimeWriteToolProvider());
 
     await expect(
-      executeTool(registry, "learner_trait.record_signal", { trait: "pacePreference", value: "slow" }, baseContext),
-    ).rejects.toThrow("Write tool learner_trait.record_signal requires session, run, and turn identity");
+      executeTool(
+        registry,
+        "learner_trait.record_signal",
+        { trait: "pacePreference", value: "slow" },
+        baseContext,
+      ),
+    ).rejects.toThrow(
+      "Write tool learner_trait.record_signal requires session, run, and turn identity",
+    );
   });
 
   it("normalizes snake_case LLM tool args before schema validation", async () => {
@@ -201,7 +214,12 @@ describe("tools runtime registry", () => {
 
     await executeTool(registry, "source.get_span", { ref: "chunk:chk_1" }, baseContext);
     await executeTool(registry, "source.get_span", { source_id: "chk_2" }, baseContext);
-    await executeTool(registry, "source.get_span", { source_node_ref: { ref_type: "source", ref_id: "src_1" } }, baseContext);
+    await executeTool(
+      registry,
+      "source.get_span",
+      { source_node_ref: { ref_type: "source", ref_id: "src_1" } },
+      baseContext,
+    );
 
     expect(seen).toEqual([
       expect.objectContaining({ chunkId: "chk_1" }),
@@ -221,7 +239,12 @@ describe("tools runtime registry", () => {
       },
     });
 
-    await executeTool(registry, "learning.get_state", { requested_concept_ids: ["cnc_1"] }, baseContext);
+    await executeTool(
+      registry,
+      "learning.get_state",
+      { requested_concept_ids: ["cnc_1"] },
+      baseContext,
+    );
 
     expect(seen).toEqual([expect.objectContaining({ conceptIds: ["cnc_1"] })]);
   });

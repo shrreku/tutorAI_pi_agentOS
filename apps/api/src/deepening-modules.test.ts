@@ -76,7 +76,9 @@ describe("buildAdaptiveSessionPlanPatch", () => {
 
     expect(patch?.plannedObjectiveIds).toEqual(["obj_2", "obj_1"]);
     expect(patch?.sessionGoal).toContain("Repair misconceptions");
-    expect(patch?.recommendationReasonJson.strategy).toBe("adaptive_regeneration_from_learning_state");
+    expect(patch?.recommendationReasonJson.strategy).toBe(
+      "adaptive_regeneration_from_learning_state",
+    );
     expect(Array.isArray(patch?.recommendationReasonJson.adaptivePlanSignalIds)).toBe(true);
   });
 
@@ -86,7 +88,9 @@ describe("buildAdaptiveSessionPlanPatch", () => {
       currentSessionGoal: "Advance the current objective path with one focused checkpoint.",
       objectiveIdsOrdered: ["obj_1"],
       currentObjectiveId: "obj_1",
-      objectives: [{ id: "obj_1", title: "Foundations", status: "not_started", targetConceptIds: [] }],
+      objectives: [
+        { id: "obj_1", title: "Foundations", status: "not_started", targetConceptIds: [] },
+      ],
       weakConceptIds: [],
       timeBudgetMinutes: 20,
     });
@@ -102,7 +106,12 @@ describe("buildAdaptiveSessionPlanPatch", () => {
       currentObjectiveId: null,
       objectives: [
         { id: "obj_a", title: "Weak focus", status: "not_started", targetConceptIds: ["c_weak"] },
-        { id: "obj_b", title: "Misconception focus", status: "not_started", targetConceptIds: ["c_mis"] },
+        {
+          id: "obj_b",
+          title: "Misconception focus",
+          status: "not_started",
+          targetConceptIds: ["c_mis"],
+        },
       ],
       weakConceptIds: ["c_weak"],
       misconceptionConceptIds: ["c_mis"],
@@ -119,8 +128,18 @@ describe("buildAdaptiveSessionPlanPatch", () => {
       objectiveIdsOrdered: ["obj_a", "obj_b"],
       currentObjectiveId: null,
       objectives: [
-        { id: "obj_a", title: "Misconception repair", status: "not_started", targetConceptIds: ["c_mis"] },
-        { id: "obj_b", title: "Diagnostic repair", status: "not_started", targetConceptIds: ["c_diag"] },
+        {
+          id: "obj_a",
+          title: "Misconception repair",
+          status: "not_started",
+          targetConceptIds: ["c_mis"],
+        },
+        {
+          id: "obj_b",
+          title: "Diagnostic repair",
+          status: "not_started",
+          targetConceptIds: ["c_diag"],
+        },
       ],
       weakConceptIds: [],
       misconceptionConceptIds: ["c_mis"],
@@ -139,8 +158,18 @@ describe("buildAdaptiveSessionPlanPatch", () => {
       objectiveIdsOrdered: ["obj_a", "obj_b"],
       currentObjectiveId: null,
       objectives: [
-        { id: "obj_a", title: "Low frequency weak", status: "not_started", targetConceptIds: ["c_weak_low"] },
-        { id: "obj_b", title: "High frequency weak", status: "not_started", targetConceptIds: ["c_weak_high"] },
+        {
+          id: "obj_a",
+          title: "Low frequency weak",
+          status: "not_started",
+          targetConceptIds: ["c_weak_low"],
+        },
+        {
+          id: "obj_b",
+          title: "High frequency weak",
+          status: "not_started",
+          targetConceptIds: ["c_weak_high"],
+        },
       ],
       weakConceptIds: ["c_weak_low", "c_weak_high"],
       recentWeakConceptFrequencyById: { c_weak_low: 1, c_weak_high: 4 },
@@ -156,7 +185,9 @@ describe("buildAdaptiveSessionPlanPatch", () => {
       currentSessionGoal: "Old goal",
       objectiveIdsOrdered: ["obj_done"],
       currentObjectiveId: null,
-      objectives: [{ id: "obj_done", title: "Done", status: "completed", targetConceptIds: ["c_done"] }],
+      objectives: [
+        { id: "obj_done", title: "Done", status: "completed", targetConceptIds: ["c_done"] },
+      ],
       weakConceptIds: [],
       nextModuleObjectiveIds: ["obj_next_1", "obj_next_2"],
       timeBudgetMinutes: 30,
@@ -171,12 +202,16 @@ describe("buildAdaptiveSessionPlanPatch", () => {
       currentSessionGoal: "Old goal",
       objectiveIdsOrdered: ["obj_1"],
       currentObjectiveId: "obj_1",
-      objectives: [{ id: "obj_1", title: "Foundations", status: "not_started", targetConceptIds: [] }],
+      objectives: [
+        { id: "obj_1", title: "Foundations", status: "not_started", targetConceptIds: [] },
+      ],
       weakConceptIds: [],
       vagueLearnerMessage: true,
     });
     expect(patch).toBeNull();
-    expect(shouldApplyDurablePlanChange(buildAdaptivePlanSignals({ vagueLearnerMessage: true }))).toBe(false);
+    expect(
+      shouldApplyDurablePlanChange(buildAdaptivePlanSignals({ vagueLearnerMessage: true })),
+    ).toBe(false);
   });
 });
 

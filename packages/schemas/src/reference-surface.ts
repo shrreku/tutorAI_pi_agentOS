@@ -51,17 +51,34 @@ export const referenceSurfaceSchema = z.object({
   sourceRefs: z.array(nodeRefSchema).default([]),
   provenanceRefs: z.array(provenanceRefSchema).default([]),
   coverageRefs: z.array(nodeRefSchema).default([]),
-  primaryActions: z.array(z.enum(["ask_tutor", "review", "quiz", "regenerate", "open_provenance", "open_evidence", "open_source"])).default(["ask_tutor"]),
-  quality: z.object({
-    confidence: z.number().min(0).max(1).nullable().default(null),
-    sourceBacked: z.boolean().default(false),
-    needsReview: z.boolean().default(false),
-  }).default({ confidence: null, sourceBacked: false, needsReview: false }),
-  generation: z.object({
-    mode: z.enum(["ai", "heuristic"]).default("heuristic"),
-    label: z.string().min(1).default("Heuristic"),
-    generatedAt: z.string().nullable().default(null),
-  }).nullable().optional(),
+  primaryActions: z
+    .array(
+      z.enum([
+        "ask_tutor",
+        "review",
+        "quiz",
+        "regenerate",
+        "open_provenance",
+        "open_evidence",
+        "open_source",
+      ]),
+    )
+    .default(["ask_tutor"]),
+  quality: z
+    .object({
+      confidence: z.number().min(0).max(1).nullable().default(null),
+      sourceBacked: z.boolean().default(false),
+      needsReview: z.boolean().default(false),
+    })
+    .default({ confidence: null, sourceBacked: false, needsReview: false }),
+  generation: z
+    .object({
+      mode: z.enum(["ai", "heuristic"]).default("heuristic"),
+      label: z.string().min(1).default("Heuristic"),
+      generatedAt: z.string().nullable().default(null),
+    })
+    .nullable()
+    .optional(),
 });
 
 export type ReferenceBlock = z.infer<typeof referenceBlockSchema>;
@@ -70,11 +87,15 @@ export type LearnerFacingReferenceSurface = Omit<ReferenceSurface, "provenanceRe
 
 export type ReferenceSurfacePrimaryAction = ReferenceSurface["primaryActions"][number];
 
-const LEARNER_PRIMARY_ACTION_ALIASES: Partial<Record<ReferenceSurfacePrimaryAction, ReferenceSurfacePrimaryAction>> = {
+const LEARNER_PRIMARY_ACTION_ALIASES: Partial<
+  Record<ReferenceSurfacePrimaryAction, ReferenceSurfacePrimaryAction>
+> = {
   open_provenance: "open_evidence",
 };
 
-export function mapLearnerPrimaryActions(actions: ReferenceSurfacePrimaryAction[]): ReferenceSurfacePrimaryAction[] {
+export function mapLearnerPrimaryActions(
+  actions: ReferenceSurfacePrimaryAction[],
+): ReferenceSurfacePrimaryAction[] {
   const seen = new Set<ReferenceSurfacePrimaryAction>();
   const mapped: ReferenceSurfacePrimaryAction[] = [];
   for (const action of actions) {

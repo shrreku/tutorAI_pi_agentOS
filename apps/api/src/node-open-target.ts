@@ -1,5 +1,14 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
-import { artifacts, chunks, claimConceptLinks, claims, concepts, sourceVersions, sources, wikiPages } from "@studyagent/db";
+import {
+  artifacts,
+  chunks,
+  claimConceptLinks,
+  claims,
+  concepts,
+  sourceVersions,
+  sources,
+  wikiPages,
+} from "@studyagent/db";
 import type { AppContext } from "./context.js";
 import type { EvidenceReadModel, EvidenceRef } from "@studyagent/schemas";
 
@@ -61,8 +70,12 @@ export async function buildEvidenceFromClaimAndChunkIds(
   claimIds: string[],
   chunkIds: string[],
 ): Promise<Pick<EvidenceReadModel, "learnerRefs" | "developerRefs">> {
-  const claimRows = claimIds.length ? await ctx.db.db.select().from(claims).where(inArray(claims.id, claimIds)).limit(20) : [];
-  const linkedChunkIds = Array.from(new Set([...chunkIds, ...claimRows.flatMap((claim) => claim.sourceChunkIds ?? [])]));
+  const claimRows = claimIds.length
+    ? await ctx.db.db.select().from(claims).where(inArray(claims.id, claimIds)).limit(20)
+    : [];
+  const linkedChunkIds = Array.from(
+    new Set([...chunkIds, ...claimRows.flatMap((claim) => claim.sourceChunkIds ?? [])]),
+  );
   const chunkRows = linkedChunkIds.length
     ? await ctx.db.db
         .select({
@@ -77,8 +90,14 @@ export async function buildEvidenceFromClaimAndChunkIds(
         .where(inArray(chunks.id, linkedChunkIds))
         .limit(10)
     : [];
-  const learnerChunks = toChunkEvidenceRefs(await mapChunkRefsWithSourceTitles(ctx, chunkRows), "learner");
-  const learnerClaims = toClaimEvidenceRefs(claimRows.filter((claim) => isLearnerSafeClaim(claim)), "learner");
+  const learnerChunks = toChunkEvidenceRefs(
+    await mapChunkRefsWithSourceTitles(ctx, chunkRows),
+    "learner",
+  );
+  const learnerClaims = toClaimEvidenceRefs(
+    claimRows.filter((claim) => isLearnerSafeClaim(claim)),
+    "learner",
+  );
   const developerClaims = toClaimEvidenceRefs(
     claimRows.filter((claim) => !isLearnerSafeClaim(claim)),
     "developer",
@@ -113,19 +132,40 @@ export async function loadSourceChunkEvidence(
   return toChunkEvidenceRefs(await mapChunkRefsWithSourceTitles(ctx, chunkRows), "learner");
 }
 
-export function isLearnerSafeClaim(claim: { status: string; confidence: number; sourceChunkIds?: string[] | null }): boolean {
-  return ["accepted", "active", "published"].includes(claim.status) && claim.confidence >= 0.45 && (claim.sourceChunkIds ?? []).length > 0;
+export function isLearnerSafeClaim(claim: {
+  status: string;
+  confidence: number;
+  sourceChunkIds?: string[] | null;
+}): boolean {
+  return (
+    ["accepted", "active", "published"].includes(claim.status) &&
+    claim.confidence >= 0.45 &&
+    (claim.sourceChunkIds ?? []).length > 0
+  );
 }
 
 export function toLearnerClaimEvidenceRefs(
-  claimRows: Array<{ id: string; claimText: string; confidence: number; status: string; sourceChunkIds?: string[] | null }>,
+  claimRows: Array<{
+    id: string;
+    claimText: string;
+    confidence: number;
+    status: string;
+    sourceChunkIds?: string[] | null;
+  }>,
 ): EvidenceRef[] {
   return sanitizeLearnerEvidenceRefs(toClaimEvidenceRefs(claimRows, "learner"), false);
 }
 
 export async function mapChunkRefsWithSourceTitles(
   ctx: AppContext,
-  chunkRows: Array<{ id: string; chunkType: string; text: string; pageStart: number | null; pageEnd: number | null; sourceVersionId: string }>,
+  chunkRows: Array<{
+    id: string;
+    chunkType: string;
+    text: string;
+    pageStart: number | null;
+    pageEnd: number | null;
+    sourceVersionId: string;
+  }>,
 ): Promise<
   Array<{
     id: string;
@@ -156,9 +196,14 @@ export async function mapChunkRefsWithSourceTitles(
     .where(inArray(sourceVersions.id, versionIds));
   const sourceIds = Array.from(new Set(versions.map((version) => version.sourceId)));
   const sourceRows = sourceIds.length
-    ? await ctx.db.db.select({ id: sources.id, title: sources.title }).from(sources).where(inArray(sources.id, sourceIds))
+    ? await ctx.db.db
+        .select({ id: sources.id, title: sources.title })
+        .from(sources)
+        .where(inArray(sources.id, sourceIds))
     : [];
-  const sourceIdByVersionId = new Map(versions.map((version) => [version.id, version.sourceId] as const));
+  const sourceIdByVersionId = new Map(
+    versions.map((version) => [version.id, version.sourceId] as const),
+  );
   const sourceTitleById = new Map(sourceRows.map((source) => [source.id, source.title] as const));
 
   return chunkRows.map((chunk) => {
@@ -205,7 +250,13 @@ export function toChunkEvidenceRefs(
 }
 
 function toClaimEvidenceRefs(
-  claimRows: Array<{ id: string; claimText: string; confidence: number; status: string; sourceChunkIds?: string[] | null }>,
+  claimRows: Array<{
+    id: string;
+    claimText: string;
+    confidence: number;
+    status: string;
+    sourceChunkIds?: string[] | null;
+  }>,
   visibility: "learner" | "developer",
 ): EvidenceRef[] {
   return claimRows.map((claim) => ({
@@ -231,7 +282,11 @@ function classifyClaimStatement(claim: {
   confidence: number;
   status: string;
 }): "source_backed" | "inferred" | "generated" {
-  if ((claim.sourceChunkIds ?? []).length > 0 && ["accepted", "active", "published"].includes(claim.status) && claim.confidence >= 0.45) {
+  if (
+    (claim.sourceChunkIds ?? []).length > 0 &&
+    ["accepted", "active", "published"].includes(claim.status) &&
+    claim.confidence >= 0.45
+  ) {
     return "source_backed";
   }
   if ((claim.sourceChunkIds ?? []).length > 0) return "inferred";

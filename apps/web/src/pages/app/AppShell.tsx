@@ -34,7 +34,10 @@ export function AppShell({
             <span className="tb-nav-credits-label">Tutor credits</span>
             <span className="tb-nav-credits-value">{percent}%</span>
             <div className="tb-nav-credits-bar">
-              <div className="tb-nav-credits-fill" style={{ width: `${Math.max(0, Math.min(100, percent))}%` }} />
+              <div
+                className="tb-nav-credits-fill"
+                style={{ width: `${Math.max(0, Math.min(100, percent))}%` }}
+              />
             </div>
           </div>
         )}

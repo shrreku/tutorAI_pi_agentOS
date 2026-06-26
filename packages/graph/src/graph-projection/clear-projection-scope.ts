@@ -1,6 +1,9 @@
 import type { Session } from "neo4j-driver";
 
-export async function clearNotebookProjectionScope(session: Session, notebookId: string): Promise<void> {
+export async function clearNotebookProjectionScope(
+  session: Session,
+  notebookId: string,
+): Promise<void> {
   await session.run(
     `MATCH (n)
      WHERE n.notebookId = $notebookId AND NOT n:Notebook

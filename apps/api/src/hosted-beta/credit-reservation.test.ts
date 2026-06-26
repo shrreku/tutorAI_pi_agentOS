@@ -1,6 +1,14 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-import { createDb, creditLedgerEntries, creditReservations, grantTrialBudgetIfNeeded, TRIAL_BUDGET_CENTS, userProductState, users } from "@studyagent/db";
+import {
+  createDb,
+  creditLedgerEntries,
+  creditReservations,
+  grantTrialBudgetIfNeeded,
+  TRIAL_BUDGET_CENTS,
+  userProductState,
+  users,
+} from "@studyagent/db";
 import {
   costCentsFromRuntimeUsage,
   createReservation,
@@ -44,7 +52,9 @@ describe("credit reservation", () => {
         createdAt: now,
         updatedAt: now,
       });
-      await grantTrialBudgetIfNeeded(dbClient, userId, { TRIAL_TUTOR_BUDGET_CENTS: TRIAL_BUDGET_CENTS });
+      await grantTrialBudgetIfNeeded(dbClient, userId, {
+        TRIAL_TUTOR_BUDGET_CENTS: TRIAL_BUDGET_CENTS,
+      });
 
       expect(await isCreditExhausted(dbClient, userId, "tutor")).toBe(false);
 
@@ -70,7 +80,9 @@ describe("credit reservation", () => {
         "tutor_turn",
         `turn_release_${suffix}`,
       );
-      const released = await releaseReservation(dbClient, releaseReservationRecord.id, { outcome: "failed" });
+      const released = await releaseReservation(dbClient, releaseReservationRecord.id, {
+        outcome: "failed",
+      });
       expect(released.status).toBe("released");
     } finally {
       await dbClient.db.delete(creditLedgerEntries).where(eq(creditLedgerEntries.userId, userId));
@@ -101,7 +113,14 @@ describe("credit reservation", () => {
       await grantTrialBudgetIfNeeded(dbClient, userId, { TRIAL_TUTOR_BUDGET_CENTS: 5 });
 
       await expect(
-        createReservation(dbClient, userId, "tutor", TUTOR_TURN_ESTIMATE_CENTS, "tutor_turn", `turn_${suffix}`),
+        createReservation(
+          dbClient,
+          userId,
+          "tutor",
+          TUTOR_TURN_ESTIMATE_CENTS,
+          "tutor_turn",
+          `turn_${suffix}`,
+        ),
       ).rejects.toBeInstanceOf(InsufficientCreditsError);
       expect(await isCreditExhausted(dbClient, userId, "tutor")).toBe(true);
     } finally {

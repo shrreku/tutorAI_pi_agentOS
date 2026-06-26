@@ -74,7 +74,12 @@ export function documentTreeToChunks(
     });
   }
 
-  const bodyTypes = new Set<NormalizedDocumentNode["type"]>(["paragraph", "code_block", "callout", "list"]);
+  const bodyTypes = new Set<NormalizedDocumentNode["type"]>([
+    "paragraph",
+    "code_block",
+    "callout",
+    "list",
+  ]);
 
   for (const node of nodes) {
     if (!bodyTypes.has(node.type)) continue;
@@ -89,7 +94,10 @@ export function documentTreeToChunks(
         chunkType: "retrieval",
         text: piece,
         tokenCount: roughTokenCount(piece),
-        sourceSpanJson: { ...node.sourceSpan, partIndex: pi, partCount: pieces.length } as Record<string, unknown>,
+        sourceSpanJson: { ...node.sourceSpan, partIndex: pi, partCount: pieces.length } as Record<
+          string,
+          unknown
+        >,
         pageStart: node.sourceSpan.pageStart ?? null,
         pageEnd: node.sourceSpan.pageEnd ?? null,
         headingPath: [...(node.sourceSpan.headingPath ?? [])],

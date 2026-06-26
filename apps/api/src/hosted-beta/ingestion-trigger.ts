@@ -87,11 +87,7 @@ export async function triggerIngestionWorker(
       }
       return { runId, status: "started" };
     } catch (error) {
-      return markTriggerFailed(
-        ctx,
-        runId,
-        error instanceof Error ? error.message : String(error),
-      );
+      return markTriggerFailed(ctx, runId, error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -123,11 +119,7 @@ export async function triggerIngestionWorker(
       jobsSkipped: drain.jobsSkipped,
     };
   } catch (error) {
-    return markTriggerFailed(
-      ctx,
-      runId,
-      error instanceof Error ? error.message : String(error),
-    );
+    return markTriggerFailed(ctx, runId, error instanceof Error ? error.message : String(error));
   }
 }
 
@@ -154,10 +146,12 @@ async function findRecentTriggerRun(
   const rows = await ctx.db.db
     .select({ id: ingestionTriggerRuns.id })
     .from(ingestionTriggerRuns)
-    .where(sql`
+    .where(
+      sql`
       ${ingestionTriggerRuns.status} in ('started', 'completed')
       and ${ingestionTriggerRuns.startedAt} > now() - (${minIntervalSeconds} * interval '1 second')
-    `)
+    `,
+    )
     .orderBy(desc(ingestionTriggerRuns.startedAt))
     .limit(1);
   return rows[0] ?? null;

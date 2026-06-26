@@ -88,7 +88,11 @@ function validateInteractivePlan(
       blockIndex,
     });
   }
-  if (plan.blockKind === "quiz" || plan.blockKind === "flashcard_deck" || plan.blockKind === "worked_example") {
+  if (
+    plan.blockKind === "quiz" ||
+    plan.blockKind === "flashcard_deck" ||
+    plan.blockKind === "worked_example"
+  ) {
     issues.push({
       code: "unsupported_generated_block",
       message: `Generated ${plan.blockKind} blocks must be artifact-backed.`,
@@ -97,7 +101,11 @@ function validateInteractivePlan(
     });
   }
   for (const action of plan.allowedActions) {
-    if (action === "quiz.answer_submitted" || action === "flashcard.review_rated" || action === "worked_example.step_answered") {
+    if (
+      action === "quiz.answer_submitted" ||
+      action === "flashcard.review_rated" ||
+      action === "worked_example.step_answered"
+    ) {
       issues.push({
         code: "unsupported_action",
         message: `Action "${action}" is not allowed on generated page blocks.`,
@@ -116,7 +124,11 @@ function validateEvidenceOwnership(
 ): void {
   if (!("evidenceRefs" in block) || !Array.isArray(block.evidenceRefs)) return;
   for (const ref of block.evidenceRefs) {
-    if (ref.kind === "claim" && context.supportedClaimIds && !context.supportedClaimIds.has(ref.id)) {
+    if (
+      ref.kind === "claim" &&
+      context.supportedClaimIds &&
+      !context.supportedClaimIds.has(ref.id)
+    ) {
       issues.push({
         code: "unsupported_evidence_ref",
         message: `Evidence ref ${ref.id} is not a supported claim for this page.`,
@@ -124,7 +136,11 @@ function validateEvidenceOwnership(
         blockIndex,
       });
     }
-    if (ref.kind === "chunk" && context.supportedChunkIds && !context.supportedChunkIds.has(ref.id)) {
+    if (
+      ref.kind === "chunk" &&
+      context.supportedChunkIds &&
+      !context.supportedChunkIds.has(ref.id)
+    ) {
       issues.push({
         code: "unsupported_evidence_ref",
         message: `Evidence ref ${ref.id} is not a supported chunk for this page.`,
@@ -135,7 +151,10 @@ function validateEvidenceOwnership(
   }
 }
 
-export function runQualityGates(output: PageGenerationOutput, context: QualityGateContext = {}): QualityGateResult {
+export function runQualityGates(
+  output: PageGenerationOutput,
+  context: QualityGateContext = {},
+): QualityGateResult {
   const issues: PageQualityIssue[] = [];
   const markdown = learnerFacingMarkdown(output, context);
   const hasSourceBackedBlocks = output.blocks.some((block) => block.kind === "source_backed_note");
@@ -151,7 +170,8 @@ export function runQualityGates(output: PageGenerationOutput, context: QualityGa
     }
   }
 
-  const requiredSections = context.pageType === "topic" ? REQUIRED_TOPIC_SECTIONS : REQUIRED_CONCEPT_SECTIONS;
+  const requiredSections =
+    context.pageType === "topic" ? REQUIRED_TOPIC_SECTIONS : REQUIRED_CONCEPT_SECTIONS;
   for (const section of requiredSections) {
     if (!markdownHasSection(markdown, [section])) {
       issues.push({

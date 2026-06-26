@@ -1,7 +1,12 @@
 import { eq } from "drizzle-orm";
 import { claimConceptLinks, claims } from "@studyagent/db";
 import { combineConfidence } from "@studyagent/wiki-core";
-import { buildReducerResult, type ProposeClaimInput, type ProposeClaimOutput, type RuntimeWriteToolProvider } from "@studyagent/tools";
+import {
+  buildReducerResult,
+  type ProposeClaimInput,
+  type ProposeClaimOutput,
+  type RuntimeWriteToolProvider,
+} from "@studyagent/tools";
 import { appendEventWithTutorCacheInvalidation as appendEvent } from "./agentic-cache-invalidation.js";
 import type { AppContext } from "./context.js";
 import { resolveConceptIds, resolveEvidence } from "./tutor-write-shared.js";
@@ -88,7 +93,12 @@ export function createClaimWriteHandlers(
         warnings: [
           ...evidence.warnings,
           ...(conceptIds.length !== input.conceptIds.length
-            ? [{ code: "concept_scope_filtered", message: "Some concept ids were outside this notebook and were ignored." }]
+            ? [
+                {
+                  code: "concept_scope_filtered",
+                  message: "Some concept ids were outside this notebook and were ignored.",
+                },
+              ]
             : []),
         ],
         reducerResult: buildReducerResult(

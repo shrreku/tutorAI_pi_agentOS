@@ -75,8 +75,12 @@ describe("credits integration", () => {
       expect(summary.ingestionCreditsCents).toBe(40);
 
       const ledger = await getCreditLedgerForAdmin(dbClient, userId, 10);
-      expect(ledger.some((entry) => entry.entryType === "grant" && entry.creditType === "tutor")).toBe(true);
-      expect(ledger.some((entry) => entry.entryType === "grant" && entry.creditType === "ingestion")).toBe(true);
+      expect(
+        ledger.some((entry) => entry.entryType === "grant" && entry.creditType === "tutor"),
+      ).toBe(true);
+      expect(
+        ledger.some((entry) => entry.entryType === "grant" && entry.creditType === "ingestion"),
+      ).toBe(true);
     } finally {
       await dbClient.db.delete(creditLedgerEntries).where(eq(creditLedgerEntries.userId, userId));
       await dbClient.db.delete(creditReservations).where(eq(creditReservations.userId, userId));

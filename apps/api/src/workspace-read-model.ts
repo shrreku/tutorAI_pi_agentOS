@@ -63,7 +63,12 @@ const LOW_SIGNAL_SOURCE_WIKI_TYPES = new Set([
   "session_plan",
 ]);
 
-const INTERNAL_ARTIFACT_TYPES = new Set(["teaching_arc", "study_plan", "session_plan", "session_digest"]);
+const INTERNAL_ARTIFACT_TYPES = new Set([
+  "teaching_arc",
+  "study_plan",
+  "session_plan",
+  "session_digest",
+]);
 
 const REFERENCE_SURFACE_NODE_TYPES = new Set([
   "source",
@@ -118,7 +123,10 @@ export async function loadStudyPlanContext(
 
     if (objective) {
       const lists = await ctx.db.db
-        .select({ moduleId: objectiveLists.moduleId, objectiveIdsOrdered: objectiveLists.objectiveIdsOrdered })
+        .select({
+          moduleId: objectiveLists.moduleId,
+          objectiveIdsOrdered: objectiveLists.objectiveIdsOrdered,
+        })
         .from(objectiveLists)
         .where(eq(objectiveLists.notebookId, notebookId));
 
@@ -136,11 +144,15 @@ export async function loadStudyPlanContext(
   if (currentObjectiveId) {
     for (const edge of canvas.edges) {
       if (edge.source === currentObjectiveId) {
-        const target = canvas.nodes.find((node) => node.id === edge.target && node.nodeType === "concept");
+        const target = canvas.nodes.find(
+          (node) => node.id === edge.target && node.nodeType === "concept",
+        );
         if (target) currentPathConceptIds.push(target.id);
       }
       if (edge.target === currentObjectiveId) {
-        const source = canvas.nodes.find((node) => node.id === edge.source && node.nodeType === "concept");
+        const source = canvas.nodes.find(
+          (node) => node.id === edge.source && node.nodeType === "concept",
+        );
         if (source) currentPathConceptIds.push(source.id);
       }
     }
@@ -177,7 +189,8 @@ export async function augmentStudyMapCanvas(
       ...node.properties,
       masteryScore: mastery.masteryScore,
       learningConfidence: mastery.confidence,
-      status: mastery.masteryScore < 0.45 ? "weak" : mastery.masteryScore >= 0.75 ? "mastered" : "active",
+      status:
+        mastery.masteryScore < 0.45 ? "weak" : mastery.masteryScore >= 0.75 ? "mastered" : "active",
     };
   }
 
@@ -282,10 +295,15 @@ export async function augmentStudyMapCanvas(
       ),
     );
     const toolRefs = (toolsBySessionId.get(session.id) ?? []).flatMap((tool) =>
-      nodeRefsFromPayload(tool.inputJson, tool.outputJson ?? undefined, tool.reducerResultJson ?? undefined),
+      nodeRefsFromPayload(
+        tool.inputJson,
+        tool.outputJson ?? undefined,
+        tool.reducerResultJson ?? undefined,
+      ),
     );
-    const refs = uniqueNodeRefs([...runtimeRefs, ...selectedRefs, ...turnRefs, ...toolRefs])
-      .filter((ref) => ref.refType !== "session" || ref.refId !== session.id);
+    const refs = uniqueNodeRefs([...runtimeRefs, ...selectedRefs, ...turnRefs, ...toolRefs]).filter(
+      (ref) => ref.refType !== "session" || ref.refId !== session.id,
+    );
     sessionRefsById.set(session.id, refs);
 
     for (const ref of refs) {
@@ -315,10 +333,17 @@ export async function augmentStudyMapCanvas(
     .orderBy(desc(artifacts.updatedAt))
     .limit(12);
 
-  const studyPlanNode = nodes.find((node) => node.nodeType === "studyplan" || node.nodeType === "study_plan");
+  const studyPlanNode = nodes.find(
+    (node) => node.nodeType === "studyplan" || node.nodeType === "study_plan",
+  );
   for (const artifact of recentArtifacts) {
     if (INTERNAL_ARTIFACT_TYPES.has(artifact.artifactType)) continue;
-    if (learnerVisibilityForArtifact({ artifactType: artifact.artifactType, status: artifact.status }) === "hidden") {
+    if (
+      learnerVisibilityForArtifact({
+        artifactType: artifact.artifactType,
+        status: artifact.status,
+      }) === "hidden"
+    ) {
       continue;
     }
     if (!nodeMap.has(artifact.id)) {
@@ -349,7 +374,9 @@ export async function augmentStudyMapCanvas(
       });
     }
 
-    const scopedRefs = Array.isArray(artifact.sourceNodeRefsJson) ? artifact.sourceNodeRefsJson : [];
+    const scopedRefs = Array.isArray(artifact.sourceNodeRefsJson)
+      ? artifact.sourceNodeRefsJson
+      : [];
     const attachedScopeIds = new Set<string>();
     for (const ref of scopedRefs) {
       if (typeof ref !== "object" || ref === null) continue;
@@ -357,13 +384,27 @@ export async function augmentStudyMapCanvas(
       const refId = typeof record.refId === "string" ? record.refId : null;
       const refType = typeof record.refType === "string" ? record.refType : null;
       if (!refId || !nodeMap.has(refId)) continue;
-      if (!["source", "curriculum", "curriculum_module", "session_plan", "session", "objective", "concept"].includes(refType ?? "")) continue;
+      if (
+        ![
+          "source",
+          "curriculum",
+          "curriculum_module",
+          "session_plan",
+          "session",
+          "objective",
+          "concept",
+        ].includes(refType ?? "")
+      )
+        continue;
       attachedScopeIds.add(refId);
       edges.push({
         id: `artifact-scope-${artifact.id}-${refId}`,
         source: refId,
         target: artifact.id,
-        relationType: refType === "objective" || refType === "concept" || refType === "curriculum_module" ? "COVERS" : "DERIVED_FROM",
+        relationType:
+          refType === "objective" || refType === "concept" || refType === "curriculum_module"
+            ? "COVERS"
+            : "DERIVED_FROM",
         properties: { scope: refType },
       });
     }
@@ -394,7 +435,8 @@ export async function augmentStudyMapCanvas(
 
   for (const sessionNode of nodes) {
     if (sessionNode.nodeType !== "session_plan") continue;
-    const moduleId = typeof sessionNode.properties.moduleId === "string" ? sessionNode.properties.moduleId : null;
+    const moduleId =
+      typeof sessionNode.properties.moduleId === "string" ? sessionNode.properties.moduleId : null;
     if (!moduleId || !nodeMap.has(moduleId)) continue;
     edges.push({
       id: `module-${moduleId}-session-${sessionNode.id}`,
@@ -503,7 +545,9 @@ function sessionRelationForRef(refType: NodeRef["refType"]): string {
   return "COVERS";
 }
 
-function conceptIdsForArtifactPayload(payload: Record<string, unknown> | null | undefined): string[] {
+function conceptIdsForArtifactPayload(
+  payload: Record<string, unknown> | null | undefined,
+): string[] {
   const ids = new Set<string>();
   const add = (value: unknown) => {
     if (typeof value === "string" && value.trim().length > 0) ids.add(value);
@@ -686,7 +730,10 @@ export async function augmentCanvasWithPageReadiness(
   notebookId: string,
   nodes: GraphCanvasNode[],
 ): Promise<GraphCanvasNode[]> {
-  const pageRows = await ctx.db.db.select().from(wikiPages).where(eq(wikiPages.notebookId, notebookId));
+  const pageRows = await ctx.db.db
+    .select()
+    .from(wikiPages)
+    .where(eq(wikiPages.notebookId, notebookId));
   const pages = (Array.isArray(pageRows) ? pageRows : []) as WikiPageRow[];
   const pageById = new Map(pages.map((page) => [page.id, page]));
   const pageByKey = new Map(pages.map((page) => [page.pageKey, page]));
@@ -770,9 +817,7 @@ export function filterCanvasByVisibility(
       .filter((entry) => devMode || entry.visibility === "learner")
       .map((entry) => entry.node.id),
   );
-  const nodes = catalog
-    .filter((entry) => visibleIds.has(entry.node.id))
-    .map((entry) => entry.node);
+  const nodes = catalog.filter((entry) => visibleIds.has(entry.node.id)).map((entry) => entry.node);
   const edges = canvas.edges.filter(
     (edge) => visibleIds.has(edge.source) && visibleIds.has(edge.target),
   );
@@ -785,28 +830,43 @@ export function buildSourceWikiTopicGroups(
   catalog: WorkspaceNodeDescriptor[],
 ): SourceWikiTopicGroup[] {
   const visibleById = new Map(catalog.map((entry) => [entry.node.id, entry]));
-  const topicPages = canvas.nodes.filter((node) => node.nodeType === "wiki_page" && node.properties.pageType === "topic");
+  const topicPages = canvas.nodes.filter(
+    (node) => node.nodeType === "wiki_page" && node.properties.pageType === "topic",
+  );
 
   if (topicPages.length > 0) {
     return topicPages.map((topicPage) => {
       const topicNodeId = findLinkedTopicNodeId(canvas.edges, topicPage.id);
-      const topicNode = topicNodeId ? canvas.nodes.find((node) => node.id === topicNodeId && node.nodeType === "topic") ?? null : null;
+      const topicNode = topicNodeId
+        ? (canvas.nodes.find((node) => node.id === topicNodeId && node.nodeType === "topic") ??
+          null)
+        : null;
       const title =
-        typeof topicPage.properties.title === "string" && topicPage.properties.title.trim().length > 0
+        typeof topicPage.properties.title === "string" &&
+        topicPage.properties.title.trim().length > 0
           ? topicPage.properties.title.trim()
-          : typeof topicNode?.properties.title === "string" && topicNode.properties.title.trim().length > 0
+          : typeof topicNode?.properties.title === "string" &&
+              topicNode.properties.title.trim().length > 0
             ? topicNode.properties.title.trim()
             : "Ungrouped";
 
       const conceptIds = uniqueIds(
         canvas.edges
-          .filter((edge) => edge.source === topicPage.id && graphRelationSemantics(edge.relationType)?.canonical === "contains_concept")
+          .filter(
+            (edge) =>
+              edge.source === topicPage.id &&
+              graphRelationSemantics(edge.relationType)?.canonical === "contains_concept",
+          )
           .map((edge) => edge.target)
           .filter((id) => visibleById.get(id)?.visibility !== "hidden"),
       );
       const pageIds = uniqueIds(
         canvas.edges
-          .filter((edge) => edge.source === topicPage.id && graphRelationSemantics(edge.relationType)?.canonical === "contains_page")
+          .filter(
+            (edge) =>
+              edge.source === topicPage.id &&
+              graphRelationSemantics(edge.relationType)?.canonical === "contains_page",
+          )
           .map((edge) => edge.target)
           .filter((id) => id !== topicPage.id)
           .filter((id) => visibleById.get(id)?.visibility !== "hidden"),
@@ -815,7 +875,9 @@ export function buildSourceWikiTopicGroups(
       const referenceSurfaceTargets = uniqueNodeRefs(
         [...conceptIds, ...pageIds]
           .map((id) => visibleById.get(id))
-          .filter((entry): entry is WorkspaceNodeDescriptor => Boolean(entry?.referenceSurfaceTarget))
+          .filter((entry): entry is WorkspaceNodeDescriptor =>
+            Boolean(entry?.referenceSurfaceTarget),
+          )
           .map((entry) => entry.referenceSurfaceTarget!),
       ).slice(0, 8);
 
@@ -844,18 +906,27 @@ export function buildSourceWikiTopicGroups(
   if (topicNodes.length > 0) {
     return topicNodes.map((topicNode) => {
       const title =
-        typeof topicNode.properties.title === "string" && topicNode.properties.title.trim().length > 0
+        typeof topicNode.properties.title === "string" &&
+        topicNode.properties.title.trim().length > 0
           ? topicNode.properties.title.trim()
           : "Ungrouped";
       const conceptIds = uniqueIds(
         canvas.edges
-          .filter((edge) => edge.source === topicNode.id && graphRelationSemantics(edge.relationType)?.canonical === "contains_concept")
+          .filter(
+            (edge) =>
+              edge.source === topicNode.id &&
+              graphRelationSemantics(edge.relationType)?.canonical === "contains_concept",
+          )
           .map((edge) => edge.target)
           .filter((id) => visibleById.get(id)?.visibility !== "hidden"),
       );
       const pageIds = uniqueIds(
         canvas.edges
-          .filter((edge) => edge.source === topicNode.id && graphRelationSemantics(edge.relationType)?.canonical === "contains_page")
+          .filter(
+            (edge) =>
+              edge.source === topicNode.id &&
+              graphRelationSemantics(edge.relationType)?.canonical === "contains_page",
+          )
           .map((edge) => edge.target)
           .filter((id) => visibleById.get(id)?.visibility !== "hidden"),
       );
@@ -863,7 +934,9 @@ export function buildSourceWikiTopicGroups(
       const referenceSurfaceTargets = uniqueNodeRefs(
         [...conceptIds, ...pageIds]
           .map((id) => visibleById.get(id))
-          .filter((entry): entry is WorkspaceNodeDescriptor => Boolean(entry?.referenceSurfaceTarget))
+          .filter((entry): entry is WorkspaceNodeDescriptor =>
+            Boolean(entry?.referenceSurfaceTarget),
+          )
           .map((entry) => entry.referenceSurfaceTarget!),
       ).slice(0, 8);
 
@@ -895,7 +968,11 @@ export async function buildStudyMapReadModel(
   notebookId: string,
   userId: string,
   canvas: { nodes: GraphCanvasNode[]; edges: GraphCanvasEdge[] },
-  options: { devMode: boolean; projectionWarning?: string | null; projectionHealth?: ProjectionHealth },
+  options: {
+    devMode: boolean;
+    projectionWarning?: string | null;
+    projectionHealth?: ProjectionHealth;
+  },
 ): Promise<WorkspaceGraphReadModel & { nodes: GraphCanvasNode[]; edges: GraphCanvasEdge[] }> {
   const augmented = await augmentStudyMapCanvas(ctx, notebookId, userId, canvas);
   const readinessNodes = await augmentCanvasWithPageReadiness(ctx, notebookId, augmented.nodes);
@@ -915,20 +992,23 @@ export async function buildStudyMapReadModel(
     }
   }
 
-  return learnerSafeValue({
-    viewMode: "study_map",
-    devMode: options.devMode,
-    emphasis: {
-      currentModuleId: context.currentModuleId,
-      currentObjectiveId: context.currentObjectiveId,
-      currentPathConceptIds: context.currentPathConceptIds,
+  return learnerSafeValue(
+    {
+      viewMode: "study_map",
+      devMode: options.devMode,
+      emphasis: {
+        currentModuleId: context.currentModuleId,
+        currentObjectiveId: context.currentObjectiveId,
+        currentPathConceptIds: context.currentPathConceptIds,
+      },
+      nodeCatalog,
+      projectionWarning: options.projectionWarning ?? null,
+      ...(options.projectionHealth ? { projectionHealth: options.projectionHealth } : {}),
+      nodes: filtered.nodes,
+      edges: filtered.edges,
     },
-    nodeCatalog,
-    projectionWarning: options.projectionWarning ?? null,
-    ...(options.projectionHealth ? { projectionHealth: options.projectionHealth } : {}),
-    nodes: filtered.nodes,
-    edges: filtered.edges,
-  }, { devMode: options.devMode });
+    { devMode: options.devMode },
+  );
 }
 
 export async function buildSourceWikiReadModel(
@@ -937,7 +1017,11 @@ export async function buildSourceWikiReadModel(
   userId: string,
   canvas: { nodes: GraphCanvasNode[]; edges: GraphCanvasEdge[] },
   sourceId: string,
-  options: { devMode: boolean; projectionWarning?: string | null; projectionHealth?: ProjectionHealth },
+  options: {
+    devMode: boolean;
+    projectionWarning?: string | null;
+    projectionHealth?: ProjectionHealth;
+  },
 ): Promise<WorkspaceGraphReadModel & { nodes: GraphCanvasNode[]; edges: GraphCanvasEdge[] }> {
   const context = await loadStudyPlanContext(ctx, notebookId, userId, canvas);
   const readinessNodes = await augmentCanvasWithPageReadiness(ctx, notebookId, canvas.nodes);
@@ -945,24 +1029,33 @@ export async function buildSourceWikiReadModel(
   const nodeCatalog = buildNodeCatalog("source_wiki_map", presented, context, options.devMode);
   const filtered = filterCanvasByVisibility(presented, nodeCatalog, options.devMode);
   const topics = buildSourceWikiTopicGroups(canvas, sourceId, nodeCatalog);
-  const sourceWikiPages = await buildSourceWikiPageViews(ctx, notebookId, sourceId, options.devMode, options.projectionWarning ?? null);
+  const sourceWikiPages = await buildSourceWikiPageViews(
+    ctx,
+    notebookId,
+    sourceId,
+    options.devMode,
+    options.projectionWarning ?? null,
+  );
 
-  return learnerSafeValue({
-    viewMode: "source_wiki_map",
-    devMode: options.devMode,
-    emphasis: {
-      currentModuleId: context.currentModuleId,
-      currentObjectiveId: context.currentObjectiveId,
-      currentPathConceptIds: context.currentPathConceptIds,
+  return learnerSafeValue(
+    {
+      viewMode: "source_wiki_map",
+      devMode: options.devMode,
+      emphasis: {
+        currentModuleId: context.currentModuleId,
+        currentObjectiveId: context.currentObjectiveId,
+        currentPathConceptIds: context.currentPathConceptIds,
+      },
+      nodeCatalog,
+      topics,
+      sourceWikiPages,
+      projectionWarning: options.projectionWarning ?? null,
+      ...(options.projectionHealth ? { projectionHealth: options.projectionHealth } : {}),
+      nodes: filtered.nodes,
+      edges: filtered.edges,
     },
-    nodeCatalog,
-    topics,
-    sourceWikiPages,
-    projectionWarning: options.projectionWarning ?? null,
-    ...(options.projectionHealth ? { projectionHealth: options.projectionHealth } : {}),
-    nodes: filtered.nodes,
-    edges: filtered.edges,
-  }, { devMode: options.devMode });
+    { devMode: options.devMode },
+  );
 }
 
 export async function buildSourceWikiPageViews(
@@ -994,7 +1087,10 @@ export async function buildSourceWikiPageViews(
     ? sourceClaims.filter((claim) => claimIds.includes(claim.id))
     : [];
   const chunkRows = chunkIds.length
-    ? await ctx.db.db.select({ id: chunks.id, text: chunks.text }).from(chunks).where(inArray(chunks.id, chunkIds))
+    ? await ctx.db.db
+        .select({ id: chunks.id, text: chunks.text })
+        .from(chunks)
+        .where(inArray(chunks.id, chunkIds))
     : [];
   const excerptByChunkId = new Map(chunkRows.map((chunk) => [chunk.id, chunk.text.slice(0, 360)]));
 
@@ -1012,7 +1108,10 @@ export async function buildSourceWikiPageViews(
           confidence: claim.confidence,
           supportScore: claim.supportScore,
           evidence: claim.sourceChunkIds
-            .map((chunkId) => ({ sourceRef: `chunk:${chunkId}`, excerpt: excerptByChunkId.get(chunkId) ?? "" }))
+            .map((chunkId) => ({
+              sourceRef: `chunk:${chunkId}`,
+              excerpt: excerptByChunkId.get(chunkId) ?? "",
+            }))
             .filter((entry) => entry.excerpt.length > 0),
         })),
     }),
@@ -1029,7 +1128,12 @@ function topicTitleFromHeading(props: Record<string, unknown>): string {
 }
 
 function slugTopicKey(topic: string): string {
-  return topic.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "ungrouped";
+  return (
+    topic
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "") || "ungrouped"
+  );
 }
 
 function uniqueIds(ids: string[]): string[] {
@@ -1047,7 +1151,11 @@ function uniqueNodeRefs(refs: NodeRef[]): NodeRef[] {
 }
 
 function findLinkedTopicNodeId(edges: GraphCanvasEdge[], topicPageId: string): string | null {
-  const edge = edges.find((entry) => entry.target === topicPageId && graphRelationSemantics(entry.relationType)?.canonical === "contains_page");
+  const edge = edges.find(
+    (entry) =>
+      entry.target === topicPageId &&
+      graphRelationSemantics(entry.relationType)?.canonical === "contains_page",
+  );
   return edge?.source ?? null;
 }
 

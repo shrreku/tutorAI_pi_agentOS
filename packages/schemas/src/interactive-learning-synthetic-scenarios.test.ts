@@ -16,13 +16,17 @@ import {
 import { syntheticLearnerScenarioSchema } from "./synthetic-learner-evals.js";
 import { syntheticLearnerEvalTracerBulletFixture } from "./synthetic-learner-evals.fixtures.js";
 
-const MASTERY_PERSISTING_ACTIONS = new Set<InteractiveLearningActionName>(["quiz.answer_submitted"]);
+const MASTERY_PERSISTING_ACTIONS = new Set<InteractiveLearningActionName>([
+  "quiz.answer_submitted",
+]);
 
 function responseEmitsMasteryEvidence(actionName: InteractiveLearningActionName): boolean {
   return !PASSIVE_INTERACTIVE_ACTIONS.has(actionName);
 }
 
-function buildStepEnvelope(step: InteractiveLearningSyntheticStep): InteractiveLearningActionEnvelope | null {
+function buildStepEnvelope(
+  step: InteractiveLearningSyntheticStep,
+): InteractiveLearningActionEnvelope | null {
   if (!step.expectsDispatch || !step.actionName) {
     return null;
   }
@@ -87,9 +91,9 @@ describe("interactive learning synthetic learner scenarios", () => {
   });
 
   it("validates compatible synthetic learner scenario envelopes for dispatchable steps", () => {
-    const parsed = syntheticLearnerScenarioSchema.array().parse(
-      interactiveLearningSyntheticScenarios.map(toSyntheticLearnerScenario),
-    );
+    const parsed = syntheticLearnerScenarioSchema
+      .array()
+      .parse(interactiveLearningSyntheticScenarios.map(toSyntheticLearnerScenario));
 
     expect(parsed).toHaveLength(6);
     expect(parsed.every((scenario) => scenario.runKind === "regression")).toBe(true);
@@ -115,7 +119,9 @@ describe("interactive learning synthetic learner scenarios", () => {
       questionId: "q_derivative_definition",
       isCorrect: false,
     });
-    expect(parseInteractiveLearningActionPayload(envelope.actionName, envelope.actionPayload).success).toBe(true);
+    expect(
+      parseInteractiveLearningActionPayload(envelope.actionName, envelope.actionPayload).success,
+    ).toBe(true);
     expect(responseEmitsMasteryEvidence(envelope.actionName)).toBe(true);
     expect(step.persistsMasteryEvidence).toBe(true);
   });

@@ -4,9 +4,15 @@ import type { Driver } from "neo4j-driver";
 import { createNeo4jDriver, verifyNeo4jProjection } from "../neo4j-projection.js";
 import { applyProjectionPlan } from "./apply-projection-plan.js";
 import { buildProjectionPlan } from "./build-projection-plan.js";
-import { clearNotebookProjectionScope, clearSourceProjectionScope } from "./clear-projection-scope.js";
+import {
+  clearNotebookProjectionScope,
+  clearSourceProjectionScope,
+} from "./clear-projection-scope.js";
 import { loadCanonicalProjectionSnapshot } from "./load-canonical-snapshot.js";
-import { upsertNotebookProjectionHealth, upsertSourceProjectionHealth } from "./projection-health.js";
+import {
+  upsertNotebookProjectionHealth,
+  upsertSourceProjectionHealth,
+} from "./projection-health.js";
 
 export type ProjectGraphEnv = {
   neo4jUri: string;

@@ -25,7 +25,16 @@ export type StudyAgentRuntimeBinding = {
   hostStateSignature?: string;
   promptTemplateVersion: string;
   replacedAt: string;
-  reason: "created" | "notebook_changed" | "session_changed" | "user_changed" | "mode_changed" | "selected_refs_changed" | "host_state_changed" | "prompt_changed" | "manual";
+  reason:
+    | "created"
+    | "notebook_changed"
+    | "session_changed"
+    | "user_changed"
+    | "mode_changed"
+    | "selected_refs_changed"
+    | "host_state_changed"
+    | "prompt_changed"
+    | "manual";
 };
 
 let livePiSessions = new Map<string, CachedPiSession>();
@@ -45,17 +54,13 @@ export function replaceLivePiSessionsForTests(next: Map<string, CachedPiSession>
   livePiSessions = next;
 }
 
-function fingerprintSelectedNodeRefs(
-  refs: Array<{ refType: string; refId: string }>,
-): string {
-  return JSON.stringify(
-    refs
-      .map((ref) => `${ref.refType}:${ref.refId}`)
-      .sort(),
-  );
+function fingerprintSelectedNodeRefs(refs: Array<{ refType: string; refId: string }>): string {
+  return JSON.stringify(refs.map((ref) => `${ref.refType}:${ref.refId}`).sort());
 }
 
-export function getStudyAgentTutorRuntimeBinding(sessionId: string): StudyAgentRuntimeBinding | null {
+export function getStudyAgentTutorRuntimeBinding(
+  sessionId: string,
+): StudyAgentRuntimeBinding | null {
   return livePiSessions.get(sessionId)?.binding ?? null;
 }
 
@@ -70,7 +75,11 @@ export async function replaceStudyAgentTutorRuntime(input: {
   previousSessionId?: string;
   nextRun: StudyAgentRuntimeRun;
   reason?: StudyAgentRuntimeBinding["reason"];
-}): Promise<{ replaced: boolean; disposedSessionId: string | null; binding: StudyAgentRuntimeBinding | null }> {
+}): Promise<{
+  replaced: boolean;
+  disposedSessionId: string | null;
+  binding: StudyAgentRuntimeBinding | null;
+}> {
   const nextSessionId = input.nextRun.sessionId;
   if (!nextSessionId) {
     return { replaced: false, disposedSessionId: null, binding: null };
@@ -79,13 +88,16 @@ export async function replaceStudyAgentTutorRuntime(input: {
   const previousSessionId = input.previousSessionId ?? nextSessionId;
   const existing = livePiSessions.get(previousSessionId);
   const existingBinding = existing?.binding;
-  const nextSelectedNodeRefsFingerprint = fingerprintSelectedNodeRefs(input.nextRun.selectedNodeRefs);
+  const nextSelectedNodeRefsFingerprint = fingerprintSelectedNodeRefs(
+    input.nextRun.selectedNodeRefs,
+  );
   const materialChange =
     input.reason === "manual" ||
     previousSessionId !== nextSessionId ||
     existingBinding?.notebookId !== input.nextRun.notebookId ||
     existingBinding?.userId !== input.nextRun.userId ||
-    (existingBinding?.activeMode !== undefined && existingBinding.activeMode !== input.nextRun.activeMode) ||
+    (existingBinding?.activeMode !== undefined &&
+      existingBinding.activeMode !== input.nextRun.activeMode) ||
     (existingBinding?.selectedNodeRefsFingerprint !== undefined &&
       existingBinding.selectedNodeRefsFingerprint !== nextSelectedNodeRefsFingerprint) ||
     (existingBinding?.hostStateSignature !== undefined &&
@@ -107,18 +119,21 @@ export async function replaceStudyAgentTutorRuntime(input: {
       userId: input.nextRun.userId,
       activeMode: input.nextRun.activeMode,
       selectedNodeRefsFingerprint: nextSelectedNodeRefsFingerprint,
-      ...(input.nextRun.hostStateSignature ? { hostStateSignature: input.nextRun.hostStateSignature } : {}),
+      ...(input.nextRun.hostStateSignature
+        ? { hostStateSignature: input.nextRun.hostStateSignature }
+        : {}),
       promptTemplateVersion: input.nextRun.modelConfig.promptTemplateVersion,
       replacedAt: new Date().toISOString(),
       reason:
-        input.reason
-        ?? (previousSessionId !== nextSessionId
+        input.reason ??
+        (previousSessionId !== nextSessionId
           ? "session_changed"
           : existingBinding?.notebookId !== input.nextRun.notebookId
             ? "notebook_changed"
             : existingBinding?.userId !== input.nextRun.userId
               ? "user_changed"
-            : existingBinding?.activeMode !== undefined && existingBinding.activeMode !== input.nextRun.activeMode
+              : existingBinding?.activeMode !== undefined &&
+                  existingBinding.activeMode !== input.nextRun.activeMode
                 ? "mode_changed"
                 : existingBinding?.selectedNodeRefsFingerprint !== undefined &&
                     existingBinding.selectedNodeRefsFingerprint !== nextSelectedNodeRefsFingerprint
@@ -126,7 +141,7 @@ export async function replaceStudyAgentTutorRuntime(input: {
                   : existingBinding?.hostStateSignature !== undefined &&
                       existingBinding.hostStateSignature !== input.nextRun.hostStateSignature
                     ? "host_state_changed"
-                  : "prompt_changed"),
+                    : "prompt_changed"),
     },
   };
 }

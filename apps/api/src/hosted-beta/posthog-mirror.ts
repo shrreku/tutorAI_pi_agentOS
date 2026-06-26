@@ -9,11 +9,16 @@ export type PostHogMirrorEvent = {
   timestamp?: string;
 };
 
-export function scrubAnalyticsProperties(properties: Record<string, unknown>): Record<string, unknown> {
+export function scrubAnalyticsProperties(
+  properties: Record<string, unknown>,
+): Record<string, unknown> {
   return sanitizeProductAnalyticsProperties(properties);
 }
 
-export async function mirrorToPostHog(env: StudyAgentEnv, event: PostHogMirrorEvent): Promise<void> {
+export async function mirrorToPostHog(
+  env: StudyAgentEnv,
+  event: PostHogMirrorEvent,
+): Promise<void> {
   if (!env.POSTHOG_API_KEY) {
     return;
   }
@@ -46,6 +51,8 @@ export async function mirrorToPostHog(env: StudyAgentEnv, event: PostHogMirrorEv
       console.warn(`PostHog mirror failed with status ${response.status}`);
     }
   } catch (error) {
-    console.warn(`PostHog mirror unavailable: ${error instanceof Error ? error.message : String(error)}`);
+    console.warn(
+      `PostHog mirror unavailable: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 }

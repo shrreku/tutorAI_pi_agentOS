@@ -35,7 +35,12 @@ export async function mergeConceptNodes(
   }
 }
 
-export type IngestConceptRelationKind = "depends_on" | "supports" | "example_of" | "contradicts" | "covers";
+export type IngestConceptRelationKind =
+  | "depends_on"
+  | "supports"
+  | "example_of"
+  | "contradicts"
+  | "covers";
 
 export async function mergeConceptRelation(
   session: Session,
@@ -56,7 +61,13 @@ export async function mergeConceptRelation(
            r.confidence = coalesce($confidence, r.confidence),
            r.projectionSourceId = coalesce($sourceId, r.projectionSourceId),
            r.updatedAt = datetime()`,
-      { fromId: fromConceptId, toId: toConceptId, notebookId, confidence: conf ?? null, sourceId: sourceId ?? null },
+      {
+        fromId: fromConceptId,
+        toId: toConceptId,
+        notebookId,
+        confidence: conf ?? null,
+        sourceId: sourceId ?? null,
+      },
     );
     return;
   }
@@ -69,7 +80,13 @@ export async function mergeConceptRelation(
            r.confidence = coalesce($confidence, r.confidence),
            r.projectionSourceId = coalesce($sourceId, r.projectionSourceId),
            r.updatedAt = datetime()`,
-      { fromId: fromConceptId, toId: toConceptId, notebookId, confidence: conf ?? null, sourceId: sourceId ?? null },
+      {
+        fromId: fromConceptId,
+        toId: toConceptId,
+        notebookId,
+        confidence: conf ?? null,
+        sourceId: sourceId ?? null,
+      },
     );
     return;
   }
@@ -83,7 +100,13 @@ export async function mergeConceptRelation(
            r.confidence = coalesce($confidence, r.confidence),
            r.projectionSourceId = coalesce($sourceId, r.projectionSourceId),
            r.updatedAt = datetime()`,
-      { fromId: fromConceptId, toId: toConceptId, notebookId, confidence: conf ?? null, sourceId: sourceId ?? null },
+      {
+        fromId: fromConceptId,
+        toId: toConceptId,
+        notebookId,
+        confidence: conf ?? null,
+        sourceId: sourceId ?? null,
+      },
     );
     return;
   }
@@ -97,7 +120,14 @@ export async function mergeConceptRelation(
          r.confidence = coalesce($confidence, r.confidence),
          r.projectionSourceId = coalesce($sourceId, r.projectionSourceId),
          r.updatedAt = datetime()`,
-    { fromId: fromConceptId, toId: toConceptId, notebookId, variant, confidence: conf ?? null, sourceId: sourceId ?? null },
+    {
+      fromId: fromConceptId,
+      toId: toConceptId,
+      notebookId,
+      variant,
+      confidence: conf ?? null,
+      sourceId: sourceId ?? null,
+    },
   );
 }
 
@@ -272,7 +302,16 @@ export async function mergeSessionPlanNode(
      MERGE (ol)-[x:PLANS]->(sp)
      SET x.notebookId = $notebookId,
          x.updatedAt = datetime()`,
-    { sessionPlanId, curriculumId, moduleId, objectiveListId, notebookId, title, status, sessionGoal },
+    {
+      sessionPlanId,
+      curriculumId,
+      moduleId,
+      objectiveListId,
+      notebookId,
+      title,
+      status,
+      sessionGoal,
+    },
   );
 }
 
@@ -517,7 +556,9 @@ export async function mergeWikiPageForSource(
 }
 
 /** Bootstrap constraints and verify read access. */
-export async function verifyNeo4jProjection(session: Session): Promise<{ ok: true } | { ok: false; message: string }> {
+export async function verifyNeo4jProjection(
+  session: Session,
+): Promise<{ ok: true } | { ok: false; message: string }> {
   try {
     await ensureNeo4jMvpConstraints(session);
     await session.run(`RETURN 1 AS ok`);

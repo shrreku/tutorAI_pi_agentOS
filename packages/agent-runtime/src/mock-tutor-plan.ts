@@ -5,8 +5,7 @@ export type MockTutorPlanStep =
   | { type: "text"; content: string }
   | { type: "tool_call"; toolName: string; toolCallId: string; args: unknown };
 
-const GENERIC_IDLE_REPLY =
-  /^i['']?m ready to help you learn in /i;
+const GENERIC_IDLE_REPLY = /^i['']?m ready to help you learn in /i;
 
 export function isGenericTutorIdleReply(message: string): boolean {
   return GENERIC_IDLE_REPLY.test(message.trim());
@@ -17,10 +16,14 @@ function toolCallId(): string {
 }
 
 function conceptIds(context: StudyAgentPromptContext): string[] {
-  return context.selectedNodeRefs.filter((ref) => ref.refType === "concept").map((ref) => ref.refId);
+  return context.selectedNodeRefs
+    .filter((ref) => ref.refType === "concept")
+    .map((ref) => ref.refId);
 }
 
-function sourceNodeRefs(context: StudyAgentPromptContext): StudyAgentPromptContext["selectedNodeRefs"] {
+function sourceNodeRefs(
+  context: StudyAgentPromptContext,
+): StudyAgentPromptContext["selectedNodeRefs"] {
   return context.selectedNodeRefs;
 }
 
@@ -56,7 +59,10 @@ export function planMockTutorSessionSteps(
 
   if (lower.includes("flashcard") || lower.includes("flashcards")) {
     return [
-      { type: "text", content: "I'll create grounded flashcards from the notebook concepts in scope. " },
+      {
+        type: "text",
+        content: "I'll create grounded flashcards from the notebook concepts in scope. ",
+      },
       {
         type: "tool_call",
         toolName: "artifact.create_flashcards",
@@ -78,8 +84,8 @@ export function planMockTutorSessionSteps(
       /\bcorrection\b/,
       /\bevaluate\b.*\b(answer|response)\b/,
       /\bcheck whether\b.*\b(right|correct|understanding)\b/,
-    ])
-    || (lower.includes("tangent") && lower.includes("?"))
+    ]) ||
+    (lower.includes("tangent") && lower.includes("?"))
   ) {
     return [
       { type: "text", content: "I'll evaluate that answer against the mastery checkpoint. " },
@@ -88,13 +94,17 @@ export function planMockTutorSessionSteps(
         toolName: "learning.evaluate_response",
         toolCallId: toolCallId(),
         args: {
-          tutorQuestion: "Explain whether the derivative uses a secant line or tangent line at the limit.",
+          tutorQuestion:
+            "Explain whether the derivative uses a secant line or tangent line at the limit.",
           learnerAnswer: userMessage,
           conceptRoles: concepts.length
             ? concepts.map((conceptId) => ({ conceptId, role: "core" }))
             : [{ conceptId: "concept_derivatives", role: "core" }],
           masterySnapshot: Object.fromEntries(
-            (concepts.length ? concepts : ["concept_derivatives"]).map((conceptId) => [conceptId, 0.45]),
+            (concepts.length ? concepts : ["concept_derivatives"]).map((conceptId) => [
+              conceptId,
+              0.45,
+            ]),
           ),
           sourceRefs: sources.filter((ref) => ref.refType === "source"),
           contextRefs: [],
@@ -247,7 +257,9 @@ export function planMockTutorSessionSteps(
           claimText: userMessage,
           claimType: "tutor_proposal",
           conceptIds: concepts,
-          sourceRefs: sources.filter((ref) => ["source", "source_version", "chunk"].includes(ref.refType)),
+          sourceRefs: sources.filter((ref) =>
+            ["source", "source_version", "chunk"].includes(ref.refType),
+          ),
         },
       },
     ];
@@ -301,7 +313,10 @@ export function planMockTutorSessionSteps(
     ])
   ) {
     return [
-      { type: "text", content: "I'll build a source-grounded revision artifact from your notebook context. " },
+      {
+        type: "text",
+        content: "I'll build a source-grounded revision artifact from your notebook context. ",
+      },
       {
         type: "tool_call",
         toolName: "notebook.get_context",
@@ -351,7 +366,12 @@ export function planMockTutorSessionSteps(
     ];
   }
 
-  if (lower.includes("search") || lower.includes("find") || lower.includes("explain") || lower.includes("?")) {
+  if (
+    lower.includes("search") ||
+    lower.includes("find") ||
+    lower.includes("explain") ||
+    lower.includes("?")
+  ) {
     return [
       { type: "text", content: "Let me pull grounded notebook context first. " },
       {

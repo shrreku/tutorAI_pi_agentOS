@@ -45,7 +45,15 @@ const baseStudyState: NotebookStudyState = {
     canContinue: false,
     suggestedAction: "start_session",
   },
-  coverage: { total: 2, planned: 0, introduced: 2, checked: 0, mastered: 0, needsReview: 0, gaps: [] },
+  coverage: {
+    total: 2,
+    planned: 0,
+    introduced: 2,
+    checked: 0,
+    mastered: 0,
+    needsReview: 0,
+    gaps: [],
+  },
   sourceLevels: [],
   learnerReadiness: [],
   learnerProgressSummary: {
@@ -122,7 +130,14 @@ describe("boundary signals", () => {
     const signals = await buildWikiSearchBoundarySignals({} as never, {
       notebookId: "nb_1",
       query: "teach the heat diffusion equation",
-      results: [{ refType: "chunk", refId: "chunk_1", title: "Heat diffusion equation", snippet: "The heat diffusion equation is..." }],
+      results: [
+        {
+          refType: "chunk",
+          refId: "chunk_1",
+          title: "Heat diffusion equation",
+          snippet: "The heat diffusion equation is...",
+        },
+      ],
     });
 
     expect(signals).toEqual([]);

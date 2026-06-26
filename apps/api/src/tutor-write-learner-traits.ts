@@ -1,4 +1,8 @@
-import { buildReducerResult, type LearnerTraitRecordSignalOutput, type RuntimeWriteToolProvider } from "@studyagent/tools";
+import {
+  buildReducerResult,
+  type LearnerTraitRecordSignalOutput,
+  type RuntimeWriteToolProvider,
+} from "@studyagent/tools";
 import type { AppContext } from "./context.js";
 import { recordLearnerTraitSignal as recordLearnerTraitSignalStore } from "./learner-trait-store.js";
 
@@ -9,7 +13,12 @@ export function createLearnerTraitWriteHandlers(
     async recordLearnerTraitSignal(input, ctx): Promise<LearnerTraitRecordSignalOutput> {
       const evidenceRefs = input.evidenceRefs.length
         ? input.evidenceRefs
-        : [{ refType: "session_trace" as const, refId: ctx.sessionId ?? ctx.runId ?? ctx.notebookId }];
+        : [
+            {
+              refType: "session_trace" as const,
+              refId: ctx.sessionId ?? ctx.runId ?? ctx.notebookId,
+            },
+          ];
       const signalInput = {
         id: `lts_${crypto.randomUUID().replaceAll("-", "")}`,
         notebookId: ctx.notebookId,
@@ -27,7 +36,10 @@ export function createLearnerTraitWriteHandlers(
         internalVisibility: true,
         ...(input.notes ? { notes: input.notes } : {}),
       };
-      const result = await recordLearnerTraitSignalStore(appCtx.db, signalInput as Parameters<typeof recordLearnerTraitSignalStore>[1]);
+      const result = await recordLearnerTraitSignalStore(
+        appCtx.db,
+        signalInput as Parameters<typeof recordLearnerTraitSignalStore>[1],
+      );
 
       return {
         signal: result.signal,

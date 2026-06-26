@@ -41,7 +41,12 @@ export {
 } from "./neo4j-projection.js";
 
 export { queryStudyMapSimple, querySourceWikiMapSimple } from "./neo4j-queries.js";
-export { queryConceptNeighborhood, queryConceptShortestPath, type ConceptNeighborhood, type ConceptPathResult } from "./neo4j-traverse.js";
+export {
+  queryConceptNeighborhood,
+  queryConceptShortestPath,
+  type ConceptNeighborhood,
+  type ConceptPathResult,
+} from "./neo4j-traverse.js";
 export {
   buildSourceWikiTopicProjection,
   normalizeNeo4jCanvasEdges,

@@ -48,9 +48,17 @@ export async function graphKeywordSearchNotebook(
       id: c.id,
       type: "concept",
       title: c.canonicalName,
-      snippet: (c.description ?? "").length > 280 ? `${(c.description ?? "").slice(0, 277)}…` : (c.description ?? ""),
+      snippet:
+        (c.description ?? "").length > 280
+          ? `${(c.description ?? "").slice(0, 277)}…`
+          : (c.description ?? ""),
       score: 0.48,
-      scoreDetails: { graphLexical: 1, confidence: conf, graphDepth: 0, recency: recency(c.updatedAt ?? null) },
+      scoreDetails: {
+        graphLexical: 1,
+        confidence: conf,
+        graphDepth: 0,
+        recency: recency(c.updatedAt ?? null),
+      },
       provenance: [{ refType: "concept", refId: c.id, role: "derived_from" }],
     });
   }
@@ -90,7 +98,10 @@ export async function graphKeywordSearchNotebook(
           eq(graphRelations.notebookId, notebookId),
           eq(graphRelations.sourceNodeType, "concept"),
           eq(graphRelations.targetNodeType, "concept"),
-          or(inArray(graphRelations.sourceNodeId, seedIds), inArray(graphRelations.targetNodeId, seedIds)),
+          or(
+            inArray(graphRelations.sourceNodeId, seedIds),
+            inArray(graphRelations.targetNodeId, seedIds),
+          ),
         ),
       )
       .limit(limit);

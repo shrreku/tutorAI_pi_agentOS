@@ -93,7 +93,10 @@ export function createWikiWriteHandlers(
         trigger: "tutor_touch",
         toolCtx: ctx,
       });
-      return packageWikiTouchOutput(touch, touchReducerPayload(ctx, touch, "generation.touch.completed"));
+      return packageWikiTouchOutput(
+        touch,
+        touchReducerPayload(ctx, touch, "generation.touch.completed"),
+      );
     },
 
     async touchTopicPage(input: TouchTopicPageInput, ctx): Promise<TouchTopicPageOutput> {
@@ -105,7 +108,10 @@ export function createWikiWriteHandlers(
         trigger: "topic_touch",
         toolCtx: ctx,
       });
-      return packageWikiTouchOutput(touch, touchReducerPayload(ctx, touch, "generation.touch.completed"));
+      return packageWikiTouchOutput(
+        touch,
+        touchReducerPayload(ctx, touch, "generation.touch.completed"),
+      );
     },
   };
 }

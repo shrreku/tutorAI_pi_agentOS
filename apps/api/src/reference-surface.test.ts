@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { assertLearnerSafeCopy } from "@studyagent/schemas";
 import type { AppContext } from "./context.js";
-import { buildNodeEvidence, buildReferenceSurface, toLearnerFacingReferenceSurface } from "./reference-surface.js";
+import {
+  buildNodeEvidence,
+  buildReferenceSurface,
+  toLearnerFacingReferenceSurface,
+} from "./reference-surface.js";
 import { ReferenceSurfaceFakeDb, type FakeTableRows } from "./reference-surface.test-db.js";
 
 const NB = "nb_1";
@@ -56,7 +60,12 @@ const conceptFixture: FakeTableRows = {
       sourceChunkIds: [],
     },
   ],
-  claimConceptLinks: [{ claimId: "claim_1" }, { claimId: "claim_2" }, { claimId: "claim_3" }, { claimId: "claim_4" }],
+  claimConceptLinks: [
+    { claimId: "claim_1" },
+    { claimId: "claim_2" },
+    { claimId: "claim_3" },
+    { claimId: "claim_4" },
+  ],
   chunks: [
     {
       id: "chunk_1",
@@ -68,7 +77,15 @@ const conceptFixture: FakeTableRows = {
     },
   ],
   sourceVersions: [{ id: "sv_1", sourceId: "src_1" }],
-  sources: [{ id: "src_1", notebookId: NB, title: "Source One", sourceType: "pdf", status: "tutoring_ready" }],
+  sources: [
+    {
+      id: "src_1",
+      notebookId: NB,
+      title: "Source One",
+      sourceType: "pdf",
+      status: "tutoring_ready",
+    },
+  ],
 };
 
 function artifactRow(
@@ -95,7 +112,11 @@ function artifactRow(
 
 describe("reference surface module", () => {
   it("builds a concept surface with attached evidence refs", async () => {
-    const surface = await buildReferenceSurface(ctxFor(conceptFixture, "concept_1"), NB, "concept_1");
+    const surface = await buildReferenceSurface(
+      ctxFor(conceptFixture, "concept_1"),
+      NB,
+      "concept_1",
+    );
     expect(surface.surfaceType).toBe("concept");
     const sourceBackedNotes = surface.blocks.find((block) => block.id === "source_claims");
     expect(sourceBackedNotes?.content).toEqual([
@@ -107,14 +128,23 @@ describe("reference surface module", () => {
     expect(surface.blocks[0]?.evidenceRefs).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ kind: "chunk", visibility: "learner" }),
-        expect.objectContaining({ kind: "claim", visibility: "learner", confidence: null, status: null }),
+        expect.objectContaining({
+          kind: "claim",
+          visibility: "learner",
+          confidence: null,
+          status: null,
+        }),
       ]),
     );
     expect(surface.quality.confidence).toBeNull();
   });
 
   it("excludes candidate and low-confidence claims from concept blocks", async () => {
-    const surface = await buildReferenceSurface(ctxFor(conceptFixture, "concept_1"), NB, "concept_1");
+    const surface = await buildReferenceSurface(
+      ctxFor(conceptFixture, "concept_1"),
+      NB,
+      "concept_1",
+    );
     const bodies = JSON.stringify(surface.blocks);
     expect(bodies).not.toContain("still needs review");
     expect(bodies).not.toContain("Generated without source support");
@@ -176,44 +206,48 @@ describe("reference surface module", () => {
     );
     expect(surface.surfaceType).toBe("wiki_page");
     expect(surface.blocks[0]?.kind).toBe("markdown");
-    expect(surface.interactiveBlocks?.some((block) => block.kind === "evidence_explorer")).toBe(true);
+    expect(surface.interactiveBlocks?.some((block) => block.kind === "evidence_explorer")).toBe(
+      true,
+    );
   });
 
   it("builds a curriculum surface", async () => {
     const surface = await buildReferenceSurface(
       ctxFor(
         {
-        curricula: [
-          {
-            id: "curr_1",
-            notebookId: NB,
-            title: "Thermodynamics",
-            status: "active",
-            scopeJson: { summary: "Heat and energy." },
-            coverageSummaryJson: { modules: 2 },
-            sourceIds: ["src_1"],
-            confidence: 0.7,
-          },
-        ],
-        curriculumModules: [
-          {
-            id: "mod_1",
-            notebookId: NB,
-            curriculumId: "curr_1",
-            title: "Heat transfer basics",
-            status: "active",
-            summary: "Introduce conduction and convection.",
-            orderIndex: 0,
-          },
-        ],
-      },
+          curricula: [
+            {
+              id: "curr_1",
+              notebookId: NB,
+              title: "Thermodynamics",
+              status: "active",
+              scopeJson: { summary: "Heat and energy." },
+              coverageSummaryJson: { modules: 2 },
+              sourceIds: ["src_1"],
+              confidence: 0.7,
+            },
+          ],
+          curriculumModules: [
+            {
+              id: "mod_1",
+              notebookId: NB,
+              curriculumId: "curr_1",
+              title: "Heat transfer basics",
+              status: "active",
+              summary: "Introduce conduction and convection.",
+              orderIndex: 0,
+            },
+          ],
+        },
         "curr_1",
       ),
       NB,
       "curr_1",
     );
     expect(surface.surfaceType).toBe("curriculum");
-    expect(surface.blocks.map((block) => block.id)).toEqual(expect.arrayContaining(["overview", "modules"]));
+    expect(surface.blocks.map((block) => block.id)).toEqual(
+      expect.arrayContaining(["overview", "modules"]),
+    );
     expect(JSON.stringify(surface.blocks)).not.toContain("coverageSummaryJson");
   });
 
@@ -221,42 +255,42 @@ describe("reference surface module", () => {
     const surface = await buildReferenceSurface(
       ctxFor(
         {
-        curriculumModules: [
-          {
-            id: "mod_1",
-            notebookId: NB,
-            curriculumId: "curr_1",
-            title: "Heat transfer basics",
-            status: "active",
-            summary: "Introduce conduction and convection.",
-            sourceRefsJson: [{ refType: "source", refId: "src_1" }],
-            coverageRequirementsJson: {},
-            masteryGateJson: {},
-          },
-        ],
-        objectiveLists: [
-          {
-            id: "mod_1",
-            notebookId: NB,
-            curriculumId: "curr_1",
-            moduleId: "mod_1",
-            title: "Heat transfer objectives",
-            status: "active",
-            currentObjectiveId: "obj_1",
-            objectiveIdsOrdered: ["obj_1"],
-          },
-        ],
-        objectives: [
-          {
-            id: "obj_1",
-            notebookId: NB,
-            curriculumId: "curr_1",
-            title: "Explain conduction",
-            status: "active",
-            successCriteriaJson: { canExplain: "Explain conduction in your own words." },
-          },
-        ],
-      },
+          curriculumModules: [
+            {
+              id: "mod_1",
+              notebookId: NB,
+              curriculumId: "curr_1",
+              title: "Heat transfer basics",
+              status: "active",
+              summary: "Introduce conduction and convection.",
+              sourceRefsJson: [{ refType: "source", refId: "src_1" }],
+              coverageRequirementsJson: {},
+              masteryGateJson: {},
+            },
+          ],
+          objectiveLists: [
+            {
+              id: "mod_1",
+              notebookId: NB,
+              curriculumId: "curr_1",
+              moduleId: "mod_1",
+              title: "Heat transfer objectives",
+              status: "active",
+              currentObjectiveId: "obj_1",
+              objectiveIdsOrdered: ["obj_1"],
+            },
+          ],
+          objectives: [
+            {
+              id: "obj_1",
+              notebookId: NB,
+              curriculumId: "curr_1",
+              title: "Explain conduction",
+              status: "active",
+              successCriteriaJson: { canExplain: "Explain conduction in your own words." },
+            },
+          ],
+        },
         "mod_1",
       ),
       NB,
@@ -264,7 +298,9 @@ describe("reference surface module", () => {
     );
     expect(surface.surfaceType).toBe("module");
     expect(surface.scopeRefs[0]?.refType).toBe("curriculum");
-    expect(surface.blocks.map((block) => block.id)).toEqual(expect.arrayContaining(["overview", "objectives"]));
+    expect(surface.blocks.map((block) => block.id)).toEqual(
+      expect.arrayContaining(["overview", "objectives"]),
+    );
     expect(JSON.stringify(surface.blocks)).toContain("Explain conduction");
   });
 
@@ -272,22 +308,22 @@ describe("reference surface module", () => {
     const surface = await buildReferenceSurface(
       ctxFor(
         {
-        objectives: [
-          {
-            id: "obj_1",
-            notebookId: NB,
-            curriculumId: "curr_1",
-            title: "Explain conduction",
-            status: "active",
-            prerequisiteConceptIds: ["concept_1"],
-            targetConceptIds: [],
-            successCriteriaJson: { mastery: 0.7 },
-            sourceRefsJson: [],
-            readinessScore: 0.6,
-          },
-        ],
-        artifacts: [],
-      },
+          objectives: [
+            {
+              id: "obj_1",
+              notebookId: NB,
+              curriculumId: "curr_1",
+              title: "Explain conduction",
+              status: "active",
+              prerequisiteConceptIds: ["concept_1"],
+              targetConceptIds: [],
+              successCriteriaJson: { mastery: 0.7 },
+              sourceRefsJson: [],
+              readinessScore: 0.6,
+            },
+          ],
+          artifacts: [],
+        },
         "obj_1",
       ),
       NB,
@@ -301,29 +337,29 @@ describe("reference surface module", () => {
     const surface = await buildReferenceSurface(
       ctxFor(
         {
-        sessionPlans: [
-          {
-            id: "sess_1",
-            notebookId: NB,
-            curriculumId: "curr_1",
-            moduleId: "mod_1",
-            title: "Session 1",
-            status: "active",
-            sessionGoal: "Practice conduction problems.",
-            plannedObjectiveIds: ["obj_1"],
-            openerJson: {},
-            exitCriteriaJson: {},
-          },
-        ],
-        objectives: [
-          {
-            id: "obj_1",
-            title: "Explain conduction",
-            status: "active",
-            successCriteriaJson: {},
-          },
-        ],
-      },
+          sessionPlans: [
+            {
+              id: "sess_1",
+              notebookId: NB,
+              curriculumId: "curr_1",
+              moduleId: "mod_1",
+              title: "Session 1",
+              status: "active",
+              sessionGoal: "Practice conduction problems.",
+              plannedObjectiveIds: ["obj_1"],
+              openerJson: {},
+              exitCriteriaJson: {},
+            },
+          ],
+          objectives: [
+            {
+              id: "obj_1",
+              title: "Explain conduction",
+              status: "active",
+              successCriteriaJson: {},
+            },
+          ],
+        },
         "sess_1",
       ),
       NB,
@@ -374,7 +410,15 @@ describe("reference surface module", () => {
               createdAt: now,
             },
           ],
-          sources: [{ id: "src_1", notebookId: NB, title: "Textbook", sourceType: "pdf", status: "tutoring_ready" }],
+          sources: [
+            {
+              id: "src_1",
+              notebookId: NB,
+              title: "Textbook",
+              sourceType: "pdf",
+              status: "tutoring_ready",
+            },
+          ],
         },
         "sess_live",
       ),
@@ -386,7 +430,9 @@ describe("reference surface module", () => {
     expect(surface.blocks.some((block) => block.id === "taught")).toBe(false);
     expect(surface.blocks.some((block) => block.id === "doubts")).toBe(false);
     expect(surface.blocks.some((block) => block.id === "next_steps")).toBe(false);
-    expect(JSON.stringify(surface.blocks)).not.toContain("Conduction moves heat by direct contact.");
+    expect(JSON.stringify(surface.blocks)).not.toContain(
+      "Conduction moves heat by direct contact.",
+    );
     expect(JSON.stringify(surface.blocks)).not.toContain("What is the formula?");
     expect(surface.sourceRefs).toEqual([{ refType: "source", refId: "src_1" }]);
   });
@@ -395,8 +441,16 @@ describe("reference surface module", () => {
     const surface = await buildReferenceSurface(
       ctxFor(
         {
-        sources: [{ id: "src_1", notebookId: NB, title: "Textbook", sourceType: "pdf", status: "tutoring_ready" }],
-      },
+          sources: [
+            {
+              id: "src_1",
+              notebookId: NB,
+              title: "Textbook",
+              sourceType: "pdf",
+              status: "tutoring_ready",
+            },
+          ],
+        },
         "src_1",
       ),
       NB,
@@ -420,8 +474,16 @@ describe("reference surface module", () => {
       ["note", { markdown: "Study note body." }, "markdown"],
       ["quiz", { questions: [{ prompt: "Q1?", answer: "A1" }] }, "question_list"],
       ["flashcards", { cards: [{ front: "Term", back: "Definition" }] }, "flashcard_list"],
-      ["worked_example", { problemStatement: "Solve for x.", solutionSteps: ["Step 1"] }, "step_list"],
-      ["formula_sheet", { formulas: [{ name: "Fourier", expression: "q = -k dT/dx" }] }, "formula_table"],
+      [
+        "worked_example",
+        { problemStatement: "Solve for x.", solutionSteps: ["Step 1"] },
+        "step_list",
+      ],
+      [
+        "formula_sheet",
+        { formulas: [{ name: "Fourier", expression: "q = -k dT/dx" }] },
+        "formula_table",
+      ],
       ["comparison_page", { comparisonRows: [{ left: "A", right: "B" }] }, "comparison_table"],
       ["concept_card", { definition: "A concept card definition." }, "markdown"],
     ] as const)("converts %s artifacts", async (artifactType, payloadJson, expectedKind) => {
@@ -435,13 +497,22 @@ describe("reference surface module", () => {
       expect(surface.blocks.some((block) => block.kind === expectedKind)).toBe(true);
       expect(surface.status).toBe("Ready to study");
       expect(surface.primaryActions).toEqual(
-        artifactType === "quiz" ? ["ask_tutor", "quiz", "regenerate", "open_evidence"] : ["ask_tutor", "review", "regenerate", "open_evidence"],
+        artifactType === "quiz"
+          ? ["ask_tutor", "quiz", "regenerate", "open_evidence"]
+          : ["ask_tutor", "review", "regenerate", "open_evidence"],
       );
     });
 
     it("hides internal lifecycle status labels on draft artifacts", async () => {
       const surface = await buildReferenceSurface(
-        ctxFor({ artifacts: [artifactRow("art_draft", "note", { markdown: "Draft note." }, { status: "draft" })] }, "art_draft"),
+        ctxFor(
+          {
+            artifacts: [
+              artifactRow("art_draft", "note", { markdown: "Draft note." }, { status: "draft" }),
+            ],
+          },
+          "art_draft",
+        ),
         NB,
         "art_draft",
       );
@@ -452,7 +523,9 @@ describe("reference surface module", () => {
 
 describe("buildNodeEvidence", () => {
   it("returns source-backed and low-confidence developer evidence for concepts", async () => {
-    const evidence = await buildNodeEvidence(ctxFor(conceptFixture, "concept_1"), NB, "concept_1", { devMode: true });
+    const evidence = await buildNodeEvidence(ctxFor(conceptFixture, "concept_1"), NB, "concept_1", {
+      devMode: true,
+    });
     expect(evidence.learnerRefs.some((ref) => ref.kind === "chunk")).toBe(true);
     expect(evidence.learnerRefs.some((ref) => ref.statementKind === "source_backed")).toBe(true);
     expect(evidence.developerRefs.some((ref) => ref.visibility === "developer")).toBe(true);
@@ -460,25 +533,46 @@ describe("buildNodeEvidence", () => {
   });
 
   it("classifies inferred evidence when chunks exist but confidence is below learner threshold", async () => {
-    const evidence = await buildNodeEvidence(ctxFor(conceptFixture, "concept_1"), NB, "concept_1", { devMode: true });
+    const evidence = await buildNodeEvidence(ctxFor(conceptFixture, "concept_1"), NB, "concept_1", {
+      devMode: true,
+    });
     expect(evidence.developerRefs.some((ref) => ref.statementKind === "inferred")).toBe(true);
   });
 
   it("keeps generated evidence without source chunks in Dev Mode", async () => {
-    const evidence = await buildNodeEvidence(ctxFor(conceptFixture, "concept_1"), NB, "concept_1", { devMode: true });
+    const evidence = await buildNodeEvidence(ctxFor(conceptFixture, "concept_1"), NB, "concept_1", {
+      devMode: true,
+    });
     const generated = evidence.developerRefs.find((ref) => ref.id === "claim_4");
     expect(generated?.statementKind).toBe("generated");
     expect(evidence.learnerRefs.some((ref) => ref.id === "claim_4")).toBe(false);
   });
 
   it("returns developer evidence only when Dev Mode is enabled", async () => {
-    const learnerEvidence = await buildNodeEvidence(ctxFor(conceptFixture, "concept_1"), NB, "concept_1");
-    const developerEvidence = await buildNodeEvidence(ctxFor(conceptFixture, "concept_1"), NB, "concept_1", { devMode: true });
+    const learnerEvidence = await buildNodeEvidence(
+      ctxFor(conceptFixture, "concept_1"),
+      NB,
+      "concept_1",
+    );
+    const developerEvidence = await buildNodeEvidence(
+      ctxFor(conceptFixture, "concept_1"),
+      NB,
+      "concept_1",
+      { devMode: true },
+    );
 
     expect(learnerEvidence.developerRefs).toEqual([]);
-    expect(learnerEvidence.learnerRefs.every((ref) => ref.kind !== "claim" || (ref.confidence === null && ref.status === null))).toBe(true);
-    expect(developerEvidence.developerRefs.some((ref) => ref.visibility === "developer")).toBe(true);
-    expect(developerEvidence.learnerRefs.some((ref) => ref.kind === "claim" && ref.confidence !== null)).toBe(true);
+    expect(
+      learnerEvidence.learnerRefs.every(
+        (ref) => ref.kind !== "claim" || (ref.confidence === null && ref.status === null),
+      ),
+    ).toBe(true);
+    expect(developerEvidence.developerRefs.some((ref) => ref.visibility === "developer")).toBe(
+      true,
+    );
+    expect(
+      developerEvidence.learnerRefs.some((ref) => ref.kind === "claim" && ref.confidence !== null),
+    ).toBe(true);
   });
 
   it("returns empty evidence for unknown nodes", async () => {
@@ -511,8 +605,16 @@ describe("buildNodeEvidence", () => {
     const evidence = await buildNodeEvidence(
       ctxFor(
         {
-        sources: [{ id: "src_1", notebookId: NB, title: "Textbook", sourceType: "pdf", status: "tutoring_ready" }],
-      },
+          sources: [
+            {
+              id: "src_1",
+              notebookId: NB,
+              title: "Textbook",
+              sourceType: "pdf",
+              status: "tutoring_ready",
+            },
+          ],
+        },
         "src_1",
       ),
       NB,
@@ -524,29 +626,36 @@ describe("buildNodeEvidence", () => {
 
   it("maps learner-facing primary actions away from provenance vocabulary", async () => {
     const learnerSurface = await buildReferenceSurface(
-      ctxFor({
-        artifacts: [{
-          id: "artifact_quiz",
-          notebookId: NB,
-          title: "Quiz",
-          artifactType: "quiz",
-          status: "ready",
-          payloadJson: { questions: [{ id: "q1", prompt: "?", answer: "x" }] },
-          createdAt: now,
-          updatedAt: now,
-        }],
-      }, "artifact_quiz"),
+      ctxFor(
+        {
+          artifacts: [
+            {
+              id: "artifact_quiz",
+              notebookId: NB,
+              title: "Quiz",
+              artifactType: "quiz",
+              status: "ready",
+              payloadJson: { questions: [{ id: "q1", prompt: "?", answer: "x" }] },
+              createdAt: now,
+              updatedAt: now,
+            },
+          ],
+        },
+        "artifact_quiz",
+      ),
       NB,
       "artifact_quiz",
     );
     expect(learnerSurface.primaryActions).toContain("open_evidence");
     expect(learnerSurface.primaryActions).not.toContain("open_provenance");
     expect("provenanceRefs" in learnerSurface).toBe(false);
-    expect(assertLearnerSafeCopy({
-      primaryActions: learnerSurface.primaryActions,
-      title: learnerSurface.title,
-      status: learnerSurface.status,
-      blocks: learnerSurface.blocks.map((block) => ({ title: block.title, kind: block.kind })),
-    })).toEqual([]);
+    expect(
+      assertLearnerSafeCopy({
+        primaryActions: learnerSurface.primaryActions,
+        title: learnerSurface.title,
+        status: learnerSurface.status,
+        blocks: learnerSurface.blocks.map((block) => ({ title: block.title, kind: block.kind })),
+      }),
+    ).toEqual([]);
   });
 });

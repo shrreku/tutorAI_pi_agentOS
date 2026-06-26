@@ -5,7 +5,10 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "scripts": { "build": "tsc -b", "check": "tsc -b --pretty false" },
+  "scripts": {
+    "build": "tsc -b",
+    "check": "tsc -b --pretty false"
+  },
   "dependencies": {
     "@studyagent/observability": "workspace:*",
     "@studyagent/schemas": "workspace:*"

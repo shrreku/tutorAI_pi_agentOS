@@ -18,7 +18,10 @@ export function AdminPlaceholderPage({ section }: { section: Exclude<AdminPage, 
   return (
     <div className="tb-card">
       <h1>{LABELS[section]}</h1>
-      <p>Admin tools for {LABELS[section].toLowerCase()} will be implemented in upcoming hosted beta tickets.</p>
+      <p>
+        Admin tools for {LABELS[section].toLowerCase()} will be implemented in upcoming hosted beta
+        tickets.
+      </p>
     </div>
   );
 }

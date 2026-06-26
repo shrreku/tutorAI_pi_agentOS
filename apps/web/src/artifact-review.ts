@@ -13,7 +13,13 @@ export type ArtifactReviewInput = {
   sourceNodeRefs?: Array<{ refType: string; refId: string }>;
 };
 
-export type ArtifactReviewActionId = "approve" | "reject" | "ask_tutor" | "practice" | "review" | "save";
+export type ArtifactReviewActionId =
+  | "approve"
+  | "reject"
+  | "ask_tutor"
+  | "practice"
+  | "review"
+  | "save";
 
 export type ArtifactReviewView = {
   title: string;
@@ -35,11 +41,17 @@ function artifactTypeLabel(artifactType: string): string {
 }
 
 export function referenceSurfaceHasQuizPractice(surface: ReferenceSurface): boolean {
-  return surface.surfaceType === "artifact" && surface.blocks.some((block) => block.kind === "question_list");
+  return (
+    surface.surfaceType === "artifact" &&
+    surface.blocks.some((block) => block.kind === "question_list")
+  );
 }
 
 export function referenceSurfaceHasFlashcards(surface: ReferenceSurface): boolean {
-  return surface.surfaceType === "artifact" && surface.blocks.some((block) => block.kind === "flashcard_list");
+  return (
+    surface.surfaceType === "artifact" &&
+    surface.blocks.some((block) => block.kind === "flashcard_list")
+  );
 }
 
 export function isQuizArtifactSurface(surface: ReferenceSurface): boolean {
@@ -54,11 +66,20 @@ function duplicateNativeBlock(surface: ReferenceSurface, block: ReferenceBlock):
   if (surface.surfaceType !== "artifact") return false;
   const interactive = interactiveBlockKinds(surface);
   const artifactType = inferArtifactTypeFromSurface(surface);
-  if (artifactType === "quiz" && block.kind === "question_list" && interactive.has("quiz")) return true;
-  if (artifactType === "flashcards" && block.kind === "flashcard_list" && interactive.has("flashcard_deck")) {
+  if (artifactType === "quiz" && block.kind === "question_list" && interactive.has("quiz"))
+    return true;
+  if (
+    artifactType === "flashcards" &&
+    block.kind === "flashcard_list" &&
+    interactive.has("flashcard_deck")
+  ) {
     return true;
   }
-  if (artifactType === "worked_example" && block.kind === "step_list" && interactive.has("worked_example")) {
+  if (
+    artifactType === "worked_example" &&
+    block.kind === "step_list" &&
+    interactive.has("worked_example")
+  ) {
     return true;
   }
   return false;
@@ -68,7 +89,11 @@ export function visibleReferenceBlocks(surface: ReferenceSurface): ReferenceBloc
   return surface.blocks.filter((block) => {
     if (duplicateNativeBlock(surface, block)) return false;
     if (isQuizArtifactSurface(surface) && block.id === "overview") return false;
-    if (isQuizArtifactSurface(surface) && block.kind === "markdown" && block.title?.toLowerCase() === "practice goal") {
+    if (
+      isQuizArtifactSurface(surface) &&
+      block.kind === "markdown" &&
+      block.title?.toLowerCase() === "practice goal"
+    ) {
       return false;
     }
     return true;
@@ -82,7 +107,9 @@ export function inferArtifactTypeFromSurface(surface: ReferenceSurface): string 
   return "note";
 }
 
-export function artifactReviewInputFromReferenceSurface(surface: ReferenceSurface): ArtifactReviewInput {
+export function artifactReviewInputFromReferenceSurface(
+  surface: ReferenceSurface,
+): ArtifactReviewInput {
   return {
     id: surface.nodeRef.refId,
     title: surface.title,
@@ -99,7 +126,9 @@ export function artifactReviewInputFromReferenceSurface(surface: ReferenceSurfac
   };
 }
 
-export function artifactReviewInputFromArtifact(artifact: ArtifactReviewInput): ArtifactReviewInput {
+export function artifactReviewInputFromArtifact(
+  artifact: ArtifactReviewInput,
+): ArtifactReviewInput {
   return artifact;
 }
 
@@ -135,13 +164,18 @@ export function artifactReviewFromReferenceSurface(surface: ReferenceSurface): A
   return buildArtifactReviewView(artifactReviewInputFromReferenceSurface(surface));
 }
 
-export function artifactSurfaceActionIds(artifact: ArtifactReviewInput): ReferenceSurface["primaryActions"] {
+export function artifactSurfaceActionIds(
+  artifact: ArtifactReviewInput,
+): ReferenceSurface["primaryActions"] {
   return artifact.artifactType === "quiz"
     ? ["ask_tutor", "quiz", "regenerate", "open_evidence"]
     : ["ask_tutor", "review", "regenerate", "open_evidence"];
 }
 
-const ARTIFACT_REVIEW_TO_SURFACE_ACTION: Record<ArtifactReviewActionId, ReferenceSurface["primaryActions"][number] | null> = {
+const ARTIFACT_REVIEW_TO_SURFACE_ACTION: Record<
+  ArtifactReviewActionId,
+  ReferenceSurface["primaryActions"][number] | null
+> = {
   approve: null,
   reject: null,
   ask_tutor: "ask_tutor",
@@ -150,7 +184,9 @@ const ARTIFACT_REVIEW_TO_SURFACE_ACTION: Record<ArtifactReviewActionId, Referenc
   save: null,
 };
 
-export function referenceSurfaceActionsForArtifactReview(review: ArtifactReviewView): ReferenceSurface["primaryActions"] {
+export function referenceSurfaceActionsForArtifactReview(
+  review: ArtifactReviewView,
+): ReferenceSurface["primaryActions"] {
   return review.actions
     .map((action) => ARTIFACT_REVIEW_TO_SURFACE_ACTION[action])
     .filter((action): action is ReferenceSurface["primaryActions"][number] => action !== null);
@@ -168,7 +204,11 @@ export function artifactReviewMatchesPrimaryActions(
   return true;
 }
 
-export function artifactQuizSelfAssessmentLabels(): { understood: string; needsReview: string; sectionTitle: string } {
+export function artifactQuizSelfAssessmentLabels(): {
+  understood: string;
+  needsReview: string;
+  sectionTitle: string;
+} {
   return {
     sectionTitle: "Practice",
     understood: "I got this",
@@ -180,20 +220,30 @@ export function buildTutorPanelArtifactReview(
   artifact: ArtifactReviewInput,
   surface?: ReferenceSurface | null,
 ): ArtifactReviewView {
-  const review = surface ? artifactReviewFromReferenceSurface(surface) : buildArtifactReviewView(artifact);
+  const review = surface
+    ? artifactReviewFromReferenceSurface(surface)
+    : buildArtifactReviewView(artifact);
   const needsApproval = artifact.status === "proposed" || artifact.status === "draft";
   const lifecycleActions = needsApproval ? (["approve", "reject"] as const) : [];
   const saveAction = artifact.artifactType === "note" && !needsApproval ? (["save"] as const) : [];
-  const mergedActions = [...lifecycleActions, ...review.actions.filter((action) => action !== "save"), ...saveAction];
+  const mergedActions = [
+    ...lifecycleActions,
+    ...review.actions.filter((action) => action !== "save"),
+    ...saveAction,
+  ];
   return {
     ...review,
     actions: [...new Set(mergedActions)],
   };
 }
 
-export function buildTutorPromptForArtifactAction(review: ArtifactReviewView, actionId: ArtifactReviewActionId): string {
+export function buildTutorPromptForArtifactAction(
+  review: ArtifactReviewView,
+  actionId: ArtifactReviewActionId,
+): string {
   if (actionId === "practice") return `Give me source-grounded practice for "${review.title}".`;
-  if (actionId === "review") return `Review "${review.title}" with me and focus on what I should understand next.`;
+  if (actionId === "review")
+    return `Review "${review.title}" with me and focus on what I should understand next.`;
   if (actionId === "ask_tutor") return `Teach me "${review.title}" using the selected reference.`;
   return `Help me with "${review.title}".`;
 }

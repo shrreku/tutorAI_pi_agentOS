@@ -13,7 +13,13 @@ vi.mock("@studyagent/worker/one-shot-drain.js", () => ({
 
 function createTriggerContext(
   mode: "inline" | "external" | "disabled",
-  external?: { url?: string; token?: string; maxJobs?: number; minIntervalSeconds?: number; recentTriggerId?: string },
+  external?: {
+    url?: string;
+    token?: string;
+    maxJobs?: number;
+    minIntervalSeconds?: number;
+    recentTriggerId?: string;
+  },
 ) {
   const triggerRows: Array<Record<string, unknown>> = [];
   const db = {

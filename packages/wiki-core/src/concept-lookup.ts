@@ -38,7 +38,11 @@ function conceptKeyVariants(value: string): string[] {
   return [...new Set([base, singular].filter(Boolean))];
 }
 
-export function registerConceptLookup(map: Map<string, string>, conceptId: string, names: string[]): void {
+export function registerConceptLookup(
+  map: Map<string, string>,
+  conceptId: string,
+  names: string[],
+): void {
   for (const name of names) {
     for (const variant of conceptKeyVariants(name)) {
       map.set(variant, conceptId);

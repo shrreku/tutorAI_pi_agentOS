@@ -34,11 +34,21 @@ import {
 } from "./artifact-lifecycle.js";
 import { appendEventWithTutorCacheInvalidation as appendEvent } from "./agentic-cache-invalidation.js";
 import type { AppContext } from "./context.js";
-import { buildFlashcardsArtifactPayload, buildQuizArtifactPayload } from "./assessment-artifacts.js";
+import {
+  buildFlashcardsArtifactPayload,
+  buildQuizArtifactPayload,
+} from "./assessment-artifacts.js";
 import { isJsonRecordLocal, resolveConceptIds } from "./tutor-write-shared.js";
 
 type ArtifactLifecycleStatus = ArtifactLifecycleOutcome["status"];
-type ArtifactType = "note" | "quiz" | "flashcards" | "worked_example" | "formula_sheet" | "comparison_page" | "concept_card";
+type ArtifactType =
+  | "note"
+  | "quiz"
+  | "flashcards"
+  | "worked_example"
+  | "formula_sheet"
+  | "comparison_page"
+  | "concept_card";
 
 async function createArtifact(
   appCtx: AppContext,
@@ -60,9 +70,17 @@ async function createArtifact(
   quality: ArtifactQualityDecision;
 }> {
   const artifactId = `artifact_${crypto.randomUUID().replaceAll("-", "")}`;
-  const resolvedRefs = await sanitizeArtifactSourceNodeRefs(appCtx.db, ctx.notebookId, sourceNodeRefs);
-  const sourceChunkIds = resolvedRefs.refs.filter((ref) => ref.refType === "chunk").map((ref) => ref.refId);
-  const sourceClaimIds = resolvedRefs.refs.filter((ref) => ref.refType === "claim").map((ref) => ref.refId);
+  const resolvedRefs = await sanitizeArtifactSourceNodeRefs(
+    appCtx.db,
+    ctx.notebookId,
+    sourceNodeRefs,
+  );
+  const sourceChunkIds = resolvedRefs.refs
+    .filter((ref) => ref.refType === "chunk")
+    .map((ref) => ref.refId);
+  const sourceClaimIds = resolvedRefs.refs
+    .filter((ref) => ref.refType === "claim")
+    .map((ref) => ref.refId);
   const artifactConsent = await resolveNotebookArtifactConsent(appCtx, ctx.notebookId);
   const lifecycleResult = resolveArtifactLifecycleOutcome({
     artifactType,
@@ -165,7 +183,12 @@ async function createArtifact(
 
 async function findArtifactRecord(appDb: AppContext["db"], notebookId: string, artifactId: string) {
   const [artifact] = await appDb.db
-    .select({ id: artifacts.id, notebookId: artifacts.notebookId, status: artifacts.status, artifactType: artifacts.artifactType })
+    .select({
+      id: artifacts.id,
+      notebookId: artifacts.notebookId,
+      status: artifacts.status,
+      artifactType: artifacts.artifactType,
+    })
     .from(artifacts)
     .where(and(eq(artifacts.id, artifactId), eq(artifacts.notebookId, notebookId)))
     .limit(1);
@@ -190,7 +213,11 @@ async function finalizeQuizArtifact(
   lifecycle: ArtifactLifecycleOutcome;
   quality: ArtifactQualityDecision;
 }> {
-  const resolvedRefs = await sanitizeArtifactSourceNodeRefs(appCtx.db, ctx.notebookId, sourceNodeRefs);
+  const resolvedRefs = await sanitizeArtifactSourceNodeRefs(
+    appCtx.db,
+    ctx.notebookId,
+    sourceNodeRefs,
+  );
   const artifactConsent = await resolveNotebookArtifactConsent(appCtx, ctx.notebookId);
   const lifecycleResult = resolveArtifactLifecycleOutcome({
     artifactType: "quiz",
@@ -208,8 +235,12 @@ async function finalizeQuizArtifact(
       updatedAt: new Date().toISOString(),
     },
   };
-  const sourceChunkIds = resolvedRefs.refs.filter((ref) => ref.refType === "chunk").map((ref) => ref.refId);
-  const sourceClaimIds = resolvedRefs.refs.filter((ref) => ref.refType === "claim").map((ref) => ref.refId);
+  const sourceChunkIds = resolvedRefs.refs
+    .filter((ref) => ref.refType === "chunk")
+    .map((ref) => ref.refId);
+  const sourceClaimIds = resolvedRefs.refs
+    .filter((ref) => ref.refType === "claim")
+    .map((ref) => ref.refId);
   await appCtx.db.db
     .update(artifacts)
     .set({
@@ -223,7 +254,8 @@ async function finalizeQuizArtifact(
     })
     .where(and(eq(artifacts.id, artifactId), eq(artifacts.notebookId, ctx.notebookId)));
 
-  const eventType = deriveArtifactLifecycleEventType("draft", lifecycle.status) ?? "artifact.updated";
+  const eventType =
+    deriveArtifactLifecycleEventType("draft", lifecycle.status) ?? "artifact.updated";
   const event = await appendEvent(appCtx.db, {
     notebookId: ctx.notebookId,
     runId: ctx.runId,
@@ -275,7 +307,11 @@ async function updateQuizDraftArtifact(
   lifecycle: ArtifactLifecycleOutcome;
   quality: ArtifactQualityDecision;
 }> {
-  const resolvedRefs = await sanitizeArtifactSourceNodeRefs(appCtx.db, ctx.notebookId, sourceNodeRefs);
+  const resolvedRefs = await sanitizeArtifactSourceNodeRefs(
+    appCtx.db,
+    ctx.notebookId,
+    sourceNodeRefs,
+  );
   const artifactConsent = await resolveNotebookArtifactConsent(appCtx, ctx.notebookId);
   const lifecycleResult = resolveArtifactLifecycleOutcome({
     artifactType: "quiz",
@@ -285,8 +321,12 @@ async function updateQuizDraftArtifact(
     requestedStatus: "draft",
   });
   const { lifecycle, quality } = lifecycleResult;
-  const sourceChunkIds = resolvedRefs.refs.filter((ref) => ref.refType === "chunk").map((ref) => ref.refId);
-  const sourceClaimIds = resolvedRefs.refs.filter((ref) => ref.refType === "claim").map((ref) => ref.refId);
+  const sourceChunkIds = resolvedRefs.refs
+    .filter((ref) => ref.refType === "chunk")
+    .map((ref) => ref.refId);
+  const sourceClaimIds = resolvedRefs.refs
+    .filter((ref) => ref.refType === "claim")
+    .map((ref) => ref.refId);
 
   await appCtx.db.db
     .update(artifacts)
@@ -339,7 +379,11 @@ async function resolveNotebookArtifactConsent(
   appCtx: AppContext,
   notebookId: string,
 ): Promise<Record<string, unknown>> {
-  const [notebook] = await appCtx.db.db.select({ settingsJson: notebooks.settingsJson }).from(notebooks).where(eq(notebooks.id, notebookId)).limit(1);
+  const [notebook] = await appCtx.db.db
+    .select({ settingsJson: notebooks.settingsJson })
+    .from(notebooks)
+    .where(eq(notebooks.id, notebookId))
+    .limit(1);
   const settings = isJsonRecordLocal(notebook?.settingsJson) ? notebook!.settingsJson : {};
   return isJsonRecordLocal(settings.artifactConsent) ? settings.artifactConsent : {};
 }
@@ -359,7 +403,10 @@ export async function sanitizeArtifactSourceNodeRefs(
 
   for (const ref of refs) {
     if (!allowedTypes.has(ref.refType)) {
-      warnings.push({ code: "source_ref_type_unsupported", message: `Unsupported source ref type "${ref.refType}" ignored.` });
+      warnings.push({
+        code: "source_ref_type_unsupported",
+        message: `Unsupported source ref type "${ref.refType}" ignored.`,
+      });
       continue;
     }
     const key = `${ref.refType}:${ref.refId}`;
@@ -370,10 +417,18 @@ export async function sanitizeArtifactSourceNodeRefs(
 
   const chunksRequested = deduped.filter((ref) => ref.refType === "chunk").map((ref) => ref.refId);
   const claimsRequested = deduped.filter((ref) => ref.refType === "claim").map((ref) => ref.refId);
-  const sourcesRequested = deduped.filter((ref) => ref.refType === "source").map((ref) => ref.refId);
-  const conceptsRequested = deduped.filter((ref) => ref.refType === "concept").map((ref) => ref.refId);
-  const pagesRequested = deduped.filter((ref) => ref.refType === "wiki_page").map((ref) => ref.refId);
-  const artifactsRequested = deduped.filter((ref) => ref.refType === "artifact").map((ref) => ref.refId);
+  const sourcesRequested = deduped
+    .filter((ref) => ref.refType === "source")
+    .map((ref) => ref.refId);
+  const conceptsRequested = deduped
+    .filter((ref) => ref.refType === "concept")
+    .map((ref) => ref.refId);
+  const pagesRequested = deduped
+    .filter((ref) => ref.refType === "wiki_page")
+    .map((ref) => ref.refId);
+  const artifactsRequested = deduped
+    .filter((ref) => ref.refType === "artifact")
+    .map((ref) => ref.refId);
 
   const allowedChunkIds = new Set<string>();
   const allowedClaimIds = new Set<string>();
@@ -447,7 +502,9 @@ export async function sanitizeArtifactSourceNodeRefs(
   return { refs: filtered, warnings };
 }
 
-export function createArtifactWriteHandlers(appCtx: AppContext): Pick<
+export function createArtifactWriteHandlers(
+  appCtx: AppContext,
+): Pick<
   RuntimeWriteToolProvider,
   | "createNote"
   | "createQuiz"
@@ -479,7 +536,7 @@ export function createArtifactWriteHandlers(appCtx: AppContext): Pick<
           blockOwnerType: input.blockOwnerType,
         },
       );
-    
+
       return {
         artifactId: result.artifactId,
         status: result.status,
@@ -502,7 +559,7 @@ export function createArtifactWriteHandlers(appCtx: AppContext): Pick<
         ),
       };
     },
-    
+
     async createQuiz(input, ctx) {
       const conceptIds = await resolveConceptIds(appCtx.db, ctx.notebookId, input.conceptIds);
       const runtimeContext = {
@@ -514,7 +571,8 @@ export function createArtifactWriteHandlers(appCtx: AppContext): Pick<
       const foundResumeArtifact = input.resumeArtifactId
         ? await findArtifactRecord(appCtx.db, ctx.notebookId, input.resumeArtifactId)
         : null;
-      const resumeArtifact = foundResumeArtifact?.artifactType === "quiz" ? foundResumeArtifact : null;
+      const resumeArtifact =
+        foundResumeArtifact?.artifactType === "quiz" ? foundResumeArtifact : null;
       const baseGenerationState = {
         prompt: input.prompt,
         requestedQuestionCount: input.questionCount,
@@ -524,7 +582,7 @@ export function createArtifactWriteHandlers(appCtx: AppContext): Pick<
         resumeArtifactId: input.resumeArtifactId ?? null,
         updatedAt: new Date().toISOString(),
       };
-    
+
       if (input.questions?.length) {
         const payload = {
           prompt: input.prompt,
@@ -537,15 +595,34 @@ export function createArtifactWriteHandlers(appCtx: AppContext): Pick<
           },
         };
         const result = resumeArtifact
-          ? await finalizeQuizArtifact(appCtx, runtimeContext, resumeArtifact.id, input.title, input.sourceNodeRefs, payload)
-          : await createArtifact(appCtx, runtimeContext, "quiz", input.title, input.sourceNodeRefs, payload);
+          ? await finalizeQuizArtifact(
+              appCtx,
+              runtimeContext,
+              resumeArtifact.id,
+              input.title,
+              input.sourceNodeRefs,
+              payload,
+            )
+          : await createArtifact(
+              appCtx,
+              runtimeContext,
+              "quiz",
+              input.title,
+              input.sourceNodeRefs,
+              payload,
+            );
         return {
           artifactId: result.artifactId,
           status: result.status,
           warnings: [
             ...result.warnings,
             ...(conceptIds.length !== input.conceptIds.length
-              ? [{ code: "concept_scope_filtered", message: "Some concept ids were outside this notebook and were ignored." }]
+              ? [
+                  {
+                    code: "concept_scope_filtered",
+                    message: "Some concept ids were outside this notebook and were ignored.",
+                  },
+                ]
               : []),
           ],
           reducerResult: buildReducerResult(
@@ -567,19 +644,26 @@ export function createArtifactWriteHandlers(appCtx: AppContext): Pick<
           ),
         };
       }
-    
+
       if (input.deferGeneration) {
         const draftResult = resumeArtifact
-          ? await updateQuizDraftArtifact(appCtx, runtimeContext, resumeArtifact.id, input.title, input.sourceNodeRefs, {
-              prompt: input.prompt,
-              questions: [],
-              conceptIds,
-              generationState: {
-                ...baseGenerationState,
-                status: "resuming" as const,
-                resumeArtifactId: resumeArtifact.id,
+          ? await updateQuizDraftArtifact(
+              appCtx,
+              runtimeContext,
+              resumeArtifact.id,
+              input.title,
+              input.sourceNodeRefs,
+              {
+                prompt: input.prompt,
+                questions: [],
+                conceptIds,
+                generationState: {
+                  ...baseGenerationState,
+                  status: "resuming" as const,
+                  resumeArtifactId: resumeArtifact.id,
+                },
               },
-            })
+            )
           : await createArtifact(
               appCtx,
               runtimeContext,
@@ -602,9 +686,18 @@ export function createArtifactWriteHandlers(appCtx: AppContext): Pick<
           status: "draft",
           warnings: [
             ...draftResult.warnings,
-            { code: "quiz_generation_deferred", message: "Saved a resumable quiz draft; resume from this artifact to finish generation." },
+            {
+              code: "quiz_generation_deferred",
+              message:
+                "Saved a resumable quiz draft; resume from this artifact to finish generation.",
+            },
             ...(conceptIds.length !== input.conceptIds.length
-              ? [{ code: "concept_scope_filtered", message: "Some concept ids were outside this notebook and were ignored." }]
+              ? [
+                  {
+                    code: "concept_scope_filtered",
+                    message: "Some concept ids were outside this notebook and were ignored.",
+                  },
+                ]
               : []),
           ],
           reducerResult: buildReducerResult(
@@ -627,7 +720,7 @@ export function createArtifactWriteHandlers(appCtx: AppContext): Pick<
           ),
         };
       }
-    
+
       const draftResult = resumeArtifact
         ? null
         : await createArtifact(
@@ -647,10 +740,16 @@ export function createArtifactWriteHandlers(appCtx: AppContext): Pick<
             },
             "draft",
           );
-    
-        const artifactId = resumeArtifact?.id ?? draftResult!.artifactId;
+
+      const artifactId = resumeArtifact?.id ?? draftResult!.artifactId;
       try {
-        const payload = await buildQuizArtifactPayload(appCtx.db, ctx.notebookId, conceptIds, input.questionCount, input.prompt);
+        const payload = await buildQuizArtifactPayload(
+          appCtx.db,
+          ctx.notebookId,
+          conceptIds,
+          input.questionCount,
+          input.prompt,
+        );
         const finalResult = await finalizeQuizArtifact(
           appCtx,
           runtimeContext,
@@ -662,18 +761,25 @@ export function createArtifactWriteHandlers(appCtx: AppContext): Pick<
             generationState: {
               ...baseGenerationState,
               status: "complete" as const,
-              generatedQuestionCount: Array.isArray(payload.questions) ? payload.questions.length : 0,
+              generatedQuestionCount: Array.isArray(payload.questions)
+                ? payload.questions.length
+                : 0,
             },
           },
         );
-    
+
         return {
           artifactId: finalResult.artifactId,
           status: finalResult.status,
           warnings: [
             ...finalResult.warnings,
             ...(conceptIds.length !== input.conceptIds.length
-              ? [{ code: "concept_scope_filtered", message: "Some concept ids were outside this notebook and were ignored." }]
+              ? [
+                  {
+                    code: "concept_scope_filtered",
+                    message: "Some concept ids were outside this notebook and were ignored.",
+                  },
+                ]
               : []),
           ],
           reducerResult: buildReducerResult(
@@ -698,11 +804,23 @@ export function createArtifactWriteHandlers(appCtx: AppContext): Pick<
         if (resumeArtifact) {
           return {
             artifactId,
-            status: resumeArtifact.status === "ready" || resumeArtifact.status === "proposed" ? resumeArtifact.status : "draft",
+            status:
+              resumeArtifact.status === "ready" || resumeArtifact.status === "proposed"
+                ? resumeArtifact.status
+                : "draft",
             warnings: [
-              { code: "quiz_generation_resume_pending", message: "Saved quiz draft could not be finished right now; resume from the saved artifact later." },
+              {
+                code: "quiz_generation_resume_pending",
+                message:
+                  "Saved quiz draft could not be finished right now; resume from the saved artifact later.",
+              },
               ...(conceptIds.length !== input.conceptIds.length
-                ? [{ code: "concept_scope_filtered", message: "Some concept ids were outside this notebook and were ignored." }]
+                ? [
+                    {
+                      code: "concept_scope_filtered",
+                      message: "Some concept ids were outside this notebook and were ignored.",
+                    },
+                  ]
                 : []),
             ],
             reducerResult: buildReducerResult(
@@ -729,9 +847,18 @@ export function createArtifactWriteHandlers(appCtx: AppContext): Pick<
           status: "draft",
           warnings: [
             ...draftResult!.warnings,
-            { code: "quiz_generation_resume_pending", message: "Saved quiz draft could not be finished right now; resume from the saved draft later." },
+            {
+              code: "quiz_generation_resume_pending",
+              message:
+                "Saved quiz draft could not be finished right now; resume from the saved draft later.",
+            },
             ...(conceptIds.length !== input.conceptIds.length
-              ? [{ code: "concept_scope_filtered", message: "Some concept ids were outside this notebook and were ignored." }]
+              ? [
+                  {
+                    code: "concept_scope_filtered",
+                    message: "Some concept ids were outside this notebook and were ignored.",
+                  },
+                ]
               : []),
           ],
           reducerResult: buildReducerResult(
@@ -758,7 +885,13 @@ export function createArtifactWriteHandlers(appCtx: AppContext): Pick<
       const conceptIds = await resolveConceptIds(appCtx.db, ctx.notebookId, input.conceptIds);
       const payload = input.cards?.length
         ? { prompt: input.prompt, cards: input.cards, conceptIds }
-        : await buildFlashcardsArtifactPayload(appCtx.db, ctx.notebookId, conceptIds, input.cardCount, input.prompt);
+        : await buildFlashcardsArtifactPayload(
+            appCtx.db,
+            ctx.notebookId,
+            conceptIds,
+            input.cardCount,
+            input.prompt,
+          );
       const result = await createArtifact(
         appCtx,
         {
@@ -772,14 +905,19 @@ export function createArtifactWriteHandlers(appCtx: AppContext): Pick<
         input.sourceNodeRefs,
         payload,
       );
-    
+
       return {
         artifactId: result.artifactId,
         status: result.status,
         warnings: [
           ...result.warnings,
           ...(conceptIds.length !== input.conceptIds.length
-            ? [{ code: "concept_scope_filtered", message: "Some concept ids were outside this notebook and were ignored." }]
+            ? [
+                {
+                  code: "concept_scope_filtered",
+                  message: "Some concept ids were outside this notebook and were ignored.",
+                },
+              ]
             : []),
         ],
         reducerResult: buildReducerResult(
@@ -824,14 +962,19 @@ export function createArtifactWriteHandlers(appCtx: AppContext): Pick<
           sourceNodeRefs: input.sourceNodeRefs,
         },
       );
-    
+
       return {
         artifactId: result.artifactId,
         status: result.status,
         warnings: [
           ...result.warnings,
           ...(conceptIds.length !== input.conceptIds.length
-            ? [{ code: "concept_scope_filtered", message: "Some concept ids were outside this notebook and were ignored." }]
+            ? [
+                {
+                  code: "concept_scope_filtered",
+                  message: "Some concept ids were outside this notebook and were ignored.",
+                },
+              ]
             : []),
         ],
         reducerResult: buildReducerResult(
@@ -873,14 +1016,19 @@ export function createArtifactWriteHandlers(appCtx: AppContext): Pick<
           sourceNodeRefs: input.sourceNodeRefs,
         },
       );
-    
+
       return {
         artifactId: result.artifactId,
         status: result.status,
         warnings: [
           ...result.warnings,
           ...(conceptIds.length !== input.conceptIds.length
-            ? [{ code: "concept_scope_filtered", message: "Some concept ids were outside this notebook and were ignored." }]
+            ? [
+                {
+                  code: "concept_scope_filtered",
+                  message: "Some concept ids were outside this notebook and were ignored.",
+                },
+              ]
             : []),
         ],
         reducerResult: buildReducerResult(
@@ -924,14 +1072,19 @@ export function createArtifactWriteHandlers(appCtx: AppContext): Pick<
           sourceNodeRefs: input.sourceNodeRefs,
         },
       );
-    
+
       return {
         artifactId: result.artifactId,
         status: result.status,
         warnings: [
           ...result.warnings,
           ...(conceptIds.length !== input.conceptIds.length
-            ? [{ code: "concept_scope_filtered", message: "Some concept ids were outside this notebook and were ignored." }]
+            ? [
+                {
+                  code: "concept_scope_filtered",
+                  message: "Some concept ids were outside this notebook and were ignored.",
+                },
+              ]
             : []),
         ],
         reducerResult: buildReducerResult(
@@ -953,7 +1106,7 @@ export function createArtifactWriteHandlers(appCtx: AppContext): Pick<
         ),
       };
     },
-    
+
     async createConceptCard(input: CreateConceptCardInput, ctx): Promise<CreateConceptCardOutput> {
       const conceptIds = await resolveConceptIds(appCtx.db, ctx.notebookId, input.conceptIds);
       const result = await createArtifact(
@@ -977,14 +1130,19 @@ export function createArtifactWriteHandlers(appCtx: AppContext): Pick<
           sourceNodeRefs: input.sourceNodeRefs,
         },
       );
-    
+
       return {
         artifactId: result.artifactId,
         status: result.status,
         warnings: [
           ...result.warnings,
           ...(conceptIds.length !== input.conceptIds.length
-            ? [{ code: "concept_scope_filtered", message: "Some concept ids were outside this notebook and were ignored." }]
+            ? [
+                {
+                  code: "concept_scope_filtered",
+                  message: "Some concept ids were outside this notebook and were ignored.",
+                },
+              ]
             : []),
         ],
         reducerResult: buildReducerResult(
@@ -1006,25 +1164,26 @@ export function createArtifactWriteHandlers(appCtx: AppContext): Pick<
         ),
       };
     },
-    
+
     async artifactInsertIntoTutorContext(input, ctx) {
       const [row] = await appCtx.db.db
         .select({ id: artifacts.id, title: artifacts.title })
         .from(artifacts)
         .where(and(eq(artifacts.id, input.artifactId), eq(artifacts.notebookId, ctx.notebookId)))
         .limit(1);
-    
+
       if (!row) {
         return {
           success: false,
           warnings: [{ code: "artifact_missing", message: "Artifact not found in this notebook." }],
-          reducerResult: buildReducerResult(
-            "artifact.insert_into_tutor_context.failed",
-            { artifactId: input.artifactId, insertionPoint: input.insertionPoint, tutorMessage: input.tutorMessage },
-          ),
+          reducerResult: buildReducerResult("artifact.insert_into_tutor_context.failed", {
+            artifactId: input.artifactId,
+            insertionPoint: input.insertionPoint,
+            tutorMessage: input.tutorMessage,
+          }),
         };
       }
-    
+
       const event = await appendEvent(appCtx.db, {
         notebookId: ctx.notebookId,
         runId: ctx.runId,
@@ -1038,7 +1197,7 @@ export function createArtifactWriteHandlers(appCtx: AppContext): Pick<
           traceId: ctx.traceId,
         },
       });
-    
+
       const tutorAnnotation = {
         artifactId: input.artifactId,
         insertionPoint: input.insertionPoint,
@@ -1046,21 +1205,25 @@ export function createArtifactWriteHandlers(appCtx: AppContext): Pick<
         timestamp: new Date().toISOString(),
       };
       const emittedEventIds = [event.id];
-    
+
       let preferredSessionPlanId: string | null = null;
       if (ctx.sessionId) {
         const [sessionRow] = await appCtx.db.db
           .select({ runtimeContextJson: tutorSessions.runtimeContextJson })
           .from(tutorSessions)
-          .where(and(eq(tutorSessions.id, ctx.sessionId), eq(tutorSessions.notebookId, ctx.notebookId)))
+          .where(
+            and(eq(tutorSessions.id, ctx.sessionId), eq(tutorSessions.notebookId, ctx.notebookId)),
+          )
           .limit(1);
         if (isJsonRecordLocal(sessionRow?.runtimeContextJson)) {
           const activeSessionPlanId = sessionRow.runtimeContextJson.activeSessionPlanId;
           preferredSessionPlanId =
-            typeof activeSessionPlanId === "string" && activeSessionPlanId.length > 0 ? activeSessionPlanId : null;
+            typeof activeSessionPlanId === "string" && activeSessionPlanId.length > 0
+              ? activeSessionPlanId
+              : null;
         }
       }
-    
+
       const [activeSessionPlan] = await appCtx.db.db
         .select({
           id: sessionPlans.id,
@@ -1077,7 +1240,9 @@ export function createArtifactWriteHandlers(appCtx: AppContext): Pick<
         .orderBy(desc(sessionPlans.updatedAt))
         .limit(1);
       if (activeSessionPlan) {
-        const refs = Array.isArray(activeSessionPlan.artifactRefsJson) ? activeSessionPlan.artifactRefsJson : [];
+        const refs = Array.isArray(activeSessionPlan.artifactRefsJson)
+          ? activeSessionPlan.artifactRefsJson
+          : [];
         const existingRef = refs.find(
           (value) =>
             isJsonRecordLocal(value) &&
@@ -1113,7 +1278,7 @@ export function createArtifactWriteHandlers(appCtx: AppContext): Pick<
         });
         emittedEventIds.push(sessionPlanEvent.id);
       }
-    
+
       return {
         success: true,
         insertedArtifactId: row.id,
@@ -1121,7 +1286,12 @@ export function createArtifactWriteHandlers(appCtx: AppContext): Pick<
         warnings: [],
         reducerResult: buildReducerResult(
           "artifact.insert_into_tutor_context",
-          { artifactId: row.id, insertionPoint: input.insertionPoint, tutorMessage: input.tutorMessage, coverageItemRefsJson: input.coverageItemRefsJson ?? [] },
+          {
+            artifactId: row.id,
+            insertionPoint: input.insertionPoint,
+            tutorMessage: input.tutorMessage,
+            coverageItemRefsJson: input.coverageItemRefsJson ?? [],
+          },
           emittedEventIds,
         ),
       };

@@ -2,13 +2,14 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import { getActivationSummary } from "@studyagent/db";
 import type { AppContext } from "../context.js";
 import { requireActor } from "../auth.js";
-import { requireBetaConsent, requireAdminAccess, sendAuthOrEntitlementError } from "../hosted-beta/entitlements.js";
+import {
+  requireBetaConsent,
+  requireAdminAccess,
+  sendAuthOrEntitlementError,
+} from "../hosted-beta/entitlements.js";
 import { recordProductAnalytics } from "../hosted-beta/product-analytics.js";
 
-const PUBLIC_ANALYTICS_EVENTS = new Set([
-  "visitor_page_view",
-  "login_redirect",
-]);
+const PUBLIC_ANALYTICS_EVENTS = new Set(["visitor_page_view", "login_redirect"]);
 const CLIENT_ANALYTICS_EVENTS = new Set([
   "workspace_page_view",
   "credits_page_view",
@@ -16,13 +17,18 @@ const CLIENT_ANALYTICS_EVENTS = new Set([
   "account_page_view",
 ]);
 
-export async function registerProductAnalyticsRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
+export async function registerProductAnalyticsRoutes(
+  app: FastifyInstance,
+  ctx: AppContext,
+): Promise<void> {
   app.get("/analytics/replay-policy", async (request, reply) => {
     try {
       await requireActor(ctx, request);
       await requireBetaConsent(ctx, request);
       const disabledUntil = ctx.env.POSTHOG_REPLAY_DISABLED_UNTIL;
-      const spendGuardActive = Boolean(disabledUntil && new Date(disabledUntil).getTime() > Date.now());
+      const spendGuardActive = Boolean(
+        disabledUntil && new Date(disabledUntil).getTime() > Date.now(),
+      );
       return reply.send({
         enabled: ctx.env.POSTHOG_REPLAY_ENABLED && !spendGuardActive,
         sampleRate: ctx.env.POSTHOG_REPLAY_SAMPLE_RATE,
@@ -44,7 +50,9 @@ export async function registerProductAnalyticsRoutes(app: FastifyInstance, ctx: 
       return reply.status(400).send({ code: "bad_request", message: "eventName is required" });
     }
     if (!PUBLIC_ANALYTICS_EVENTS.has(body.eventName)) {
-      return reply.status(400).send({ code: "bad_request", message: "Unsupported public analytics event" });
+      return reply
+        .status(400)
+        .send({ code: "bad_request", message: "Unsupported public analytics event" });
     }
 
     const result = await recordProductAnalytics(ctx, {
@@ -78,7 +86,9 @@ export async function registerProductAnalyticsRoutes(app: FastifyInstance, ctx: 
         });
       }
       if (body.userId && body.userId !== actor.id) {
-        return reply.status(403).send({ code: "forbidden", message: "userId must match the authenticated actor" });
+        return reply
+          .status(403)
+          .send({ code: "forbidden", message: "userId must match the authenticated actor" });
       }
 
       const result = await recordProductAnalytics(ctx, {
@@ -116,7 +126,9 @@ function safePath(referer: string | string[] | undefined): string | null {
   }
 }
 
-function sanitizePublicAnalyticsProperties(input: Record<string, unknown>): Record<string, unknown> {
+function sanitizePublicAnalyticsProperties(
+  input: Record<string, unknown>,
+): Record<string, unknown> {
   const output: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(input)) {
     if (typeof value === "string") {

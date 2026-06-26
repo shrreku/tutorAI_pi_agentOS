@@ -1,5 +1,13 @@
-import type { GraphCanvasNode, GraphQueryResponse, SourceWikiTopicGroup } from "@studyagent/schemas";
-import { learnerFacingPipelineStatus, pageReadinessLabel, pageReadinessSchema } from "@studyagent/schemas";
+import type {
+  GraphCanvasNode,
+  GraphQueryResponse,
+  SourceWikiTopicGroup,
+} from "@studyagent/schemas";
+import {
+  learnerFacingPipelineStatus,
+  pageReadinessLabel,
+  pageReadinessSchema,
+} from "@studyagent/schemas";
 
 export type WorkspaceViewMode = "curriculum" | "study_map" | "source_wiki_map";
 
@@ -102,13 +110,21 @@ export function getLearnerNodeTitle(node: GraphQueryResponse["nodes"][number]): 
   const props = node.properties;
   const title = props.title ?? props.name ?? props.canonicalName ?? props.canonical_name;
   if (typeof title === "string" && title.trim().length > 0) return title.trim();
-  if (node.nodeType === "concept" && typeof props.name === "string" && props.name.trim().length > 0) {
+  if (
+    node.nodeType === "concept" &&
+    typeof props.name === "string" &&
+    props.name.trim().length > 0
+  ) {
     return props.name.trim();
   }
   if (node.nodeType === "tutor_session") {
     return "Tutor session";
   }
-  if (["curriculum", "curriculum_module", "objective", "session_plan", "study_plan"].includes(node.nodeType)) {
+  if (
+    ["curriculum", "curriculum_module", "objective", "session_plan", "study_plan"].includes(
+      node.nodeType,
+    )
+  ) {
     return "Planning needs review";
   }
   return "Reference needs review";
@@ -119,7 +135,8 @@ function getNodeTitle(node: GraphQueryResponse["nodes"][number]): string {
 }
 
 function getNodeSummary(node: GraphQueryResponse["nodes"][number]): string | null {
-  const summary = node.properties.summary ?? node.properties.description ?? node.properties.sessionGoal;
+  const summary =
+    node.properties.summary ?? node.properties.description ?? node.properties.sessionGoal;
   return typeof summary === "string" && summary.trim().length > 0 ? summary.trim() : null;
 }
 
@@ -128,7 +145,10 @@ function getNodeStatus(node: GraphQueryResponse["nodes"][number]): string | null
   return typeof status === "string" && status.trim().length > 0 ? status : null;
 }
 
-function sortByOrderThenTitle<T extends { id: string; title: string }>(items: T[], orderById: Map<string, number>): T[] {
+function sortByOrderThenTitle<T extends { id: string; title: string }>(
+  items: T[],
+  orderById: Map<string, number>,
+): T[] {
   return [...items].sort((a, b) => {
     const aOrder = orderById.get(a.id);
     const bOrder = orderById.get(b.id);
@@ -190,27 +210,39 @@ export function buildCurriculumOutline(graphData: GraphQueryResponse): Curriculu
 
     if (source.nodeType === "objective" && target.nodeType === "artifact") {
       objectivesById.get(source.id)?.artifactIds.push(target.id);
-      objectivesById.get(source.id)?.artifactRefs?.push({ id: target.id, title: getNodeTitle(target) });
+      objectivesById
+        .get(source.id)
+        ?.artifactRefs?.push({ id: target.id, title: getNodeTitle(target) });
     }
     if (target.nodeType === "objective" && source.nodeType === "artifact") {
       objectivesById.get(target.id)?.artifactIds.push(source.id);
-      objectivesById.get(target.id)?.artifactRefs?.push({ id: source.id, title: getNodeTitle(source) });
+      objectivesById
+        .get(target.id)
+        ?.artifactRefs?.push({ id: source.id, title: getNodeTitle(source) });
     }
     if (source.nodeType === "objective" && target.nodeType === "session_plan") {
       objectivesById.get(source.id)?.sessionIds.push(target.id);
-      objectivesById.get(source.id)?.sessionRefs?.push({ id: target.id, title: getNodeTitle(target) });
+      objectivesById
+        .get(source.id)
+        ?.sessionRefs?.push({ id: target.id, title: getNodeTitle(target) });
     }
     if (target.nodeType === "objective" && source.nodeType === "session_plan") {
       objectivesById.get(target.id)?.sessionIds.push(source.id);
-      objectivesById.get(target.id)?.sessionRefs?.push({ id: source.id, title: getNodeTitle(source) });
+      objectivesById
+        .get(target.id)
+        ?.sessionRefs?.push({ id: source.id, title: getNodeTitle(source) });
     }
     if (source.nodeType === "objective" && target.nodeType === "concept") {
       objectivesById.get(source.id)?.conceptIds.push(target.id);
-      objectivesById.get(source.id)?.conceptRefs?.push({ id: target.id, title: getNodeTitle(target) });
+      objectivesById
+        .get(source.id)
+        ?.conceptRefs?.push({ id: target.id, title: getNodeTitle(target) });
     }
     if (target.nodeType === "objective" && source.nodeType === "concept") {
       objectivesById.get(target.id)?.conceptIds.push(source.id);
-      objectivesById.get(target.id)?.conceptRefs?.push({ id: source.id, title: getNodeTitle(source) });
+      objectivesById
+        .get(target.id)
+        ?.conceptRefs?.push({ id: source.id, title: getNodeTitle(source) });
     }
   }
 
@@ -222,10 +254,12 @@ export function buildCurriculumOutline(graphData: GraphQueryResponse): Curriculu
     else orphanObjectives.push(objective);
   }
 
-  const modules = sortByOrderThenTitle(Array.from(modulesById.values()), moduleOrder).map((module) => ({
-    ...module,
-    objectives: sortByOrderThenTitle(module.objectives, objectiveOrder),
-  }));
+  const modules = sortByOrderThenTitle(Array.from(modulesById.values()), moduleOrder).map(
+    (module) => ({
+      ...module,
+      objectives: sortByOrderThenTitle(module.objectives, objectiveOrder),
+    }),
+  );
 
   return {
     curriculum: curriculumNode
@@ -255,13 +289,22 @@ export function collapseObjectiveHistory(graphData: GraphQueryResponse): GraphQu
     if (node.nodeType !== "objective") return node;
     const status = typeof node.properties.status === "string" ? node.properties.status : "";
     if (currentObjectiveIds.has(node.id)) {
-      return { ...node, properties: { ...node.properties, collapsed: false, collapseReason: "current" } };
+      return {
+        ...node,
+        properties: { ...node.properties, collapsed: false, collapseReason: "current" },
+      };
     }
     if (status === "completed") {
-      return { ...node, properties: { ...node.properties, collapsed: true, collapseReason: "history", priority: 0 } };
+      return {
+        ...node,
+        properties: { ...node.properties, collapsed: true, collapseReason: "history", priority: 0 },
+      };
     }
     if (status === "not_started") {
-      return { ...node, properties: { ...node.properties, collapsed: true, collapseReason: "future", priority: 1 } };
+      return {
+        ...node,
+        properties: { ...node.properties, collapsed: true, collapseReason: "future", priority: 1 },
+      };
     }
     return { ...node, properties: { ...node.properties, collapsed: false } };
   });
@@ -274,7 +317,10 @@ export function collapseObjectiveHistory(graphData: GraphQueryResponse): GraphQu
   return { ...graphData, nodes: visibleNodes, edges };
 }
 
-export function limitLearnerGraphDensity(graphData: GraphQueryResponse, maxNodes = 80): GraphQueryResponse {
+export function limitLearnerGraphDensity(
+  graphData: GraphQueryResponse,
+  maxNodes = 80,
+): GraphQueryResponse {
   if (graphData.nodes.length <= maxNodes) return graphData;
   const priorityByType = new Map<string, number>([
     ["curriculum", 100],
@@ -299,7 +345,9 @@ export function limitLearnerGraphDensity(graphData: GraphQueryResponse, maxNodes
   });
   const visibleNodes = sortedNodes.slice(0, maxNodes);
   const visibleIds = new Set(visibleNodes.map((node) => node.id));
-  const edges = graphData.edges.filter((edge) => visibleIds.has(edge.source) && visibleIds.has(edge.target));
+  const edges = graphData.edges.filter(
+    (edge) => visibleIds.has(edge.source) && visibleIds.has(edge.target),
+  );
   return {
     ...graphData,
     nodes: visibleNodes,
@@ -314,19 +362,30 @@ export function promoteCurrentPathConcepts(
   const priorityIds = new Set(currentPathConceptIds);
   const nodes = graphData.nodes.map((node) => {
     if (node.nodeType === "concept" && priorityIds.has(node.id)) {
-      return { ...node, properties: { ...node.properties, promoted: true, collapsed: false, priority: 1 } };
+      return {
+        ...node,
+        properties: { ...node.properties, promoted: true, collapsed: false, priority: 1 },
+      };
     }
     if (node.nodeType === "objective" && node.properties.status === "completed") {
-      return { ...node, properties: { ...node.properties, collapsed: true, collapseReason: "completed" } };
+      return {
+        ...node,
+        properties: { ...node.properties, collapsed: true, collapseReason: "completed" },
+      };
     }
     if (node.nodeType === "concept" && !priorityIds.has(node.id)) {
-      return { ...node, properties: { ...node.properties, collapsed: true, collapseReason: "not_current_path" } };
+      return {
+        ...node,
+        properties: { ...node.properties, collapsed: true, collapseReason: "not_current_path" },
+      };
     }
     return node;
   });
   const visibleNodes = nodes.filter((node) => !node.properties.collapsed);
   const visibleIds = new Set(visibleNodes.map((node) => node.id));
-  const visibleEdges = graphData.edges.filter((edge) => visibleIds.has(edge.source) && visibleIds.has(edge.target));
+  const visibleEdges = graphData.edges.filter(
+    (edge) => visibleIds.has(edge.source) && visibleIds.has(edge.target),
+  );
   return { ...graphData, nodes: visibleNodes, edges: visibleEdges };
 }
 
@@ -391,13 +450,28 @@ function normalizeEdgeLevels(
   graphName: string | undefined,
   sourceNode: GraphQueryResponse["nodes"][number],
   targetNode: GraphQueryResponse["nodes"][number],
-): { parent: GraphQueryResponse["nodes"][number]; child: GraphQueryResponse["nodes"][number]; parentLevel: number; childLevel: number } {
+): {
+  parent: GraphQueryResponse["nodes"][number];
+  child: GraphQueryResponse["nodes"][number];
+  parentLevel: number;
+  childLevel: number;
+} {
   const sourceLevel = getGraphNodeLevel(graphName, sourceNode);
   const targetLevel = getGraphNodeLevel(graphName, targetNode);
   if (sourceLevel <= targetLevel) {
-    return { parent: sourceNode, child: targetNode, parentLevel: sourceLevel, childLevel: targetLevel };
+    return {
+      parent: sourceNode,
+      child: targetNode,
+      parentLevel: sourceLevel,
+      childLevel: targetLevel,
+    };
   }
-  return { parent: targetNode, child: sourceNode, parentLevel: targetLevel, childLevel: sourceLevel };
+  return {
+    parent: targetNode,
+    child: sourceNode,
+    parentLevel: targetLevel,
+    childLevel: sourceLevel,
+  };
 }
 
 function isAllowedStudyMapEdge(
@@ -410,7 +484,10 @@ function isAllowedStudyMapEdge(
   if (parent.nodeType === "artifact") {
     return false;
   }
-  if (parent.nodeType === "source" && (child.nodeType === "artifact" || child.nodeType === "tutor_session")) {
+  if (
+    parent.nodeType === "source" &&
+    (child.nodeType === "artifact" || child.nodeType === "tutor_session")
+  ) {
     return false;
   }
   if (parent.nodeType === "source" && child.nodeType === "concept") {
@@ -437,10 +514,16 @@ function isStudyMapLevelGapAllowed(
 
 function isPreferredSourceWikiEdge(relationType: string): boolean {
   const normalized = relationType.trim().toUpperCase();
-  return normalized === "HAS_TOPIC" || normalized === "CONTAINS_CONCEPT" || normalized === "CONTAINS_PAGE";
+  return (
+    normalized === "HAS_TOPIC" ||
+    normalized === "CONTAINS_CONCEPT" ||
+    normalized === "CONTAINS_PAGE"
+  );
 }
 
-export function filterHierarchicalGraphEdges(graphData: GraphQueryResponse): GraphQueryResponse["edges"] {
+export function filterHierarchicalGraphEdges(
+  graphData: GraphQueryResponse,
+): GraphQueryResponse["edges"] {
   const nodeById = new Map(graphData.nodes.map((node) => [node.id, node] as const));
   const graphName = graphData.name;
 
@@ -449,7 +532,11 @@ export function filterHierarchicalGraphEdges(graphData: GraphQueryResponse): Gra
     const targetNode = nodeById.get(edge.target);
     if (!sourceNode || !targetNode) return false;
 
-    const { parent, child, parentLevel, childLevel } = normalizeEdgeLevels(graphName, sourceNode, targetNode);
+    const { parent, child, parentLevel, childLevel } = normalizeEdgeLevels(
+      graphName,
+      sourceNode,
+      targetNode,
+    );
     const isAdjacentLevel = childLevel - parentLevel === 1;
 
     if (graphName === "study_map") {
@@ -525,15 +612,14 @@ function compareNodesForLayout(
   const levelDiff = getGraphNodeLevel(graphName, a) - getGraphNodeLevel(graphName, b);
   if (levelDiff !== 0) return levelDiff;
   if (graphName === "study_map") {
-    const orderDiff = (STUDY_MAP_SIBLING_ORDER[a.nodeType] ?? 9) - (STUDY_MAP_SIBLING_ORDER[b.nodeType] ?? 9);
+    const orderDiff =
+      (STUDY_MAP_SIBLING_ORDER[a.nodeType] ?? 9) - (STUDY_MAP_SIBLING_ORDER[b.nodeType] ?? 9);
     if (orderDiff !== 0) return orderDiff;
   }
   return getLearnerNodeTitle(a).localeCompare(getLearnerNodeTitle(b));
 }
 
-function buildParentChildMaps(
-  graphData: GraphQueryResponse,
-): {
+function buildParentChildMaps(graphData: GraphQueryResponse): {
   childrenByParent: Map<string, string[]>;
   parentsByChild: Map<string, string[]>;
 } {
@@ -602,7 +688,9 @@ function primaryParentId(
       const parent = nodeById.get(parentId);
       return parent ? { id: parentId, level: getGraphNodeLevel(graphName, parent) } : null;
     })
-    .filter((entry): entry is { id: string; level: number } => entry !== null && entry.level < nodeLevel)
+    .filter(
+      (entry): entry is { id: string; level: number } => entry !== null && entry.level < nodeLevel,
+    )
     .sort((a, b) => a.level - b.level);
 
   const directParent = parents.find((entry) => entry.level === nodeLevel - 1);
@@ -667,7 +755,9 @@ function buildParentCenteredClusters(
   for (const [parentId, nodes] of nodesByParent) {
     const sorted = [...nodes].sort((a, b) => compareNodesForLayout(graphName, a, b));
     const parentPosition = positions.get(parentId);
-    const parentCenter = parentPosition ? nodeCenterX(parentPosition) : LAYOUT_START_X + LAYOUT_NODE_WIDTH / 2;
+    const parentCenter = parentPosition
+      ? nodeCenterX(parentPosition)
+      : LAYOUT_START_X + LAYOUT_NODE_WIDTH / 2;
     const clusterWidth = sorted.length * LAYOUT_NODE_SPACING;
     clusters.push({
       parentId,
@@ -732,7 +822,10 @@ function nudgeClusterTowardParent(
     if (other === cluster) continue;
     const otherBounds = clusterBounds(other, positions);
     if (!otherBounds) continue;
-    if (shiftedLeft < otherBounds.right + LAYOUT_NODE_GAP_X && shiftedRight > otherBounds.left - LAYOUT_NODE_GAP_X) {
+    if (
+      shiftedLeft < otherBounds.right + LAYOUT_NODE_GAP_X &&
+      shiftedRight > otherBounds.left - LAYOUT_NODE_GAP_X
+    ) {
       return;
     }
   }
@@ -805,7 +898,13 @@ function layoutRowParentCentered(
   savedPositions: Record<string, { x: number; y: number }>,
   y: number,
 ): void {
-  const clusters = buildParentCenteredClusters(graphName, rowNodes, nodeById, parentsByChild, positions);
+  const clusters = buildParentCenteredClusters(
+    graphName,
+    rowNodes,
+    nodeById,
+    parentsByChild,
+    positions,
+  );
   resolveClusterOverlaps(clusters, y, positions, savedPositions);
   for (const cluster of clusters) {
     nudgeClusterTowardParent(cluster, clusters, positions, savedPositions, y);
@@ -833,7 +932,9 @@ function layoutHierarchy(
   if (levels.length === 0) return positions;
 
   const rootLevel = levels[0] ?? 0;
-  const rootNodes = [...(byLevel.get(rootLevel) ?? [])].sort((a, b) => compareNodesForLayout(graphData.name, a, b));
+  const rootNodes = [...(byLevel.get(rootLevel) ?? [])].sort((a, b) =>
+    compareNodesForLayout(graphData.name, a, b),
+  );
   rootNodes.forEach((node, index) => {
     const saved = savedPositions[node.id];
     if (saved) {
@@ -859,7 +960,15 @@ function layoutHierarchy(
     }
 
     for (const [y, rowNodes] of [...nodesByRow.entries()].sort(([a], [b]) => a - b)) {
-      layoutRowParentCentered(graphData.name, rowNodes, nodeById, parentsByChild, positions, savedPositions, y);
+      layoutRowParentCentered(
+        graphData.name,
+        rowNodes,
+        nodeById,
+        parentsByChild,
+        positions,
+        savedPositions,
+        y,
+      );
     }
   }
 
@@ -887,6 +996,8 @@ export function buildIntentAwareLayout({
 
   return graphData.nodes.map((node) => ({
     node,
-    position: positions.get(node.id) ?? getIntentAwareNodePosition(node.nodeType, 0, savedPositions[node.id], graphData.name),
+    position:
+      positions.get(node.id) ??
+      getIntentAwareNodePosition(node.nodeType, 0, savedPositions[node.id], graphData.name),
   }));
 }

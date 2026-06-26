@@ -1,7 +1,15 @@
 import { and, eq, desc } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import type { NodeRef } from "@studyagent/schemas";
-import { artifacts, claims, concepts, graphRelations, notebooks, quizAttempts, wikiPages } from "@studyagent/db";
+import {
+  artifacts,
+  claims,
+  concepts,
+  graphRelations,
+  notebooks,
+  quizAttempts,
+  wikiPages,
+} from "@studyagent/db";
 import { lintNotebookWiki, type WikiLintIssue } from "@studyagent/wiki-core";
 import type { AppContext } from "../context.js";
 import { appendEventWithTutorCacheInvalidation as appendEvent } from "../agentic-cache-invalidation.js";
@@ -14,14 +22,20 @@ import {
 import { mergeNoteArtifactPayload } from "@studyagent/schemas";
 import { buildLearningArtifactView } from "../artifact-view.js";
 import { sendAuthOrEntitlementError } from "../hosted-beta/entitlements.js";
-import { requireOwnedNotebook, requirePersonalWorkspaceCapacity } from "../hosted-beta/notebook-context.js";
+import {
+  requireOwnedNotebook,
+  requirePersonalWorkspaceCapacity,
+} from "../hosted-beta/notebook-context.js";
 import { requireLearner } from "../hosted-beta/learner-gate.js";
 import { withLearner, withOwnedNotebook } from "../hosted-beta/route-guards.js";
 import { recordFlashcardReview } from "../assessment-artifacts.js";
 import { loadNotebookStudyState } from "../study-state.js";
 
 export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
-  async function requireRouteActor(request: import("fastify").FastifyRequest, reply: import("fastify").FastifyReply) {
+  async function requireRouteActor(
+    request: import("fastify").FastifyRequest,
+    reply: import("fastify").FastifyReply,
+  ) {
     try {
       const { actor } = await requireLearner(ctx, request);
       return actor;
@@ -63,24 +77,24 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
     }
   });
 
-  app.post<{ Body: { title: string; description?: string; goal?: string; studyTemplateId?: string } }>(
-    "/notebooks",
-    async (request, reply) => {
-      return withLearner(ctx, request, reply, async (actor) => {
-        const body = request.body;
+  app.post<{
+    Body: { title: string; description?: string; goal?: string; studyTemplateId?: string };
+  }>("/notebooks", async (request, reply) => {
+    return withLearner(ctx, request, reply, async (actor) => {
+      const body = request.body;
       if (!body?.title || typeof body.title !== "string") {
-          return reply.status(400).send({ code: "bad_request", message: "title is required" });
-        }
+        return reply.status(400).send({ code: "bad_request", message: "title is required" });
+      }
 
-        if (body.studyTemplateId) {
-          return reply.status(400).send({
-            code: "use_workspace_from_template",
-            message: "Create template workspaces via POST /api/v1/workspaces/from-template instead.",
-          });
-        }
-        await requirePersonalWorkspaceCapacity(ctx, actor.id);
+      if (body.studyTemplateId) {
+        return reply.status(400).send({
+          code: "use_workspace_from_template",
+          message: "Create template workspaces via POST /api/v1/workspaces/from-template instead.",
+        });
+      }
+      await requirePersonalWorkspaceCapacity(ctx, actor.id);
 
-        const id = `nb_${crypto.randomUUID().replaceAll("-", "")}`;
+      const id = `nb_${crypto.randomUUID().replaceAll("-", "")}`;
       const now = new Date();
       await ctx.db.db.insert(notebooks).values({
         id,
@@ -102,12 +116,14 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
         payload: { kind: "notebook", notebookId: id },
       });
 
-
-      const [created] = await ctx.db.db.select().from(notebooks).where(eq(notebooks.id, id)).limit(1);
-        return reply.status(201).send({ notebook: created });
-      });
-    },
-  );
+      const [created] = await ctx.db.db
+        .select()
+        .from(notebooks)
+        .where(eq(notebooks.id, id))
+        .limit(1);
+      return reply.status(201).send({ notebook: created });
+    });
+  });
 
   app.get<{ Params: { notebookId: string } }>("/notebooks/:notebookId", async (request, reply) => {
     const { notebookId } = request.params;
@@ -116,23 +132,26 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
     });
   });
 
-  app.get<{ Params: { notebookId: string } }>("/notebooks/:notebookId/settings", async (request, reply) => {
-    const { notebookId } = request.params;
-    const owned = await requireRouteOwnedNotebook(request, reply, notebookId);
-    if (!owned) return;
-    const actor = { id: owned.notebook.ownerId };
-    const [row] = await ctx.db.db
-      .select({ settingsJson: notebooks.settingsJson })
-      .from(notebooks)
-      .where(and(eq(notebooks.id, notebookId), eq(notebooks.ownerId, actor.id)))
-      .limit(1);
+  app.get<{ Params: { notebookId: string } }>(
+    "/notebooks/:notebookId/settings",
+    async (request, reply) => {
+      const { notebookId } = request.params;
+      const owned = await requireRouteOwnedNotebook(request, reply, notebookId);
+      if (!owned) return;
+      const actor = { id: owned.notebook.ownerId };
+      const [row] = await ctx.db.db
+        .select({ settingsJson: notebooks.settingsJson })
+        .from(notebooks)
+        .where(and(eq(notebooks.id, notebookId), eq(notebooks.ownerId, actor.id)))
+        .limit(1);
 
-    if (!row) {
-      return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
-    }
+      if (!row) {
+        return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
+      }
 
-    return reply.send({ settings: row.settingsJson ?? {} });
-  });
+      return reply.send({ settings: row.settingsJson ?? {} });
+    },
+  );
 
   app.patch<{
     Params: { notebookId: string };
@@ -159,17 +178,24 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
 
     const existing = isJsonRecord(row.settingsJson) ? row.settingsJson : {};
     const existingConsent = isJsonRecord(existing.artifactConsent) ? existing.artifactConsent : {};
-    const requestedConsent = isJsonRecord(request.body?.artifactConsent) ? request.body.artifactConsent : {};
+    const requestedConsent = isJsonRecord(request.body?.artifactConsent)
+      ? request.body.artifactConsent
+      : {};
     const nextArtifactConsent = {
       ...existingConsent,
       ...(typeof requestedConsent.autoCreateLearnerArtifacts === "boolean"
         ? { autoCreateLearnerArtifacts: requestedConsent.autoCreateLearnerArtifacts }
         : {}),
-      ...(typeof requestedConsent.autoCreateNotes === "boolean" ? { autoCreateNotes: requestedConsent.autoCreateNotes } : {}),
+      ...(typeof requestedConsent.autoCreateNotes === "boolean"
+        ? { autoCreateNotes: requestedConsent.autoCreateNotes }
+        : {}),
     };
     const nextSettings = { ...existing, artifactConsent: nextArtifactConsent };
 
-    await ctx.db.db.update(notebooks).set({ settingsJson: nextSettings, updatedAt: new Date() }).where(eq(notebooks.id, notebookId));
+    await ctx.db.db
+      .update(notebooks)
+      .set({ settingsJson: nextSettings, updatedAt: new Date() })
+      .where(eq(notebooks.id, notebookId));
     await appendEvent(ctx.db, {
       notebookId,
       eventType: "notebook.settings.updated",
@@ -179,82 +205,91 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
     return reply.send({ settings: nextSettings });
   });
 
-  app.get<{ Params: { notebookId: string } }>("/notebooks/:notebookId/study-state", async (request, reply) => {
-    const { notebookId } = request.params;
-    const owned = await requireRouteOwnedNotebook(request, reply, notebookId);
-    if (!owned) return;
-    const actor = { id: owned.notebook.ownerId };
-    const [row] = await ctx.db.db
-      .select()
-      .from(notebooks)
-      .where(and(eq(notebooks.id, notebookId), eq(notebooks.ownerId, actor.id)))
-      .limit(1);
+  app.get<{ Params: { notebookId: string } }>(
+    "/notebooks/:notebookId/study-state",
+    async (request, reply) => {
+      const { notebookId } = request.params;
+      const owned = await requireRouteOwnedNotebook(request, reply, notebookId);
+      if (!owned) return;
+      const actor = { id: owned.notebook.ownerId };
+      const [row] = await ctx.db.db
+        .select()
+        .from(notebooks)
+        .where(and(eq(notebooks.id, notebookId), eq(notebooks.ownerId, actor.id)))
+        .limit(1);
 
-    if (!row) {
-      return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
-    }
+      if (!row) {
+        return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
+      }
 
-    const studyState = await loadNotebookStudyState(ctx.db, notebookId, actor.id, {
-      contentNotebookId: owned.contentNotebookId,
-    });
-    return reply.send(studyState);
-  });
+      const studyState = await loadNotebookStudyState(ctx.db, notebookId, actor.id, {
+        contentNotebookId: owned.contentNotebookId,
+      });
+      return reply.send(studyState);
+    },
+  );
 
-  app.get<{ Params: { notebookId: string } }>("/notebooks/:notebookId/artifacts", async (request, reply) => {
-    const { notebookId } = request.params;
-    const owned = await requireRouteOwnedNotebook(request, reply, notebookId);
-    if (!owned) return;
-    const actor = { id: owned.notebook.ownerId };
-    const [row] = await ctx.db.db
-      .select()
-      .from(notebooks)
-      .where(and(eq(notebooks.id, notebookId), eq(notebooks.ownerId, actor.id)))
-      .limit(1);
+  app.get<{ Params: { notebookId: string } }>(
+    "/notebooks/:notebookId/artifacts",
+    async (request, reply) => {
+      const { notebookId } = request.params;
+      const owned = await requireRouteOwnedNotebook(request, reply, notebookId);
+      if (!owned) return;
+      const actor = { id: owned.notebook.ownerId };
+      const [row] = await ctx.db.db
+        .select()
+        .from(notebooks)
+        .where(and(eq(notebooks.id, notebookId), eq(notebooks.ownerId, actor.id)))
+        .limit(1);
 
-    if (!row) {
-      return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
-    }
+      if (!row) {
+        return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
+      }
 
-    const rows = await ctx.db.db
-      .select({
-        id: artifacts.id,
-        notebookId: artifacts.notebookId,
-        title: artifacts.title,
-        artifactType: artifacts.artifactType,
-        status: artifacts.status,
-        payloadJson: artifacts.payloadJson,
-        sourceNodeRefsJson: artifacts.sourceNodeRefsJson,
-        sourceClaimIds: artifacts.sourceClaimIds,
-        sourceChunkIds: artifacts.sourceChunkIds,
-        updatedAt: artifacts.updatedAt,
-        createdAt: artifacts.createdAt,
-      })
-      .from(artifacts)
-      .where(eq(artifacts.notebookId, notebookId))
-      .orderBy(desc(artifacts.updatedAt));
+      const rows = await ctx.db.db
+        .select({
+          id: artifacts.id,
+          notebookId: artifacts.notebookId,
+          title: artifacts.title,
+          artifactType: artifacts.artifactType,
+          status: artifacts.status,
+          payloadJson: artifacts.payloadJson,
+          sourceNodeRefsJson: artifacts.sourceNodeRefsJson,
+          sourceClaimIds: artifacts.sourceClaimIds,
+          sourceChunkIds: artifacts.sourceChunkIds,
+          updatedAt: artifacts.updatedAt,
+          createdAt: artifacts.createdAt,
+        })
+        .from(artifacts)
+        .where(eq(artifacts.notebookId, notebookId))
+        .orderBy(desc(artifacts.updatedAt));
 
-    const learnerReferenceArtifacts = rows.filter((artifact) => !["teaching_arc", "study_plan", "session_plan"].includes(artifact.artifactType));
+      const learnerReferenceArtifacts = rows.filter(
+        (artifact) =>
+          !["teaching_arc", "study_plan", "session_plan"].includes(artifact.artifactType),
+      );
 
-    return reply.send({
-      artifacts: learnerReferenceArtifacts.map((artifact) => ({
-        id: artifact.id,
-        title: artifact.title,
-        artifactType: artifact.artifactType,
-        status: artifact.status,
-        updatedAt: artifact.updatedAt.toISOString(),
-        createdAt: artifact.createdAt.toISOString(),
-        view: buildLearningArtifactView(artifact),
-        preview:
-          typeof artifact.payloadJson?.markdown === "string"
-            ? artifact.payloadJson.markdown.slice(0, 220)
-            : typeof artifact.payloadJson?.prompt === "string"
-              ? artifact.payloadJson.prompt.slice(0, 220)
-              : typeof artifact.payloadJson?.summary === "string"
-                ? artifact.payloadJson.summary.slice(0, 220)
-              : "",
-      })),
-    });
-  });
+      return reply.send({
+        artifacts: learnerReferenceArtifacts.map((artifact) => ({
+          id: artifact.id,
+          title: artifact.title,
+          artifactType: artifact.artifactType,
+          status: artifact.status,
+          updatedAt: artifact.updatedAt.toISOString(),
+          createdAt: artifact.createdAt.toISOString(),
+          view: buildLearningArtifactView(artifact),
+          preview:
+            typeof artifact.payloadJson?.markdown === "string"
+              ? artifact.payloadJson.markdown.slice(0, 220)
+              : typeof artifact.payloadJson?.prompt === "string"
+                ? artifact.payloadJson.prompt.slice(0, 220)
+                : typeof artifact.payloadJson?.summary === "string"
+                  ? artifact.payloadJson.summary.slice(0, 220)
+                  : "",
+        })),
+      });
+    },
+  );
 
   app.get<{ Params: { notebookId: string; artifactId: string } }>(
     "/notebooks/:notebookId/artifacts/:artifactId",
@@ -306,7 +341,13 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
         createdAt: quizAttempts.createdAt,
       })
       .from(quizAttempts)
-      .where(and(eq(quizAttempts.notebookId, notebookId), eq(quizAttempts.artifactId, artifactId), eq(quizAttempts.userId, actor.id)))
+      .where(
+        and(
+          eq(quizAttempts.notebookId, notebookId),
+          eq(quizAttempts.artifactId, artifactId),
+          eq(quizAttempts.userId, actor.id),
+        ),
+      )
       .orderBy(desc(quizAttempts.createdAt));
 
     return reply.send({
@@ -314,7 +355,10 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
         id: attempt.id,
         questionId: attempt.questionId,
         answer: typeof attempt.answerJson?.answer === "string" ? attempt.answerJson.answer : "",
-        explanation: typeof attempt.answerJson?.explanation === "string" ? attempt.answerJson.explanation : null,
+        explanation:
+          typeof attempt.answerJson?.explanation === "string"
+            ? attempt.answerJson.explanation
+            : null,
         isCorrect: attempt.isCorrect === 1,
         score: attempt.score ?? null,
         conceptIds: attempt.conceptIds ?? [],
@@ -352,7 +396,9 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
     });
     if (!lifecycle.allowed) {
       return reply.status(lifecycle.transition.valid ? 409 : 400).send({
-        code: lifecycle.transition.valid ? "artifact_quality_gate_failed" : "artifact_lifecycle_transition_invalid",
+        code: lifecycle.transition.valid
+          ? "artifact_quality_gate_failed"
+          : "artifact_lifecycle_transition_invalid",
         message: lifecycle.reason ?? "Artifact cannot be approved.",
         issues: lifecycle.quality.issues,
         developerDiagnostics: lifecycle.quality.developerDiagnostics,
@@ -363,7 +409,9 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
       ...(artifact.payloadJson ?? {}),
       approvedBy: actor.id,
       approvedAt: nowIso,
-      ...(typeof request.body?.note === "string" && request.body.note.trim() ? { approvalNote: request.body.note.trim() } : {}),
+      ...(typeof request.body?.note === "string" && request.body.note.trim()
+        ? { approvalNote: request.body.note.trim() }
+        : {}),
     };
 
     await ctx.db.db
@@ -390,7 +438,11 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
       payload: { artifactId, artifactType: artifact.artifactType, status: "ready" },
     });
 
-    const [updated] = await ctx.db.db.select().from(artifacts).where(eq(artifacts.id, artifactId)).limit(1);
+    const [updated] = await ctx.db.db
+      .select()
+      .from(artifacts)
+      .where(eq(artifacts.id, artifactId))
+      .limit(1);
     return reply.send({ artifact: serializeArtifactDetail(updated) });
   });
 
@@ -432,7 +484,9 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
       ...(artifact.payloadJson ?? {}),
       rejectedBy: actor.id,
       rejectedAt: nowIso,
-      ...(typeof request.body?.reason === "string" && request.body.reason.trim() ? { rejectionReason: request.body.reason.trim() } : {}),
+      ...(typeof request.body?.reason === "string" && request.body.reason.trim()
+        ? { rejectionReason: request.body.reason.trim() }
+        : {}),
     };
 
     await ctx.db.db
@@ -453,7 +507,11 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
       },
     });
 
-    const [updated] = await ctx.db.db.select().from(artifacts).where(eq(artifacts.id, artifactId)).limit(1);
+    const [updated] = await ctx.db.db
+      .select()
+      .from(artifacts)
+      .where(eq(artifacts.id, artifactId))
+      .limit(1);
     return reply.send({ artifact: serializeArtifactDetail(updated) });
   });
 
@@ -504,21 +562,25 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
       .limit(1);
 
     if (!artifact || artifact.artifactType !== "flashcards") {
-      return reply.status(404).send({ code: "not_found", message: "Flashcards artifact not found" });
+      return reply
+        .status(404)
+        .send({ code: "not_found", message: "Flashcards artifact not found" });
     }
 
     const body = request.body ?? ({} as Record<string, unknown>);
     const payload = (artifact.payloadJson ?? {}) as Record<string, unknown>;
     const cards = Array.isArray(payload.cards) ? payload.cards : [];
     const selectedCard = cards.find(
-      (card) =>
-        card &&
-        typeof card === "object" &&
-        (card as { id?: unknown }).id === body.cardId,
+      (card) => card && typeof card === "object" && (card as { id?: unknown }).id === body.cardId,
     ) as { conceptId?: string } | undefined;
 
-    const conceptIds = (body.conceptIds?.length ? body.conceptIds : selectedCard?.conceptId ? [selectedCard.conceptId] : [])
-      .filter((value): value is string => typeof value === "string" && value.length > 0);
+    const conceptIds = (
+      body.conceptIds?.length
+        ? body.conceptIds
+        : selectedCard?.conceptId
+          ? [selectedCard.conceptId]
+          : []
+    ).filter((value): value is string => typeof value === "string" && value.length > 0);
 
     const result = await recordFlashcardReview(ctx.db, {
       notebookId,
@@ -537,7 +599,12 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
 
   app.patch<{
     Params: { notebookId: string; artifactId: string };
-    Body: Partial<{ title: string; noteMarkdown: string; status: string; clearPersonalization?: boolean }>;
+    Body: Partial<{
+      title: string;
+      noteMarkdown: string;
+      status: string;
+      clearPersonalization?: boolean;
+    }>;
   }>("/notebooks/:notebookId/artifacts/:artifactId", async (request, reply) => {
     const { notebookId, artifactId } = request.params;
     const owned = await requireRouteOwnedNotebook(request, reply, notebookId);
@@ -565,7 +632,9 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
 
     const patch = request.body ?? {};
     if (patch.noteMarkdown !== undefined && artifact.artifactType !== "note") {
-      return reply.status(400).send({ code: "bad_request", message: "Only note artifacts support markdown edits" });
+      return reply
+        .status(400)
+        .send({ code: "bad_request", message: "Only note artifacts support markdown edits" });
     }
     const nextPayload =
       artifact.artifactType === "note"
@@ -575,9 +644,12 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
           })
         : { ...(artifact.payloadJson ?? {}) };
 
-    const nextTitle = typeof patch.title === "string" && patch.title.trim() ? patch.title.trim() : artifact.title;
+    const nextTitle =
+      typeof patch.title === "string" && patch.title.trim() ? patch.title.trim() : artifact.title;
     const requestedStatus =
-      typeof patch.status === "string" && patch.status.trim() ? patch.status.trim() : artifact.status;
+      typeof patch.status === "string" && patch.status.trim()
+        ? patch.status.trim()
+        : artifact.status;
     const updatedAt = new Date();
     const previousStatus = artifact.status;
     const normalizedPrevious =
@@ -639,7 +711,11 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
       }
     }
 
-    const [updated] = await ctx.db.db.select().from(artifacts).where(eq(artifacts.id, artifactId)).limit(1);
+    const [updated] = await ctx.db.db
+      .select()
+      .from(artifacts)
+      .where(eq(artifacts.id, artifactId))
+      .limit(1);
     return reply.send({
       artifact: updated
         ? {
@@ -695,139 +771,176 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
       })
       .where(eq(notebooks.id, notebookId));
 
-    const [updated] = await ctx.db.db.select().from(notebooks).where(eq(notebooks.id, notebookId)).limit(1);
+    const [updated] = await ctx.db.db
+      .select()
+      .from(notebooks)
+      .where(eq(notebooks.id, notebookId))
+      .limit(1);
     return reply.send({ notebook: updated });
   });
 
-  app.delete<{ Params: { notebookId: string } }>("/notebooks/:notebookId", async (request, reply) => {
-    const { notebookId } = request.params;
-    const owned = await requireRouteOwnedNotebook(request, reply, notebookId);
-    if (!owned) return;
-    const actor = { id: owned.notebook.ownerId };
-    const deleted = await ctx.db.db
-      .delete(notebooks)
-      .where(and(eq(notebooks.id, notebookId), eq(notebooks.ownerId, actor.id)))
-      .returning({ id: notebooks.id });
+  app.delete<{ Params: { notebookId: string } }>(
+    "/notebooks/:notebookId",
+    async (request, reply) => {
+      const { notebookId } = request.params;
+      const owned = await requireRouteOwnedNotebook(request, reply, notebookId);
+      if (!owned) return;
+      const actor = { id: owned.notebook.ownerId };
+      const deleted = await ctx.db.db
+        .delete(notebooks)
+        .where(and(eq(notebooks.id, notebookId), eq(notebooks.ownerId, actor.id)))
+        .returning({ id: notebooks.id });
 
-    if (deleted.length === 0) {
-      return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
-    }
+      if (deleted.length === 0) {
+        return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
+      }
 
-    return reply.status(204).send();
-  });
+      return reply.status(204).send();
+    },
+  );
 
-  app.get<{ Params: { notebookId: string } }>("/notebooks/:notebookId/wiki/lint", async (request, reply) => {
-    const { notebookId } = request.params;
-    const owned = await requireRouteOwnedNotebook(request, reply, notebookId);
-    if (!owned) return;
-    const actor = { id: owned.notebook.ownerId };
-    const [nb] = await ctx.db.db
-      .select()
-      .from(notebooks)
-      .where(and(eq(notebooks.id, notebookId), eq(notebooks.ownerId, actor.id)))
-      .limit(1);
-    if (!nb) {
-      return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
-    }
+  app.get<{ Params: { notebookId: string } }>(
+    "/notebooks/:notebookId/wiki/lint",
+    async (request, reply) => {
+      const { notebookId } = request.params;
+      const owned = await requireRouteOwnedNotebook(request, reply, notebookId);
+      if (!owned) return;
+      const actor = { id: owned.notebook.ownerId };
+      const [nb] = await ctx.db.db
+        .select()
+        .from(notebooks)
+        .where(and(eq(notebooks.id, notebookId), eq(notebooks.ownerId, actor.id)))
+        .limit(1);
+      if (!nb) {
+        return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
+      }
 
-    const contentNotebookId = owned.contentNotebookId;
+      const contentNotebookId = owned.contentNotebookId;
 
-    const pages = await ctx.db.db.select().from(wikiPages).where(eq(wikiPages.notebookId, contentNotebookId));
-    const conceptRows = await ctx.db.db.select().from(concepts).where(eq(concepts.notebookId, contentNotebookId));
-    const claimRows = await ctx.db.db.select().from(claims).where(eq(claims.notebookId, contentNotebookId));
-    const relRows = await ctx.db.db.select().from(graphRelations).where(eq(graphRelations.notebookId, contentNotebookId));
+      const pages = await ctx.db.db
+        .select()
+        .from(wikiPages)
+        .where(eq(wikiPages.notebookId, contentNotebookId));
+      const conceptRows = await ctx.db.db
+        .select()
+        .from(concepts)
+        .where(eq(concepts.notebookId, contentNotebookId));
+      const claimRows = await ctx.db.db
+        .select()
+        .from(claims)
+        .where(eq(claims.notebookId, contentNotebookId));
+      const relRows = await ctx.db.db
+        .select()
+        .from(graphRelations)
+        .where(eq(graphRelations.notebookId, contentNotebookId));
 
-    const issues = lintNotebookWiki({
-      pages: pages.map((p) => ({
-        id: p.id,
-        title: p.title,
-        pageType: p.pageType,
-        pageKey: p.pageKey,
-        markdown: p.markdown,
-        sourceClaimIds: p.sourceClaimIds,
-        status: p.status,
-        updatedAt: p.updatedAt,
-        structuredJson: p.structuredJson ?? {},
-      })),
-      concepts: conceptRows.map((c) => ({ id: c.id, canonicalName: c.canonicalName })),
-      claims: claimRows.map((c) => ({
-        id: c.id,
-        status: c.status,
-        claimText: c.claimText,
-        metadataJson: c.metadataJson ?? {},
-      })),
-      graphRelations: relRows.map((r) => ({
-        relationType: r.relationType,
-        sourceNodeType: r.sourceNodeType,
-        sourceNodeId: r.sourceNodeId,
-        targetNodeType: r.targetNodeType,
-        targetNodeId: r.targetNodeId,
-      })),
-    });
+      const issues = lintNotebookWiki({
+        pages: pages.map((p) => ({
+          id: p.id,
+          title: p.title,
+          pageType: p.pageType,
+          pageKey: p.pageKey,
+          markdown: p.markdown,
+          sourceClaimIds: p.sourceClaimIds,
+          status: p.status,
+          updatedAt: p.updatedAt,
+          structuredJson: p.structuredJson ?? {},
+        })),
+        concepts: conceptRows.map((c) => ({ id: c.id, canonicalName: c.canonicalName })),
+        claims: claimRows.map((c) => ({
+          id: c.id,
+          status: c.status,
+          claimText: c.claimText,
+          metadataJson: c.metadataJson ?? {},
+        })),
+        graphRelations: relRows.map((r) => ({
+          relationType: r.relationType,
+          sourceNodeType: r.sourceNodeType,
+          sourceNodeId: r.sourceNodeId,
+          targetNodeType: r.targetNodeType,
+          targetNodeId: r.targetNodeId,
+        })),
+      });
 
-    return reply.send({ issues, issueCount: issues.length });
-  });
+      return reply.send({ issues, issueCount: issues.length });
+    },
+  );
 
-  app.post<{ Params: { notebookId: string } }>("/notebooks/:notebookId/wiki/lint", async (request, reply) => {
-    const { notebookId } = request.params;
-    const owned = await requireRouteOwnedNotebook(request, reply, notebookId);
-    if (!owned) return;
-    const actor = { id: owned.notebook.ownerId };
-    const [nb] = await ctx.db.db
-      .select()
-      .from(notebooks)
-      .where(and(eq(notebooks.id, notebookId), eq(notebooks.ownerId, actor.id)))
-      .limit(1);
-    if (!nb) {
-      return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
-    }
+  app.post<{ Params: { notebookId: string } }>(
+    "/notebooks/:notebookId/wiki/lint",
+    async (request, reply) => {
+      const { notebookId } = request.params;
+      const owned = await requireRouteOwnedNotebook(request, reply, notebookId);
+      if (!owned) return;
+      const actor = { id: owned.notebook.ownerId };
+      const [nb] = await ctx.db.db
+        .select()
+        .from(notebooks)
+        .where(and(eq(notebooks.id, notebookId), eq(notebooks.ownerId, actor.id)))
+        .limit(1);
+      if (!nb) {
+        return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
+      }
 
-    const contentNotebookId = owned.contentNotebookId;
+      const contentNotebookId = owned.contentNotebookId;
 
-    const pages = await ctx.db.db.select().from(wikiPages).where(eq(wikiPages.notebookId, contentNotebookId));
-    const conceptRows = await ctx.db.db.select().from(concepts).where(eq(concepts.notebookId, contentNotebookId));
-    const claimRows = await ctx.db.db.select().from(claims).where(eq(claims.notebookId, contentNotebookId));
-    const relRows = await ctx.db.db.select().from(graphRelations).where(eq(graphRelations.notebookId, contentNotebookId));
+      const pages = await ctx.db.db
+        .select()
+        .from(wikiPages)
+        .where(eq(wikiPages.notebookId, contentNotebookId));
+      const conceptRows = await ctx.db.db
+        .select()
+        .from(concepts)
+        .where(eq(concepts.notebookId, contentNotebookId));
+      const claimRows = await ctx.db.db
+        .select()
+        .from(claims)
+        .where(eq(claims.notebookId, contentNotebookId));
+      const relRows = await ctx.db.db
+        .select()
+        .from(graphRelations)
+        .where(eq(graphRelations.notebookId, contentNotebookId));
 
-    const issues = lintNotebookWiki({
-      pages: pages.map((p) => ({
-        id: p.id,
-        title: p.title,
-        pageType: p.pageType,
-        pageKey: p.pageKey,
-        markdown: p.markdown,
-        sourceClaimIds: p.sourceClaimIds,
-        status: p.status,
-        updatedAt: p.updatedAt,
-        structuredJson: p.structuredJson ?? {},
-      })),
-      concepts: conceptRows.map((c) => ({ id: c.id, canonicalName: c.canonicalName })),
-      claims: claimRows.map((c) => ({
-        id: c.id,
-        status: c.status,
-        claimText: c.claimText,
-        metadataJson: c.metadataJson ?? {},
-      })),
-      graphRelations: relRows.map((r) => ({
-        relationType: r.relationType,
-        sourceNodeType: r.sourceNodeType,
-        sourceNodeId: r.sourceNodeId,
-        targetNodeType: r.targetNodeType,
-        targetNodeId: r.targetNodeId,
-      })),
-    });
+      const issues = lintNotebookWiki({
+        pages: pages.map((p) => ({
+          id: p.id,
+          title: p.title,
+          pageType: p.pageType,
+          pageKey: p.pageKey,
+          markdown: p.markdown,
+          sourceClaimIds: p.sourceClaimIds,
+          status: p.status,
+          updatedAt: p.updatedAt,
+          structuredJson: p.structuredJson ?? {},
+        })),
+        concepts: conceptRows.map((c) => ({ id: c.id, canonicalName: c.canonicalName })),
+        claims: claimRows.map((c) => ({
+          id: c.id,
+          status: c.status,
+          claimText: c.claimText,
+          metadataJson: c.metadataJson ?? {},
+        })),
+        graphRelations: relRows.map((r) => ({
+          relationType: r.relationType,
+          sourceNodeType: r.sourceNodeType,
+          sourceNodeId: r.sourceNodeId,
+          targetNodeType: r.targetNodeType,
+          targetNodeId: r.targetNodeId,
+        })),
+      });
 
-    await appendEvent(ctx.db, {
-      notebookId,
-      eventType: "wiki.lint.completed",
-      payload: {
-        issueCount: issues.length,
-        codes: [...new Set(issues.map((i: WikiLintIssue) => i.code))],
-      },
-    });
+      await appendEvent(ctx.db, {
+        notebookId,
+        eventType: "wiki.lint.completed",
+        payload: {
+          issueCount: issues.length,
+          codes: [...new Set(issues.map((i: WikiLintIssue) => i.code))],
+        },
+      });
 
-    return reply.send({ issues, issueCount: issues.length });
-  });
+      return reply.send({ issues, issueCount: issues.length });
+    },
+  );
 }
 
 type ArtifactRow = typeof artifacts.$inferSelect;

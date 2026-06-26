@@ -26,10 +26,11 @@ export function ConsentPage({ navigate }: { navigate: (path: string) => void }) 
     <div className="tb-card">
       <h1>Beta consent</h1>
       <p>
-        TutorBook is experimental beta software and AI tutoring may be inaccurate. We collect identified product
-        analytics and may record privacy-masked workspace replays to understand onboarding and usability. Uploaded
-        sources remain private to your workspace, but authentication, storage, parsing, and model providers process them
-        on our behalf. Your feedback may be used to improve the product. Do not use TutorBook for high-stakes
+        TutorBook is experimental beta software and AI tutoring may be inaccurate. We collect
+        identified product analytics and may record privacy-masked workspace replays to understand
+        onboarding and usability. Uploaded sources remain private to your workspace, but
+        authentication, storage, parsing, and model providers process them on our behalf. Your
+        feedback may be used to improve the product. Do not use TutorBook for high-stakes
         educational decisions. Read our{" "}
         <button type="button" className="tb-inline-link" onClick={() => navigate("/privacy")}>
           Privacy Policy
@@ -41,7 +42,11 @@ export function ConsentPage({ navigate }: { navigate: (path: string) => void }) 
         .
       </p>
       <label style={{ display: "flex", gap: 10, alignItems: "flex-start", marginTop: 16 }}>
-        <input type="checkbox" checked={accepted} onChange={(event) => setAccepted(event.target.checked)} />
+        <input
+          type="checkbox"
+          checked={accepted}
+          onChange={(event) => setAccepted(event.target.checked)}
+        />
         <span>I understand and agree to participate in the TutorBook beta.</span>
       </label>
       <div className="tb-actions">

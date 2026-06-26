@@ -88,9 +88,9 @@ describe("tool contract catalog", () => {
     expect(writeContract?.operationKind).toBe("write");
     expect(writeContract?.reducerExpectation.required).toBe(true);
     const writeExpectation = writeContract?.reducerExpectation;
-    expect(writeExpectation && "mutationTypes" in writeExpectation ? writeExpectation.mutationTypes : []).toContain(
-      "artifact.created",
-    );
+    expect(
+      writeExpectation && "mutationTypes" in writeExpectation ? writeExpectation.mutationTypes : [],
+    ).toContain("artifact.created");
   });
 
   it("exposes semantic handles in study plan output", () => {
@@ -98,7 +98,12 @@ describe("tool contract catalog", () => {
     const parsed = contract?.outputSchema.parse({
       studyPlan: {
         id: "plan_1",
-        ref: { refType: "study_plan", refId: "plan_1", handle: "Heat transfer plan", title: "Heat transfer plan" },
+        ref: {
+          refType: "study_plan",
+          refId: "plan_1",
+          handle: "Heat transfer plan",
+          title: "Heat transfer plan",
+        },
         handle: "Heat transfer plan",
         notebookId: "nb_1",
         userId: "user_1",
@@ -110,7 +115,12 @@ describe("tool contract catalog", () => {
         weakConceptIds: ["concept_1"],
         currentObjective: {
           id: "obj_1",
-          ref: { refType: "objective", refId: "obj_1", handle: "current_objective", title: "Connect Fourier's law with heat flux" },
+          ref: {
+            refType: "objective",
+            refId: "obj_1",
+            handle: "current_objective",
+            title: "Connect Fourier's law with heat flux",
+          },
           handle: "current_objective",
           title: "Connect Fourier's law with heat flux",
           status: "in_progress",
@@ -122,7 +132,12 @@ describe("tool contract catalog", () => {
         weakConcepts: [
           {
             id: "concept_1",
-            ref: { refType: "concept", refId: "concept_1", handle: "Heat flux", title: "Heat flux" },
+            ref: {
+              refType: "concept",
+              refId: "concept_1",
+              handle: "Heat flux",
+              title: "Heat flux",
+            },
             handle: "Heat flux",
             title: "Heat flux",
             name: "Heat flux",
@@ -143,7 +158,12 @@ describe("tool contract catalog", () => {
           evidenceRefs: [{ refType: "session_plan", refId: "sessplan_1" }],
         },
       ],
-    }) as { studyPlan?: { currentObjective?: { title: string } | null; weakConcepts: Array<{ name?: string }> } | null };
+    }) as {
+      studyPlan?: {
+        currentObjective?: { title: string } | null;
+        weakConcepts: Array<{ name?: string }>;
+      } | null;
+    };
 
     expect(parsed?.studyPlan?.currentObjective?.title).toBe("Connect Fourier's law with heat flux");
     expect(parsed?.studyPlan?.weakConcepts[0]?.name).toBe("Heat flux");
@@ -165,7 +185,9 @@ describe("tool contract catalog", () => {
     });
 
     expect(() => assertToolCatalogMatchesRegistry(registry)).toThrow(ToolCatalogCoverageError);
-    expect(() => assertToolCatalogMatchesRegistry(registry)).toThrow(/missing from TOOL_CONTRACT_CATALOG/);
+    expect(() => assertToolCatalogMatchesRegistry(registry)).toThrow(
+      /missing from TOOL_CONTRACT_CATALOG/,
+    );
   });
 
   it("fails when a catalog entry is missing from the registry", () => {
@@ -178,7 +200,9 @@ describe("tool contract catalog", () => {
 
   it("fails when a write provider is missing a catalog implementation", () => {
     const provider = createNoopRuntimeWriteToolProvider();
-    const incomplete = { ...provider, createQuiz: undefined } as unknown as ReturnType<typeof createNoopRuntimeWriteToolProvider>;
+    const incomplete = { ...provider, createQuiz: undefined } as unknown as ReturnType<
+      typeof createNoopRuntimeWriteToolProvider
+    >;
 
     expect(() => assertWriteToolProviderCoverage(incomplete)).toThrow(ToolCatalogCoverageError);
     expect(() => assertWriteToolProviderCoverage(incomplete)).toThrow(/artifact.create_quiz/);
@@ -219,7 +243,9 @@ describe("tool contract catalog", () => {
       },
     });
 
-    await expect(executeTool(registry, "test.bad_reducer", {}, baseContext)).rejects.toThrow(ToolValidationError);
+    await expect(executeTool(registry, "test.bad_reducer", {}, baseContext)).rejects.toThrow(
+      ToolValidationError,
+    );
   });
 
   it("rejects write outputs whose reducer mutation type does not match the contract", async () => {

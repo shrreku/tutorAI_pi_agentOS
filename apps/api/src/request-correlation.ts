@@ -10,7 +10,9 @@ export function registerRequestCorrelationHooks(app: FastifyInstance): void {
   });
 }
 
-export function getRequestCorrelationContext(request: FastifyRequest): CorrelationContext | undefined {
+export function getRequestCorrelationContext(
+  request: FastifyRequest,
+): CorrelationContext | undefined {
   return requestCorrelationContexts.get(request);
 }
 

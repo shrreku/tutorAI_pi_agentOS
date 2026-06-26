@@ -48,7 +48,9 @@ function safeRequestContext(request: FastifyRequest): Record<string, unknown> {
   };
 }
 
-function sanitizeSupportContext(input: Record<string, unknown> | undefined): Record<string, unknown> {
+function sanitizeSupportContext(
+  input: Record<string, unknown> | undefined,
+): Record<string, unknown> {
   if (!input) return {};
   const allowedKeys = new Set([
     "notebookId",
@@ -152,13 +154,11 @@ export async function registerFeedbackRoutes(app: FastifyInstance, ctx: AppConte
         return reply.status(400).send({ code: "bad_request", message: "helped must be a boolean" });
       }
       if (typeof body.contactPermission !== "boolean") {
-        return reply.status(400).send({ code: "bad_request", message: "contactPermission must be a boolean" });
+        return reply
+          .status(400)
+          .send({ code: "bad_request", message: "contactPermission must be a boolean" });
       }
-      const studyContext = await resolveFeedbackStudyContext(
-        ctx,
-        actor.id,
-        body.notebookId,
-      );
+      const studyContext = await resolveFeedbackStudyContext(ctx, actor.id, body.notebookId);
       if (!studyContext) {
         return reply.status(404).send({ code: "not_found", message: "Workspace not found" });
       }
@@ -219,8 +219,13 @@ export async function registerFeedbackRoutes(app: FastifyInstance, ctx: AppConte
       if (!body?.message || typeof body.message !== "string") {
         return reply.status(400).send({ code: "bad_request", message: "message is required" });
       }
-      if (!body.category || !SUPPORT_REPORT_CATEGORIES.includes(body.category as SupportReportCategory)) {
-        return reply.status(400).send({ code: "bad_request", message: "Invalid support report category" });
+      if (
+        !body.category ||
+        !SUPPORT_REPORT_CATEGORIES.includes(body.category as SupportReportCategory)
+      ) {
+        return reply
+          .status(400)
+          .send({ code: "bad_request", message: "Invalid support report category" });
       }
 
       const id = newSupportReportId();
@@ -263,11 +268,7 @@ export async function registerFeedbackRoutes(app: FastifyInstance, ctx: AppConte
           .from(learningFeedback)
           .orderBy(desc(learningFeedback.createdAt))
           .limit(200),
-        ctx.db.db
-          .select()
-          .from(supportReports)
-          .orderBy(desc(supportReports.createdAt))
-          .limit(200),
+        ctx.db.db.select().from(supportReports).orderBy(desc(supportReports.createdAt)).limit(200),
       ]);
       return reply.send({
         feedback: feedbackRows,
@@ -341,7 +342,9 @@ export async function registerFeedbackRoutes(app: FastifyInstance, ctx: AppConte
       }
       const amountCents = Math.trunc(request.body?.amountCents ?? 0);
       if (amountCents <= 0) {
-        return reply.status(400).send({ code: "bad_request", message: "amountCents must be positive" });
+        return reply
+          .status(400)
+          .send({ code: "bad_request", message: "amountCents must be positive" });
       }
       const creditType = request.body?.creditType ?? "tutor";
       const entry = await grantCredits(

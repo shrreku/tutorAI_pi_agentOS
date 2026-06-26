@@ -13,7 +13,9 @@ import {
   syntheticLearnerEvalTracerBulletScenarios,
 } from "./synthetic-learner-evals.fixtures.js";
 
-function buildScenarioRun(overrides: Partial<SyntheticLearnerEvalScenarioRun> = {}): SyntheticLearnerEvalScenarioRun {
+function buildScenarioRun(
+  overrides: Partial<SyntheticLearnerEvalScenarioRun> = {},
+): SyntheticLearnerEvalScenarioRun {
   const matrix = buildSyntheticLearnerEvalMatrix({
     fixture: syntheticLearnerEvalTracerBulletFixture,
     personas: syntheticLearnerEvalTracerBulletPersonas.slice(0, 1),
@@ -118,7 +120,10 @@ describe("buildSyntheticLearnerIssueCandidates", () => {
       finalState: { passed: false, summary: "Scenario failed." },
       evalPlan: syntheticLearnerEvalRunPlanSchema.parse({
         ...planSyntheticLearnerEvalRun({
-          scenario: { ...syntheticLearnerEvalTracerBulletScenarios[0]!, runKind: "scenario_autonomous" },
+          scenario: {
+            ...syntheticLearnerEvalTracerBulletScenarios[0]!,
+            runKind: "scenario_autonomous",
+          },
           persona: syntheticLearnerEvalTracerBulletPersonas[0]!,
           learnerMode: "scenario_autonomous_llm",
         }),
@@ -170,7 +175,10 @@ describe("buildSyntheticLearnerIssueCandidates", () => {
       ],
       finalState: { passed: false, summary: "Scenario failed." },
       evalPlan: planSyntheticLearnerEvalRun({
-        scenario: { ...syntheticLearnerEvalTracerBulletScenarios[0]!, runKind: "scenario_autonomous" },
+        scenario: {
+          ...syntheticLearnerEvalTracerBulletScenarios[0]!,
+          runKind: "scenario_autonomous",
+        },
         persona: syntheticLearnerEvalTracerBulletPersonas[0]!,
         learnerMode: "scenario_autonomous_llm",
         issueCandidatePolicy: "failures_only",

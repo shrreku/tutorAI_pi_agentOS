@@ -24,7 +24,6 @@ Accepted ADRs in `docs/adr/` remain authoritative. This program deepens module b
 
 ## Parallel work (after Ticket 1)
 
-
 | Track                | Tickets                             |
 | -------------------- | ----------------------------------- |
 | Tutor Turn           | 2 → 3 ∥ 4 → 5                       |
@@ -35,7 +34,6 @@ Accepted ADRs in `docs/adr/` remain authoritative. This program deepens module b
 | Graph projection     | 18 → 19 → 20                        |
 | Tool contract        | 21 → 22 → 23                        |
 | Final integration    | 24 (after 5, 8, 11, 14, 17, 20, 23) |
-
 
 ## Index
 

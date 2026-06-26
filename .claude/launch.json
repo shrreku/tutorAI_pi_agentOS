@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "ui-preview",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["/Users/anurag1104/Desktop/tutorbook/ui-preview/serve.py"],
+      "port": 8125
+    }
+  ]
+}

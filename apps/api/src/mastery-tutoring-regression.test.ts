@@ -48,19 +48,37 @@ describe("mastery tutoring end-to-end regression scenarios", () => {
       objectiveList: null,
       sessionPlan: null,
       studyPlan: null,
-      coverage: { total: 0, planned: 0, introduced: 0, checked: 0, mastered: 0, needsReview: 0, gaps: [] },
-      sourceLevels: [{ sourceId: "src_1", level: sourceLevel.level, confidence: sourceLevel.confidence, lastUpdatedReason: sourceLevel.lastUpdatedReason }],
+      coverage: {
+        total: 0,
+        planned: 0,
+        introduced: 0,
+        checked: 0,
+        mastered: 0,
+        needsReview: 0,
+        gaps: [],
+      },
+      sourceLevels: [
+        {
+          sourceId: "src_1",
+          level: sourceLevel.level,
+          confidence: sourceLevel.confidence,
+          lastUpdatedReason: sourceLevel.lastUpdatedReason,
+        },
+      ],
       learnerReadiness: [],
-      learnerProgressSummary: { strengths: [], weakConcepts: [], needsReview: [], readyToAdvance: [] },
+      learnerProgressSummary: {
+        strengths: [],
+        weakConcepts: [],
+        needsReview: [],
+        readyToAdvance: [],
+      },
     };
     const progress = formatLearnerProgressForDigest(state);
     expect(progress === undefined || !/0\.\d{2}/.test(progress)).toBe(true);
   });
 
   it("soft source scope falls back notebook-wide when selected source has no chunks", () => {
-    const rows = [
-      { sourceId: "src_other", chunkId: "chunk_1", text: "Other material" },
-    ];
+    const rows = [{ sourceId: "src_other", chunkId: "chunk_1", text: "Other material" }];
     const scoped = resolveScopedRetrievalRows(rows, ["src_selected"], "soft_source_scope");
     expect(scoped.usedSourceScopeFallback).toBe(true);
     expect(scoped.effectiveRows).toEqual(rows);
@@ -109,7 +127,9 @@ describe("mastery tutoring end-to-end regression scenarios", () => {
       correctnessLabel: "incorrect",
       overallScore: 0.2,
       conceptScores: [{ conceptId: "c_chain", score: 0.18, delta: -0.1, role: "primary" }],
-      misconceptions: [{ conceptId: "c_chain", description: "Applied product rule instead of chain rule" }],
+      misconceptions: [
+        { conceptId: "c_chain", description: "Applied product rule instead of chain rule" },
+      ],
       readiness: "developing",
       tutoringIntervention: "guided_practice",
       uncertainty: 0.2,
@@ -118,7 +138,12 @@ describe("mastery tutoring end-to-end regression scenarios", () => {
       triggerSource: "runtime_auto",
       sourceRefs: [],
       contextRefs: [],
-      evaluatorProvenance: { mode: "deterministic", model: null, fallbackUsed: false, notes: "test" },
+      evaluatorProvenance: {
+        mode: "deterministic",
+        model: null,
+        fallbackUsed: false,
+        notes: "test",
+      },
     });
     expect(shouldApplyDurablePlanChange(signals)).toBe(true);
     const patch = buildAdaptiveSessionPlanPatch({
@@ -128,7 +153,12 @@ describe("mastery tutoring end-to-end regression scenarios", () => {
       currentObjectiveId: null,
       objectives: [
         { id: "obj_intro", title: "Intro", status: "in_progress", targetConceptIds: ["c_other"] },
-        { id: "obj_remediate", title: "Chain rule repair", status: "not_started", targetConceptIds: ["c_chain"] },
+        {
+          id: "obj_remediate",
+          title: "Chain rule repair",
+          status: "not_started",
+          targetConceptIds: ["c_chain"],
+        },
       ],
       weakConceptIds: ["c_chain"],
       misconceptionConceptIds: ["c_chain"],
@@ -174,15 +204,31 @@ describe("mastery tutoring end-to-end regression scenarios", () => {
         personalization: {
           whyPersonalized: "Targets your recent mistakes",
           sections: [
-            { id: "s1", title: "From your source", kind: "from_source", body: "The source defines the chain rule as...", sourceRefs: [{ refType: "source", refId: "src_1" }] },
-            { id: "s2", title: "For your mistakes", kind: "for_mistakes", body: "You swapped inner and outer derivatives last session.", sourceRefs: [] },
+            {
+              id: "s1",
+              title: "From your source",
+              kind: "from_source",
+              body: "The source defines the chain rule as...",
+              sourceRefs: [{ refType: "source", refId: "src_1" }],
+            },
+            {
+              id: "s2",
+              title: "For your mistakes",
+              kind: "for_mistakes",
+              body: "You swapped inner and outer derivatives last session.",
+              sourceRefs: [],
+            },
           ],
         },
       },
     });
     expect(view.sections.some((section) => section.title === "From your source")).toBe(true);
     expect(view.sections.some((section) => section.title === "For your mistakes")).toBe(true);
-    expect(view.sections.some((section) => typeof section.content === "string" && section.content.includes("chain rule"))).toBe(true);
+    expect(
+      view.sections.some(
+        (section) => typeof section.content === "string" && section.content.includes("chain rule"),
+      ),
+    ).toBe(true);
   });
 
   it("source wiki concept page is learner-readable without claim ids", async () => {
@@ -216,7 +262,10 @@ describe("mastery tutoring end-to-end regression scenarios", () => {
       claimConceptLinks: [{ claimId: "claim_hidden" }],
       chunks: [{ id: "chunk_1", sourceId: "src_1", text: "Heat moves through solids." }],
     };
-    const ctx = { db: { db: new ReferenceSurfaceFakeDb(fixture, "concept_1") }, env: {} } as unknown as AppContext;
+    const ctx = {
+      db: { db: new ReferenceSurfaceFakeDb(fixture, "concept_1") },
+      env: {},
+    } as unknown as AppContext;
     const surface = await buildReferenceSurface(ctx, "nb_1", "concept_1");
     const body = surface.blocks.map((block) => block.content).join("\n");
     expect(body).not.toMatch(/claim_hidden/);

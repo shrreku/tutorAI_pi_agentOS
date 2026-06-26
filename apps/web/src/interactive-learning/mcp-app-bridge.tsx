@@ -17,7 +17,12 @@ export { MCP_APP_BRIDGE_CHANNEL, MCP_APP_SANDBOX_ATTR };
 
 export type BridgeMessageDirection = "host-to-app" | "app-to-host";
 
-export type HostToAppMessageType = "ui/initialize" | "tool-input" | "block-state" | "tool-result" | "teardown";
+export type HostToAppMessageType =
+  | "ui/initialize"
+  | "tool-input"
+  | "block-state"
+  | "tool-result"
+  | "teardown";
 
 export type AppToHostMessageType = "ready" | "action" | "navigate" | "error";
 
@@ -330,7 +335,10 @@ export const McpAppBridge: React.FC<McpAppBridgeProps> = ({
           const errorMessage = error instanceof Error ? error.message : "Action dispatch failed.";
           onError?.(errorMessage);
           postToIframeRef.current(
-            buildToolResultMessage({ canonicalState: canonicalStateRef.current, error: errorMessage }),
+            buildToolResultMessage({
+              canonicalState: canonicalStateRef.current,
+              error: errorMessage,
+            }),
           );
         }
       })();
@@ -380,7 +388,10 @@ export const McpAppBridge: React.FC<McpAppBridgeProps> = ({
     return (
       <div style={fallbackStyle}>
         <strong>{block.title ?? block.kind.replace(/_/g, " ")}</strong>
-        <div>{block.fallbackSummary ?? "The interactive view failed to load. You can still review the summary above."}</div>
+        <div>
+          {block.fallbackSummary ??
+            "The interactive view failed to load. You can still review the summary above."}
+        </div>
         {devMode && diagnostics.length > 0 && (
           <pre style={diagnosticsStyle}>{JSON.stringify(diagnostics, null, 2)}</pre>
         )}
@@ -409,7 +420,9 @@ export const McpAppBridge: React.FC<McpAppBridgeProps> = ({
       />
       {devMode && (
         <details>
-          <summary style={{ fontSize: 12, color: "#64748b", cursor: "pointer" }}>Bridge diagnostics</summary>
+          <summary style={{ fontSize: 12, color: "#64748b", cursor: "pointer" }}>
+            Bridge diagnostics
+          </summary>
           <pre style={diagnosticsStyle}>{JSON.stringify({ manifest, diagnostics }, null, 2)}</pre>
         </details>
       )}

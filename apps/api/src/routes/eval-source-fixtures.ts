@@ -152,23 +152,38 @@ type EvalSourceFixtureSeedState = {
   }>;
 };
 
-export async function registerEvalSourceFixtureRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
-  app.post<{ Params: { fixtureId: string }; Body: { title?: string; freshnessMode?: EvalSourceFixtureFreshnessMode } }>(
-    "/eval/source-fixtures/:fixtureId/notebooks",
-    async (request, reply) => {
-      return withAdminAccess(ctx, request, reply, async (actor) => {
-      const fixture = syntheticLearnerEvalSourceFixtures[request.params.fixtureId as keyof typeof syntheticLearnerEvalSourceFixtures];
+export async function registerEvalSourceFixtureRoutes(
+  app: FastifyInstance,
+  ctx: AppContext,
+): Promise<void> {
+  app.post<{
+    Params: { fixtureId: string };
+    Body: { title?: string; freshnessMode?: EvalSourceFixtureFreshnessMode };
+  }>("/eval/source-fixtures/:fixtureId/notebooks", async (request, reply) => {
+    return withAdminAccess(ctx, request, reply, async (actor) => {
+      const fixture =
+        syntheticLearnerEvalSourceFixtures[
+          request.params.fixtureId as keyof typeof syntheticLearnerEvalSourceFixtures
+        ];
 
       if (!fixture) {
         return reply.status(404).send({ code: "not_found", message: "Fixture not found" });
       }
 
-      if (!fixture.compatibilityStatus || fixture.compatibilityStatus !== "compatible" || !fixture.compatible) {
-        return reply.status(409).send({ code: "fixture_incompatible", message: "Fixture is not importable" });
+      if (
+        !fixture.compatibilityStatus ||
+        fixture.compatibilityStatus !== "compatible" ||
+        !fixture.compatible
+      ) {
+        return reply
+          .status(409)
+          .send({ code: "fixture_incompatible", message: "Fixture is not importable" });
       }
 
       if (fixture.readinessChecks.some((check) => !check.passed)) {
-        return reply.status(409).send({ code: "fixture_not_ready", message: "Fixture readiness checks did not pass" });
+        return reply
+          .status(409)
+          .send({ code: "fixture_not_ready", message: "Fixture readiness checks did not pass" });
       }
 
       const freshness = evaluateEvalSourceFixtureFreshness({
@@ -188,9 +203,8 @@ export async function registerEvalSourceFixtureRoutes(app: FastifyInstance, ctx:
       });
 
       return reply.status(201).send({ ...imported, freshness });
-      });
-    },
-  );
+    });
+  });
 }
 
 export async function seedEvalSourceFixtureNotebook(
@@ -203,17 +217,22 @@ export async function seedEvalSourceFixtureNotebook(
   seededRowCounts: Record<string, number>;
 }> {
   const seedState = fixture.tutoringReadyState as EvalSourceFixtureSeedState;
-  const notebookId = options?.notebookId ?? `nb_eval_${fixture.id}_${crypto.randomUUID().replaceAll("-", "")}`;
+  const notebookId =
+    options?.notebookId ?? `nb_eval_${fixture.id}_${crypto.randomUUID().replaceAll("-", "")}`;
   const now = new Date(fixture.generatedAt);
 
   const scopeId = (id: string) => `${notebookId}__${id}`;
   const sourceIdMap = new Map(seedState.sources.map((row) => [row.id, scopeId(row.id)]));
-  const sourceVersionIdMap = new Map(seedState.sourceVersions.map((row) => [row.id, scopeId(row.id)]));
+  const sourceVersionIdMap = new Map(
+    seedState.sourceVersions.map((row) => [row.id, scopeId(row.id)]),
+  );
   const chunkIdMap = new Map(seedState.chunks.map((row) => [row.id, scopeId(row.id)]));
   const conceptIdMap = new Map(seedState.concepts.map((row) => [row.id, scopeId(row.id)]));
   const curriculumIdMap = new Map(seedState.curricula.map((row) => [row.id, scopeId(row.id)]));
   const moduleIdMap = new Map(seedState.curriculumModules.map((row) => [row.id, scopeId(row.id)]));
-  const objectiveListIdMap = new Map(seedState.objectiveLists.map((row) => [row.id, scopeId(row.id)]));
+  const objectiveListIdMap = new Map(
+    seedState.objectiveLists.map((row) => [row.id, scopeId(row.id)]),
+  );
   const objectiveIdMap = new Map(seedState.objectives.map((row) => [row.id, scopeId(row.id)]));
   const sessionPlanIdMap = new Map(seedState.sessionPlans.map((row) => [row.id, scopeId(row.id)]));
   const wikiPageIdMap = new Map(seedState.wikiPages.map((row) => [row.id, scopeId(row.id)]));
@@ -245,150 +264,211 @@ export async function seedEvalSourceFixtureNotebook(
     await tx.insert(notebooks).values(notebook);
     seededRowCounts.notebooks = 1;
 
-    await insertRows(tx, sources, seedState.sources.map((row) => ({
-      ...row,
-      id: sourceIdMap.get(row.id) ?? row.id,
-      notebookId,
-      status: row.status ?? "ready",
-      metadataJson: row.metadataJson ?? {},
-      createdAt: now,
-      updatedAt: now,
-    })));
+    await insertRows(
+      tx,
+      sources,
+      seedState.sources.map((row) => ({
+        ...row,
+        id: sourceIdMap.get(row.id) ?? row.id,
+        notebookId,
+        status: row.status ?? "ready",
+        metadataJson: row.metadataJson ?? {},
+        createdAt: now,
+        updatedAt: now,
+      })),
+    );
     seededRowCounts.sources = seedState.sources.length;
 
-    await insertRows(tx, sourceVersions, seedState.sourceVersions.map((row) => ({
-      ...row,
-      id: sourceVersionIdMap.get(row.id) ?? row.id,
-      sourceId: sourceIdMap.get(row.sourceId) ?? row.sourceId,
-      createdAt: row.createdAt ? new Date(row.createdAt) : now,
-    })));
+    await insertRows(
+      tx,
+      sourceVersions,
+      seedState.sourceVersions.map((row) => ({
+        ...row,
+        id: sourceVersionIdMap.get(row.id) ?? row.id,
+        sourceId: sourceIdMap.get(row.sourceId) ?? row.sourceId,
+        createdAt: row.createdAt ? new Date(row.createdAt) : now,
+      })),
+    );
     seededRowCounts.sourceVersions = seedState.sourceVersions.length;
 
-    await insertRows(tx, chunks, seedState.chunks.map((row) => ({
-      ...row,
-      id: chunkIdMap.get(row.id) ?? row.id,
-      sourceVersionId: sourceVersionIdMap.get(row.sourceVersionId) ?? row.sourceVersionId,
-      parentChunkId: row.parentChunkId ? (chunkIdMap.get(row.parentChunkId) ?? row.parentChunkId) : null,
-      headingPath: row.headingPath ?? [],
-      metadataJson: row.metadataJson ?? {},
-      createdAt: now,
-      updatedAt: now,
-    })));
+    await insertRows(
+      tx,
+      chunks,
+      seedState.chunks.map((row) => ({
+        ...row,
+        id: chunkIdMap.get(row.id) ?? row.id,
+        sourceVersionId: sourceVersionIdMap.get(row.sourceVersionId) ?? row.sourceVersionId,
+        parentChunkId: row.parentChunkId
+          ? (chunkIdMap.get(row.parentChunkId) ?? row.parentChunkId)
+          : null,
+        headingPath: row.headingPath ?? [],
+        metadataJson: row.metadataJson ?? {},
+        createdAt: now,
+        updatedAt: now,
+      })),
+    );
     seededRowCounts.chunks = seedState.chunks.length;
 
-    await insertRows(tx, concepts, seedState.concepts.map((row) => ({
-      ...row,
-      id: conceptIdMap.get(row.id) ?? row.id,
-      notebookId,
-      aliases: row.aliases ?? [],
-      conceptType: row.conceptType ?? null,
-      description: row.description ?? null,
-      confidence: row.confidence ?? null,
-      metadataJson: row.metadataJson ?? {},
-      createdAt: now,
-      updatedAt: now,
-    })));
+    await insertRows(
+      tx,
+      concepts,
+      seedState.concepts.map((row) => ({
+        ...row,
+        id: conceptIdMap.get(row.id) ?? row.id,
+        notebookId,
+        aliases: row.aliases ?? [],
+        conceptType: row.conceptType ?? null,
+        description: row.description ?? null,
+        confidence: row.confidence ?? null,
+        metadataJson: row.metadataJson ?? {},
+        createdAt: now,
+        updatedAt: now,
+      })),
+    );
     seededRowCounts.concepts = seedState.concepts.length;
 
-    await insertRows(tx, curricula, seedState.curricula.map((row) => ({
-      ...row,
-      id: curriculumIdMap.get(row.id) ?? row.id,
-      notebookId,
-      activeModuleId: null,
-      sourceIds: (row.sourceIds ?? []).map((sourceId) => sourceIdMap.get(sourceId) ?? sourceId),
-      coverageSummaryJson: row.coverageSummaryJson ?? null,
-      confidence: row.confidence ?? null,
-      createdByRunId: null,
-      createdAt: now,
-      updatedAt: now,
-    })));
+    await insertRows(
+      tx,
+      curricula,
+      seedState.curricula.map((row) => ({
+        ...row,
+        id: curriculumIdMap.get(row.id) ?? row.id,
+        notebookId,
+        activeModuleId: null,
+        sourceIds: (row.sourceIds ?? []).map((sourceId) => sourceIdMap.get(sourceId) ?? sourceId),
+        coverageSummaryJson: row.coverageSummaryJson ?? null,
+        confidence: row.confidence ?? null,
+        createdByRunId: null,
+        createdAt: now,
+        updatedAt: now,
+      })),
+    );
     seededRowCounts.curricula = seedState.curricula.length;
 
-    await insertRows(tx, curriculumModules, seedState.curriculumModules.map((row) => ({
-      ...row,
-      id: moduleIdMap.get(row.id) ?? row.id,
-      notebookId,
-      curriculumId: curriculumIdMap.get(row.curriculumId) ?? row.curriculumId,
-      sourceRefsJson: row.sourceRefsJson ?? [],
-      targetConceptIds: (row.targetConceptIds ?? []).map((conceptId) => conceptIdMap.get(conceptId) ?? conceptId),
-      prerequisiteModuleIds: (row.prerequisiteModuleIds ?? []).map((moduleId) => moduleIdMap.get(moduleId) ?? moduleId),
-      coverageRequirementsJson: row.coverageRequirementsJson ?? {},
-      masteryGateJson: row.masteryGateJson ?? {},
-      createdAt: now,
-      updatedAt: now,
-    })));
+    await insertRows(
+      tx,
+      curriculumModules,
+      seedState.curriculumModules.map((row) => ({
+        ...row,
+        id: moduleIdMap.get(row.id) ?? row.id,
+        notebookId,
+        curriculumId: curriculumIdMap.get(row.curriculumId) ?? row.curriculumId,
+        sourceRefsJson: row.sourceRefsJson ?? [],
+        targetConceptIds: (row.targetConceptIds ?? []).map(
+          (conceptId) => conceptIdMap.get(conceptId) ?? conceptId,
+        ),
+        prerequisiteModuleIds: (row.prerequisiteModuleIds ?? []).map(
+          (moduleId) => moduleIdMap.get(moduleId) ?? moduleId,
+        ),
+        coverageRequirementsJson: row.coverageRequirementsJson ?? {},
+        masteryGateJson: row.masteryGateJson ?? {},
+        createdAt: now,
+        updatedAt: now,
+      })),
+    );
     seededRowCounts.curriculumModules = seedState.curriculumModules.length;
 
     for (const row of seedState.curricula) {
       if (!row.activeModuleId) continue;
       const scopedCurriculumId = curriculumIdMap.get(row.id) ?? row.id;
       const scopedActiveModuleId = moduleIdMap.get(row.activeModuleId) ?? row.activeModuleId;
-      await tx.update(curricula).set({ activeModuleId: scopedActiveModuleId }).where(eq(curricula.id, scopedCurriculumId));
+      await tx
+        .update(curricula)
+        .set({ activeModuleId: scopedActiveModuleId })
+        .where(eq(curricula.id, scopedCurriculumId));
     }
 
-    await insertRows(tx, objectiveLists, seedState.objectiveLists.map((row) => ({
-      ...row,
-      id: objectiveListIdMap.get(row.id) ?? row.id,
-      notebookId,
-      curriculumId: curriculumIdMap.get(row.curriculumId) ?? row.curriculumId,
-      moduleId: moduleIdMap.get(row.moduleId) ?? row.moduleId,
-      currentObjectiveId: row.currentObjectiveId ? (objectiveIdMap.get(row.currentObjectiveId) ?? row.currentObjectiveId) : null,
-      objectiveIdsOrdered: (row.objectiveIdsOrdered ?? []).map((objectiveId) => objectiveIdMap.get(objectiveId) ?? objectiveId),
-      coverageSnapshotJson: row.coverageSnapshotJson ?? {},
-      createdByRunId: null,
-      createdAt: now,
-      updatedAt: now,
-    })));
+    await insertRows(
+      tx,
+      objectiveLists,
+      seedState.objectiveLists.map((row) => ({
+        ...row,
+        id: objectiveListIdMap.get(row.id) ?? row.id,
+        notebookId,
+        curriculumId: curriculumIdMap.get(row.curriculumId) ?? row.curriculumId,
+        moduleId: moduleIdMap.get(row.moduleId) ?? row.moduleId,
+        currentObjectiveId: row.currentObjectiveId
+          ? (objectiveIdMap.get(row.currentObjectiveId) ?? row.currentObjectiveId)
+          : null,
+        objectiveIdsOrdered: (row.objectiveIdsOrdered ?? []).map(
+          (objectiveId) => objectiveIdMap.get(objectiveId) ?? objectiveId,
+        ),
+        coverageSnapshotJson: row.coverageSnapshotJson ?? {},
+        createdByRunId: null,
+        createdAt: now,
+        updatedAt: now,
+      })),
+    );
     seededRowCounts.objectiveLists = seedState.objectiveLists.length;
 
-    await insertRows(tx, objectives, seedState.objectives.map((row) => ({
-      ...row,
-      id: objectiveIdMap.get(row.id) ?? row.id,
-      notebookId,
-      curriculumId: curriculumIdMap.get(row.curriculumId) ?? row.curriculumId,
-      prerequisiteConceptIds: (row.prerequisiteConceptIds ?? []).map((conceptId) => conceptIdMap.get(conceptId) ?? conceptId),
-      targetConceptIds: (row.targetConceptIds ?? []).map((conceptId) => conceptIdMap.get(conceptId) ?? conceptId),
-      sourceRefsJson: row.sourceRefsJson ?? [],
-      suggestedMode: row.suggestedMode ?? null,
-      readinessScore: row.readinessScore ?? null,
-      createdAt: now,
-      updatedAt: now,
-    })));
+    await insertRows(
+      tx,
+      objectives,
+      seedState.objectives.map((row) => ({
+        ...row,
+        id: objectiveIdMap.get(row.id) ?? row.id,
+        notebookId,
+        curriculumId: curriculumIdMap.get(row.curriculumId) ?? row.curriculumId,
+        prerequisiteConceptIds: (row.prerequisiteConceptIds ?? []).map(
+          (conceptId) => conceptIdMap.get(conceptId) ?? conceptId,
+        ),
+        targetConceptIds: (row.targetConceptIds ?? []).map(
+          (conceptId) => conceptIdMap.get(conceptId) ?? conceptId,
+        ),
+        sourceRefsJson: row.sourceRefsJson ?? [],
+        suggestedMode: row.suggestedMode ?? null,
+        readinessScore: row.readinessScore ?? null,
+        createdAt: now,
+        updatedAt: now,
+      })),
+    );
     seededRowCounts.objectives = seedState.objectives.length;
 
-    await insertRows(tx, sessionPlans, seedState.sessionPlans.map((row) => ({
-      ...row,
-      id: sessionPlanIdMap.get(row.id) ?? row.id,
-      notebookId,
-      curriculumId: curriculumIdMap.get(row.curriculumId) ?? row.curriculumId,
-      moduleId: moduleIdMap.get(row.moduleId) ?? row.moduleId,
-      objectiveListId: objectiveListIdMap.get(row.objectiveListId) ?? row.objectiveListId,
-      plannedObjectiveIds: (row.plannedObjectiveIds ?? []).map((objectiveId) => objectiveIdMap.get(objectiveId) ?? objectiveId),
-      teachingArcIds: row.teachingArcIds ?? [],
-      artifactRefsJson: row.artifactRefsJson ?? [],
-      exitCriteriaJson: row.exitCriteriaJson ?? {},
-      recommendationReasonJson: row.recommendationReasonJson ?? {},
-      createdByRunId: null,
-      createdAt: now,
-      updatedAt: now,
-    })));
+    await insertRows(
+      tx,
+      sessionPlans,
+      seedState.sessionPlans.map((row) => ({
+        ...row,
+        id: sessionPlanIdMap.get(row.id) ?? row.id,
+        notebookId,
+        curriculumId: curriculumIdMap.get(row.curriculumId) ?? row.curriculumId,
+        moduleId: moduleIdMap.get(row.moduleId) ?? row.moduleId,
+        objectiveListId: objectiveListIdMap.get(row.objectiveListId) ?? row.objectiveListId,
+        plannedObjectiveIds: (row.plannedObjectiveIds ?? []).map(
+          (objectiveId) => objectiveIdMap.get(objectiveId) ?? objectiveId,
+        ),
+        teachingArcIds: row.teachingArcIds ?? [],
+        artifactRefsJson: row.artifactRefsJson ?? [],
+        exitCriteriaJson: row.exitCriteriaJson ?? {},
+        recommendationReasonJson: row.recommendationReasonJson ?? {},
+        createdByRunId: null,
+        createdAt: now,
+        updatedAt: now,
+      })),
+    );
     seededRowCounts.sessionPlans = seedState.sessionPlans.length;
 
-    await insertRows(tx, wikiPages, seedState.wikiPages.map((row) => ({
-      ...row,
-      id: wikiPageIdMap.get(row.id) ?? row.id,
-      notebookId,
-      version: row.version ?? 1,
-      status: row.status ?? "published",
-      structuredJson: row.structuredJson ?? {},
-      markdown: row.markdown ?? "",
-      sourceClaimIds: row.sourceClaimIds ?? [],
-      sourceChunkIds: (row.sourceChunkIds ?? []).map((chunkId) => chunkIdMap.get(chunkId) ?? chunkId),
-      confidenceSummaryJson: row.confidenceSummaryJson ?? null,
-      qualityScore: row.qualityScore ?? null,
-      createdAt: now,
-      updatedAt: now,
-    })));
+    await insertRows(
+      tx,
+      wikiPages,
+      seedState.wikiPages.map((row) => ({
+        ...row,
+        id: wikiPageIdMap.get(row.id) ?? row.id,
+        notebookId,
+        version: row.version ?? 1,
+        status: row.status ?? "published",
+        structuredJson: row.structuredJson ?? {},
+        markdown: row.markdown ?? "",
+        sourceClaimIds: row.sourceClaimIds ?? [],
+        sourceChunkIds: (row.sourceChunkIds ?? []).map(
+          (chunkId) => chunkIdMap.get(chunkId) ?? chunkId,
+        ),
+        confidenceSummaryJson: row.confidenceSummaryJson ?? null,
+        qualityScore: row.qualityScore ?? null,
+        createdAt: now,
+        updatedAt: now,
+      })),
+    );
     seededRowCounts.wikiPages = seedState.wikiPages.length;
   });
 

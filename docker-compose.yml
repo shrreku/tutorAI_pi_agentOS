@@ -43,11 +43,7 @@ services:
     volumes:
       - minio-data:/data
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "curl -sf http://127.0.0.1:9000/minio/health/live >/dev/null || exit 1",
-        ]
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:9000/minio/health/live >/dev/null || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 12

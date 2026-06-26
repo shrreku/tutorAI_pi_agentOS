@@ -53,7 +53,12 @@ export async function loadTopicPagesForConcepts(
     .from(concepts)
     .where(and(eq(concepts.notebookId, notebookId), inArray(concepts.id, conceptIds)));
   const topicPages = await dbClient.db
-    .select({ id: wikiPages.id, pageKey: wikiPages.pageKey, title: wikiPages.title, structuredJson: wikiPages.structuredJson })
+    .select({
+      id: wikiPages.id,
+      pageKey: wikiPages.pageKey,
+      title: wikiPages.title,
+      structuredJson: wikiPages.structuredJson,
+    })
     .from(wikiPages)
     .where(and(eq(wikiPages.notebookId, notebookId), eq(wikiPages.pageType, "topic")));
   return loadTopicPagesForObjectiveConcepts({
@@ -82,7 +87,8 @@ export async function loadConceptPages(
   const wanted = new Set(conceptIds);
   return pages
     .filter((page) => {
-      const conceptId = typeof page.structuredJson?.conceptId === "string" ? page.structuredJson.conceptId : null;
+      const conceptId =
+        typeof page.structuredJson?.conceptId === "string" ? page.structuredJson.conceptId : null;
       return conceptId ? wanted.has(conceptId) : false;
     })
     .map((page) => ({
@@ -152,7 +158,9 @@ export async function upsertActiveSessionPlan(
   const [existingForModule] = await dbClient.db
     .select({ id: sessionPlans.id })
     .from(sessionPlans)
-    .where(and(eq(sessionPlans.notebookId, input.notebookId), eq(sessionPlans.moduleId, input.moduleId)))
+    .where(
+      and(eq(sessionPlans.notebookId, input.notebookId), eq(sessionPlans.moduleId, input.moduleId)),
+    )
     .orderBy(desc(sessionPlans.updatedAt))
     .limit(1);
 
@@ -291,7 +299,9 @@ export async function planModuleObjectivesWithLlm(
             `Module: ${input.moduleTitle}`,
             `Summary: ${input.moduleSummary}`,
             `Concepts: ${input.conceptNames.join(", ") || "none"}`,
-            ...(input.weakConceptNames?.length ? [`Weak concepts to reinforce: ${input.weakConceptNames.join(", ")}`] : []),
+            ...(input.weakConceptNames?.length
+              ? [`Weak concepts to reinforce: ${input.weakConceptNames.join(", ")}`]
+              : []),
           ].join("\n"),
         },
       ],
@@ -302,10 +312,16 @@ export async function planModuleObjectivesWithLlm(
   }
 }
 
-export function deterministicObjectiveTitles(moduleTitle: string, conceptNames: string[]): string[] {
+export function deterministicObjectiveTitles(
+  moduleTitle: string,
+  conceptNames: string[],
+): string[] {
   const primary = conceptNames[0] ?? moduleTitle;
   const secondary = conceptNames[1] ?? primary;
-  return [`Explain ${primary}`, secondary === primary ? `Apply ${primary}` : `Connect ${primary} with ${secondary}`];
+  return [
+    `Explain ${primary}`,
+    secondary === primary ? `Apply ${primary}` : `Connect ${primary} with ${secondary}`,
+  ];
 }
 
 export async function ensureModuleObjectives(
@@ -326,12 +342,22 @@ export async function ensureModuleObjectives(
   const existing = await dbClient.db
     .select({ id: objectives.id })
     .from(objectives)
-    .where(and(eq(objectives.notebookId, input.notebookId), eq(objectives.curriculumId, input.curriculumId)))
+    .where(
+      and(
+        eq(objectives.notebookId, input.notebookId),
+        eq(objectives.curriculumId, input.curriculumId),
+      ),
+    )
     .orderBy(asc(objectives.orderIndex));
   const objectiveList = await dbClient.db
     .select()
     .from(objectiveLists)
-    .where(and(eq(objectiveLists.notebookId, input.notebookId), eq(objectiveLists.moduleId, input.moduleId)))
+    .where(
+      and(
+        eq(objectiveLists.notebookId, input.notebookId),
+        eq(objectiveLists.moduleId, input.moduleId),
+      ),
+    )
     .limit(1);
   const listObjectiveIds = objectiveList[0]?.objectiveIdsOrdered ?? [];
   if (listObjectiveIds.length > 0) return listObjectiveIds;
@@ -339,7 +365,9 @@ export async function ensureModuleObjectives(
   const conceptRows = await dbClient.db
     .select({ id: concepts.id, canonicalName: concepts.canonicalName })
     .from(concepts)
-    .where(and(eq(concepts.notebookId, input.notebookId), inArray(concepts.id, input.targetConceptIds)));
+    .where(
+      and(eq(concepts.notebookId, input.notebookId), inArray(concepts.id, input.targetConceptIds)),
+    );
   const conceptNames = conceptRows.map((row) => row.canonicalName);
   const weakConceptNames =
     input.weakConceptIds && input.weakConceptIds.length
@@ -347,7 +375,12 @@ export async function ensureModuleObjectives(
           await dbClient.db
             .select({ canonicalName: concepts.canonicalName })
             .from(concepts)
-            .where(and(eq(concepts.notebookId, input.notebookId), inArray(concepts.id, input.weakConceptIds)))
+            .where(
+              and(
+                eq(concepts.notebookId, input.notebookId),
+                inArray(concepts.id, input.weakConceptIds),
+              ),
+            )
         ).map((row) => row.canonicalName)
       : [];
 
@@ -357,7 +390,8 @@ export async function ensureModuleObjectives(
     conceptNames,
     weakConceptNames,
   });
-  const objectiveTitles = llmPlan?.objectiveTitles ?? deterministicObjectiveTitles(input.moduleTitle, conceptNames);
+  const objectiveTitles =
+    llmPlan?.objectiveTitles ?? deterministicObjectiveTitles(input.moduleTitle, conceptNames);
   const now = input.now ?? new Date();
   const objectiveIds: string[] = [];
 
@@ -393,7 +427,8 @@ export async function ensureModuleObjectives(
     });
   }
 
-  const objectiveListId = objectiveList[0]?.id ?? `objlist_${crypto.randomUUID().replaceAll("-", "")}`;
+  const objectiveListId =
+    objectiveList[0]?.id ?? `objlist_${crypto.randomUUID().replaceAll("-", "")}`;
   if (!objectiveList[0]) {
     await dbClient.db.insert(objectiveLists).values({
       id: objectiveListId,

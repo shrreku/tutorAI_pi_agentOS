@@ -2,7 +2,16 @@ import { z } from "zod";
 import { idSchema } from "./ids.js";
 import { sourceLevelSchema } from "./learning-levels.js";
 
-export const sourceTypeSchema = z.enum(["pdf", "markdown", "text", "html", "pasted_note", "document", "presentation", "binary"]);
+export const sourceTypeSchema = z.enum([
+  "pdf",
+  "markdown",
+  "text",
+  "html",
+  "pasted_note",
+  "document",
+  "presentation",
+  "binary",
+]);
 
 export const sourceStatusSchema = z.enum([
   "uploaded",

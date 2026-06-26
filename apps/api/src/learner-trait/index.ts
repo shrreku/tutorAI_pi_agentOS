@@ -6,7 +6,10 @@ export {
   runLearnerTraitEstimationCycle,
   type LearnerTraitEstimatorClient,
 } from "../learner-trait-estimation.js";
-export { planLearnerTraitEstimation, persistLearnerTraitEstimationPlan } from "../learner-trait-estimation-planner.js";
+export {
+  planLearnerTraitEstimation,
+  persistLearnerTraitEstimationPlan,
+} from "../learner-trait-estimation-planner.js";
 export { collectLearnerTraitEvidencePacket } from "../learner-trait-evidence-collector.js";
 export { deriveMasteryEvidencePatternSignals } from "../learner-trait-mastery-patterns.js";
 export {

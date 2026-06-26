@@ -7,29 +7,49 @@ import FullPanelViewer from "./FullPanelViewer.js";
 import { WorkspaceShellProvider } from "./workspace-shell-context.js";
 
 describe("FullPanelViewer", () => {
-  const renderViewer = (node: React.ComponentProps<typeof FullPanelViewer>["node"], referenceSurface?: ReferenceSurface) => {
+  const renderViewer = (
+    node: React.ComponentProps<typeof FullPanelViewer>["node"],
+    referenceSurface?: ReferenceSurface,
+  ) => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     if (referenceSurface) {
       client.setQueryData(["reference-surface", "nb_1", node.id], referenceSurface);
     }
     return renderToStaticMarkup(
       <QueryClientProvider client={client}>
-        <WorkspaceShellProvider notebookId="nb_1" selectedNodeRefs={[]} onSelectedNodeRefsChange={() => {}}>
+        <WorkspaceShellProvider
+          notebookId="nb_1"
+          selectedNodeRefs={[]}
+          onSelectedNodeRefsChange={() => {}}
+        >
           <FullPanelViewer notebookId="nb_1" node={node} onClose={() => {}} />
         </WorkspaceShellProvider>
       </QueryClientProvider>,
     );
   };
 
-  const renderViewerWithActions = (node: React.ComponentProps<typeof FullPanelViewer>["node"], referenceSurface?: ReferenceSurface) => {
+  const renderViewerWithActions = (
+    node: React.ComponentProps<typeof FullPanelViewer>["node"],
+    referenceSurface?: ReferenceSurface,
+  ) => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     if (referenceSurface) {
       client.setQueryData(["reference-surface", "nb_1", node.id], referenceSurface);
     }
     return renderToStaticMarkup(
       <QueryClientProvider client={client}>
-        <WorkspaceShellProvider notebookId="nb_1" selectedNodeRefs={[]} onSelectedNodeRefsChange={() => {}}>
-          <FullPanelViewer notebookId="nb_1" node={node} onClose={() => {}} onLaunchTutor={() => {}} onShowProvenance={() => {}} />
+        <WorkspaceShellProvider
+          notebookId="nb_1"
+          selectedNodeRefs={[]}
+          onSelectedNodeRefsChange={() => {}}
+        >
+          <FullPanelViewer
+            notebookId="nb_1"
+            node={node}
+            onClose={() => {}}
+            onLaunchTutor={() => {}}
+            onShowProvenance={() => {}}
+          />
         </WorkspaceShellProvider>
       </QueryClientProvider>,
     );
@@ -48,13 +68,13 @@ describe("FullPanelViewer", () => {
   it("renders worked example artifacts with dedicated heading", () => {
     const html = renderViewer(
       {
-          ...baseNode,
-          properties: {
-            ...baseNode.properties,
-            artifactType: "worked_example",
-            payload: { problemStatement: "Differentiate x^2" },
-          },
+        ...baseNode,
+        properties: {
+          ...baseNode.properties,
+          artifactType: "worked_example",
+          payload: { problemStatement: "Differentiate x^2" },
         },
+      },
       {
         id: "surface_1",
         notebookId: "nb_1",
@@ -64,8 +84,20 @@ describe("FullPanelViewer", () => {
         summary: "Artifact summary",
         status: "ready",
         blocks: [
-          { id: "reference", kind: "markdown", title: "Reference", content: "Differentiate x^2", evidenceRefs: [] },
-          { id: "steps", kind: "step_list", title: "Solution steps", content: [{ title: "Apply the power rule" }], evidenceRefs: [] },
+          {
+            id: "reference",
+            kind: "markdown",
+            title: "Reference",
+            content: "Differentiate x^2",
+            evidenceRefs: [],
+          },
+          {
+            id: "steps",
+            kind: "step_list",
+            title: "Solution steps",
+            content: [{ title: "Apply the power rule" }],
+            evidenceRefs: [],
+          },
         ],
         scopeRefs: [],
         sourceRefs: [],
@@ -82,40 +114,39 @@ describe("FullPanelViewer", () => {
   });
 
   it("detects quiz practice from reference surface blocks instead of graph node properties", () => {
-    const html = renderViewer(
-      baseNode,
-      {
-        id: "surface_2",
-        notebookId: "nb_1",
-        nodeRef: { refType: "artifact", refId: "artifact_1" },
-        title: "Quiz",
-        surfaceType: "artifact",
-        summary: "Quiz summary",
-        status: "ready",
-        blocks: [
-          {
-            id: "questions",
-            kind: "question_list",
-            title: "Questions",
-            content: [{
+    const html = renderViewer(baseNode, {
+      id: "surface_2",
+      notebookId: "nb_1",
+      nodeRef: { refType: "artifact", refId: "artifact_1" },
+      title: "Quiz",
+      surfaceType: "artifact",
+      summary: "Quiz summary",
+      status: "ready",
+      blocks: [
+        {
+          id: "questions",
+          kind: "question_list",
+          title: "Questions",
+          content: [
+            {
               id: "q1",
               prompt: "What is x? a) x b) y",
               choices: ["x", "y"],
               answer: "a",
               explanation: "x is the reference value.",
-            }],
-            evidenceRefs: [],
-          },
-        ],
-        scopeRefs: [],
-        sourceRefs: [],
-        provenanceRefs: [],
-        interactiveBlocks: [],
-        coverageRefs: [],
-        primaryActions: ["quiz", "ask_tutor"],
-        quality: { confidence: 0.9, sourceBacked: true, needsReview: false },
-      },
-    );
+            },
+          ],
+          evidenceRefs: [],
+        },
+      ],
+      scopeRefs: [],
+      sourceRefs: [],
+      provenanceRefs: [],
+      interactiveBlocks: [],
+      coverageRefs: [],
+      primaryActions: ["quiz", "ask_tutor"],
+      quality: { confidence: 0.9, sourceBacked: true, needsReview: false },
+    });
     expect(html).toContain("Submit answer");
     expect(html).not.toContain("Quiz summary");
   });
@@ -123,12 +154,12 @@ describe("FullPanelViewer", () => {
   it("renders quiz artifacts as one-question practice surfaces", () => {
     const html = renderViewer(
       {
-          ...baseNode,
-          properties: {
-            ...baseNode.properties,
-            artifactType: "quiz",
-          },
+        ...baseNode,
+        properties: {
+          ...baseNode.properties,
+          artifactType: "quiz",
         },
+      },
       {
         id: "surface_2",
         notebookId: "nb_1",
@@ -138,18 +169,26 @@ describe("FullPanelViewer", () => {
         summary: "Quiz summary",
         status: "ready",
         blocks: [
-          { id: "overview", kind: "markdown", title: "Practice goal", content: "This intro is not needed.", evidenceRefs: [] },
+          {
+            id: "overview",
+            kind: "markdown",
+            title: "Practice goal",
+            content: "This intro is not needed.",
+            evidenceRefs: [],
+          },
           {
             id: "questions",
             kind: "question_list",
             title: "Questions",
-            content: [{
-              id: "q1",
-              prompt: "What is x? a) x b) y",
-              choices: ["x", "y"],
-              answer: "a",
-              explanation: "x is the reference value.",
-            }],
+            content: [
+              {
+                id: "q1",
+                prompt: "What is x? a) x b) y",
+                choices: ["x", "y"],
+                answer: "a",
+                explanation: "x is the reference value.",
+              },
+            ],
             evidenceRefs: [],
           },
         ],
@@ -184,7 +223,9 @@ describe("FullPanelViewer", () => {
       surfaceType: "artifact",
       summary: "Draft summary",
       status: null,
-      blocks: [{ id: "body", kind: "markdown", title: "Note", content: "Draft body", evidenceRefs: [] }],
+      blocks: [
+        { id: "body", kind: "markdown", title: "Note", content: "Draft body", evidenceRefs: [] },
+      ],
       scopeRefs: [],
       sourceRefs: [],
       provenanceRefs: [],
@@ -200,13 +241,16 @@ describe("FullPanelViewer", () => {
   it("renders session digest artifacts with next actions", () => {
     const html = renderViewer(
       {
-          ...baseNode,
-          properties: {
-            ...baseNode.properties,
-            artifactType: "session_digest",
-            payload: { takeaway: "You connected heat flux to temperature gradients.", nextActions: [{ title: "Review Fourier's law" }] },
+        ...baseNode,
+        properties: {
+          ...baseNode.properties,
+          artifactType: "session_digest",
+          payload: {
+            takeaway: "You connected heat flux to temperature gradients.",
+            nextActions: [{ title: "Review Fourier's law" }],
           },
         },
+      },
       {
         id: "surface_3",
         notebookId: "nb_1",
@@ -215,7 +259,15 @@ describe("FullPanelViewer", () => {
         surfaceType: "artifact",
         summary: "You connected heat flux to temperature gradients.",
         status: "ready",
-        blocks: [{ id: "next_actions", kind: "step_list", title: "Next actions", content: [{ title: "Review Fourier's law" }], evidenceRefs: [] }],
+        blocks: [
+          {
+            id: "next_actions",
+            kind: "step_list",
+            title: "Next actions",
+            content: [{ title: "Review Fourier's law" }],
+            evidenceRefs: [],
+          },
+        ],
         scopeRefs: [],
         sourceRefs: [],
         provenanceRefs: [],
@@ -245,7 +297,15 @@ describe("FullPanelViewer", () => {
         surfaceType: "source",
         summary: null,
         status: "tutoring_ready",
-        blocks: [{ id: "metadata", kind: "metadata", title: "Source", content: { status: "tutoring_ready" }, evidenceRefs: [] }],
+        blocks: [
+          {
+            id: "metadata",
+            kind: "metadata",
+            title: "Source",
+            content: { status: "tutoring_ready" },
+            evidenceRefs: [],
+          },
+        ],
         scopeRefs: [] as ReferenceSurface["scopeRefs"],
         sourceRefs: [] as ReferenceSurface["sourceRefs"],
         provenanceRefs: [] as ReferenceSurface["provenanceRefs"],
@@ -277,7 +337,15 @@ describe("FullPanelViewer", () => {
       surfaceType: "concept",
       summary: "Heat flux relates to temperature gradient.",
       status: "active",
-      blocks: [{ id: "definition", kind: "summary", title: "Definition", content: "Heat flux relates to temperature gradient.", evidenceRefs: [] }],
+      blocks: [
+        {
+          id: "definition",
+          kind: "summary",
+          title: "Definition",
+          content: "Heat flux relates to temperature gradient.",
+          evidenceRefs: [],
+        },
+      ],
       scopeRefs: [],
       sourceRefs: [],
       provenanceRefs: [],
@@ -288,7 +356,11 @@ describe("FullPanelViewer", () => {
     } satisfies ReferenceSurface);
     const html = renderToStaticMarkup(
       <QueryClientProvider client={client}>
-        <WorkspaceShellProvider notebookId="nb_1" selectedNodeRefs={[]} onSelectedNodeRefsChange={() => {}}>
+        <WorkspaceShellProvider
+          notebookId="nb_1"
+          selectedNodeRefs={[]}
+          onSelectedNodeRefsChange={() => {}}
+        >
           <FullPanelViewer notebookId="nb_1" node={node} onClose={() => {}} />
         </WorkspaceShellProvider>
       </QueryClientProvider>,
@@ -403,30 +475,35 @@ describe("FullPanelViewer", () => {
   });
 
   it("hides body regeneration controls when primaryActions omits regenerate", () => {
-    const html = renderViewerWithActions({
-      ...baseNode,
-      properties: {
-        ...baseNode.properties,
-        artifactType: "worked_example",
-        payload: { problemStatement: "Differentiate x^2" },
+    const html = renderViewerWithActions(
+      {
+        ...baseNode,
+        properties: {
+          ...baseNode.properties,
+          artifactType: "worked_example",
+          payload: { problemStatement: "Differentiate x^2" },
+        },
       },
-    }, {
-      id: "surface_no_regen",
-      notebookId: "nb_1",
-      nodeRef: { refType: "artifact", refId: "artifact_1" },
-      title: "Worked Example",
-      surfaceType: "artifact",
-      summary: "Example summary",
-      status: "ready",
-      blocks: [{ id: "body", kind: "markdown", title: "Example", content: "Step 1", evidenceRefs: [] }],
-      scopeRefs: [],
-      sourceRefs: [],
-      provenanceRefs: [],
-      interactiveBlocks: [],
-      coverageRefs: [],
-      primaryActions: ["ask_tutor"],
-      quality: { confidence: 0.9, sourceBacked: true, needsReview: false },
-    });
+      {
+        id: "surface_no_regen",
+        notebookId: "nb_1",
+        nodeRef: { refType: "artifact", refId: "artifact_1" },
+        title: "Worked Example",
+        surfaceType: "artifact",
+        summary: "Example summary",
+        status: "ready",
+        blocks: [
+          { id: "body", kind: "markdown", title: "Example", content: "Step 1", evidenceRefs: [] },
+        ],
+        scopeRefs: [],
+        sourceRefs: [],
+        provenanceRefs: [],
+        interactiveBlocks: [],
+        coverageRefs: [],
+        primaryActions: ["ask_tutor"],
+        quality: { confidence: 0.9, sourceBacked: true, needsReview: false },
+      },
+    );
     expect(html).not.toContain("Regenerate");
   });
 
@@ -439,13 +516,22 @@ describe("FullPanelViewer", () => {
       surfaceType: "artifact" as const,
       summary: "Formula summary",
       status: "ready",
-      blocks: [{
-        id: "body",
-        kind: "markdown" as const,
-        title: "Sheet",
-        content: ["# Formula Sheet", "| Formula | Use |", "| --- | --- |", "| $q=-k\\\\nabla T$ | Heat flux |", "", "$$q=-k\\\\nabla T$$"].join("\n"),
-        evidenceRefs: [],
-      }],
+      blocks: [
+        {
+          id: "body",
+          kind: "markdown" as const,
+          title: "Sheet",
+          content: [
+            "# Formula Sheet",
+            "| Formula | Use |",
+            "| --- | --- |",
+            "| $q=-k\\\\nabla T$ | Heat flux |",
+            "",
+            "$$q=-k\\\\nabla T$$",
+          ].join("\n"),
+          evidenceRefs: [],
+        },
+      ],
       scopeRefs: [],
       sourceRefs: [],
       provenanceRefs: [],
@@ -459,7 +545,11 @@ describe("FullPanelViewer", () => {
     client.setQueryData(["reference-surface", "nb_1", "artifact_1"], surface);
     const html = renderToStaticMarkup(
       <QueryClientProvider client={client}>
-        <WorkspaceShellProvider notebookId="nb_1" selectedNodeRefs={[]} onSelectedNodeRefsChange={() => {}}>
+        <WorkspaceShellProvider
+          notebookId="nb_1"
+          selectedNodeRefs={[]}
+          onSelectedNodeRefsChange={() => {}}
+        >
           <FullPanelViewer notebookId="nb_1" node={baseNode} onClose={() => {}} devMode />
         </WorkspaceShellProvider>
       </QueryClientProvider>,
@@ -472,11 +562,14 @@ describe("FullPanelViewer", () => {
 
   it("renders objective nodes as reference pages", () => {
     const node = {
-          id: "obj_1",
-          nodeType: "objective",
-          labels: ["Objective"],
-          properties: { title: "Explain conduction", summary: "Understand conduction before Fourier's law." },
-        };
+      id: "obj_1",
+      nodeType: "objective",
+      labels: ["Objective"],
+      properties: {
+        title: "Explain conduction",
+        summary: "Understand conduction before Fourier's law.",
+      },
+    };
     const html = renderViewer(node, {
       id: "surface_obj_1",
       notebookId: "nb_1",
@@ -485,7 +578,15 @@ describe("FullPanelViewer", () => {
       surfaceType: "objective",
       summary: "Understand conduction before Fourier's law.",
       status: "active",
-      blocks: [{ id: "summary", kind: "summary", title: "Objective", content: "Understand conduction before Fourier's law.", evidenceRefs: [] }],
+      blocks: [
+        {
+          id: "summary",
+          kind: "summary",
+          title: "Objective",
+          content: "Understand conduction before Fourier's law.",
+          evidenceRefs: [],
+        },
+      ],
       scopeRefs: [],
       sourceRefs: [],
       provenanceRefs: [],
@@ -525,7 +626,15 @@ describe("FullPanelViewer", () => {
       surfaceType: "concept",
       summary: "Heat transfer through solids.",
       status: "still_improving",
-      blocks: [{ id: "summary", kind: "summary", title: "Overview", content: "Heat transfer through solids.", evidenceRefs: [] }],
+      blocks: [
+        {
+          id: "summary",
+          kind: "summary",
+          title: "Overview",
+          content: "Heat transfer through solids.",
+          evidenceRefs: [],
+        },
+      ],
       scopeRefs: [],
       sourceRefs: [],
       provenanceRefs: [],
@@ -543,7 +652,11 @@ describe("FullPanelViewer", () => {
     client.setQueryData(["reference-surface", "nb_1", "cnc_1"], surface);
     const devHtml = renderToStaticMarkup(
       <QueryClientProvider client={client}>
-        <WorkspaceShellProvider notebookId="nb_1" selectedNodeRefs={[]} onSelectedNodeRefsChange={() => {}}>
+        <WorkspaceShellProvider
+          notebookId="nb_1"
+          selectedNodeRefs={[]}
+          onSelectedNodeRefsChange={() => {}}
+        >
           <FullPanelViewer notebookId="nb_1" node={conceptNode} onClose={() => {}} devMode />
         </WorkspaceShellProvider>
       </QueryClientProvider>,

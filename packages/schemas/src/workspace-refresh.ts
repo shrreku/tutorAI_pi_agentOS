@@ -1,4 +1,9 @@
-import { eventTypeSchema, type EventType, type WorkspaceRefreshHint, type WorkspaceRefreshTarget } from "./events.js";
+import {
+  eventTypeSchema,
+  type EventType,
+  type WorkspaceRefreshHint,
+  type WorkspaceRefreshTarget,
+} from "./events.js";
 
 export type WorkspaceRefreshPolicy = {
   label: string;
@@ -85,7 +90,10 @@ const STUDY_STATE_EVENTS = new Set<string>([
   "quiz.attempt.recorded",
 ]);
 
-export function workspaceRefreshPolicyForEvent(eventType: string, serverHint?: WorkspaceRefreshHint | null): WorkspaceRefreshPolicy {
+export function workspaceRefreshPolicyForEvent(
+  eventType: string,
+  serverHint?: WorkspaceRefreshHint | null,
+): WorkspaceRefreshPolicy {
   const targets = new Set<WorkspaceRefreshTarget>(serverHint?.targets ?? []);
   const nodeIds = new Set(serverHint?.nodeIds ?? []);
   const artifactIds = new Set(serverHint?.artifactIds ?? []);
@@ -145,11 +153,16 @@ export function workspaceRefreshPolicyForEvent(eventType: string, serverHint?: W
 
 function defaultRefreshTargetsForKnownEvent(eventType: string): WorkspaceRefreshTarget[] {
   if (eventType.startsWith("source.")) return ["sources", "sourceFiles"];
-  if (eventType.startsWith("wiki.") || eventType.startsWith("ingestion.") || eventType.startsWith("generation.")) {
+  if (
+    eventType.startsWith("wiki.") ||
+    eventType.startsWith("ingestion.") ||
+    eventType.startsWith("generation.")
+  ) {
     return ["graph", "referenceSurfaces", "curriculum"];
   }
   if (eventType.startsWith("agent.") || eventType.startsWith("tutor.")) return ["studyState"];
-  if (eventType.startsWith("session.") || eventType.startsWith("learning.")) return ["studyState", "graph"];
+  if (eventType.startsWith("session.") || eventType.startsWith("learning."))
+    return ["studyState", "graph"];
   if (eventType.startsWith("graph.") || eventType.startsWith("whiteboard.")) return ["graph"];
   if (
     eventType.startsWith("curriculum.") ||
@@ -162,7 +175,8 @@ function defaultRefreshTargetsForKnownEvent(eventType: string): WorkspaceRefresh
   ) {
     return ["curriculum", "studyState", "graph"];
   }
-  if (eventType.startsWith("student_profile.") || eventType.startsWith("notebook.")) return ["studyState"];
+  if (eventType.startsWith("student_profile.") || eventType.startsWith("notebook."))
+    return ["studyState"];
   if (eventType.startsWith("artifact.") || eventType === "reference.regenerated") {
     return ["artifacts", "referenceSurfaces", "graph", "studyState"];
   }
@@ -190,7 +204,10 @@ export function resolveWorkspaceRefreshPolicy(
   };
 }
 
-export function workspaceRefreshHintForEvent(eventType: EventType | string, payload: Record<string, unknown> = {}): WorkspaceRefreshHint {
+export function workspaceRefreshHintForEvent(
+  eventType: EventType | string,
+  payload: Record<string, unknown> = {},
+): WorkspaceRefreshHint {
   const artifactId = stringValue(payload.artifactId);
   const sourceId = stringValue(payload.sourceId);
   const nodeId =

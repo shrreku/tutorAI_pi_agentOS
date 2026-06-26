@@ -1,7 +1,9 @@
 import { mergeInteractiveBlockState } from "../interactive-learning-state.js";
 import type { ActionContext, ActionHandlerOutcome } from "./types.js";
 
-export async function handleSurfaceCompleted(actionCtx: ActionContext): Promise<ActionHandlerOutcome> {
+export async function handleSurfaceCompleted(
+  actionCtx: ActionContext,
+): Promise<ActionHandlerOutcome> {
   const { ctx, notebookId, envelope } = actionCtx;
 
   await mergeInteractiveBlockState(ctx, {

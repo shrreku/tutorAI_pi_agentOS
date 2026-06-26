@@ -131,7 +131,9 @@ describe("resolveArtifactLifecycleOutcome", () => {
       artifactType: "quiz",
       artifactConsent: { autoCreateLearnerArtifacts: true },
       payload: {
-        questions: [{ prompt: "What is force?", answer: "Mass times acceleration.", conceptIds: [] }],
+        questions: [
+          { prompt: "What is force?", answer: "Mass times acceleration.", conceptIds: [] },
+        ],
       },
       sourceRefs: [],
     });
@@ -140,12 +142,20 @@ describe("resolveArtifactLifecycleOutcome", () => {
     expect(result.lifecycle.status).toBe("proposed");
     expect(result.lifecycle.visibility).toBe("learner");
     expect(result.lifecycle.approvalRequired).toBe(true);
-    expect(result.lifecycle.qualityGate).toEqual({ canBecomeReady: false, downgradedFromReady: true });
+    expect(result.lifecycle.qualityGate).toEqual({
+      canBecomeReady: false,
+      downgradedFromReady: true,
+    });
     expect(result.quality.issues).toEqual(
-      expect.arrayContaining(["Needs source support.", "Needs review before treating it as final."]),
+      expect.arrayContaining([
+        "Needs source support.",
+        "Needs review before treating it as final.",
+      ]),
     );
     expect(result.quality.developerDiagnostics).toContain("quality:missing_source_refs");
-    expect(result.warnings.map((warning) => warning.code)).toContain("artifact_quality_gate_failed");
+    expect(result.warnings.map((warning) => warning.code)).toContain(
+      "artifact_quality_gate_failed",
+    );
   });
 
   it("allows high-quality source-backed auto-created notes to become ready", () => {
@@ -315,29 +325,37 @@ describe("tool write lifecycle policy", () => {
     "concept_card",
   ] as const;
 
-  it.each(majorArtifactClasses)("allows a successful %s creation when consent and quality pass", (artifactType) => {
-    const result = resolveArtifactLifecycleOutcome({
-      artifactType,
-      artifactConsent: { autoCreateLearnerArtifacts: true },
-      payload: samplePayloadForType(artifactType),
-      sourceRefs,
-    });
-    expect(["ready", "proposed"]).toContain(result.lifecycle.status);
-    expect(result.lifecycle.transition.valid).toBe(true);
-    expect(result.quality.sourceBacked).toBe(true);
-  });
+  it.each(majorArtifactClasses)(
+    "allows a successful %s creation when consent and quality pass",
+    (artifactType) => {
+      const result = resolveArtifactLifecycleOutcome({
+        artifactType,
+        artifactConsent: { autoCreateLearnerArtifacts: true },
+        payload: samplePayloadForType(artifactType),
+        sourceRefs,
+      });
+      expect(["ready", "proposed"]).toContain(result.lifecycle.status);
+      expect(result.lifecycle.transition.valid).toBe(true);
+      expect(result.quality.sourceBacked).toBe(true);
+    },
+  );
 
-  it.each(majorArtifactClasses)("blocks or downgrades %s creation when quality fails", (artifactType) => {
-    const result = resolveArtifactLifecycleOutcome({
-      artifactType,
-      artifactConsent: { autoCreateLearnerArtifacts: true },
-      payload: { markdown: "TODO" },
-      sourceRefs: [],
-    });
-    expect(result.lifecycle.status).not.toBe("ready");
-    expect(result.quality.canBecomeReady).toBe(false);
-    expect(result.warnings.map((warning) => warning.code)).toContain("artifact_quality_gate_failed");
-  });
+  it.each(majorArtifactClasses)(
+    "blocks or downgrades %s creation when quality fails",
+    (artifactType) => {
+      const result = resolveArtifactLifecycleOutcome({
+        artifactType,
+        artifactConsent: { autoCreateLearnerArtifacts: true },
+        payload: { markdown: "TODO" },
+        sourceRefs: [],
+      });
+      expect(result.lifecycle.status).not.toBe("ready");
+      expect(result.quality.canBecomeReady).toBe(false);
+      expect(result.warnings.map((warning) => warning.code)).toContain(
+        "artifact_quality_gate_failed",
+      );
+    },
+  );
 });
 
 function samplePayloadForType(artifactType: string): Record<string, unknown> {

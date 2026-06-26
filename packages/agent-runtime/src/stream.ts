@@ -1,4 +1,8 @@
-import type { EventEnvelope, RuntimeStreamChunk, RuntimeStreamChunkKind } from "@studyagent/schemas";
+import type {
+  EventEnvelope,
+  RuntimeStreamChunk,
+  RuntimeStreamChunkKind,
+} from "@studyagent/schemas";
 import { runtimeStreamChunkSchema } from "@studyagent/schemas";
 
 type StreamMapping = {
@@ -39,9 +43,13 @@ function mapEventToChunk(event: EventEnvelope): StreamMapping | null {
         kind: "run-complete",
         payload: {
           phase: "completed",
-          ...(typeof event.payload.usage === "object" && event.payload.usage !== null ? { usage: event.payload.usage } : {}),
+          ...(typeof event.payload.usage === "object" && event.payload.usage !== null
+            ? { usage: event.payload.usage }
+            : {}),
           ...(typeof event.payload.model === "string" ? { model: event.payload.model } : {}),
-          ...(typeof event.payload.promptTemplateVersion === "string" ? { promptTemplateVersion: event.payload.promptTemplateVersion } : {}),
+          ...(typeof event.payload.promptTemplateVersion === "string"
+            ? { promptTemplateVersion: event.payload.promptTemplateVersion }
+            : {}),
         },
       };
     case "agent.run.failed":

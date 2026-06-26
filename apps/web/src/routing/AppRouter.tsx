@@ -196,7 +196,11 @@ export function AppRouter() {
             <div className="tb-card">
               <h1>Page not found</h1>
               <p>
-                <button type="button" className="tb-button tb-button-primary" onClick={() => navigate("/")}>
+                <button
+                  type="button"
+                  className="tb-button tb-button-primary"
+                  onClick={() => navigate("/")}
+                >
                   Back to TutorBook
                 </button>
               </p>

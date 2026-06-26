@@ -45,7 +45,15 @@ export async function applyProjectionPlan(session: Session, plan: ProjectionPlan
         await linkTopicToConcept(session, notebookId, op.topicId, op.conceptId);
         break;
       case "merge_concept_relation":
-        await mergeConceptRelation(session, notebookId, op.fromId, op.toId, op.relationKind, op.confidence, op.sourceId);
+        await mergeConceptRelation(
+          session,
+          notebookId,
+          op.fromId,
+          op.toId,
+          op.relationKind,
+          op.confidence,
+          op.sourceId,
+        );
         break;
       case "merge_curriculum":
         await mergeCurriculumNode(session, notebookId, op.curriculumId, op.title);
@@ -107,7 +115,12 @@ export async function applyProjectionPlan(session: Session, plan: ProjectionPlan
              SET r.notebookId = $notebookId,
                  r.orderIndex = $orderIndex,
                  r.updatedAt = datetime()`,
-            { objectiveListId: op.objectiveListId, oid: op.objective.id, notebookId, orderIndex: op.orderIndex },
+            {
+              objectiveListId: op.objectiveListId,
+              oid: op.objective.id,
+              notebookId,
+              orderIndex: op.orderIndex,
+            },
           );
         }
         if (op.sessionPlanId) {
@@ -118,7 +131,12 @@ export async function applyProjectionPlan(session: Session, plan: ProjectionPlan
              SET r.notebookId = $notebookId,
                  r.orderIndex = $orderIndex,
                  r.updatedAt = datetime()`,
-            { sessionPlanId: op.sessionPlanId, oid: op.objective.id, notebookId, orderIndex: op.orderIndex },
+            {
+              sessionPlanId: op.sessionPlanId,
+              oid: op.objective.id,
+              notebookId,
+              orderIndex: op.orderIndex,
+            },
           );
         }
         break;
@@ -135,15 +153,36 @@ export async function applyProjectionPlan(session: Session, plan: ProjectionPlan
         }
         break;
       case "merge_coverage_item":
-        await mergeCoverageItemNode(session, notebookId, op.item.id, op.item.title, op.item.itemFamily);
+        await mergeCoverageItemNode(
+          session,
+          notebookId,
+          op.item.id,
+          op.item.title,
+          op.item.itemFamily,
+        );
         break;
       case "merge_coverage_record":
-        await mergeCoverageRecordNode(session, notebookId, op.record.id, op.record.coverageItemId, op.record.status);
+        await mergeCoverageRecordNode(
+          session,
+          notebookId,
+          op.record.id,
+          op.record.coverageItemId,
+          op.record.status,
+        );
         break;
       case "merge_claim": {
         const summary =
-          op.claim.claimText.length > 200 ? `${op.claim.claimText.slice(0, 197)}…` : op.claim.claimText;
-        await mergeClaimNode(session, notebookId, op.claim.id, summary, op.claim.sourceId, op.claim.conceptIds[0] ?? null);
+          op.claim.claimText.length > 200
+            ? `${op.claim.claimText.slice(0, 197)}…`
+            : op.claim.claimText;
+        await mergeClaimNode(
+          session,
+          notebookId,
+          op.claim.id,
+          summary,
+          op.claim.sourceId,
+          op.claim.conceptIds[0] ?? null,
+        );
         break;
       }
       case "merge_claim_supersedes":

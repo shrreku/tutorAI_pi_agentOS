@@ -7,7 +7,10 @@ import type {
   PageGenerationOutput,
   ReferenceSurface,
 } from "@studyagent/schemas";
-import { interactiveLearningBlockSchema, validateInteractiveLearningBlockPlan } from "@studyagent/schemas";
+import {
+  interactiveLearningBlockSchema,
+  validateInteractiveLearningBlockPlan,
+} from "@studyagent/schemas";
 
 const ARTIFACT_BLOCK_KINDS = new Set(["quiz", "flashcard_deck", "worked_example"]);
 const DEFAULT_NON_ARTIFACT_BLOCK_KINDS = new Set([
@@ -65,7 +68,10 @@ export function compileInteractiveBlockPlan(
   if (ARTIFACT_BLOCK_KINDS.has(plan.blockKind) && !plan.artifactRef) {
     return null;
   }
-  if (!DEFAULT_NON_ARTIFACT_BLOCK_KINDS.has(plan.blockKind) && plan.blockKind !== "evidence_explorer") {
+  if (
+    !DEFAULT_NON_ARTIFACT_BLOCK_KINDS.has(plan.blockKind) &&
+    plan.blockKind !== "evidence_explorer"
+  ) {
     if (ARTIFACT_BLOCK_KINDS.has(plan.blockKind)) return null;
   }
 
@@ -98,7 +104,8 @@ export function compileInteractiveBlockPlan(
       allowedActions: plan.allowedActions.length
         ? plan.allowedActions
         : ["evidence.source_span_opened", "tutor.help_requested"],
-      fallbackSummary: plan.fallbackSummary ?? `${evidenceRefs.length} source-backed evidence item(s).`,
+      fallbackSummary:
+        plan.fallbackSummary ?? `${evidenceRefs.length} source-backed evidence item(s).`,
       quality: {
         sourceBacked: plan.sourceBacked || evidenceRefs.length > 0,
         needsReview: false,
@@ -124,11 +131,14 @@ export function compileInteractiveBlockPlan(
       evidenceRefs,
       content: {
         simulationTemplateId: templateId,
-        parameters: isRecord(plan.content) && isRecord(plan.content.parameters) ? plan.content.parameters : {
-          expression: "x^2",
-          xMin: -5,
-          xMax: 5,
-        },
+        parameters:
+          isRecord(plan.content) && isRecord(plan.content.parameters)
+            ? plan.content.parameters
+            : {
+                expression: "x^2",
+                xMin: -5,
+                xMax: 5,
+              },
         prompt: plan.prompt,
         pedagogyLabel: plan.sourceBacked ? "source_grounded" : "broader_pedagogy",
         ...(isRecord(plan.content) ? plan.content : {}),
@@ -176,7 +186,11 @@ export function interactiveBlockPlansFromStructuredJson(
   const rawPlans = structuredJson?.interactiveBlockPlans;
   if (!Array.isArray(rawPlans)) return [];
   return rawPlans.filter((plan): plan is PageBlockPlan => {
-    return Boolean(plan) && typeof plan === "object" && (plan as PageBlockPlan).kind === "interactive_learning_block";
+    return (
+      Boolean(plan) &&
+      typeof plan === "object" &&
+      (plan as PageBlockPlan).kind === "interactive_learning_block"
+    );
   });
 }
 

@@ -58,7 +58,9 @@ function ConfidenceBar({ value }: { value: number }) {
   const color = value > 0.8 ? "#10b981" : value > 0.5 ? "#f59e0b" : "#ef4444";
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      <div style={{ flex: 1, height: 6, background: "#e5e7eb", borderRadius: 3, overflow: "hidden" }}>
+      <div
+        style={{ flex: 1, height: 6, background: "#e5e7eb", borderRadius: 3, overflow: "hidden" }}
+      >
         <div style={{ width: `${pct}%`, height: "100%", background: color, borderRadius: 3 }} />
       </div>
       <span style={{ fontSize: 12, fontWeight: 600, color }}>{pct}%</span>
@@ -118,13 +120,20 @@ export function NodeTypePanel({ node }: { node: GraphCanvasNode }) {
     case "topic":
       return (
         <>
-          <Field label={node.nodeType === "topic" ? "Topic" : "Heading"} value={str("title") ?? str("heading")} />
-          {node.nodeType === "source_section" && <Field label="Page" value={str("pageStart") ?? str("page_start")} />}
+          <Field
+            label={node.nodeType === "topic" ? "Topic" : "Heading"}
+            value={str("title") ?? str("heading")}
+          />
+          {node.nodeType === "source_section" && (
+            <Field label="Page" value={str("pageStart") ?? str("page_start")} />
+          )}
           {str("text") && (
             <Field
               label="Preview"
               value={
-                <div style={{ fontSize: 12, color: "#4b5563", fontStyle: "italic", lineHeight: 1.5 }}>
+                <div
+                  style={{ fontSize: 12, color: "#4b5563", fontStyle: "italic", lineHeight: 1.5 }}
+                >
                   {(str("text") ?? "").slice(0, 200)}
                   {(str("text") ?? "").length > 200 ? "…" : ""}
                 </div>
@@ -164,7 +173,10 @@ export function NodeTypePanel({ node }: { node: GraphCanvasNode }) {
         <>
           <Field label="Live Plan" value={str("title")} />
           <Field label="Status" value={<StatusBadge status={str("status")} />} />
-          <Field label="Current Objective" value={str("currentObjectiveId") ?? str("current_objective_id")} />
+          <Field
+            label="Current Objective"
+            value={str("currentObjectiveId") ?? str("current_objective_id")}
+          />
         </>
       );
 
@@ -183,7 +195,10 @@ export function NodeTypePanel({ node }: { node: GraphCanvasNode }) {
         <>
           <Field label="Title" value={str("title")} />
           <Field label="Status" value={<StatusBadge status={str("status")} />} />
-          <Field label="Current Objective" value={str("currentObjectiveId") ?? str("current_objective_id")} />
+          <Field
+            label="Current Objective"
+            value={str("currentObjectiveId") ?? str("current_objective_id")}
+          />
         </>
       );
 
@@ -216,7 +231,10 @@ export function NodeTypePanel({ node }: { node: GraphCanvasNode }) {
     case "concept":
       return (
         <>
-          <Field label="Name" value={str("canonicalName") ?? str("canonical_name") ?? str("title")} />
+          <Field
+            label="Name"
+            value={str("canonicalName") ?? str("canonical_name") ?? str("title")}
+          />
           <Field label="Type" value={str("conceptType") ?? str("concept_type")} />
           {str("description") && <Field label="Description" value={str("description")} />}
           {num("confidence") !== undefined && (
@@ -298,7 +316,16 @@ export function NodeTypePanel({ node }: { node: GraphCanvasNode }) {
         <Field
           label="Properties"
           value={
-            <pre style={{ fontSize: 11, background: "#f3f4f6", padding: 8, borderRadius: 4, overflow: "auto", margin: 0 }}>
+            <pre
+              style={{
+                fontSize: 11,
+                background: "#f3f4f6",
+                padding: 8,
+                borderRadius: 4,
+                overflow: "auto",
+                margin: 0,
+              }}
+            >
               {JSON.stringify(p, null, 2)}
             </pre>
           }
@@ -316,7 +343,7 @@ export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
   if (!node) return null;
 
   const badge = badgeColors[node.nodeType] ?? { bg: "#f3f4f6", text: "#374151" };
-  
+
   // GF-1 (NEW): Detect if we're in a full-panel context by checking for absolute positioning support
   // In full-panel mode, parent will NOT have "position: relative" and we'll render without absolute positioning
   const isFullPanel = false; // This will be determined by parent context in future
@@ -365,7 +392,17 @@ export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
           >
             {learnerFacingNodeTypeLabel(node.nodeType)}
           </span>
-          <span style={{ fontSize: 13, fontWeight: 600, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 160 }}>
+          <span
+            style={{
+              fontSize: 13,
+              fontWeight: 600,
+              color: "#111827",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              maxWidth: 160,
+            }}
+          >
             {(node.properties.title as string) ??
               (node.properties.canonicalName as string) ??
               (node.properties.canonical_name as string) ??
@@ -374,7 +411,14 @@ export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
         </div>
         <button
           onClick={onClose}
-          style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#9ca3af", padding: "0 4px" }}
+          style={{
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            fontSize: 18,
+            color: "#9ca3af",
+            padding: "0 4px",
+          }}
         >
           ×
         </button>

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { LearnerTraitEstimate, LearnerTraitSignal } from "@studyagent/schemas";
-import { buildLearnerTraitEvidencePacket, detectLearnerTraitEstimationTrigger, prioritizeLearnerTraitSignalsForEvidencePacket } from "./learner-trait-estimation.js";
+import {
+  buildLearnerTraitEvidencePacket,
+  detectLearnerTraitEstimationTrigger,
+  prioritizeLearnerTraitSignalsForEvidencePacket,
+} from "./learner-trait-estimation.js";
 
 function signal(patch: Partial<LearnerTraitSignal> = {}): LearnerTraitSignal {
   return {
@@ -12,7 +16,9 @@ function signal(patch: Partial<LearnerTraitSignal> = {}): LearnerTraitSignal {
     suggestedValue: patch.suggestedValue ?? "avoids_help",
     strength: patch.strength ?? 0.7,
     confidence: patch.confidence ?? 0.65,
-    evidenceRefs: patch.evidenceRefs ?? [{ refType: "tutor_observation", refId: patch.id ?? "turn_1" }],
+    evidenceRefs: patch.evidenceRefs ?? [
+      { refType: "tutor_observation", refId: patch.id ?? "turn_1" },
+    ],
     internalVisibility: true,
     observedAt: patch.observedAt ?? "2026-05-25T08:00:00.000Z",
     ...patch,
@@ -22,7 +28,9 @@ function signal(patch: Partial<LearnerTraitSignal> = {}): LearnerTraitSignal {
 describe("learner trait estimation trigger detector", () => {
   it("triggers for explicit preference changes", () => {
     const summary = detectLearnerTraitEstimationTrigger({
-      signals: [signal({ source: "explicit_self_report", trait: "pacePreference", suggestedValue: "slow" })],
+      signals: [
+        signal({ source: "explicit_self_report", trait: "pacePreference", suggestedValue: "slow" }),
+      ],
     });
 
     expect(summary.shouldEstimate).toBe(true);
@@ -31,7 +39,10 @@ describe("learner trait estimation trigger detector", () => {
 
   it("triggers for repeated trait-family signals and tutor-observed friction", () => {
     const summary = detectLearnerTraitEstimationTrigger({
-      signals: [signal({ id: "lts_1" }), signal({ id: "lts_2", evidenceRefs: [{ refType: "tutor_observation", refId: "turn_2" }] })],
+      signals: [
+        signal({ id: "lts_1" }),
+        signal({ id: "lts_2", evidenceRefs: [{ refType: "tutor_observation", refId: "turn_2" }] }),
+      ],
     });
 
     expect(summary.reasons).toContain("repeated_trait_family_signals");
@@ -47,7 +58,11 @@ describe("learner trait estimation trigger detector", () => {
           suggestedValue: "overconfident",
           evidenceRefs: [{ refType: "mastery_evidence", refId: "mev_1" }],
         }),
-        signal({ source: "explicit_self_report", trait: "urgencyContext", suggestedValue: "exam_prep" }),
+        signal({
+          source: "explicit_self_report",
+          trait: "urgencyContext",
+          suggestedValue: "exam_prep",
+        }),
       ],
     });
 
@@ -86,8 +101,18 @@ describe("learner trait estimation trigger detector", () => {
 describe("learner trait evidence packet builder", () => {
   it("prioritizes explicit self-report signals ahead of inferred behavior extraction", () => {
     const ordered = prioritizeLearnerTraitSignalsForEvidencePacket([
-      signal({ id: "lts_inferred", source: "behavior_extraction", trait: "pacePreference", suggestedValue: "fast" }),
-      signal({ id: "lts_explicit", source: "explicit_self_report", trait: "pacePreference", suggestedValue: "slow" }),
+      signal({
+        id: "lts_inferred",
+        source: "behavior_extraction",
+        trait: "pacePreference",
+        suggestedValue: "fast",
+      }),
+      signal({
+        id: "lts_explicit",
+        source: "explicit_self_report",
+        trait: "pacePreference",
+        suggestedValue: "slow",
+      }),
     ]);
 
     expect(ordered.map((entry) => entry.id)).toEqual(["lts_explicit", "lts_inferred"]);
@@ -95,11 +120,13 @@ describe("learner trait evidence packet builder", () => {
 
   it("bounds the number of signals included in a packet", () => {
     const ordered = prioritizeLearnerTraitSignalsForEvidencePacket(
-      Array.from({ length: 40 }, (_, index) => signal({
-        id: `lts_${index}`,
-        source: index % 2 === 0 ? "explicit_self_report" : "behavior_extraction",
-        trait: "helpSeekingStyle",
-      })),
+      Array.from({ length: 40 }, (_, index) =>
+        signal({
+          id: `lts_${index}`,
+          source: index % 2 === 0 ? "explicit_self_report" : "behavior_extraction",
+          trait: "helpSeekingStyle",
+        }),
+      ),
     );
 
     expect(ordered).toHaveLength(30);
@@ -107,18 +134,34 @@ describe("learner trait evidence packet builder", () => {
 
   it("builds a bounded notebook-scoped packet", () => {
     const trigger = detectLearnerTraitEstimationTrigger({
-      signals: [signal({ source: "explicit_self_report", trait: "assessmentPreference", suggestedValue: "quiz" })],
+      signals: [
+        signal({
+          source: "explicit_self_report",
+          trait: "assessmentPreference",
+          suggestedValue: "quiz",
+        }),
+      ],
     });
     const packet = buildLearnerTraitEvidencePacket({
       notebookId: "nb_1",
       userId: "user_1",
       trigger,
       signals: [
-        signal({ id: "lts_kept", source: "explicit_self_report", trait: "assessmentPreference", suggestedValue: "quiz" }),
+        signal({
+          id: "lts_kept",
+          source: "explicit_self_report",
+          trait: "assessmentPreference",
+          suggestedValue: "quiz",
+        }),
         signal({ id: "lts_other", notebookId: "nb_other" }),
       ],
       currentEstimates: [],
-      masteryEvidenceSummaries: [{ evidenceRef: { refType: "mastery_evidence", refId: "mev_1" }, summary: "Learner solved the checkpoint." }],
+      masteryEvidenceSummaries: [
+        {
+          evidenceRef: { refType: "mastery_evidence", refId: "mev_1" },
+          summary: "Learner solved the checkpoint.",
+        },
+      ],
       profileSummary: "Prefers practice after explanations.",
       now: () => new Date("2026-05-25T08:30:00.000Z"),
     });
@@ -130,27 +173,43 @@ describe("learner trait evidence packet builder", () => {
 
   it("preserves contradiction context from current estimates", () => {
     const trigger = detectLearnerTraitEstimationTrigger({
-      signals: [signal({ source: "explicit_self_report", trait: "confidenceStyle", suggestedValue: "underconfident" })],
+      signals: [
+        signal({
+          source: "explicit_self_report",
+          trait: "confidenceStyle",
+          suggestedValue: "underconfident",
+        }),
+      ],
     });
     const packet = buildLearnerTraitEvidencePacket({
       notebookId: "nb_1",
       userId: "user_1",
       trigger,
-      signals: [signal({ source: "explicit_self_report", trait: "confidenceStyle", suggestedValue: "underconfident" })],
-      currentEstimates: [{
-        notebookId: "nb_1",
-        userId: "user_1",
-        trait: "confidenceStyle",
-        value: "calibrated",
-        confidence: 0.7,
-        lane: "inferred",
-        evidenceRefs: [{ refType: "trait_signal", refId: "lts_prior" }],
-        contradictionRefs: [{ refType: "self_report", refId: "turn_low_confidence" }],
-        decay: {},
-        lastUpdatedReason: "prior evidence",
-      }],
+      signals: [
+        signal({
+          source: "explicit_self_report",
+          trait: "confidenceStyle",
+          suggestedValue: "underconfident",
+        }),
+      ],
+      currentEstimates: [
+        {
+          notebookId: "nb_1",
+          userId: "user_1",
+          trait: "confidenceStyle",
+          value: "calibrated",
+          confidence: 0.7,
+          lane: "inferred",
+          evidenceRefs: [{ refType: "trait_signal", refId: "lts_prior" }],
+          contradictionRefs: [{ refType: "self_report", refId: "turn_low_confidence" }],
+          decay: {},
+          lastUpdatedReason: "prior evidence",
+        },
+      ],
     });
 
-    expect(packet.contradictionRefs).toEqual([{ refType: "self_report", refId: "turn_low_confidence" }]);
+    expect(packet.contradictionRefs).toEqual([
+      { refType: "self_report", refId: "turn_low_confidence" },
+    ]);
   });
 });

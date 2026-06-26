@@ -8,22 +8,22 @@ This plan implements the amended ADR-0018 and ADR-0019 decisions: minimal Turn B
 
 ## Decision summary
 
-| Topic | Decision |
-|-------|----------|
-| Corpus retrieval | On-demand via `wiki.search` only; no turn-prep retrieval or embeddings |
-| Turn prep | **Turn Bootstrap** — session, run, refs, thin prompt; tools for notebook facts |
-| Host context cache | **Remove completely** (`tutor_turn.host_context_snapshot`) |
-| Pi thinking | Model-capability aware `thinkingLevel`; learner-visible thinking stream |
-| Runtime Work View | Thinking → narration → tool steps → learner response (chronological) |
-| Narration vs response | Last assistant message wins; tool-only turns allowed (no chat bubble) |
-| `tutor.message.delta` | Remove from durable events and trace spans; keep live SSE for streaming |
-| Durable observability | Step events + one `durable_event.summary` trace per turn |
-| Embedding failures | Annotated lexical fallback in `wiki.search` (`fallbackReason`) |
-| `strict_source_scope` | **Removed**; `soft_source_scope` only |
-| Pi session disposal | Binding-only (refs, mode, prompt, session, notebook, user) |
-| Rehydration | Same `sessionId`, ≤5 turns, dialogue + tool summaries |
-| New session | No cross-session rehydrate; explicit new-session bootstrap instruction |
-| Mastery `contextRefs` | From `wiki.search` / tool outputs in `toolSummary`, not turn-prep chunks |
+| Topic                 | Decision                                                                       |
+| --------------------- | ------------------------------------------------------------------------------ |
+| Corpus retrieval      | On-demand via `wiki.search` only; no turn-prep retrieval or embeddings         |
+| Turn prep             | **Turn Bootstrap** — session, run, refs, thin prompt; tools for notebook facts |
+| Host context cache    | **Remove completely** (`tutor_turn.host_context_snapshot`)                     |
+| Pi thinking           | Model-capability aware `thinkingLevel`; learner-visible thinking stream        |
+| Runtime Work View     | Thinking → narration → tool steps → learner response (chronological)           |
+| Narration vs response | Last assistant message wins; tool-only turns allowed (no chat bubble)          |
+| `tutor.message.delta` | Remove from durable events and trace spans; keep live SSE for streaming        |
+| Durable observability | Step events + one `durable_event.summary` trace per turn                       |
+| Embedding failures    | Annotated lexical fallback in `wiki.search` (`fallbackReason`)                 |
+| `strict_source_scope` | **Removed**; `soft_source_scope` only                                          |
+| Pi session disposal   | Binding-only (refs, mode, prompt, session, notebook, user)                     |
+| Rehydration           | Same `sessionId`, ≤5 turns, dialogue + tool summaries                          |
+| New session           | No cross-session rehydrate; explicit new-session bootstrap instruction         |
+| Mastery `contextRefs` | From `wiki.search` / tool outputs in `toolSummary`, not turn-prep chunks       |
 
 ## Architecture (target)
 
@@ -295,18 +295,18 @@ sequenceDiagram
 
 ## File change checklist (code)
 
-| Area | Primary files |
-|------|----------------|
-| Bootstrap | `tutor-turn-preparation.ts`, `routes/tutor.ts` |
-| Host cache removal | `tutor-turn-preparation.ts`, `agentic-cache-invalidation.ts` |
-| Retrieval | `tutor-tool-provider.ts` |
-| Pi runtime | `pi-tutor-runner.ts`, `pi-event-mapper.ts`, `ag-ui.ts`, `host-state-signature*` |
-| Rehydration | new `pi-session-rehydration.ts`, `pi-session-cache.ts` |
-| Observability | `observability/src/index.ts`, `tutor-turn.ts`, `agentic-cache-invalidation.ts` |
-| Schemas | `schemas/events.ts`, `schemas/learning-levels.ts`, `schemas/api.ts` (chat trace) |
-| Mastery | `mastery-session.ts`, `tutor-turn.ts` |
-| Web | `TutorPanel.tsx`, `AgentTrace.tsx` |
-| Tests | all files listed in phases |
+| Area               | Primary files                                                                    |
+| ------------------ | -------------------------------------------------------------------------------- |
+| Bootstrap          | `tutor-turn-preparation.ts`, `routes/tutor.ts`                                   |
+| Host cache removal | `tutor-turn-preparation.ts`, `agentic-cache-invalidation.ts`                     |
+| Retrieval          | `tutor-tool-provider.ts`                                                         |
+| Pi runtime         | `pi-tutor-runner.ts`, `pi-event-mapper.ts`, `ag-ui.ts`, `host-state-signature*`  |
+| Rehydration        | new `pi-session-rehydration.ts`, `pi-session-cache.ts`                           |
+| Observability      | `observability/src/index.ts`, `tutor-turn.ts`, `agentic-cache-invalidation.ts`   |
+| Schemas            | `schemas/events.ts`, `schemas/learning-levels.ts`, `schemas/api.ts` (chat trace) |
+| Mastery            | `mastery-session.ts`, `tutor-turn.ts`                                            |
+| Web                | `TutorPanel.tsx`, `AgentTrace.tsx`                                               |
+| Tests              | all files listed in phases                                                       |
 
 ---
 
@@ -323,13 +323,13 @@ sequenceDiagram
 
 ## Risks and mitigations
 
-| Risk | Mitigation |
-|------|------------|
-| First turn slower (tool reads) | System prompt instructs minimal tool sequence; optional parallel tool calls |
-| Pi session stale notebook state | Tools on demand; binding does not include material state |
-| Rehydration token bloat | Cap 5 turns; compact tool summaries only |
-| Eval scenarios break | Phase 8 explicit migration |
-| Missing learner bubble on tool-only turns | Documented; UI shows work view status |
+| Risk                                      | Mitigation                                                                  |
+| ----------------------------------------- | --------------------------------------------------------------------------- |
+| First turn slower (tool reads)            | System prompt instructs minimal tool sequence; optional parallel tool calls |
+| Pi session stale notebook state           | Tools on demand; binding does not include material state                    |
+| Rehydration token bloat                   | Cap 5 turns; compact tool summaries only                                    |
+| Eval scenarios break                      | Phase 8 explicit migration                                                  |
+| Missing learner bubble on tool-only turns | Documented; UI shows work view status                                       |
 
 ---
 

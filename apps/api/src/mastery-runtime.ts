@@ -16,7 +16,8 @@ const MASTERY_CHECK_PATTERN =
 const NAVIGATION_PATTERN =
   /\b(upload|add (a )?source|open (the )?wiki|switch to|show me the graph|create a note)\b/i;
 
-const VAGUE_ACK_PATTERN = /^\s*(ok|okay|yes|yep|sure|thanks|thank you|got it|continue|next|k|cool|sounds good)\s*[.!]?$/i;
+const VAGUE_ACK_PATTERN =
+  /^\s*(ok|okay|yes|yep|sure|thanks|thank you|got it|continue|next|k|cool|sounds good)\s*[.!]?$/i;
 
 export function buildPendingEvaluationFromAssistantMessage(input: {
   turnId: string;
@@ -50,7 +51,10 @@ export function isVagueLearnerAcknowledgement(message: string): boolean {
   return VAGUE_ACK_PATTERN.test(message.trim());
 }
 
-export function isEligibleLearnerEvaluationAnswer(message: string, hasPendingPrompt: boolean): boolean {
+export function isEligibleLearnerEvaluationAnswer(
+  message: string,
+  hasPendingPrompt: boolean,
+): boolean {
   const trimmed = message.trim();
   if (!trimmed) return false;
   if (isVagueLearnerAcknowledgement(trimmed)) return false;
@@ -69,7 +73,9 @@ export function shouldTriggerRuntimeMasteryEvaluation(input: {
   return isEligibleLearnerEvaluationAnswer(input.learnerMessage, true);
 }
 
-export function readPendingEvaluation(runtimeContext: Record<string, unknown> | null | undefined): PendingMasteryEvaluation | null {
+export function readPendingEvaluation(
+  runtimeContext: Record<string, unknown> | null | undefined,
+): PendingMasteryEvaluation | null {
   if (!runtimeContext || typeof runtimeContext !== "object") return null;
   const pending = runtimeContext.pendingMasteryEvaluation;
   if (!pending || typeof pending !== "object" || Array.isArray(pending)) return null;
@@ -78,19 +84,31 @@ export function readPendingEvaluation(runtimeContext: Record<string, unknown> | 
   const parsed: PendingMasteryEvaluation = {
     turnId: record.turnId,
     tutorQuestion: record.tutorQuestion,
-    conceptIds: Array.isArray(record.conceptIds) ? record.conceptIds.filter((v): v is string => typeof v === "string") : [],
+    conceptIds: Array.isArray(record.conceptIds)
+      ? record.conceptIds.filter((v): v is string => typeof v === "string")
+      : [],
     objectiveId: typeof record.objectiveId === "string" ? record.objectiveId : null,
     createdAt: typeof record.createdAt === "string" ? record.createdAt : new Date().toISOString(),
   };
   if (Array.isArray(record.sourceRefs)) {
     parsed.sourceRefs = record.sourceRefs
-      .filter((ref): ref is Record<string, unknown> => Boolean(ref && typeof ref === "object" && !Array.isArray(ref)))
-      .filter((ref): ref is { refType: "source"; refId: string } => ref.refType === "source" && typeof ref.refId === "string");
+      .filter((ref): ref is Record<string, unknown> =>
+        Boolean(ref && typeof ref === "object" && !Array.isArray(ref)),
+      )
+      .filter(
+        (ref): ref is { refType: "source"; refId: string } =>
+          ref.refType === "source" && typeof ref.refId === "string",
+      );
   }
   if (Array.isArray(record.contextRefs)) {
     parsed.contextRefs = record.contextRefs
-      .filter((ref): ref is Record<string, unknown> => Boolean(ref && typeof ref === "object" && !Array.isArray(ref)))
-      .filter((ref): ref is { refType: string; refId: string } => typeof ref.refType === "string" && typeof ref.refId === "string");
+      .filter((ref): ref is Record<string, unknown> =>
+        Boolean(ref && typeof ref === "object" && !Array.isArray(ref)),
+      )
+      .filter(
+        (ref): ref is { refType: string; refId: string } =>
+          typeof ref.refType === "string" && typeof ref.refId === "string",
+      );
   }
   if (typeof record.sourceScopePolicy === "string") {
     parsed.sourceScopePolicy = record.sourceScopePolicy;
@@ -101,7 +119,9 @@ export function readPendingEvaluation(runtimeContext: Record<string, unknown> | 
   return parsed;
 }
 
-export function readEvaluatedTurnIds(runtimeContext: Record<string, unknown> | null | undefined): string[] {
+export function readEvaluatedTurnIds(
+  runtimeContext: Record<string, unknown> | null | undefined,
+): string[] {
   if (!runtimeContext || typeof runtimeContext !== "object") return [];
   const ids = runtimeContext.evaluatedMasteryTurnIds;
   return Array.isArray(ids) ? ids.filter((v): v is string => typeof v === "string") : [];

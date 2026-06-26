@@ -26,7 +26,10 @@ const PRODUCT_COPY: Array<[RegExp, string]> = [
   [/\braw\b/gi, "source"],
 ];
 
-export function learnerFacingPipelineStatus(status: string, options: { devMode?: boolean } = {}): string {
+export function learnerFacingPipelineStatus(
+  status: string,
+  options: { devMode?: boolean } = {},
+): string {
   if (options.devMode) return status.replace(/_/g, " ");
   return learnerSafeCopy(status, options).replace(/_/g, " ");
 }
@@ -45,7 +48,10 @@ const NODE_TYPE_COPY: Record<string, string> = {
   candidate_claim: "Draft idea",
 };
 
-export function learnerFacingNodeTypeLabel(nodeType: string, options: { devMode?: boolean } = {}): string {
+export function learnerFacingNodeTypeLabel(
+  nodeType: string,
+  options: { devMode?: boolean } = {},
+): string {
   if (options.devMode) return nodeType.replace(/_/g, " ");
   if (NODE_TYPE_COPY[nodeType]) return NODE_TYPE_COPY[nodeType];
   return learnerSafeCopy(nodeType, options).replace(/_/g, " ");
@@ -58,7 +64,10 @@ export function learnerSafeCopy(value: string, options: { devMode?: boolean } = 
     next = next.replace(pattern, replacement);
   }
   next = next.replace(/\b[a-z]+_ref\b/gi, "reference");
-  next = next.replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, "saved item");
+  next = next.replace(
+    /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi,
+    "saved item",
+  );
   return next;
 }
 

@@ -18,7 +18,10 @@ export type RerankContext = {
   affinityWeight?: number;
 };
 
-export function reciprocalRankFusion(resultLists: UnifiedSearchResult[][], k = 60): UnifiedSearchResult[] {
+export function reciprocalRankFusion(
+  resultLists: UnifiedSearchResult[][],
+  k = 60,
+): UnifiedSearchResult[] {
   const byId = new Map<string, UnifiedSearchResult>();
   const scores = new Map<string, number>();
 
@@ -54,20 +57,25 @@ function affinityStrength(hit: UnifiedSearchResult, keys: Set<string> | undefine
  * Deterministic rerank on top of RRF (GF-0303): confidence, source support, graph distance,
  * recency, lexical/vector channel, selected-node affinity.
  */
-export function applyRrfRerankFactors(results: UnifiedSearchResult[], ctx?: RerankContext): UnifiedSearchResult[] {
+export function applyRrfRerankFactors(
+  results: UnifiedSearchResult[],
+  ctx?: RerankContext,
+): UnifiedSearchResult[] {
   const affW = ctx?.affinityWeight ?? 0.09;
   const keys = ctx?.affinityKeys;
   return results
     .map((h) => {
       const conf = h.scoreDetails.confidence ?? 0;
-      const graphBoost = (h.scoreDetails.graphLexical ?? 0) * 0.02 + (h.scoreDetails.graphNeighbor ?? 0) * 0.015;
+      const graphBoost =
+        (h.scoreDetails.graphLexical ?? 0) * 0.02 + (h.scoreDetails.graphNeighbor ?? 0) * 0.015;
       const lexVec = (h.scoreDetails.lexical ?? 0) * 0.01 + (h.scoreDetails.vectorSim ?? 0) * 0.01;
       const support = (h.scoreDetails.sourceSupport ?? 0) * 0.022;
       const recency = (h.scoreDetails.recency ?? 0) * 0.018;
       const depth = h.scoreDetails.graphDepth;
       const graphDistBoost = depth != null ? 0.04 / (1 + depth) : 0;
       const aff = affinityStrength(h, keys);
-      const bump = conf * 0.025 + graphBoost + lexVec + support + recency + graphDistBoost + aff * affW;
+      const bump =
+        conf * 0.025 + graphBoost + lexVec + support + recency + graphDistBoost + aff * affW;
       return {
         ...h,
         score: h.score + bump,

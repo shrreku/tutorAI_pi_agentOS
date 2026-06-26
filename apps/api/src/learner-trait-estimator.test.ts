@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import type { LearnerTraitEstimate, LearnerTraitEvidencePacket, LearnerTraitProposal, LearnerTraitSignal } from "@studyagent/schemas";
+import type {
+  LearnerTraitEstimate,
+  LearnerTraitEvidencePacket,
+  LearnerTraitProposal,
+  LearnerTraitSignal,
+} from "@studyagent/schemas";
 import { learnerTraitEstimates, learnerTraitSignals } from "@studyagent/db";
 import {
   applyLearnerTraitProposalGuardrails,
@@ -78,41 +83,55 @@ describe("learner trait estimator client and guardrails", () => {
     });
 
     await expect(client.propose(packet())).resolves.toHaveLength(1);
-    expect(fetchMock).toHaveBeenCalledWith("https://example.invalid/chat/completions", expect.any(Object));
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://example.invalid/chat/completions",
+      expect.any(Object),
+    );
     vi.unstubAllGlobals();
   });
 
   it("normalizes close model proposal JSON before schema validation", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        choices: [{
-          message: {
-            content: JSON.stringify({
-              proposals: [{
-                trait: "examplePreference",
-                value: "visual examples",
-                evidenceRefs: [],
-                rationale: "The learner explicitly asked for visual examples.",
-              }],
-            }),
-          },
-        }],
-      }),
-    })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  proposals: [
+                    {
+                      trait: "examplePreference",
+                      value: "visual examples",
+                      evidenceRefs: [],
+                      rationale: "The learner explicitly asked for visual examples.",
+                    },
+                  ],
+                }),
+              },
+            },
+          ],
+        }),
+      })),
+    );
     const client = createOpenRouterLearnerTraitEstimatorClient({
       apiKey: "key",
       baseUrl: "https://example.invalid",
       model: "trait-model",
     });
 
-    await expect(client.propose(packet([
-      signal({
-        trait: "examplePreference",
-        suggestedValue: "visual",
-        evidenceRefs: [{ refType: "session_trace", refId: "sess_1" }],
-      }),
-    ]))).resolves.toMatchObject([
+    await expect(
+      client.propose(
+        packet([
+          signal({
+            trait: "examplePreference",
+            suggestedValue: "visual",
+            evidenceRefs: [{ refType: "session_trace", refId: "sess_1" }],
+          }),
+        ]),
+      ),
+    ).resolves.toMatchObject([
       {
         notebookId: "nb_1",
         userId: "user_1",
@@ -127,10 +146,15 @@ describe("learner trait estimator client and guardrails", () => {
   });
 
   it("fails cleanly for invalid model output", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => ({
-      ok: true,
-      json: async () => ({ choices: [{ message: { content: JSON.stringify({ proposals: [{ nope: true }] }) } }] }),
-    })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: JSON.stringify({ proposals: [{ nope: true }] }) } }],
+        }),
+      })),
+    );
     const client = createOpenRouterLearnerTraitEstimatorClient({
       apiKey: "key",
       baseUrl: "https://example.invalid",
@@ -142,9 +166,16 @@ describe("learner trait estimator client and guardrails", () => {
   });
 
   it("accepts, caps, and rejects proposals deterministically", () => {
-    const accepted = applyLearnerTraitProposalGuardrails({ proposal: proposal(), packet: packet() });
+    const accepted = applyLearnerTraitProposalGuardrails({
+      proposal: proposal(),
+      packet: packet(),
+    });
     const capped = applyLearnerTraitProposalGuardrails({
-      proposal: proposal({ lane: "inferred", confidence: 0.95, evidenceRefs: [{ refType: "self_report", refId: "turn_1" }] }),
+      proposal: proposal({
+        lane: "inferred",
+        confidence: 0.95,
+        evidenceRefs: [{ refType: "self_report", refId: "turn_1" }],
+      }),
       packet: packet([signal({ source: "tutor_observation", strength: 0.7 })]),
     });
     const rejected = applyLearnerTraitProposalGuardrails({
@@ -182,14 +213,16 @@ describe("learner trait estimator client and guardrails", () => {
     const recommendations = derivePersonalizationRecommendations({
       notebookId: "nb_1",
       userId: "user_1",
-      estimates: [{
-        trait: "confidenceStyle",
-        value: "underconfident",
-        lane: "inferred",
-        confidence: 0.7,
-        evidenceRefs: [{ refType: "mastery_evidence", refId: "mev_1" }],
-        lastUpdatedReason: "low confidence with strong answers",
-      }],
+      estimates: [
+        {
+          trait: "confidenceStyle",
+          value: "underconfident",
+          lane: "inferred",
+          confidence: 0.7,
+          evidenceRefs: [{ refType: "mastery_evidence", refId: "mev_1" }],
+          lastUpdatedReason: "low confidence with strong answers",
+        },
+      ],
     });
 
     expect(recommendations[0]?.recommendation).toContain("evidence-backed encouragement");
@@ -229,11 +262,15 @@ describe("learner trait session-boundary cycle", () => {
           }),
         }),
         insert: () => ({ values: () => ({ onConflictDoUpdate: async () => undefined }) }),
-        transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn({
-          execute: async () => undefined,
-          select: () => ({ from: () => ({ where: async () => [{ m: events.length }] }) }),
-          insert: () => ({ values: async (value: { eventType: string; payloadJson: unknown }) => events.push(value) }),
-        }),
+        transaction: async (fn: (tx: unknown) => Promise<unknown>) =>
+          fn({
+            execute: async () => undefined,
+            select: () => ({ from: () => ({ where: async () => [{ m: events.length }] }) }),
+            insert: () => ({
+              values: async (value: { eventType: string; payloadJson: unknown }) =>
+                events.push(value),
+            }),
+          }),
       },
     } as never;
 
@@ -251,7 +288,9 @@ describe("learner trait session-boundary cycle", () => {
   });
 
   it("passes a fully populated evidence packet to the estimator", async () => {
-    const insertedSignals = [signal({ source: "explicit_self_report", trait: "pacePreference", suggestedValue: "slow" })];
+    const insertedSignals = [
+      signal({ source: "explicit_self_report", trait: "pacePreference", suggestedValue: "slow" }),
+    ];
     const estimates: LearnerTraitEstimate[] = [];
     const events: Array<{ eventType: string; payloadJson?: unknown }> = [];
     const receivedPackets: Array<Record<string, unknown>> = [];
@@ -284,15 +323,20 @@ describe("learner trait session-boundary cycle", () => {
           values: (value: unknown) => ({
             onConflictDoUpdate: async () => {
               const record = value as { estimateJson?: LearnerTraitEstimate };
-              if (table === learnerTraitEstimates && record.estimateJson) estimates.push(record.estimateJson);
+              if (table === learnerTraitEstimates && record.estimateJson)
+                estimates.push(record.estimateJson);
             },
           }),
         }),
-        transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn({
-          execute: async () => undefined,
-          select: () => ({ from: () => ({ where: async () => [{ m: events.length }] }) }),
-          insert: () => ({ values: async (value: { eventType: string; payloadJson: unknown }) => events.push(value) }),
-        }),
+        transaction: async (fn: (tx: unknown) => Promise<unknown>) =>
+          fn({
+            execute: async () => undefined,
+            select: () => ({ from: () => ({ where: async () => [{ m: events.length }] }) }),
+            insert: () => ({
+              values: async (value: { eventType: string; payloadJson: unknown }) =>
+                events.push(value),
+            }),
+          }),
       },
     } as never;
 
@@ -362,15 +406,20 @@ describe("learner trait session-boundary cycle", () => {
           values: (value: unknown) => ({
             onConflictDoUpdate: async () => {
               const record = value as { estimateJson?: LearnerTraitEstimate };
-              if (table === learnerTraitEstimates && record.estimateJson) estimates.push(record.estimateJson);
+              if (table === learnerTraitEstimates && record.estimateJson)
+                estimates.push(record.estimateJson);
             },
           }),
         }),
-        transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn({
-          execute: async () => undefined,
-          select: () => ({ from: () => ({ where: async () => [{ m: events.length }] }) }),
-          insert: () => ({ values: async (value: { eventType: string; payloadJson: unknown }) => events.push(value) }),
-        }),
+        transaction: async (fn: (tx: unknown) => Promise<unknown>) =>
+          fn({
+            execute: async () => undefined,
+            select: () => ({ from: () => ({ where: async () => [{ m: events.length }] }) }),
+            insert: () => ({
+              values: async (value: { eventType: string; payloadJson: unknown }) =>
+                events.push(value),
+            }),
+          }),
       },
     } as never;
 
@@ -383,13 +432,19 @@ describe("learner trait session-boundary cycle", () => {
         async propose() {
           return [
             proposal(),
-            proposal({ proposalId: "proposal_bad", evidenceRefs: [{ refType: "self_report", refId: "outside_packet" }] }),
+            proposal({
+              proposalId: "proposal_bad",
+              evidenceRefs: [{ refType: "self_report", refId: "outside_packet" }],
+            }),
           ];
         },
       },
     });
 
     expect(result.persistedEstimateIds).toHaveLength(1);
-    expect(result.guardrailDecisions.map((decision) => decision.status)).toEqual(["accepted", "rejected"]);
+    expect(result.guardrailDecisions.map((decision) => decision.status)).toEqual([
+      "accepted",
+      "rejected",
+    ]);
   });
 });

@@ -31,10 +31,15 @@ export function NotebooksListPage({ navigate }: { navigate: (path: string) => vo
     queryFn: fetchStudyTemplates,
   });
 
-  const personalWorkspaces = notebooks.filter((notebook) => notebook.workspaceType === "personal_learner");
-  const templateNotebooks = notebooks.filter((notebook) => notebook.workspaceType === "study_template");
+  const personalWorkspaces = notebooks.filter(
+    (notebook) => notebook.workspaceType === "personal_learner",
+  );
+  const templateNotebooks = notebooks.filter(
+    (notebook) => notebook.workspaceType === "study_template",
+  );
   const otherNotebooks = notebooks.filter(
-    (notebook) => notebook.workspaceType !== "personal_learner" && notebook.workspaceType !== "study_template",
+    (notebook) =>
+      notebook.workspaceType !== "personal_learner" && notebook.workspaceType !== "study_template",
   );
 
   return (

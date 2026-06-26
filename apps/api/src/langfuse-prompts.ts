@@ -5,7 +5,11 @@ import {
   STUDYAGENT_TUTOR_SYSTEM_PROMPT_TEMPLATE_V1,
   type StudyAgentPromptContext,
 } from "@studyagent/agent-runtime";
-import { resolveManagedTextPrompt, syncManagedTextPrompts, type ResolvedManagedTextPrompt } from "@studyagent/observability";
+import {
+  resolveManagedTextPrompt,
+  syncManagedTextPrompts,
+  type ResolvedManagedTextPrompt,
+} from "@studyagent/observability";
 import type { AppContext } from "./context.js";
 
 export function studyAgentTutorSystemPromptDefinition(env: AppContext["env"]) {

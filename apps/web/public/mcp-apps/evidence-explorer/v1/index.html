@@ -28,7 +28,10 @@
             var html = '<div class="sa-shell">';
             html += h.headerHtml(
               title,
-              spans.length + " source-backed excerpt" + (spans.length === 1 ? "" : "s") + " attached to this surface.",
+              spans.length +
+                " source-backed excerpt" +
+                (spans.length === 1 ? "" : "s") +
+                " attached to this surface.",
               "Evidence",
             );
             html += h.pendingOverlay(ctx.state);
@@ -46,7 +49,8 @@
               var id = item.id || "evidence_" + index;
               var el = document.createElement("div");
               el.className = "sa-list-item";
-              if (ctx.state.ui.activeId === id || opened.indexOf(id) >= 0) el.classList.add("is-active");
+              if (ctx.state.ui.activeId === id || opened.indexOf(id) >= 0)
+                el.classList.add("is-active");
               var pages =
                 item.pageStart != null
                   ? "Page " +

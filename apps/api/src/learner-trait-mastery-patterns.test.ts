@@ -6,16 +6,18 @@ describe("learner trait mastery evidence patterns", () => {
     const signals = deriveMasteryEvidencePatternSignals({
       notebookId: "nb_1",
       userId: "user_1",
-      masteryRows: [{
-        id: "mev_1",
-        turnId: "turn_1",
-        sessionId: "sess_1",
-        evidenceJson: {
-          evidenceType: "self_report",
-          correctnessLabel: "incorrect",
-          confidence: 0.9,
+      masteryRows: [
+        {
+          id: "mev_1",
+          turnId: "turn_1",
+          sessionId: "sess_1",
+          evidenceJson: {
+            evidenceType: "self_report",
+            correctnessLabel: "incorrect",
+            confidence: 0.9,
+          },
         },
-      }],
+      ],
       now: () => new Date("2026-05-29T08:00:00.000Z"),
     });
 
@@ -38,16 +40,18 @@ describe("learner trait mastery evidence patterns", () => {
     const signals = deriveMasteryEvidencePatternSignals({
       notebookId: "nb_1",
       userId: "user_1",
-      masteryRows: [{
-        id: "mev_2",
-        turnId: "turn_2",
-        sessionId: "sess_1",
-        evidenceJson: {
-          evidenceType: "self_report",
-          correctnessLabel: "correct",
-          confidence: 0.3,
+      masteryRows: [
+        {
+          id: "mev_2",
+          turnId: "turn_2",
+          sessionId: "sess_1",
+          evidenceJson: {
+            evidenceType: "self_report",
+            correctnessLabel: "correct",
+            confidence: 0.3,
+          },
         },
-      }],
+      ],
     });
 
     expect(signals).toEqual([
@@ -62,16 +66,18 @@ describe("learner trait mastery evidence patterns", () => {
     const signals = deriveMasteryEvidencePatternSignals({
       notebookId: "nb_1",
       userId: "user_1",
-      masteryRows: [{
-        id: "mev_3",
-        turnId: "turn_3",
-        sessionId: "sess_1",
-        evidenceJson: {
-          evidenceType: "mastery_check",
-          correctnessLabel: "incorrect",
-          confidence: 0.9,
+      masteryRows: [
+        {
+          id: "mev_3",
+          turnId: "turn_3",
+          sessionId: "sess_1",
+          evidenceJson: {
+            evidenceType: "mastery_check",
+            correctnessLabel: "incorrect",
+            confidence: 0.9,
+          },
         },
-      }],
+      ],
     });
 
     expect(signals).toEqual([]);

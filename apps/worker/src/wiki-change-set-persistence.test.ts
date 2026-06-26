@@ -109,9 +109,16 @@ function createFakeDb(options: { failEventInsert?: boolean } = {}) {
           const rowsForTable = () => {
             if (table === events) {
               const eventRows = target.get(events)!;
-              const committed = eventRows.filter((row) => row.eventType === "wiki.change_set.committed" && (row.payloadJson as Row)?.fingerprint === "fp_commit");
+              const committed = eventRows.filter(
+                (row) =>
+                  row.eventType === "wiki.change_set.committed" &&
+                  (row.payloadJson as Row)?.fingerprint === "fp_commit",
+              );
               if (fields && "id" in fields) return committed;
-              const maxSeq = eventRows.reduce((max, row) => Math.max(max, Number(row.sequenceNo ?? 0)), 0);
+              const maxSeq = eventRows.reduce(
+                (max, row) => Math.max(max, Number(row.sequenceNo ?? 0)),
+                0,
+              );
               return [{ m: maxSeq }];
             }
             return target.get(table) ?? [];
@@ -151,7 +158,9 @@ function createFakeDb(options: { failEventInsert?: boolean } = {}) {
   return {
     db: {
       transaction: async <T>(fn: (tx: ReturnType<typeof makeTx>) => Promise<T>): Promise<T> => {
-        const clone = new Map([...state.entries()].map(([table, rows]) => [table, rows.map((row) => ({ ...row }))]));
+        const clone = new Map(
+          [...state.entries()].map(([table, rows]) => [table, rows.map((row) => ({ ...row }))]),
+        );
         const result = await fn(makeTx(clone));
         state.clear();
         for (const entry of clone.entries()) state.set(entry[0], entry[1]);
@@ -165,7 +174,9 @@ function createFakeDb(options: { failEventInsert?: boolean } = {}) {
 describe("Knowledge Commit", () => {
   it("rolls back wiki rows when event append fails after wiki pages are written", async () => {
     const fake = createFakeDb({ failEventInsert: true });
-    await expect(applyWikiChangeSet(fake as never, { changeSet: makeChangeSet() })).rejects.toThrow("event insert failed");
+    await expect(applyWikiChangeSet(fake as never, { changeSet: makeChangeSet() })).rejects.toThrow(
+      "event insert failed",
+    );
     expect(fake.state.get(wikiPages)).toEqual([]);
     expect(fake.state.get(claims)).toEqual([]);
   });
@@ -177,6 +188,8 @@ describe("Knowledge Commit", () => {
     expect(first.alreadyCommitted).toBe(false);
     expect(second.alreadyCommitted).toBe(true);
     expect(fake.state.get(wikiPages)).toHaveLength(1);
-    expect(fake.state.get(events)?.filter((row) => row.eventType === "wiki.change_set.committed")).toHaveLength(1);
+    expect(
+      fake.state.get(events)?.filter((row) => row.eventType === "wiki.change_set.committed"),
+    ).toHaveLength(1);
   });
 });

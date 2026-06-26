@@ -22,23 +22,35 @@
 
             if (!rows.length) {
               ctx.root.innerHTML =
-                h.headerHtml("Comparison", "Review similarities and differences side by side.", "Compare") +
-                '<div class="sa-empty">No comparison rows are available yet.</div>';
+                h.headerHtml(
+                  "Comparison",
+                  "Review similarities and differences side by side.",
+                  "Compare",
+                ) + '<div class="sa-empty">No comparison rows are available yet.</div>';
               return;
             }
 
             var html = '<div class="sa-shell">';
-            html += h.headerHtml("Comparison", "Tap a row to inspect its supporting evidence.", "Compare");
+            html += h.headerHtml(
+              "Comparison",
+              "Tap a row to inspect its supporting evidence.",
+              "Compare",
+            );
             html += h.pendingOverlay(ctx.state);
             html += h.statusHtml(ctx.state);
-            html += '<div class="sa-table-wrap"><table class="sa-table"><thead><tr><th>Dimension</th><th>' +
+            html +=
+              '<div class="sa-table-wrap"><table class="sa-table"><thead><tr><th>Dimension</th><th>' +
               h.escapeHtml(leftTitle) +
               "</th><th>" +
               h.escapeHtml(rightTitle) +
               '</th></tr></thead><tbody id="rows"></tbody></table></div>';
             if (checkpoint) {
-              html += '<div class="sa-card sa-stack"><div class="sa-field-label">Checkpoint</div><div>' + h.escapeHtml(checkpoint) + '</div>';
-              html += '<button class="sa-btn sa-btn-primary" id="complete">Mark reviewed</button></div>';
+              html +=
+                '<div class="sa-card sa-stack"><div class="sa-field-label">Checkpoint</div><div>' +
+                h.escapeHtml(checkpoint) +
+                "</div>";
+              html +=
+                '<button class="sa-btn sa-btn-primary" id="complete">Mark reviewed</button></div>';
             }
             html += "</div>";
             ctx.root.innerHTML = html;

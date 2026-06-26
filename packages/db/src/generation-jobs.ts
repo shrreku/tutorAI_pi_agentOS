@@ -6,10 +6,7 @@ export const GENERATION_JOB_CHANNEL = "studyagent_generation_jobs";
 
 export type GenerationJobStatus = "queued" | "running" | "completed" | "failed";
 
-export type GenerationJobName =
-  | "initial_build"
-  | "rolling_module_build"
-  | "wiki_touch_background";
+export type GenerationJobName = "initial_build" | "rolling_module_build" | "wiki_touch_background";
 
 export type GenerationJobRecord = {
   id: string;
@@ -183,7 +180,9 @@ export async function failGenerationJob(
     .limit(1);
   const retry = Boolean(row && row.attemptsStarted < row.maxAttempts);
   const runAt = retry
-    ? new Date(Date.now() + (input.retryDelayMs ?? retryDelayForAttemptMs(row?.attemptsStarted ?? 1)))
+    ? new Date(
+        Date.now() + (input.retryDelayMs ?? retryDelayForAttemptMs(row?.attemptsStarted ?? 1)),
+      )
     : undefined;
 
   await dbClient.db

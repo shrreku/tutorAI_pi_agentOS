@@ -10,18 +10,21 @@ export type CoverageSeedItem = {
   metadataJson?: Record<string, unknown>;
 };
 
-export async function seedCoverageForSource(dbClient: DbClient, params: {
-  notebookId: string;
-  sourceId: string;
-  sourceVersionId: string;
-  curriculumId: string | null | undefined;
-  moduleId: string | null | undefined;
-  objectiveListId: string | null | undefined;
-  sessionPlanId: string | null | undefined;
-  coverageSeedItems: CoverageSeedItem[];
-  objectiveCoverageFamilies: string[][];
-  now: Date;
-}) {
+export async function seedCoverageForSource(
+  dbClient: DbClient,
+  params: {
+    notebookId: string;
+    sourceId: string;
+    sourceVersionId: string;
+    curriculumId: string | null | undefined;
+    moduleId: string | null | undefined;
+    objectiveListId: string | null | undefined;
+    sessionPlanId: string | null | undefined;
+    coverageSeedItems: CoverageSeedItem[];
+    objectiveCoverageFamilies: string[][];
+    now: Date;
+  },
+) {
   const {
     notebookId,
     sourceId,
@@ -36,7 +39,9 @@ export async function seedCoverageForSource(dbClient: DbClient, params: {
   } = params;
 
   const coverageByFamily = new Map<string, string[]>();
-  const conceptIdsByObjective: Array<Set<string>> = objectiveCoverageFamilies.map(() => new Set<string>());
+  const conceptIdsByObjective: Array<Set<string>> = objectiveCoverageFamilies.map(
+    () => new Set<string>(),
+  );
 
   for (const item of coverageSeedItems) {
     const coverageItemId = `cov_${crypto.randomUUID().replaceAll("-", "")}`;
@@ -77,7 +82,11 @@ export async function seedCoverageForSource(dbClient: DbClient, params: {
     });
 
     if (item.conceptId) {
-      for (let objectiveIndex = 0; objectiveIndex < objectiveCoverageFamilies.length; objectiveIndex += 1) {
+      for (
+        let objectiveIndex = 0;
+        objectiveIndex < objectiveCoverageFamilies.length;
+        objectiveIndex += 1
+      ) {
         const families = objectiveCoverageFamilies[objectiveIndex]!;
         if (families.includes(item.itemFamily)) {
           conceptIdsByObjective[objectiveIndex]!.add(item.conceptId);
@@ -88,4 +97,3 @@ export async function seedCoverageForSource(dbClient: DbClient, params: {
 
   return { coverageByFamily, conceptIdsByObjective };
 }
-

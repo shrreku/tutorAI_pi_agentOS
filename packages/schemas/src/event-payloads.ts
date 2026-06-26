@@ -58,37 +58,41 @@ const wikiPayloadSchema = z.object({
   reason: z.string().optional(),
 });
 
-const generationPayloadSchema = z.object({
-  pageId: idSchema.optional(),
-  pageKey: z.string().optional(),
-  pageType: z.string().optional(),
-  curriculumId: idSchema.optional(),
-  moduleId: idSchema.optional(),
-  sourceId: idSchema.optional(),
-  conceptId: idSchema.optional(),
-  readiness: z.string().optional(),
-  pageReadiness: z.string().optional(),
-  generationMode: z.string().optional(),
-  idempotencyKey: z.string().optional(),
-  trigger: z.string().optional(),
-  foregroundBudgetMs: z.number().optional(),
-  foregroundCompleted: z.boolean().optional(),
-  backgroundContinues: z.boolean().optional(),
-  from: z.string().optional(),
-  to: z.string().optional(),
-  qualityIssues: z.array(z.record(z.string(), z.unknown())).optional(),
-  safeMessage: z.string().optional(),
-  ok: z.boolean().optional(),
-  reason: z.string().optional(),
-  fallbackUsed: z.boolean().optional(),
-}).passthrough();
+const generationPayloadSchema = z
+  .object({
+    pageId: idSchema.optional(),
+    pageKey: z.string().optional(),
+    pageType: z.string().optional(),
+    curriculumId: idSchema.optional(),
+    moduleId: idSchema.optional(),
+    sourceId: idSchema.optional(),
+    conceptId: idSchema.optional(),
+    readiness: z.string().optional(),
+    pageReadiness: z.string().optional(),
+    generationMode: z.string().optional(),
+    idempotencyKey: z.string().optional(),
+    trigger: z.string().optional(),
+    foregroundBudgetMs: z.number().optional(),
+    foregroundCompleted: z.boolean().optional(),
+    backgroundContinues: z.boolean().optional(),
+    from: z.string().optional(),
+    to: z.string().optional(),
+    qualityIssues: z.array(z.record(z.string(), z.unknown())).optional(),
+    safeMessage: z.string().optional(),
+    ok: z.boolean().optional(),
+    reason: z.string().optional(),
+    fallbackUsed: z.boolean().optional(),
+  })
+  .passthrough();
 
-const tutorPayloadSchema = z.object({
-  sessionId: idSchema.optional(),
-  turnId: idSchema.optional(),
-  messageId: idSchema.optional(),
-  checkpointId: idSchema.optional(),
-}).passthrough();
+const tutorPayloadSchema = z
+  .object({
+    sessionId: idSchema.optional(),
+    turnId: idSchema.optional(),
+    messageId: idSchema.optional(),
+    checkpointId: idSchema.optional(),
+  })
+  .passthrough();
 
 const eventPayloadSchemas: Partial<Record<EventType, z.ZodType<Record<string, unknown>>>> = {};
 

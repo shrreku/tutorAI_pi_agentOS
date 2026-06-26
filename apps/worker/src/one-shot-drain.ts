@@ -27,7 +27,11 @@ export type OneShotDrainResult = {
 };
 
 function createS3(env: ReturnType<typeof loadEnv>): S3Client | null {
-  if (!env.OBJECT_STORAGE_ENDPOINT || !env.OBJECT_STORAGE_ACCESS_KEY || !env.OBJECT_STORAGE_SECRET_KEY) {
+  if (
+    !env.OBJECT_STORAGE_ENDPOINT ||
+    !env.OBJECT_STORAGE_ACCESS_KEY ||
+    !env.OBJECT_STORAGE_SECRET_KEY
+  ) {
     return null;
   }
   return new S3Client({
@@ -41,7 +45,10 @@ function createS3(env: ReturnType<typeof loadEnv>): S3Client | null {
   });
 }
 
-export async function getNotebookOwnerId(dbClient: DbClient, notebookId: string): Promise<string | null> {
+export async function getNotebookOwnerId(
+  dbClient: DbClient,
+  notebookId: string,
+): Promise<string | null> {
   const [row] = await dbClient.db
     .select({ ownerId: notebooks.ownerId })
     .from(notebooks)
@@ -134,7 +141,10 @@ async function runClaimedPostgresJob(input: {
   }
 }
 
-async function settleIngestionReservation(dbClient: DbClient, job: ClaimedIngestionJob): Promise<void> {
+async function settleIngestionReservation(
+  dbClient: DbClient,
+  job: ClaimedIngestionJob,
+): Promise<void> {
   if (!job.ingestionReservationId) {
     return;
   }

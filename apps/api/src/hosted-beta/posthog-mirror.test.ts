@@ -80,9 +80,12 @@ describe("posthog mirror", () => {
   });
 
   it("does not fail product operations when PostHog is unavailable", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => {
-      throw new Error("network unavailable");
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("network unavailable");
+      }),
+    );
 
     await expect(
       mirrorToPostHog(testEnv({ POSTHOG_API_KEY: "phc_test" }), {

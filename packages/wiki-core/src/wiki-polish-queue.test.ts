@@ -56,7 +56,10 @@ describe("wiki polish queue", () => {
   });
 
   it("enqueues tutor-triggered repair for a missing or weak page", () => {
-    const candidate = enqueueWikiPagePolishRepair([page("concept_weak", { qualityScore: 0.4 })], "concept_weak");
+    const candidate = enqueueWikiPagePolishRepair(
+      [page("concept_weak", { qualityScore: 0.4 })],
+      "concept_weak",
+    );
     expect(candidate?.status).toBe("queued");
     expect(candidate?.reasons).toContain("tutor_triggered_repair");
     expect(candidate?.learnerStatusLabel).toBe("Improving this page next");

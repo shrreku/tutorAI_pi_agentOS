@@ -41,11 +41,17 @@ export async function registerAdminRoutes(app: FastifyInstance, ctx: AppContext)
     const actor = await requireAdmin(ctx, request, reply);
     if (!actor) return;
 
-    const [[userCount], activationSummary, [creditExhaustedCount], [failedIngestionCount], [pendingFeedbackCount], [supportPending]] =
-      await Promise.all([
-        ctx.db.db.select({ value: count() }).from(users),
-        getActivationSummary(ctx.db),
-        ctx.db.db.execute(sql`
+    const [
+      [userCount],
+      activationSummary,
+      [creditExhaustedCount],
+      [failedIngestionCount],
+      [pendingFeedbackCount],
+      [supportPending],
+    ] = await Promise.all([
+      ctx.db.db.select({ value: count() }).from(users),
+      getActivationSummary(ctx.db),
+      ctx.db.db.execute(sql`
           select count(distinct u.id)::int as value
           from users u
           left join lateral (
@@ -60,19 +66,19 @@ export async function registerAdminRoutes(app: FastifyInstance, ctx: AppContext)
           ) reserved on true
           where coalesce(tutor.balance, 0) - coalesce(reserved.reserved, 0) <= 0
         `),
-        ctx.db.db
-          .select({ value: count() })
-          .from(sources)
-          .where(inArray(sources.status, ["failed", "ingestion_review"])),
-        ctx.db.db
-          .select({ value: count() })
-          .from(learningFeedback)
-          .where(eq(learningFeedback.status, "submitted")),
-        ctx.db.db
-          .select({ value: count() })
-          .from(supportReports)
-          .where(eq(supportReports.status, "submitted")),
-      ]);
+      ctx.db.db
+        .select({ value: count() })
+        .from(sources)
+        .where(inArray(sources.status, ["failed", "ingestion_review"])),
+      ctx.db.db
+        .select({ value: count() })
+        .from(learningFeedback)
+        .where(eq(learningFeedback.status, "submitted")),
+      ctx.db.db
+        .select({ value: count() })
+        .from(supportReports)
+        .where(eq(supportReports.status, "submitted")),
+    ]);
 
     const creditExhaustedRow = (creditExhaustedCount as unknown as { value: number }[])[0];
 
@@ -82,7 +88,8 @@ export async function registerAdminRoutes(app: FastifyInstance, ctx: AppContext)
         activatedLearners: activationSummary.activated,
         creditExhausted: Number(creditExhaustedRow?.value ?? 0),
         failedIngestion: Number(failedIngestionCount?.value ?? 0),
-        pendingFeedback: Number(pendingFeedbackCount?.value ?? 0) + Number(supportPending?.value ?? 0),
+        pendingFeedback:
+          Number(pendingFeedbackCount?.value ?? 0) + Number(supportPending?.value ?? 0),
       },
     });
   });
@@ -172,7 +179,11 @@ export async function registerAdminRoutes(app: FastifyInstance, ctx: AppContext)
         .where(eq(users.id, userId));
     }
 
-    if (typeof body.ingestionAccess === "boolean" || typeof body.adminAccess === "boolean" || typeof body.studyAccess === "boolean") {
+    if (
+      typeof body.ingestionAccess === "boolean" ||
+      typeof body.adminAccess === "boolean" ||
+      typeof body.studyAccess === "boolean"
+    ) {
       const [existing] = await ctx.db.db
         .select()
         .from(userProductState)
@@ -191,7 +202,10 @@ export async function registerAdminRoutes(app: FastifyInstance, ctx: AppContext)
       }
 
       if (existing) {
-        await ctx.db.db.update(userProductState).set(updates).where(eq(userProductState.userId, userId));
+        await ctx.db.db
+          .update(userProductState)
+          .set(updates)
+          .where(eq(userProductState.userId, userId));
       } else {
         await ctx.db.db.insert(userProductState).values({
           userId,
@@ -239,36 +253,47 @@ export async function registerAdminRoutes(app: FastifyInstance, ctx: AppContext)
     return reply.send({ workspaces: rows });
   });
 
-  app.get<{ Params: { notebookId: string } }>("/admin/workspaces/:notebookId", async (request, reply) => {
-    const actor = await requireAdmin(ctx, request, reply);
-    if (!actor) return;
+  app.get<{ Params: { notebookId: string } }>(
+    "/admin/workspaces/:notebookId",
+    async (request, reply) => {
+      const actor = await requireAdmin(ctx, request, reply);
+      if (!actor) return;
 
-    const { notebookId } = request.params;
-    const [notebook] = await ctx.db.db.select().from(notebooks).where(eq(notebooks.id, notebookId)).limit(1);
-    if (!notebook) {
-      return reply.status(404).send({ code: "not_found", message: "Workspace not found" });
-    }
+      const { notebookId } = request.params;
+      const [notebook] = await ctx.db.db
+        .select()
+        .from(notebooks)
+        .where(eq(notebooks.id, notebookId))
+        .limit(1);
+      if (!notebook) {
+        return reply.status(404).send({ code: "not_found", message: "Workspace not found" });
+      }
 
-    const [owner] = await ctx.db.db.select().from(users).where(eq(users.id, notebook.ownerId)).limit(1);
-    const sourceRows = await ctx.db.db
-      .select()
-      .from(sources)
-      .where(eq(sources.notebookId, notebookId))
-      .orderBy(desc(sources.createdAt));
-    const jobRows = await ctx.db.db
-      .select()
-      .from(ingestionJobs)
-      .where(eq(ingestionJobs.notebookId, notebookId))
-      .orderBy(desc(ingestionJobs.createdAt))
-      .limit(50);
+      const [owner] = await ctx.db.db
+        .select()
+        .from(users)
+        .where(eq(users.id, notebook.ownerId))
+        .limit(1);
+      const sourceRows = await ctx.db.db
+        .select()
+        .from(sources)
+        .where(eq(sources.notebookId, notebookId))
+        .orderBy(desc(sources.createdAt));
+      const jobRows = await ctx.db.db
+        .select()
+        .from(ingestionJobs)
+        .where(eq(ingestionJobs.notebookId, notebookId))
+        .orderBy(desc(ingestionJobs.createdAt))
+        .limit(50);
 
-    return reply.send({
-      workspace: notebook,
-      owner: owner ?? null,
-      sources: sourceRows,
-      ingestionJobs: jobRows,
-    });
-  });
+      return reply.send({
+        workspace: notebook,
+        owner: owner ?? null,
+        sources: sourceRows,
+        ingestionJobs: jobRows,
+      });
+    },
+  );
 
   app.patch<{
     Params: { notebookId: string };
@@ -278,7 +303,11 @@ export async function registerAdminRoutes(app: FastifyInstance, ctx: AppContext)
     if (!actor) return;
 
     const { notebookId } = request.params;
-    const [notebook] = await ctx.db.db.select().from(notebooks).where(eq(notebooks.id, notebookId)).limit(1);
+    const [notebook] = await ctx.db.db
+      .select()
+      .from(notebooks)
+      .where(eq(notebooks.id, notebookId))
+      .limit(1);
     if (!notebook) {
       return reply.status(404).send({ code: "not_found", message: "Workspace not found" });
     }
@@ -291,7 +320,11 @@ export async function registerAdminRoutes(app: FastifyInstance, ctx: AppContext)
         .where(eq(notebooks.id, notebookId));
     }
 
-    const [updated] = await ctx.db.db.select().from(notebooks).where(eq(notebooks.id, notebookId)).limit(1);
+    const [updated] = await ctx.db.db
+      .select()
+      .from(notebooks)
+      .where(eq(notebooks.id, notebookId))
+      .limit(1);
     return reply.send({ workspace: updated });
   });
 
@@ -299,7 +332,10 @@ export async function registerAdminRoutes(app: FastifyInstance, ctx: AppContext)
     const actor = await requireAdmin(ctx, request, reply);
     if (!actor) return;
 
-    const templates = await ctx.db.db.select().from(studyTemplates).orderBy(studyTemplates.sortOrder);
+    const templates = await ctx.db.db
+      .select()
+      .from(studyTemplates)
+      .orderBy(studyTemplates.sortOrder);
     return reply.send({ templates });
   });
 
@@ -327,7 +363,9 @@ export async function registerAdminRoutes(app: FastifyInstance, ctx: AppContext)
     const { userId } = request.params;
     const body = request.body;
     if (!body?.reason?.trim() || typeof body.amountCents !== "number" || !body.creditType) {
-      return reply.status(400).send({ code: "bad_request", message: "creditType, amountCents, and reason are required" });
+      return reply
+        .status(400)
+        .send({ code: "bad_request", message: "creditType, amountCents, and reason are required" });
     }
 
     const [user] = await ctx.db.db.select().from(users).where(eq(users.id, userId)).limit(1);
@@ -337,7 +375,8 @@ export async function registerAdminRoutes(app: FastifyInstance, ctx: AppContext)
 
     const entryType = body.entryType ?? (body.amountCents > 0 ? "grant" : "adjustment");
     const amountCents = Math.abs(Math.trunc(body.amountCents));
-    const signedAmount = entryType === "adjustment" && body.amountCents < 0 ? -amountCents : amountCents;
+    const signedAmount =
+      entryType === "adjustment" && body.amountCents < 0 ? -amountCents : amountCents;
 
     const entry =
       entryType === "grant" && signedAmount > 0

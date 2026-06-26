@@ -10,7 +10,10 @@ export type AssembledAgentContext = {
 /**
  * Dedupe hits, preserve provenance, and trim to a byte-conscious budget for tools / Pi.
  */
-export function assembleSearchContextForAgent(hits: UnifiedSearchHit[], maxChars: number): AssembledAgentContext {
+export function assembleSearchContextForAgent(
+  hits: UnifiedSearchHit[],
+  maxChars: number,
+): AssembledAgentContext {
   const seen = new Set<string>();
   const blocks: string[] = [];
   const citations: Array<{ handle: string; refType: string; refId: string }> = [];

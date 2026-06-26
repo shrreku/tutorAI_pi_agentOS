@@ -14,19 +14,19 @@ Do not present MCP Apps as third-party apps to learners. Learners should experie
 
 Implemented MCP app bundles:
 
-| Bundle | Block kind | Resource URI | Primary actions |
-| --- | --- | --- | --- |
-| Quiz | `quiz` | `ui://studyagent/quiz/v1` | answer, tutor help |
-| Flashcards | `flashcard_deck` | `ui://studyagent/flashcards/v1` | review rating, tutor help |
-| Worked Example | `worked_example` | `ui://studyagent/worked-example/v1` | step answer, step reveal, tutor help |
-| Evidence Explorer | `evidence_explorer` | `ui://studyagent/evidence-explorer/v1` | source span open, tutor help |
-| Live Plan | `live_plan` | `ui://studyagent/live-plan/v1` | plan action, tutor help |
-| Function Plotter | `simulation` template | `ui://studyagent/simulation/function-plotter/v1` | observation, parameter snapshot, tutor help |
-| Source Reader | `source_reader` | `ui://studyagent/source-reader/v1` | annotation, source span open, tutor help |
-| Personalization Controls | `personalization_controls` | `ui://studyagent/personalization-controls/v1` | preference update, tutor help |
-| Comparison | `comparison` | `ui://studyagent/comparison/v1` | evidence open, complete, tutor help |
-| Concept Timeline | `concept_timeline` | `ui://studyagent/concept-timeline/v1` | evidence open, tutor help |
-| Dev Trace | `dev_trace_dashboard` | `ui://studyagent/dev-trace/v1` | tutor help |
+| Bundle                   | Block kind                 | Resource URI                                     | Primary actions                             |
+| ------------------------ | -------------------------- | ------------------------------------------------ | ------------------------------------------- |
+| Quiz                     | `quiz`                     | `ui://studyagent/quiz/v1`                        | answer, tutor help                          |
+| Flashcards               | `flashcard_deck`           | `ui://studyagent/flashcards/v1`                  | review rating, tutor help                   |
+| Worked Example           | `worked_example`           | `ui://studyagent/worked-example/v1`              | step answer, step reveal, tutor help        |
+| Evidence Explorer        | `evidence_explorer`        | `ui://studyagent/evidence-explorer/v1`           | source span open, tutor help                |
+| Live Plan                | `live_plan`                | `ui://studyagent/live-plan/v1`                   | plan action, tutor help                     |
+| Function Plotter         | `simulation` template      | `ui://studyagent/simulation/function-plotter/v1` | observation, parameter snapshot, tutor help |
+| Source Reader            | `source_reader`            | `ui://studyagent/source-reader/v1`               | annotation, source span open, tutor help    |
+| Personalization Controls | `personalization_controls` | `ui://studyagent/personalization-controls/v1`    | preference update, tutor help               |
+| Comparison               | `comparison`               | `ui://studyagent/comparison/v1`                  | evidence open, complete, tutor help         |
+| Concept Timeline         | `concept_timeline`         | `ui://studyagent/concept-timeline/v1`            | evidence open, tutor help                   |
+| Dev Trace                | `dev_trace_dashboard`      | `ui://studyagent/dev-trace/v1`                   | tutor help                                  |
 
 ## Block Anatomy
 

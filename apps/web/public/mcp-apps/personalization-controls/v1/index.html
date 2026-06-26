@@ -85,7 +85,8 @@
                 opt.textContent = option.label;
                 select.appendChild(opt);
               });
-              if (ctx.state.ui.selections[pref.key]) select.value = ctx.state.ui.selections[pref.key];
+              if (ctx.state.ui.selections[pref.key])
+                select.value = ctx.state.ui.selections[pref.key];
               row.appendChild(select);
               var save = document.createElement("button");
               save.type = "button";

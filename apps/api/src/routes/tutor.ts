@@ -11,13 +11,15 @@ import {
   pauseTutorSessionLifecycleForRequest,
   resumeTutorSessionLifecycleForRequest,
 } from "../tutor-session-lifecycle.js";
-import {
-  createOpenRouterLearnerTraitEstimatorClient,
-} from "../learner-trait-estimation.js";
+import { createOpenRouterLearnerTraitEstimatorClient } from "../learner-trait-estimation.js";
 import { resolveStudyAgentTutorSystemPrompt } from "../langfuse-prompts.js";
 import { getOrCreateRequestCorrelationContext } from "../request-correlation.js";
 import { executeTutorTurn } from "../tutor-turn.js";
-import { bootstrapTutorTurn, extractLatestUserMessage, mergeSelectedNodeRefs } from "../tutor-turn-preparation.js";
+import {
+  bootstrapTutorTurn,
+  extractLatestUserMessage,
+  mergeSelectedNodeRefs,
+} from "../tutor-turn-preparation.js";
 import { requireLearner } from "../hosted-beta/learner-gate.js";
 import { requireOwnedNotebook } from "../hosted-beta/notebook-context.js";
 import { recordProductAnalytics } from "../hosted-beta/product-analytics.js";
@@ -28,7 +30,9 @@ const tutorChatRequestSchema = z.object({
   messages: z.array(z.unknown()).default([]),
   data: z
     .object({
-      activeMode: z.enum(["learn", "practice", "revise", "explore", "wiki_maintenance"]).default("learn"),
+      activeMode: z
+        .enum(["learn", "practice", "revise", "explore", "wiki_maintenance"])
+        .default("learn"),
       selectedNodeRefs: z.array(nodeRefSchema).default([]),
       sessionId: z.string().min(1).optional(),
       action: z.enum(["prompt", "steer", "followUp"]).default("prompt"),
@@ -51,35 +55,38 @@ export async function registerTutorRoutes(app: FastifyInstance, ctx: AppContext)
   app.post<{
     Params: { notebookId: string };
     Body: z.infer<typeof tutorChatRequestSchema>;
-  }>(
-    "/notebooks/:notebookId/tutor/chat",
-    async (request, reply) => {
-      try {
-        const { actor } = await requireLearner(ctx, request);
-        const { notebookId } = request.params;
-        const owned = await requireOwnedNotebook(ctx, actor.id, notebookId);
-        const notebook = owned.notebook;
+  }>("/notebooks/:notebookId/tutor/chat", async (request, reply) => {
+    try {
+      const { actor } = await requireLearner(ctx, request);
+      const { notebookId } = request.params;
+      const owned = await requireOwnedNotebook(ctx, actor.id, notebookId);
+      const notebook = owned.notebook;
 
-        if (!ctx.env.OPENROUTER_API_KEY) {
-          return reply.status(503).send({ code: "pi_unavailable", message: "OPENROUTER_API_KEY is required for Pi tutor sessions" });
-        }
+      if (!ctx.env.OPENROUTER_API_KEY) {
+        return reply.status(503).send({
+          code: "pi_unavailable",
+          message: "OPENROUTER_API_KEY is required for Pi tutor sessions",
+        });
+      }
 
-        const parsed = tutorChatRequestSchema.safeParse(request.body);
-        if (!parsed.success) {
-          return reply.status(400).send({ code: "bad_request", message: parsed.error.flatten() });
-        }
+      const parsed = tutorChatRequestSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({ code: "bad_request", message: parsed.error.flatten() });
+      }
 
-        const { messages, data } = parsed.data;
-        const message = extractLatestUserMessage(messages);
-        if (!message) {
-          return reply.status(400).send({ code: "bad_request", message: "A user message is required" });
-        }
+      const { messages, data } = parsed.data;
+      const message = extractLatestUserMessage(messages);
+      if (!message) {
+        return reply
+          .status(400)
+          .send({ code: "bad_request", message: "A user message is required" });
+      }
 
-        const activeMode = data.activeMode;
-        const sourceScopePolicy = data.sourceScopePolicy;
-        const action = data.action;
-        const correlationContext = getOrCreateRequestCorrelationContext(request);
-        return await observeAgenticSpan(
+      const activeMode = data.activeMode;
+      const sourceScopePolicy = data.sourceScopePolicy;
+      const action = data.action;
+      const correlationContext = getOrCreateRequestCorrelationContext(request);
+      return await observeAgenticSpan(
         "tutor.turn",
         {
           input: {
@@ -89,7 +96,10 @@ export async function registerTutorRoutes(app: FastifyInstance, ctx: AppContext)
             action,
             selectedNodeRefCount: data.selectedNodeRefs.length,
           },
-          metadata: { route: "/notebooks/:notebookId/tutor/chat", traceId: correlationContext.traceId },
+          metadata: {
+            route: "/notebooks/:notebookId/tutor/chat",
+            traceId: correlationContext.traceId,
+          },
         },
         async (turnObservation) => {
           const prepared = await observeAgenticSpan(
@@ -138,7 +148,10 @@ export async function registerTutorRoutes(app: FastifyInstance, ctx: AppContext)
             });
           }
           const sessionId = prepared.sessionId;
-          const resolvedPrompt = await resolveStudyAgentTutorSystemPrompt(ctx.env, prepared.promptContext);
+          const resolvedPrompt = await resolveStudyAgentTutorSystemPrompt(
+            ctx.env,
+            prepared.promptContext,
+          );
           const run = { ...prepared.run, managedPrompt: resolvedPrompt.metadata };
 
           turnObservation.updateTrace?.({
@@ -204,108 +217,100 @@ export async function registerTutorRoutes(app: FastifyInstance, ctx: AppContext)
           }
         },
       );
-      } catch (error) {
-        return sendAuthOrEntitlementError(reply, error);
+    } catch (error) {
+      return sendAuthOrEntitlementError(reply, error);
+    }
+  });
+
+  app.post<{
+    Params: { notebookId: string };
+    Body: z.infer<typeof tutorSessionLifecycleSchema>;
+  }>("/notebooks/:notebookId/tutor/session/pause", async (request, reply) => {
+    const { notebookId } = request.params;
+    return withLearner(ctx, request, reply, async (actor) => {
+      const parsed = tutorSessionLifecycleSchema.safeParse(request.body ?? {});
+      if (!parsed.success) {
+        return reply.status(400).send({ code: "bad_request", message: parsed.error.flatten() });
       }
-    },
-  );
+
+      const result = await pauseTutorSessionLifecycleForRequest(ctx.db, {
+        notebookId,
+        userId: actor.id,
+        ...(parsed.data.sessionId ? { requestedSessionId: parsed.data.sessionId } : {}),
+      });
+      if (!result) {
+        return reply
+          .status(404)
+          .send({ code: "not_found", message: "Active tutor session not found" });
+      }
+
+      return reply.send(result);
+    });
+  });
 
   app.post<{
     Params: { notebookId: string };
     Body: z.infer<typeof tutorSessionLifecycleSchema>;
-  }>(
-    "/notebooks/:notebookId/tutor/session/pause",
-    async (request, reply) => {
-      const { notebookId } = request.params;
-      return withLearner(ctx, request, reply, async (actor) => {
-        const parsed = tutorSessionLifecycleSchema.safeParse(request.body ?? {});
-        if (!parsed.success) {
-          return reply.status(400).send({ code: "bad_request", message: parsed.error.flatten() });
-        }
+  }>("/notebooks/:notebookId/tutor/session/resume", async (request, reply) => {
+    const { notebookId } = request.params;
+    return withLearner(ctx, request, reply, async (actor) => {
+      const parsed = tutorSessionLifecycleSchema.safeParse(request.body ?? {});
+      if (!parsed.success) {
+        return reply.status(400).send({ code: "bad_request", message: parsed.error.flatten() });
+      }
 
-        const result = await pauseTutorSessionLifecycleForRequest(ctx.db, {
-          notebookId,
-          userId: actor.id,
-          ...(parsed.data.sessionId ? { requestedSessionId: parsed.data.sessionId } : {}),
-        });
-        if (!result) {
-          return reply.status(404).send({ code: "not_found", message: "Active tutor session not found" });
-        }
-
-        return reply.send(result);
+      const result = await resumeTutorSessionLifecycleForRequest(ctx.db, {
+        notebookId,
+        userId: actor.id,
+        ...(parsed.data.sessionId ? { requestedSessionId: parsed.data.sessionId } : {}),
+        model: ctx.env.DEFAULT_TUTOR_MODEL,
       });
-    },
-  );
+      if (!result) {
+        return reply.status(404).send({ code: "not_found", message: "Tutor session not found" });
+      }
+
+      return reply.send(result);
+    });
+  });
 
   app.post<{
     Params: { notebookId: string };
     Body: z.infer<typeof tutorSessionLifecycleSchema>;
-  }>(
-    "/notebooks/:notebookId/tutor/session/resume",
-    async (request, reply) => {
-      const { notebookId } = request.params;
-      return withLearner(ctx, request, reply, async (actor) => {
-        const parsed = tutorSessionLifecycleSchema.safeParse(request.body ?? {});
-        if (!parsed.success) {
-          return reply.status(400).send({ code: "bad_request", message: parsed.error.flatten() });
-        }
+  }>("/notebooks/:notebookId/tutor/session/end", async (request, reply) => {
+    const { notebookId } = request.params;
+    return withLearner(ctx, request, reply, async (actor) => {
+      const parsed = tutorSessionLifecycleSchema.safeParse(request.body ?? {});
+      if (!parsed.success) {
+        return reply.status(400).send({ code: "bad_request", message: parsed.error.flatten() });
+      }
 
-        const result = await resumeTutorSessionLifecycleForRequest(ctx.db, {
-          notebookId,
-          userId: actor.id,
-          ...(parsed.data.sessionId ? { requestedSessionId: parsed.data.sessionId } : {}),
-          model: ctx.env.DEFAULT_TUTOR_MODEL,
-        });
-        if (!result) {
-          return reply.status(404).send({ code: "not_found", message: "Tutor session not found" });
-        }
-
-        return reply.send(result);
+      const result = await completeTutorSessionLifecycleForRequest(ctx.db, {
+        notebookId,
+        userId: actor.id,
+        ...(parsed.data.sessionId ? { requestedSessionId: parsed.data.sessionId } : {}),
+        ...(parsed.data.phase ? { phase: parsed.data.phase } : {}),
+        ...(ctx.env.OPENROUTER_API_KEY
+          ? {
+              estimator: createOpenRouterLearnerTraitEstimatorClient({
+                apiKey: ctx.env.OPENROUTER_API_KEY,
+                baseUrl: ctx.env.OPENROUTER_BASE_URL,
+                model: ctx.env.DEFAULT_EXTRACTION_MODEL,
+                temperature: 0.1,
+              }),
+            }
+          : {}),
       });
-    },
-  );
-
-  app.post<{
-    Params: { notebookId: string };
-    Body: z.infer<typeof tutorSessionLifecycleSchema>;
-  }>(
-    "/notebooks/:notebookId/tutor/session/end",
-    async (request, reply) => {
-      const { notebookId } = request.params;
-      return withLearner(ctx, request, reply, async (actor) => {
-        const parsed = tutorSessionLifecycleSchema.safeParse(request.body ?? {});
-        if (!parsed.success) {
-          return reply.status(400).send({ code: "bad_request", message: parsed.error.flatten() });
-        }
-
-        const result = await completeTutorSessionLifecycleForRequest(ctx.db, {
-          notebookId,
-          userId: actor.id,
-          ...(parsed.data.sessionId ? { requestedSessionId: parsed.data.sessionId } : {}),
-          ...(parsed.data.phase ? { phase: parsed.data.phase } : {}),
-          ...(ctx.env.OPENROUTER_API_KEY
-            ? {
-                estimator: createOpenRouterLearnerTraitEstimatorClient({
-                  apiKey: ctx.env.OPENROUTER_API_KEY,
-                  baseUrl: ctx.env.OPENROUTER_BASE_URL,
-                  model: ctx.env.DEFAULT_EXTRACTION_MODEL,
-                  temperature: 0.1,
-                }),
-              }
-            : {}),
-        });
-        if (!result) {
-          return reply.status(404).send({ code: "not_found", message: "Tutor session not found" });
-        }
-        return reply.send({
-          sessionId: result.sessionId,
-          status: result.status,
-          reason: result.reason,
-          artifactId: result.artifactId,
-        });
+      if (!result) {
+        return reply.status(404).send({ code: "not_found", message: "Tutor session not found" });
+      }
+      return reply.send({
+        sessionId: result.sessionId,
+        status: result.status,
+        reason: result.reason,
+        artifactId: result.artifactId,
       });
-    },
-  );
+    });
+  });
 
   // Get recent tutor sessions
   app.get<{ Params: { notebookId: string } }>(

@@ -16,7 +16,10 @@ export function runTelemetryPayload(run: StudyAgentRuntimeRun): Record<string, u
   };
 }
 
-function eventTelemetryPayload(event: PiAgentSessionEvent, run: StudyAgentRuntimeRun): Record<string, unknown> {
+function eventTelemetryPayload(
+  event: PiAgentSessionEvent,
+  run: StudyAgentRuntimeRun,
+): Record<string, unknown> {
   const payload = runTelemetryPayload(run);
   if (event.data && "model" in event.data && typeof event.data.model === "string") {
     payload.model = event.data.model;
@@ -35,7 +38,11 @@ export type TutorAppendEventInput = {
   payload: Record<string, unknown>;
 };
 
-function appendEventBase(run: StudyAgentRuntimeRun): { notebookId: string; runId: string; sessionId?: string } {
+function appendEventBase(run: StudyAgentRuntimeRun): {
+  notebookId: string;
+  runId: string;
+  sessionId?: string;
+} {
   const base: { notebookId: string; runId: string; sessionId?: string } = {
     notebookId: run.notebookId,
     runId: run.runId,
@@ -71,7 +78,9 @@ export function mapPiSessionEventToAppendInput(
         eventType: "agent.thinking.completed",
         payload: {
           text: event.data.text,
-          ...(typeof event.data.durationMs === "number" ? { durationMs: event.data.durationMs } : {}),
+          ...(typeof event.data.durationMs === "number"
+            ? { durationMs: event.data.durationMs }
+            : {}),
           rawRuntimeEventType: event.type,
           ...t,
         },
@@ -85,7 +94,9 @@ export function mapPiSessionEventToAppendInput(
         payload: {
           text: event.data.text,
           messageIndex: event.data.messageIndex,
-          ...(typeof event.data.durationMs === "number" ? { durationMs: event.data.durationMs } : {}),
+          ...(typeof event.data.durationMs === "number"
+            ? { durationMs: event.data.durationMs }
+            : {}),
           rawRuntimeEventType: event.type,
           ...t,
         },
@@ -96,7 +107,12 @@ export function mapPiSessionEventToAppendInput(
       return {
         ...base,
         eventType: "tutor.message.completed",
-        payload: { text: event.data.text, stopReason: event.data.stopReason, rawRuntimeEventType: event.type, ...t },
+        payload: {
+          text: event.data.text,
+          stopReason: event.data.stopReason,
+          rawRuntimeEventType: event.type,
+          ...t,
+        },
       };
     case "tool_call_start":
       return {

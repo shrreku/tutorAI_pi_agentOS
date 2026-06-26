@@ -40,9 +40,7 @@ import {
   appendTurnStreamObservations,
   appendStepObservations,
 } from "./synthetic-learner-evals.observation.js";
-import {
-  finalizeSyntheticLearnerScenarioRun,
-} from "./synthetic-learner-evals.scenario-finalize.js";
+import { finalizeSyntheticLearnerScenarioRun } from "./synthetic-learner-evals.scenario-finalize.js";
 
 export type SyntheticLearnerEvalStreamEvent =
   | { source: "tutor"; eventType: string; payload: Record<string, unknown> }
@@ -104,7 +102,10 @@ export type SyntheticLearnerModelClient = {
 };
 
 export type SyntheticLearnerEvalTranscriptWriter = (line: string) => void | Promise<void>;
-export type SyntheticLearnerEvalObservationWriter = (event: SyntheticLearnerEvalObservationEvent, run: SyntheticLearnerEvalRunRecord) => void | Promise<void>;
+export type SyntheticLearnerEvalObservationWriter = (
+  event: SyntheticLearnerEvalObservationEvent,
+  run: SyntheticLearnerEvalRunRecord,
+) => void | Promise<void>;
 
 export type SyntheticLearnerEvalBrowserStepResult = {
   status: "passed" | "failed" | "skipped";
@@ -127,7 +128,10 @@ export type RunSyntheticLearnerEvalScenarioInput = {
   writeTranscript?: SyntheticLearnerEvalTranscriptWriter;
   writeObservation?: SyntheticLearnerEvalObservationWriter;
   persistenceEvidence?: SyntheticLearnerAssertionPersistenceEvidence;
-  captureSnapshot?: (input: { notebookId: string; snapshotId: string }) => Promise<EvalEvidenceSnapshot>;
+  captureSnapshot?: (input: {
+    notebookId: string;
+    snapshotId: string;
+  }) => Promise<EvalEvidenceSnapshot>;
   browserExecutor?: SyntheticLearnerEvalBrowserExecutor;
   rubricResults?: SyntheticLearnerRubricResult[];
   learnerMode?: SyntheticLearnerMode;
@@ -155,7 +159,10 @@ export type RunSyntheticLearnerEvalSuiteInput = {
   writeTranscript?: SyntheticLearnerEvalTranscriptWriter;
   writeObservation?: SyntheticLearnerEvalObservationWriter;
   persistenceEvidence?: SyntheticLearnerAssertionPersistenceEvidence;
-  captureSnapshot?: (input: { notebookId: string; snapshotId: string }) => Promise<EvalEvidenceSnapshot>;
+  captureSnapshot?: (input: {
+    notebookId: string;
+    snapshotId: string;
+  }) => Promise<EvalEvidenceSnapshot>;
   browserExecutor?: SyntheticLearnerEvalBrowserExecutor;
   rubricResults?: SyntheticLearnerRubricResult[];
   learnerMode?: SyntheticLearnerMode;
@@ -178,7 +185,10 @@ export type RunSyntheticLearnerEvalSuiteResult = {
   transcript: string[];
 };
 
-export type SyntheticLearnerTriggerAdapterInput = Omit<RunSyntheticLearnerEvalSuiteInput, "runId"> & {
+export type SyntheticLearnerTriggerAdapterInput = Omit<
+  RunSyntheticLearnerEvalSuiteInput,
+  "runId"
+> & {
   triggerRunId?: string;
 };
 
@@ -198,8 +208,9 @@ export async function runSyntheticLearnerEvalScenario(
   input: RunSyntheticLearnerEvalScenarioInput,
 ): Promise<RunSyntheticLearnerEvalScenarioResult> {
   const scenario =
-    (input.scenarioId ? input.matrix.scenarios.find((candidate) => candidate.id === input.scenarioId) : undefined) ??
-    input.matrix.scenarios[0];
+    (input.scenarioId
+      ? input.matrix.scenarios.find((candidate) => candidate.id === input.scenarioId)
+      : undefined) ?? input.matrix.scenarios[0];
   if (!scenario) {
     throw new Error("Synthetic learner eval matrix does not contain a scenario.");
   }
@@ -207,7 +218,8 @@ export async function runSyntheticLearnerEvalScenario(
   const persona =
     (input.personaId
       ? input.matrix.personas.find((candidate) => candidate.id === input.personaId)
-      : undefined) ?? input.matrix.personas.find((candidate) => scenario.personaIds.includes(candidate.id));
+      : undefined) ??
+    input.matrix.personas.find((candidate) => scenario.personaIds.includes(candidate.id));
   if (!persona) {
     throw new Error(`No persona found for scenario ${scenario.id}.`);
   }
@@ -219,7 +231,9 @@ export async function runSyntheticLearnerEvalScenario(
   };
 
   const startedAt = input.startedAt ?? input.matrix.fixture.generatedAt;
-  const runId = input.runId ?? `slrun_${input.matrix.fixture.id}_${persona.id}_${crypto.randomUUID().slice(0, 8)}`;
+  const runId =
+    input.runId ??
+    `slrun_${input.matrix.fixture.id}_${persona.id}_${crypto.randomUUID().slice(0, 8)}`;
   const plan = planSyntheticLearnerEvalRun({
     scenario,
     persona,
@@ -233,7 +247,9 @@ export async function runSyntheticLearnerEvalScenario(
   const observationEvents: SyntheticLearnerEvalObservationEvent[] = [];
   const seededState: { notebookId?: string; notebookRef?: NodeRef } = {};
   const writeObservation = async (
-    event: Omit<SyntheticLearnerEvalObservationEvent, "id" | "runId" | "timestamp"> & { timestamp?: string },
+    event: Omit<SyntheticLearnerEvalObservationEvent, "id" | "runId" | "timestamp"> & {
+      timestamp?: string;
+    },
   ): Promise<void> => {
     const observationEvent = {
       id: `obs_${runId}_${observationEvents.length + 1}`,
@@ -242,27 +258,32 @@ export async function runSyntheticLearnerEvalScenario(
       ...event,
     } satisfies SyntheticLearnerEvalObservationEvent;
     observationEvents.push(observationEvent);
-    await input.writeObservation?.(observationEvent, buildSyntheticLearnerEvalRunRecord({
-      matrix: input.matrix,
-      scenarioRuns: [buildRunningScenarioRun({
+    await input.writeObservation?.(
+      observationEvent,
+      buildSyntheticLearnerEvalRunRecord({
         matrix: input.matrix,
-        scenario,
-        persona,
+        scenarioRuns: [
+          buildRunningScenarioRun({
+            matrix: input.matrix,
+            scenario,
+            persona,
+            runId,
+            startedAt,
+            learnerMode,
+            gatingPolicy,
+            observationEvents,
+            evalPlan: plan,
+            ...(seededState.notebookId ? { seededNotebookId: seededState.notebookId } : {}),
+          }),
+        ],
         runId,
         startedAt,
-        learnerMode,
-        gatingPolicy,
+        status: "running",
         observationEvents,
-        evalPlan: plan,
-        ...(seededState.notebookId ? { seededNotebookId: seededState.notebookId } : {}),
-      })],
-      runId,
-      startedAt,
-      status: "running",
-      observationEvents,
-      transcript,
-      ...(seededState.notebookRef ? { notebookRefs: [seededState.notebookRef] } : {}),
-    }));
+        transcript,
+        ...(seededState.notebookRef ? { notebookRefs: [seededState.notebookRef] } : {}),
+      }),
+    );
   };
 
   await writeTranscript(`RUN STARTED: ${runId}`);
@@ -270,13 +291,24 @@ export async function runSyntheticLearnerEvalScenario(
     kind: "run",
     status: "running",
     message: `Eval Run ${runId} started.`,
-    payload: { scenarioId: scenario.id, personaId: persona.id, learnerMode, runKind: scenario.runKind, gatingPolicy },
+    payload: {
+      scenarioId: scenario.id,
+      personaId: persona.id,
+      learnerMode,
+      runKind: scenario.runKind,
+      gatingPolicy,
+    },
     evidenceRefs: [],
   });
   await writeTranscript(`SCENARIO: ${scenario.name}`);
   await writeTranscript(`PERSONA: ${persona.name}`);
   await writeTranscript(`LEARNER MODE: ${learnerMode}`);
-  await writeTranscript(`ASSERTIONS: ${formatSyntheticLearnerList(scenario.assertionRefs.map((ref) => ref.refId), ", ")}`);
+  await writeTranscript(
+    `ASSERTIONS: ${formatSyntheticLearnerList(
+      scenario.assertionRefs.map((ref) => ref.refId),
+      ", ",
+    )}`,
+  );
 
   const seeded = await input.api.seedNotebook({
     fixture: input.matrix.fixture,
@@ -289,12 +321,14 @@ export async function runSyntheticLearnerEvalScenario(
   await writeTranscript(`NOTEBOOK SEEDED: ${seeded.notebookId}`);
 
   const scenarioRunId = `${runId}_${scenario.id}`;
-  await writeObservation(observationForScenarioStart({
-    runId,
-    scenarioRunId,
-    scenarioId: scenario.id,
-    personaId: persona.id,
-  }));
+  await writeObservation(
+    observationForScenarioStart({
+      runId,
+      scenarioRunId,
+      scenarioId: scenario.id,
+      personaId: persona.id,
+    }),
+  );
 
   let beforeSnapshot: EvalEvidenceSnapshot | undefined;
   let afterEstimationSnapshot: EvalEvidenceSnapshot | undefined;
@@ -327,11 +361,11 @@ export async function runSyntheticLearnerEvalScenario(
   }
 
   const steps: SyntheticLearnerEvalScenarioRun["steps"] = [];
-  const seededNotebookRef: NodeRef = seeded.notebookRef ?? { refType: "notebook", refId: seeded.notebookId };
-  let scenarioTraceRefs: NodeRef[] = [
-    seededNotebookRef,
-    ...(seeded.traceRefs ?? []),
-  ];
+  const seededNotebookRef: NodeRef = seeded.notebookRef ?? {
+    refType: "notebook",
+    refId: seeded.notebookId,
+  };
+  let scenarioTraceRefs: NodeRef[] = [seededNotebookRef, ...(seeded.traceRefs ?? [])];
   const allNotebookEvents: SyntheticLearnerRuntimeEvent[] = [];
   const assertionResultsById = new Map<string, SyntheticLearnerAssertion>();
   const scenarioScreenshotRefs: NodeRef[] = [];
@@ -374,25 +408,40 @@ export async function runSyntheticLearnerEvalScenario(
 
       for (const event of [...turn.events, ...(turn.notebookEvents ?? [])]) {
         if (event.source === "tutor") {
-          if (event.eventType === "TEXT_MESSAGE_CONTENT" && (typeof event.payload.text === "string" || typeof event.payload.content === "string" || typeof event.payload.delta === "string")) {
-            const text = typeof event.payload.text === "string"
-              ? event.payload.text
-              : typeof event.payload.content === "string"
-                ? event.payload.content
-                : String(event.payload.delta);
+          if (
+            event.eventType === "TEXT_MESSAGE_CONTENT" &&
+            (typeof event.payload.text === "string" ||
+              typeof event.payload.content === "string" ||
+              typeof event.payload.delta === "string")
+          ) {
+            const text =
+              typeof event.payload.text === "string"
+                ? event.payload.text
+                : typeof event.payload.content === "string"
+                  ? event.payload.content
+                  : String(event.payload.delta);
             await writeTranscript(`TUTOR: ${text}`);
           } else if (event.eventType === "TEXT_MESSAGE_END" && turn.assistantMessage) {
             await writeTranscript(`TUTOR COMPLETE: ${turn.assistantMessage}`);
-          } else if (event.eventType === "TOOL_CALL_START" || event.eventType === "tool_call_start") {
-            const toolName = typeof event.payload.toolName === "string" ? event.payload.toolName : "unknown_tool";
+          } else if (
+            event.eventType === "TOOL_CALL_START" ||
+            event.eventType === "tool_call_start"
+          ) {
+            const toolName =
+              typeof event.payload.toolName === "string" ? event.payload.toolName : "unknown_tool";
             toolEvents.push({
               label: "started",
               toolName,
               nodeRefs: [],
             });
             await writeTranscript(`TOOL START: ${toolName}`);
-          } else if (event.eventType === "TOOL_CALL_COMPLETE" || event.eventType === "TOOL_CALL_END" || event.eventType === "tool_call_complete") {
-            const toolName = typeof event.payload.toolName === "string" ? event.payload.toolName : "unknown_tool";
+          } else if (
+            event.eventType === "TOOL_CALL_COMPLETE" ||
+            event.eventType === "TOOL_CALL_END" ||
+            event.eventType === "tool_call_complete"
+          ) {
+            const toolName =
+              typeof event.payload.toolName === "string" ? event.payload.toolName : "unknown_tool";
             toolEvents.push({
               label: "completed",
               toolName,
@@ -401,14 +450,19 @@ export async function runSyntheticLearnerEvalScenario(
             await writeTranscript(`TOOL COMPLETE: ${toolName}`);
           } else if (event.eventType === "RUN_ERROR") {
             finalStatus = "failed";
-            finalSummary = stringifyFailure(event.payload.error ?? event.payload.message ?? "Tutor stream failed");
+            finalSummary = stringifyFailure(
+              event.payload.error ?? event.payload.message ?? "Tutor stream failed",
+            );
             await writeTranscript(`ERROR: ${finalSummary}`);
           }
         } else if (event.source === "runtime") {
           const runtimeEvent = {
             eventType: event.eventType,
             payload: event.payload,
-            timestamp: typeof event.payload.timestamp === "string" ? event.payload.timestamp : new Date().toISOString(),
+            timestamp:
+              typeof event.payload.timestamp === "string"
+                ? event.payload.timestamp
+                : new Date().toISOString(),
           };
           runtimeEvents.push(runtimeEvent);
           await writeTranscript(`RUNTIME: ${event.eventType}`);
@@ -416,20 +470,28 @@ export async function runSyntheticLearnerEvalScenario(
           const notebookEvent = {
             eventType: event.eventType,
             payload: event.payload,
-            timestamp: typeof event.payload.timestamp === "string" ? event.payload.timestamp : new Date().toISOString(),
+            timestamp:
+              typeof event.payload.timestamp === "string"
+                ? event.payload.timestamp
+                : new Date().toISOString(),
           };
           stepNotebookEvents.push(notebookEvent);
           allNotebookEvents.push(notebookEvent);
           await writeTranscript(`NOTEBOOK EVENT: ${event.eventType}`);
           traceRefs.push({
             refType: "session",
-            refId: typeof event.payload.sessionId === "string" ? event.payload.sessionId : turn.sessionId,
+            refId:
+              typeof event.payload.sessionId === "string"
+                ? event.payload.sessionId
+                : turn.sessionId,
           });
         }
       }
 
       stepAssertions = evaluateSyntheticLearnerAssertions({
-        assertionRefs: beat.assertionRefs.filter((ref) => !ref.refId.startsWith("persistence_") && !ref.refId.startsWith("report_")),
+        assertionRefs: beat.assertionRefs.filter(
+          (ref) => !ref.refId.startsWith("persistence_") && !ref.refId.startsWith("report_"),
+        ),
         transcript: transcript.slice(stepTranscriptStart),
         tutorMessages: [turn.assistantMessage],
         toolEvents,
@@ -488,8 +550,15 @@ export async function runSyntheticLearnerEvalScenario(
         writeObservation: async (event) => writeObservation(event),
       });
 
-    scenarioTraceRefs = uniqueNodeRefs(traceRefs);
-      if (shouldStopScenarioAfterBeat(scenario.stopConditions, beat.stopConditions, runtimeEvents, toolEvents)) {
+      scenarioTraceRefs = uniqueNodeRefs(traceRefs);
+      if (
+        shouldStopScenarioAfterBeat(
+          scenario.stopConditions,
+          beat.stopConditions,
+          runtimeEvents,
+          toolEvents,
+        )
+      ) {
         break;
       }
       if (finalStatus === "failed") break;
@@ -550,7 +619,9 @@ export async function runSyntheticLearnerEvalScenario(
           screenshotRefs: browserStep.screenshotRef ? [browserStep.screenshotRef] : [],
           evidenceRefs: [],
         };
-    const screenshotRefs = executorResult.screenshotRefs ?? (browserStep.screenshotRef ? [browserStep.screenshotRef] : []);
+    const screenshotRefs =
+      executorResult.screenshotRefs ??
+      (browserStep.screenshotRef ? [browserStep.screenshotRef] : []);
     scenarioScreenshotRefs.push(...screenshotRefs);
     const browserAssertions = browserStep.assertionRefs.map((ref) => ({
       id: ref.refId,
@@ -578,7 +649,9 @@ export async function runSyntheticLearnerEvalScenario(
       finalStatus = "skipped";
       finalSummary = executorResult.message;
     }
-    await writeTranscript(`BROWSER ${executorResult.status.toUpperCase()}: ${executorResult.message}`);
+    await writeTranscript(
+      `BROWSER ${executorResult.status.toUpperCase()}: ${executorResult.message}`,
+    );
     steps.push({
       id: `${scenario.id}_browser_${browserIndex + 1}`,
       stepIndex: steps.length,
@@ -602,7 +675,9 @@ export async function runSyntheticLearnerEvalScenario(
   completedAt = completedAt ?? new Date().toISOString();
   const rubricResults = input.rubricResults ?? [];
   for (const rubricResult of rubricResults) {
-    await writeTranscript(`RUBRIC ${rubricResult.status.toUpperCase()}: ${rubricResult.rubricId} - ${rubricResult.summary}`);
+    await writeTranscript(
+      `RUBRIC ${rubricResult.status.toUpperCase()}: ${rubricResult.rubricId} - ${rubricResult.summary}`,
+    );
   }
 
   if (needsTraitBoundary && input.captureSnapshot) {
@@ -619,7 +694,10 @@ export async function runSyntheticLearnerEvalScenario(
       allNotebookEvents.push({
         eventType: event.eventType,
         payload: event.payload,
-        timestamp: typeof event.payload.timestamp === "string" ? event.payload.timestamp : new Date().toISOString(),
+        timestamp:
+          typeof event.payload.timestamp === "string"
+            ? event.payload.timestamp
+            : new Date().toISOString(),
       });
       await writeTranscript(`NOTEBOOK EVENT: ${event.eventType}`);
     }
@@ -627,12 +705,18 @@ export async function runSyntheticLearnerEvalScenario(
 
   if (needsTraitBoundary && input.api.endTutorSession) {
     await writeTranscript("SESSION END: trait estimation boundary");
-    const estimated = await input.api.endTutorSession({ notebookId: seeded.notebookId, phase: "estimation" });
+    const estimated = await input.api.endTutorSession({
+      notebookId: seeded.notebookId,
+      phase: "estimation",
+    });
     for (const event of estimated.events) {
       allNotebookEvents.push({
         eventType: event.eventType,
         payload: event.payload,
-        timestamp: typeof event.payload.timestamp === "string" ? event.payload.timestamp : new Date().toISOString(),
+        timestamp:
+          typeof event.payload.timestamp === "string"
+            ? event.payload.timestamp
+            : new Date().toISOString(),
       });
       await writeTranscript(`NOTEBOOK EVENT: ${event.eventType}`);
     }
@@ -643,12 +727,18 @@ export async function runSyntheticLearnerEvalScenario(
       });
     }
     await writeTranscript("SESSION END: crystallization boundary");
-    const ended = await input.api.endTutorSession({ notebookId: seeded.notebookId, phase: "crystallization" });
+    const ended = await input.api.endTutorSession({
+      notebookId: seeded.notebookId,
+      phase: "crystallization",
+    });
     for (const event of ended.events) {
       allNotebookEvents.push({
         eventType: event.eventType,
         payload: event.payload,
-        timestamp: typeof event.payload.timestamp === "string" ? event.payload.timestamp : new Date().toISOString(),
+        timestamp:
+          typeof event.payload.timestamp === "string"
+            ? event.payload.timestamp
+            : new Date().toISOString(),
       });
       await writeTranscript(`NOTEBOOK EVENT: ${event.eventType}`);
     }
@@ -673,7 +763,9 @@ export async function runSyntheticLearnerEvalScenario(
     assertionResultsById,
     finalAssertionInput: {
       transcript,
-      tutorMessages: steps.map((step) => step.tutorMessage).filter((message): message is string => Boolean(message)),
+      tutorMessages: steps
+        .map((step) => step.tutorMessage)
+        .filter((message): message is string => Boolean(message)),
       toolEvents: allToolEvents,
       runtimeEvents: allRuntimeEvents,
       notebookEvents: allNotebookEvents,
@@ -695,7 +787,9 @@ export async function runSyntheticLearnerEvalScenario(
     writeObservation,
   });
 
-  await writeTranscript(`FINAL: ${finalized.scenarioRun.status} - ${finalized.scenarioRun.finalState.summary}`);
+  await writeTranscript(
+    `FINAL: ${finalized.scenarioRun.status} - ${finalized.scenarioRun.finalState.summary}`,
+  );
 
   return {
     matrix: input.matrix,
@@ -716,7 +810,9 @@ function shouldStopScenarioAfterBeat(
   if (
     stopConditions.has("artifact_delivered") &&
     (runtimeEvents.some((event) => event.eventType.startsWith("artifact.")) ||
-      toolEvents.some((event) => event.toolName.startsWith("artifact.") && event.label === "completed"))
+      toolEvents.some(
+        (event) => event.toolName.startsWith("artifact.") && event.label === "completed",
+      ))
   ) {
     return true;
   }
@@ -724,10 +820,11 @@ function shouldStopScenarioAfterBeat(
 }
 
 function scenarioRequiresTraitSessionBoundary(scenario: SyntheticLearnerScenario): boolean {
-  return scenario.assertionRefs.some((ref) =>
-    ref.refId === "persistence_trait_estimates" ||
-    ref.refId === "persistence_trait_recommendation_only" ||
-    ref.refId === "persistence_trait_no_mastery_mutation",
+  return scenario.assertionRefs.some(
+    (ref) =>
+      ref.refId === "persistence_trait_estimates" ||
+      ref.refId === "persistence_trait_recommendation_only" ||
+      ref.refId === "persistence_trait_no_mastery_mutation",
   );
 }
 
@@ -759,7 +856,12 @@ function buildRunningScenarioRun(input: {
     artifactRefs: uniqueNodeRefs((input.steps ?? []).flatMap((step) => step.artifactRefs ?? [])),
     screenshotRefs: [],
     traceRefs: uniqueNodeRefs((input.steps ?? []).flatMap((step) => step.traceRefs ?? [])),
-    notebookRefs: [{ refType: "notebook", refId: input.seededNotebookId ?? input.matrix.fixture.seededNotebookId }],
+    notebookRefs: [
+      {
+        refType: "notebook",
+        refId: input.seededNotebookId ?? input.matrix.fixture.seededNotebookId,
+      },
+    ],
     runKind: input.scenario.runKind,
     learnerMode: input.learnerMode,
     gatingPolicy: input.gatingPolicy,
@@ -775,7 +877,9 @@ function buildRunningScenarioRun(input: {
   });
 }
 
-function syntheticLearnerEvalScenarioRunFromDraft(run: SyntheticLearnerEvalScenarioRun): SyntheticLearnerEvalScenarioRun {
+function syntheticLearnerEvalScenarioRunFromDraft(
+  run: SyntheticLearnerEvalScenarioRun,
+): SyntheticLearnerEvalScenarioRun {
   return run;
 }
 
@@ -797,9 +901,15 @@ async function resolveBeatLearnerMessage(input: {
     return beat.scriptedMessage;
   }
   if (input.learnerMode !== "beat_llm") {
-    throw new Error(`${input.learnerMode} is not implemented for beat-driven scenario execution yet.`);
+    throw new Error(
+      `${input.learnerMode} is not implemented for beat-driven scenario execution yet.`,
+    );
   }
-  if (beat.assertionRefs.some((ref) => ref.refType === "assertion" && ref.refId === "runtime_mastery_evidence")) {
+  if (
+    beat.assertionRefs.some(
+      (ref) => ref.refType === "assertion" && ref.refId === "runtime_mastery_evidence",
+    )
+  ) {
     return beat.scriptedMessage;
   }
   if (!input.model) {
@@ -830,10 +940,56 @@ function normalizeBeatLearnerMessage(rawMessage: string, fallbackMessage: string
 
 function sharesFallbackKeywords(candidate: string, fallback: string): boolean {
   const stopWords = new Set([
-    "the", "and", "for", "with", "that", "this", "from", "your", "about", "into", "have", "has", "had", "are", "was", "were",
-    "will", "would", "could", "should", "just", "very", "much", "more", "less", "some", "any", "you", "me", "they", "them",
-    "their", "ours", "mine", "what", "when", "where", "why", "how", "then", "than", "also", "still", "only", "check", "teach",
-    "topic", "missing", "idea", "rule",
+    "the",
+    "and",
+    "for",
+    "with",
+    "that",
+    "this",
+    "from",
+    "your",
+    "about",
+    "into",
+    "have",
+    "has",
+    "had",
+    "are",
+    "was",
+    "were",
+    "will",
+    "would",
+    "could",
+    "should",
+    "just",
+    "very",
+    "much",
+    "more",
+    "less",
+    "some",
+    "any",
+    "you",
+    "me",
+    "they",
+    "them",
+    "their",
+    "ours",
+    "mine",
+    "what",
+    "when",
+    "where",
+    "why",
+    "how",
+    "then",
+    "than",
+    "also",
+    "still",
+    "only",
+    "check",
+    "teach",
+    "topic",
+    "missing",
+    "idea",
+    "rule",
   ]);
   const tokenize = (value: string): string[] =>
     value
@@ -848,23 +1004,27 @@ function sharesFallbackKeywords(candidate: string, fallback: string): boolean {
   return candidateKeywords.some((token) => fallbackKeywords.has(token));
 }
 
-async function runAutonomousLearnerScenario(input: RunSyntheticLearnerEvalScenarioInput & {
-  scenario: SyntheticLearnerScenario;
-  persona: SyntheticLearnerPersona;
-  seeded: SyntheticLearnerEvalSeedResult;
-  transcript: string[];
-  writeTranscript: (line: string) => Promise<void>;
-  writeObservation: (
-    event: Omit<SyntheticLearnerEvalObservationEvent, "id" | "runId" | "timestamp"> & { timestamp?: string },
-  ) => Promise<void>;
-  observationEvents: SyntheticLearnerEvalObservationEvent[];
-  startedAt: string;
-  runId: string;
-  learnerMode: "scenario_autonomous_llm" | "full_autonomous_llm";
-  gatingPolicy: SyntheticLearnerGatingPolicy;
-  plan: ReturnType<typeof planSyntheticLearnerEvalRun>;
-  beforeSnapshot?: EvalEvidenceSnapshot;
-}): Promise<RunSyntheticLearnerEvalScenarioResult> {
+async function runAutonomousLearnerScenario(
+  input: RunSyntheticLearnerEvalScenarioInput & {
+    scenario: SyntheticLearnerScenario;
+    persona: SyntheticLearnerPersona;
+    seeded: SyntheticLearnerEvalSeedResult;
+    transcript: string[];
+    writeTranscript: (line: string) => Promise<void>;
+    writeObservation: (
+      event: Omit<SyntheticLearnerEvalObservationEvent, "id" | "runId" | "timestamp"> & {
+        timestamp?: string;
+      },
+    ) => Promise<void>;
+    observationEvents: SyntheticLearnerEvalObservationEvent[];
+    startedAt: string;
+    runId: string;
+    learnerMode: "scenario_autonomous_llm" | "full_autonomous_llm";
+    gatingPolicy: SyntheticLearnerGatingPolicy;
+    plan: ReturnType<typeof planSyntheticLearnerEvalRun>;
+    beforeSnapshot?: EvalEvidenceSnapshot;
+  },
+): Promise<RunSyntheticLearnerEvalScenarioResult> {
   if (!input.syntheticLearnerModel) {
     throw new Error("LLM learner mode requires a Synthetic Learner model client.");
   }
@@ -887,10 +1047,16 @@ async function runAutonomousLearnerScenario(input: RunSyntheticLearnerEvalScenar
     evidenceRefs: [],
   });
 
-  const seededNotebookRef: NodeRef = input.seeded.notebookRef ?? { refType: "notebook", refId: input.seeded.notebookId };
+  const seededNotebookRef: NodeRef = input.seeded.notebookRef ?? {
+    refType: "notebook",
+    refId: input.seeded.notebookId,
+  };
   const steps: SyntheticLearnerEvalScenarioRun["steps"] = [];
   const assertionResultsById = new Map<string, SyntheticLearnerAssertion>();
-  const scenarioTraceRefs: NodeRef[] = uniqueNodeRefs([seededNotebookRef, ...(input.seeded.traceRefs ?? [])]);
+  const scenarioTraceRefs: NodeRef[] = uniqueNodeRefs([
+    seededNotebookRef,
+    ...(input.seeded.traceRefs ?? []),
+  ]);
   const simulatorEvidence: NonNullable<SyntheticLearnerEvalScenarioRun["simulatorEvidence"]> = [];
   const tutorMessages: string[] = [];
   const toolEvents: SyntheticLearnerToolEvent[] = [];
@@ -900,9 +1066,10 @@ async function runAutonomousLearnerScenario(input: RunSyntheticLearnerEvalScenar
   let finalStatus: SyntheticLearnerEvalScenarioRun["status"] = "passed";
   let finalSummary = "Autonomous learner finished cleanly.";
   let actionRepairAttempts = 0;
-  const maxTurns = input.learnerMode === "full_autonomous_llm"
-    ? input.scenario.autonomousConfig?.maxTurns ?? input.scenario.maxTurns
-    : input.scenario.maxTurns;
+  const maxTurns =
+    input.learnerMode === "full_autonomous_llm"
+      ? (input.scenario.autonomousConfig?.maxTurns ?? input.scenario.maxTurns)
+      : input.scenario.maxTurns;
 
   for (let turnIndex = 0; turnIndex < maxTurns; turnIndex += 1) {
     const stepStartedAt = new Date().toISOString();
@@ -926,7 +1093,10 @@ async function runAutonomousLearnerScenario(input: RunSyntheticLearnerEvalScenar
     actionRepairAttempts += decisionResult.repairAttempts;
     simulatorEvidence.push(...decisionResult.evidence);
     for (const evidence of decisionResult.evidence) {
-      if (evidence.eventType === "action_repaired" || evidence.eventType === "model_output_invalid") {
+      if (
+        evidence.eventType === "action_repaired" ||
+        evidence.eventType === "model_output_invalid"
+      ) {
         const warningEvent = observationForWarning({
           runId: input.runId,
           scenarioRunId,
@@ -951,7 +1121,9 @@ async function runAutonomousLearnerScenario(input: RunSyntheticLearnerEvalScenar
       decision,
     });
     observations.push(observation);
-    await input.writeTranscript(`SIMULATOR OBSERVATION: ${observation.status} - ${observation.summary}`);
+    await input.writeTranscript(
+      `SIMULATOR OBSERVATION: ${observation.status} - ${observation.summary}`,
+    );
 
     if (decision.action === "session.finish" || observation.status === "finished") {
       finalSummary = decision.finishReason ?? observation.summary;
@@ -959,7 +1131,7 @@ async function runAutonomousLearnerScenario(input: RunSyntheticLearnerEvalScenar
         id: `${input.scenario.id}_autonomous_${turnIndex + 1}`,
         stepIndex: turnIndex,
         kind: "summary" as const,
-        status: observation.status === "failed" ? "failed" as const : "passed" as const,
+        status: observation.status === "failed" ? ("failed" as const) : ("passed" as const),
         startedAt: stepStartedAt,
         completedAt: input.completedAt ?? new Date().toISOString(),
         toolEvents: [],
@@ -1015,10 +1187,16 @@ async function runAutonomousLearnerScenario(input: RunSyntheticLearnerEvalScenar
     const stepRuntimeEvents: SyntheticLearnerRuntimeEvent[] = [];
     const stepNotebookEvents: SyntheticLearnerRuntimeEvent[] = [];
     for (const event of turn.events) {
-      if (event.source === "tutor" && (event.eventType === "TOOL_CALL_COMPLETE" || event.eventType === "TOOL_CALL_END" || event.eventType === "tool_call_complete")) {
+      if (
+        event.source === "tutor" &&
+        (event.eventType === "TOOL_CALL_COMPLETE" ||
+          event.eventType === "TOOL_CALL_END" ||
+          event.eventType === "tool_call_complete")
+      ) {
         const toolEvent = {
           label: "completed" as const,
-          toolName: typeof event.payload.toolName === "string" ? event.payload.toolName : "unknown_tool",
+          toolName:
+            typeof event.payload.toolName === "string" ? event.payload.toolName : "unknown_tool",
           nodeRefs: [],
         };
         stepToolEvents.push(toolEvent);
@@ -1028,7 +1206,10 @@ async function runAutonomousLearnerScenario(input: RunSyntheticLearnerEvalScenar
         const runtimeEvent = {
           eventType: event.eventType,
           payload: event.payload,
-          timestamp: typeof event.payload.timestamp === "string" ? event.payload.timestamp : new Date().toISOString(),
+          timestamp:
+            typeof event.payload.timestamp === "string"
+              ? event.payload.timestamp
+              : new Date().toISOString(),
         };
         stepRuntimeEvents.push(runtimeEvent);
         runtimeEvents.push(runtimeEvent);
@@ -1037,7 +1218,10 @@ async function runAutonomousLearnerScenario(input: RunSyntheticLearnerEvalScenar
         const notebookEvent = {
           eventType: event.eventType,
           payload: event.payload,
-          timestamp: typeof event.payload.timestamp === "string" ? event.payload.timestamp : new Date().toISOString(),
+          timestamp:
+            typeof event.payload.timestamp === "string"
+              ? event.payload.timestamp
+              : new Date().toISOString(),
         };
         stepNotebookEvents.push(notebookEvent);
         notebookEvents.push(notebookEvent);
@@ -1058,7 +1242,11 @@ async function runAutonomousLearnerScenario(input: RunSyntheticLearnerEvalScenar
       assertions: [],
       artifactRefs: observation.evidenceRefs.filter((ref) => ref.refType === "artifact"),
       screenshotRefs: [],
-      traceRefs: uniqueNodeRefs([...scenarioTraceRefs, ...(turn.traceRefs ?? []), ...observation.evidenceRefs]),
+      traceRefs: uniqueNodeRefs([
+        ...scenarioTraceRefs,
+        ...(turn.traceRefs ?? []),
+        ...observation.evidenceRefs,
+      ]),
       details: { action: decision, observation },
     };
     steps.push(step);
@@ -1125,7 +1313,9 @@ async function runAutonomousLearnerScenario(input: RunSyntheticLearnerEvalScenar
     writeObservation: input.writeObservation,
   });
 
-  await input.writeTranscript(`FINAL: ${finalized.scenarioRun.status} - ${finalized.scenarioRun.finalState.summary}`);
+  await input.writeTranscript(
+    `FINAL: ${finalized.scenarioRun.status} - ${finalized.scenarioRun.finalState.summary}`,
+  );
 
   return {
     matrix: input.matrix,
@@ -1139,10 +1329,13 @@ async function runAutonomousLearnerScenario(input: RunSyntheticLearnerEvalScenar
 function parseLearnerResponse(response: unknown): SyntheticLearnerLearnerResponse {
   const schema = {
     parse(value: unknown): SyntheticLearnerLearnerResponse {
-      if (!value || typeof value !== "object") throw new Error("Synthetic Learner response must be an object.");
+      if (!value || typeof value !== "object")
+        throw new Error("Synthetic Learner response must be an object.");
       const candidate = value as SyntheticLearnerLearnerResponse;
       if (!candidate.finish && !candidate.learnerFacingText) {
-        throw new Error("Synthetic Learner response must include learner-facing text unless finish is true.");
+        throw new Error(
+          "Synthetic Learner response must include learner-facing text unless finish is true.",
+        );
       }
       return {
         finish: candidate.finish ?? false,
@@ -1177,7 +1370,9 @@ async function generateActionDecisionWithRepair(input: {
     if (parsed.success) {
       return { decision: parsed.data, repairAttempts: attempt, evidence };
     }
-    repairFeedback = parsed.error.issues.map((issue) => `${issue.path.join(".") || "root"}: ${issue.message}`).join("; ");
+    repairFeedback = parsed.error.issues
+      .map((issue) => `${issue.path.join(".") || "root"}: ${issue.message}`)
+      .join("; ");
     evidence.push({
       eventType: attempt < input.maxRepairAttempts ? "action_repaired" : "model_output_invalid",
       learnerMode: input.learnerMode,
@@ -1202,9 +1397,10 @@ function renderAutonomousActionPrompt(input: {
   transcript: string[];
   observations: SyntheticLearnerActionObservation[];
 }): string {
-  const startContext = input.autonomyStartProfile === "oriented_entry"
-    ? `Learner-visible source summary: topics=${formatSyntheticLearnerList(input.fixture.expectedTopics, ", ")}; concepts=${formatSyntheticLearnerList(input.fixture.expectedConcepts, ", ")}`
-    : "Start with persona state and notebook goal only.";
+  const startContext =
+    input.autonomyStartProfile === "oriented_entry"
+      ? `Learner-visible source summary: topics=${formatSyntheticLearnerList(input.fixture.expectedTopics, ", ")}; concepts=${formatSyntheticLearnerList(input.fixture.expectedConcepts, ", ")}`
+      : "Start with persona state and notebook goal only.";
   return [
     "Choose the next Synthetic Learner action.",
     `Learner mode: ${input.learnerMode}`,
@@ -1218,7 +1414,11 @@ function renderAutonomousActionPrompt(input: {
     `Scenario allowed actions: ${formatSyntheticLearnerList(input.scenario.allowedActions, ", ")}`,
     `Stop conditions: ${formatSyntheticLearnerList(input.scenario.stopConditions, ", ")}`,
     "Recent observations:",
-    ...input.observations.slice(-5).map((observation) => `${observation.action}: ${observation.status} - ${observation.summary}`),
+    ...input.observations
+      .slice(-5)
+      .map(
+        (observation) => `${observation.action}: ${observation.status} - ${observation.summary}`,
+      ),
     "Recent transcript:",
     ...input.transcript.slice(-8).filter((line) => !line.startsWith("ASSERTIONS:")),
     "Return structured JSON for one action. Do not include hidden eval refs, expected outcomes, database IDs, or traces.",
@@ -1244,15 +1444,17 @@ function renderAutonomousResponsePrompt(input: {
   ].join("\n");
 }
 
-function buildIssueCandidate(input: RunSyntheticLearnerEvalScenarioInput & {
-  scenario: SyntheticLearnerScenario;
-  persona: SyntheticLearnerPersona;
-  seeded: SyntheticLearnerEvalSeedResult;
-  learnerMode: SyntheticLearnerMode;
-  finalSummary: string;
-  evidenceRefs: NodeRef[];
-  transcript: string[];
-}) {
+function buildIssueCandidate(
+  input: RunSyntheticLearnerEvalScenarioInput & {
+    scenario: SyntheticLearnerScenario;
+    persona: SyntheticLearnerPersona;
+    seeded: SyntheticLearnerEvalSeedResult;
+    learnerMode: SyntheticLearnerMode;
+    finalSummary: string;
+    evidenceRefs: NodeRef[];
+    transcript: string[];
+  },
+) {
   return {
     kind: "failure" as const,
     reason: "run_failed" as const,
@@ -1267,7 +1469,9 @@ function buildIssueCandidate(input: RunSyntheticLearnerEvalScenarioInput & {
     fixtureVersion: input.matrix.fixture.version,
     seededNotebookId: input.seeded.notebookId,
     failureSummary: input.finalSummary,
-    transcriptExcerpt: input.transcript.slice(-8).length ? input.transcript.slice(-8) : [input.finalSummary],
+    transcriptExcerpt: input.transcript.slice(-8).length
+      ? input.transcript.slice(-8)
+      : [input.finalSummary],
     evidenceRefs: input.evidenceRefs,
     traceRefs: input.evidenceRefs.filter((ref) => ref.refType === "session"),
     artifactRefs: input.evidenceRefs.filter((ref) => ref.refType === "artifact"),
@@ -1331,11 +1535,15 @@ export async function runSyntheticLearnerEvalSuite(
   };
 
   const selectedRuns = input.matrix.runs.filter((plannedRun) => {
-    const personaAllowed = !input.personaIds?.length || input.personaIds.includes(plannedRun.personaId);
-    const scenarioAllowed = !input.scenarioIds?.length || input.scenarioIds.includes(plannedRun.scenarioId);
+    const personaAllowed =
+      !input.personaIds?.length || input.personaIds.includes(plannedRun.personaId);
+    const scenarioAllowed =
+      !input.scenarioIds?.length || input.scenarioIds.includes(plannedRun.scenarioId);
     if (!personaAllowed || !scenarioAllowed) return false;
     if (!input.personaIds?.length) {
-      const scenario = input.matrix.scenarios.find((candidate) => candidate.id === plannedRun.scenarioId);
+      const scenario = input.matrix.scenarios.find(
+        (candidate) => candidate.id === plannedRun.scenarioId,
+      );
       if (scenario?.personaIds.length && !scenario.personaIds.includes(plannedRun.personaId)) {
         return false;
       }
@@ -1355,7 +1563,9 @@ export async function runSyntheticLearnerEvalSuite(
   await writeTranscript(`SCENARIO COUNT: ${selectedRuns.length}`);
 
   for (const plannedRun of selectedRuns) {
-    await writeTranscript(`SUITE SCENARIO START: ${plannedRun.personaId} / ${plannedRun.scenarioId}`);
+    await writeTranscript(
+      `SUITE SCENARIO START: ${plannedRun.personaId} / ${plannedRun.scenarioId}`,
+    );
     const scenarioStartedAt = new Date().toISOString();
     const scenarioResult = await runSyntheticLearnerEvalScenario({
       matrix: input.matrix,
@@ -1372,14 +1582,18 @@ export async function runSyntheticLearnerEvalSuite(
       ...(input.rubricResults ? { rubricResults: input.rubricResults } : {}),
       ...(input.learnerMode ? { learnerMode: input.learnerMode } : {}),
       ...(input.simulatorModelConfig ? { simulatorModelConfig: input.simulatorModelConfig } : {}),
-      ...(input.syntheticLearnerModel ? { syntheticLearnerModel: input.syntheticLearnerModel } : {}),
+      ...(input.syntheticLearnerModel
+        ? { syntheticLearnerModel: input.syntheticLearnerModel }
+        : {}),
       ...(input.simulatorActions ? { simulatorActions: input.simulatorActions } : {}),
       ...(input.autonomyStartProfile ? { autonomyStartProfile: input.autonomyStartProfile } : {}),
       ...(input.gatingPolicy ? { gatingPolicy: input.gatingPolicy } : {}),
     });
     scenarioRuns.push(scenarioResult.scenarioRun);
     notebookRefs.push(...scenarioResult.scenarioRun.notebookRefs);
-    await writeTranscript(`SUITE SCENARIO END: ${plannedRun.personaId} / ${plannedRun.scenarioId} => ${scenarioResult.scenarioRun.status}`);
+    await writeTranscript(
+      `SUITE SCENARIO END: ${plannedRun.personaId} / ${plannedRun.scenarioId} => ${scenarioResult.scenarioRun.status}`,
+    );
   }
 
   const completedAt = input.completedAt ?? new Date().toISOString();
@@ -1480,4 +1694,3 @@ function summarizeSuiteStatus(scenarioRuns: SyntheticLearnerEvalScenarioRun[]): 
   }
   return `All ${scenarioRuns.length} scenario runs passed.`;
 }
-

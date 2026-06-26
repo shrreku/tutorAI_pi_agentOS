@@ -16,14 +16,14 @@ Start at `index.html` (the hub). Press **⌘K / Ctrl-K** anywhere for the comman
 
 Switch live from the floating nav (bottom), the hub's theme strip, or Settings → Appearance. Or deep-link with `?theme=<name>`.
 
-| Theme | Vibe |
-|-------|------|
-| **Mist Glass** | Indigo glassmorphism, light (default) |
-| **Folio** | Editorial ivory, serif, warm green — masthead dashboard |
-| **Focus** | Minimalist slate, blue, airy centered layout |
-| **Sunrise** | Warm coral/amber, rounded, friendly bento |
-| **Nocturne** | Dark mode, violet + cyan glow, glassy |
-| **Carbon** | Terminal/command-center, monospace, dense, green-on-black |
+| Theme          | Vibe                                                      |
+| -------------- | --------------------------------------------------------- |
+| **Mist Glass** | Indigo glassmorphism, light (default)                     |
+| **Folio**      | Editorial ivory, serif, warm green — masthead dashboard   |
+| **Focus**      | Minimalist slate, blue, airy centered layout              |
+| **Sunrise**    | Warm coral/amber, rounded, friendly bento                 |
+| **Nocturne**   | Dark mode, violet + cyan glow, glassy                     |
+| **Carbon**     | Terminal/command-center, monospace, dense, green-on-black |
 
 ## Architecture
 

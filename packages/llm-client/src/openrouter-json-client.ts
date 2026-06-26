@@ -42,7 +42,9 @@ export async function fetchOpenRouterJsonCompletion(
       error?: { message?: string };
     };
     if (!response.ok) {
-      throw new Error(`${config.label} failed (${response.status}): ${body.error?.message ?? "unknown_error"}`);
+      throw new Error(
+        `${config.label} failed (${response.status}): ${body.error?.message ?? "unknown_error"}`,
+      );
     }
 
     const text = body.choices?.[0]?.message?.content;

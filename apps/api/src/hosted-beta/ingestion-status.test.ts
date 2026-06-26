@@ -39,12 +39,16 @@ describe("ingestion status", () => {
   });
 
   it("allows one learner retry before review", () => {
-    expect(resolveIngestionStatus({ status: "failed", metadataJson: { learnerRetryCount: 0 } })).toMatchObject({
+    expect(
+      resolveIngestionStatus({ status: "failed", metadataJson: { learnerRetryCount: 0 } }),
+    ).toMatchObject({
       failed: true,
       retryNeeded: true,
       reviewNeeded: false,
     });
-    expect(resolveIngestionStatus({ status: "failed", metadataJson: { learnerRetryCount: 1 } })).toMatchObject({
+    expect(
+      resolveIngestionStatus({ status: "failed", metadataJson: { learnerRetryCount: 1 } }),
+    ).toMatchObject({
       failed: true,
       retryNeeded: false,
       reviewNeeded: true,

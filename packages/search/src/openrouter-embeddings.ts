@@ -97,7 +97,9 @@ export async function embedTextsOpenRouter(
       const rows = json.data ?? [];
       const sorted = [...rows].sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
       if (sorted.length !== batch.length) {
-        throw new Error(`OpenRouter embeddings: expected ${batch.length} vectors, got ${sorted.length}`);
+        throw new Error(
+          `OpenRouter embeddings: expected ${batch.length} vectors, got ${sorted.length}`,
+        );
       }
       for (const row of sorted) {
         const emb = row.embedding;

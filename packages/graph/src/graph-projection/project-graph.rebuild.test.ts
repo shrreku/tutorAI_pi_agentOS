@@ -82,35 +82,47 @@ describe("projectGraphFromCanonical rebuild orchestration", () => {
   });
 
   it("clears source projection scope before replaying a rebuild", async () => {
-    const result = await projectGraphFromCanonical({ db: {} } as never, {
-      neo4jUri: "bolt://localhost:7687",
-      neo4jUsername: "neo4j",
-      neo4jPassword: "test",
-    }, {
-      notebookId: "nb_rebuild",
-      scope: "source",
-      sourceId: "src_1",
-      rebuild: true,
-      sourceVersionId: "sv_42",
-    });
+    const result = await projectGraphFromCanonical(
+      { db: {} } as never,
+      {
+        neo4jUri: "bolt://localhost:7687",
+        neo4jUsername: "neo4j",
+        neo4jPassword: "test",
+      },
+      {
+        notebookId: "nb_rebuild",
+        scope: "source",
+        sourceId: "src_1",
+        rebuild: true,
+        sourceVersionId: "sv_42",
+      },
+    );
 
     expect(result.ok).toBe(true);
     expect(clearSourceProjectionScopeMock).toHaveBeenCalledBefore(applyProjectionPlanMock);
-    expect(clearSourceProjectionScopeMock).toHaveBeenCalledWith(expect.anything(), "nb_rebuild", "src_1");
+    expect(clearSourceProjectionScopeMock).toHaveBeenCalledWith(
+      expect.anything(),
+      "nb_rebuild",
+      "src_1",
+    );
   });
 
   it("records source projection health with sourceVersionId after successful rebuild", async () => {
-    await projectGraphFromCanonical({ db: {} } as never, {
-      neo4jUri: "bolt://localhost:7687",
-      neo4jUsername: "neo4j",
-      neo4jPassword: "test",
-    }, {
-      notebookId: "nb_rebuild",
-      scope: "source",
-      sourceId: "src_1",
-      rebuild: true,
-      sourceVersionId: "sv_42",
-    });
+    await projectGraphFromCanonical(
+      { db: {} } as never,
+      {
+        neo4jUri: "bolt://localhost:7687",
+        neo4jUsername: "neo4j",
+        neo4jPassword: "test",
+      },
+      {
+        notebookId: "nb_rebuild",
+        scope: "source",
+        sourceId: "src_1",
+        rebuild: true,
+        sourceVersionId: "sv_42",
+      },
+    );
 
     expect(upsertSourceProjectionHealthMock).toHaveBeenCalledWith(
       expect.anything(),

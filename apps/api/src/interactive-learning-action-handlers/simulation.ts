@@ -2,15 +2,22 @@ import { appendEventWithTutorCacheInvalidation as appendEvent } from "../agentic
 import { persistSimulationObservation } from "../interactive-learning-state.js";
 import type { ActionContext, ActionHandlerOutcome } from "./types.js";
 
-export async function handleSimulationSubmitted(actionCtx: ActionContext): Promise<ActionHandlerOutcome> {
+export async function handleSimulationSubmitted(
+  actionCtx: ActionContext,
+): Promise<ActionHandlerOutcome> {
   const { ctx, notebookId, envelope, payload, nodeId, artifactId } = actionCtx;
-  const simulationPayload = payload as { observation: string; parameterSnapshot?: Record<string, unknown> };
+  const simulationPayload = payload as {
+    observation: string;
+    parameterSnapshot?: Record<string, unknown>;
+  };
 
   await persistSimulationObservation(ctx, {
     notebookId,
     nodeId,
     observation: simulationPayload.observation,
-    ...(simulationPayload.parameterSnapshot ? { parameterSnapshot: simulationPayload.parameterSnapshot } : {}),
+    ...(simulationPayload.parameterSnapshot
+      ? { parameterSnapshot: simulationPayload.parameterSnapshot }
+      : {}),
   });
   await appendEvent(ctx.db, {
     notebookId,

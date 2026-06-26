@@ -8,7 +8,7 @@
   // ascii progress meter: [#######---] for a percentage
   function meter(pct, width = 12) {
     const on = Math.round((pct / 100) * width);
-    return `[<span class="meter-fill">${'#'.repeat(on)}</span><span class="off">${'-'.repeat(width - on)}</span>]`;
+    return `[<span class="meter-fill">${"#".repeat(on)}</span><span class="off">${"-".repeat(width - on)}</span>]`;
   }
 
   window.TB_THEMES.carbon = {
@@ -32,7 +32,7 @@
         <div class="right"><span class="accent">obj_5 :: sn2_mechanism [active]</span></div>`;
     },
 
-    tutor(context = 'SN2 mechanism') {
+    tutor(context = "SN2 mechanism") {
       return `
       <aside class="tutor" data-tutor>
         <div class="tutor-header">
@@ -53,7 +53,7 @@
             <div class="msg-agent">
               <div class="agent-avatar-line"><span class="av">${I.cap}</span> tutorbook</div>
               <div class="collapse open" data-collapse>
-                <div class="collapse-head" data-collapse-head>${I.chev.replace('class="svg-i"','class="svg-i chev"')} AGENT_ACTIVITY · 3 STEPS <span class="timer">1.4s</span></div>
+                <div class="collapse-head" data-collapse-head>${I.chev.replace('class="svg-i"', 'class="svg-i chev"')} AGENT_ACTIVITY · 3 STEPS <span class="timer">1.4s</span></div>
                 <div class="collapse-body">
                   <div class="step"><span class="dot"></span> check_learning_state()</div>
                   <div class="toolcall"><span class="tc-ico">${I.book}</span><span class="tc-name">retrieve("sn2_backside")</span><span class="tc-status">ok</span></div>
@@ -61,7 +61,7 @@
                 </div>
               </div>
               <div class="collapse open" data-collapse>
-                <div class="collapse-head" data-collapse-head>${I.chev.replace('class="svg-i"','class="svg-i chev"')} THINKING</div>
+                <div class="collapse-head" data-collapse-head>${I.chev.replace('class="svg-i"', 'class="svg-i chev"')} THINKING</div>
                 <div class="collapse-body"><div class="thinking">// leaving groups may need recap based on mastery. textbook frames SN2 around steric accessibility + backside-attack geometry.</div></div>
               </div>
               <p>In an SN2 reaction the nucleophile attacks from the side opposite the leaving group, pushing it out in a single concerted step — the carbon's configuration inverts (Walden inversion).</p>
@@ -70,7 +70,18 @@
             </div>
           </div>
           <div data-tutor-pane="history" style="display:none">
-            ${['SN2 backside attack|today · 16:32','Leaving group recap|today · 14:10','Stereochemistry inversion|yesterday · 21:48','Nucleophile strength|jun 23 · 18:15','Polar aprotic solvents|jun 22 · 11:02'].map(h=>{const[t,s]=h.split('|');return `<div class="history-item"><div class="t">${t}</div><div class="s">${s}</div></div>`}).join('')}
+            ${[
+              "SN2 backside attack|today · 16:32",
+              "Leaving group recap|today · 14:10",
+              "Stereochemistry inversion|yesterday · 21:48",
+              "Nucleophile strength|jun 23 · 18:15",
+              "Polar aprotic solvents|jun 22 · 11:02",
+            ]
+              .map((h) => {
+                const [t, s] = h.split("|");
+                return `<div class="history-item"><div class="t">${t}</div><div class="s">${s}</div></div>`;
+              })
+              .join("")}
           </div>
           <div data-tutor-pane="settings" style="display:none">
             <div class="setting-row">show_thinking <div class="switch on" data-switch></div></div>
@@ -92,59 +103,98 @@
     },
 
     dashboard() {
-      const bars = [['M',40],['T',70],['W',25],['T',90],['F',55],['S',15],['S',60]]
-        .map(([l,h])=>`<div style="flex:1"><div class="bar" style="height:${h}%"></div><div class="lbl">${l}</div></div>`).join('');
+      const bars = [
+        ["M", 40],
+        ["T", 70],
+        ["W", 25],
+        ["T", 90],
+        ["F", 55],
+        ["S", 15],
+        ["S", 60],
+      ]
+        .map(
+          ([l, h]) =>
+            `<div style="flex:1"><div class="bar" style="height:${h}%"></div><div class="lbl">${l}</div></div>`,
+        )
+        .join("");
 
       const notebooks = [
-        ['Organic Chemistry I','7 src · 14 concepts · next: sn1_elimination', 60, 'CHEM', 'orange', false],
-        ['Linear Algebra','4 src · 9 concepts · next: basis_dimension', 32, 'MATH', 'blue', true],
-        ['Cell Biology','5 src · 11 concepts · next: mitosis_wrapup', 88, 'BIO', 'green', false],
-      ].map(([name,sub,pct,tag,clr,warn])=>`
-        <a class="cb-nb${warn?' warn':''}" href="study-map.html">
+        [
+          "Organic Chemistry I",
+          "7 src · 14 concepts · next: sn1_elimination",
+          60,
+          "CHEM",
+          "orange",
+          false,
+        ],
+        ["Linear Algebra", "4 src · 9 concepts · next: basis_dimension", 32, "MATH", "blue", true],
+        ["Cell Biology", "5 src · 11 concepts · next: mitosis_wrapup", 88, "BIO", "green", false],
+      ]
+        .map(
+          ([name, sub, pct, tag, clr, warn]) => `
+        <a class="cb-nb${warn ? " warn" : ""}" href="study-map.html">
           <div class="nb-top"><span class="nb-name">${name}</span><span class="badge ${clr}">${tag}</span></div>
           <div class="nb-sub">${sub}</div>
           <div class="ascii"><span class="meter">${meter(pct)}</span><span class="pc">${pct}%</span></div>
-        </a>`).join('');
+        </a>`,
+        )
+        .join("");
 
       const mastery = [
-        ['sn2_mechanism', 92, ''],
-        ['leaving_groups', 71, ''],
-        ['nucleophilicity', 64, 'mid'],
-        ['stereochemistry', 45, 'lo'],
-        ['walden_inversion', 38, 'lo'],
-      ].map(([nm,pct,cls])=>`
+        ["sn2_mechanism", 92, ""],
+        ["leaving_groups", 71, ""],
+        ["nucleophilicity", 64, "mid"],
+        ["stereochemistry", 45, "lo"],
+        ["walden_inversion", 38, "lo"],
+      ]
+        .map(
+          ([nm, pct, cls]) => `
         <tr>
           <td><span class="nm">${nm}</span></td>
-          <td class="mini"><div class="progress"><span class="${pct<50?'red':''}" style="width:${pct}%"></span></div></td>
+          <td class="mini"><div class="progress"><span class="${pct < 50 ? "red" : ""}" style="width:${pct}%"></span></div></td>
           <td><span class="pc ${cls}">${pct}%</span></td>
-        </tr>`).join('');
+        </tr>`,
+        )
+        .join("");
 
       const log = [
-        ['16:32','OK','Completed quiz <b>stereochemistry</b> · 80%','ok'],
-        ['15:48','IN','Ingested <b>SN2_Mechanisms.pdf</b> · 10 cards','in'],
-        ['14:10','OK','Tutor session · <b>walden_inversion</b>','ok'],
-        ['11:02','OK','Mastered <b>leaving_groups</b> → 71%','ok'],
-        ['09:15','WARN','Review due · <b>stereochemistry</b> 45%','warn'],
-      ].map(([ts,tag,msg,cls])=>`
-        <div class="ln"><span class="ts">${ts}</span><span class="tag ${cls}">${tag}</span><span class="msg">${msg}</span></div>`).join('');
+        ["16:32", "OK", "Completed quiz <b>stereochemistry</b> · 80%", "ok"],
+        ["15:48", "IN", "Ingested <b>SN2_Mechanisms.pdf</b> · 10 cards", "in"],
+        ["14:10", "OK", "Tutor session · <b>walden_inversion</b>", "ok"],
+        ["11:02", "OK", "Mastered <b>leaving_groups</b> → 71%", "ok"],
+        ["09:15", "WARN", "Review due · <b>stereochemistry</b> 45%", "warn"],
+      ]
+        .map(
+          ([ts, tag, msg, cls]) => `
+        <div class="ln"><span class="ts">${ts}</span><span class="tag ${cls}">${tag}</span><span class="msg">${msg}</span></div>`,
+        )
+        .join("");
 
       const run = [
-        ['✓','Read §4.2 · chiral_centers','8m','done'],
-        ['▶','Practice 5 stereocenter flashcards','5m','next'],
-        ['○','Quiz · identifying stereocenters','7m','todo'],
-        ['○','Worked example · sn2','6m','todo'],
-      ].map(([mk,lbl,tm,cls])=>`
-        <div class="cb-run"><span class="mk ${cls}">${mk}</span><span class="lbl">${lbl}</span><span class="tm">${tm}</span></div>`).join('');
+        ["✓", "Read §4.2 · chiral_centers", "8m", "done"],
+        ["▶", "Practice 5 stereocenter flashcards", "5m", "next"],
+        ["○", "Quiz · identifying stereocenters", "7m", "todo"],
+        ["○", "Worked example · sn2", "6m", "todo"],
+      ]
+        .map(
+          ([mk, lbl, tm, cls]) => `
+        <div class="cb-run"><span class="mk ${cls}">${mk}</span><span class="lbl">${lbl}</span><span class="tm">${tm}</span></div>`,
+        )
+        .join("");
 
       const cmds = [
-        ['study-map.html','open','study_map', I.map],
-        ['page-flashcards.html','review','flashcards/ch7', I.layers],
-        ['interactive-quiz.html','run','quiz/nucleophiles', I.help],
-        ['page-worked-example.html','open','worked_example', I.doc],
-        ['notebooks.html','ls','notebooks/', I.grid],
-        ['page-source.html','cat','source/clayden.pdf', I.book],
-      ].map(([href,pfx,cmd,ico])=>`
-        <a class="cb-cmd" href="${href}"><span class="ico">${ico}</span><span class="cmd"><span class="pfx">${pfx} </span>${cmd}</span><span class="kbd">↵</span></a>`).join('');
+        ["study-map.html", "open", "study_map", I.map],
+        ["page-flashcards.html", "review", "flashcards/ch7", I.layers],
+        ["interactive-quiz.html", "run", "quiz/nucleophiles", I.help],
+        ["page-worked-example.html", "open", "worked_example", I.doc],
+        ["notebooks.html", "ls", "notebooks/", I.grid],
+        ["page-source.html", "cat", "source/clayden.pdf", I.book],
+      ]
+        .map(
+          ([href, pfx, cmd, ico]) => `
+        <a class="cb-cmd" href="${href}"><span class="ico">${ico}</span><span class="cmd"><span class="pfx">${pfx} </span>${cmd}</span><span class="kbd">↵</span></a>`,
+        )
+        .join("");
 
       return `
       <div class="cb-shell">

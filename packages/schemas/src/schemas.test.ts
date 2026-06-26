@@ -121,7 +121,9 @@ describe("shared schemas", () => {
       emittedEventIds: ["evt_1"],
     });
 
-    expect(parseReducerResult({ accepted: true, appliedChanges: {}, emittedEventIds: [] })).toBeUndefined();
+    expect(
+      parseReducerResult({ accepted: true, appliedChanges: {}, emittedEventIds: [] }),
+    ).toBeUndefined();
   });
 
   it("accepts runtime context selection failure events", () => {
@@ -170,7 +172,10 @@ describe("shared schemas", () => {
   });
 
   it("keeps Live Plan as an entity ref but not an artifact type", () => {
-    expect(nodeRefSchema.parse({ refType: "study_plan", refId: "plan_1" })).toEqual({ refType: "study_plan", refId: "plan_1" });
+    expect(nodeRefSchema.parse({ refType: "study_plan", refId: "plan_1" })).toEqual({
+      refType: "study_plan",
+      refId: "plan_1",
+    });
     expect(artifactTypeSchema.safeParse("study_plan").success).toBe(false);
   });
 
@@ -329,10 +334,16 @@ describe("shared schemas", () => {
     expect(sourceLevelSchema.parse("undergraduate")).toBe("undergraduate");
     expect(sourceScopePolicySchema.parse("soft_source_scope")).toBe("soft_source_scope");
     expect(sourceScopePolicySchema.safeParse("strict_source_scope").success).toBe(false);
-    expect(inferSourceLevelFromSignals({ title: "High school physics workbook" }).level).toBe("high_school");
+    expect(inferSourceLevelFromSignals({ title: "High school physics workbook" }).level).toBe(
+      "high_school",
+    );
     expect(
       learnerReadinessSchema.parse(
-        buildConceptLearnerReadiness({ conceptId: "concept_1", masteryScore: 0.5, confidence: 0.7 }),
+        buildConceptLearnerReadiness({
+          conceptId: "concept_1",
+          masteryScore: 0.5,
+          confidence: 0.7,
+        }),
       ).readiness,
     ).toBe("developing");
   });
@@ -348,7 +359,12 @@ describe("shared schemas", () => {
       },
       nodeCatalog: [
         {
-          node: { id: "concept_1", nodeType: "concept", labels: ["Concept"], properties: { title: "Vectors" } },
+          node: {
+            id: "concept_1",
+            nodeType: "concept",
+            labels: ["Concept"],
+            properties: { title: "Vectors" },
+          },
           visibility: "learner",
           referenceSurfaceTarget: { refType: "concept", refId: "concept_1" },
           emphasis: "current_path",

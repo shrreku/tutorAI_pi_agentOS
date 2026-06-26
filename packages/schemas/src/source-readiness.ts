@@ -32,7 +32,9 @@ export function sourceReadinessComponent(
   });
 }
 
-export function buildSourceReadiness(input: Partial<Record<keyof SourceReadiness, SourceReadinessComponent>>): SourceReadiness {
+export function buildSourceReadiness(
+  input: Partial<Record<keyof SourceReadiness, SourceReadinessComponent>>,
+): SourceReadiness {
   const pending = sourceReadinessComponent(false);
   return sourceReadinessSchema.parse({
     retrieval: input.retrieval ?? pending,
@@ -55,7 +57,8 @@ export function learnerSourceStatus(readiness: SourceReadiness): { label: string
   if (!readiness.learnerSourceWiki.ready || !readiness.projection.ready) {
     return {
       label: "Ready for tutoring; Source Wiki still improving",
-      detail: "You can start tutoring now. Source Wiki and Study Map details may continue filling in.",
+      detail:
+        "You can start tutoring now. Source Wiki and Study Map details may continue filling in.",
     };
   }
   return {

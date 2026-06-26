@@ -17,7 +17,9 @@
             var h = ctx.helpers;
             var content = ctx.content;
             var current = content.currentObjective || null;
-            var upcoming = Array.isArray(content.upcomingObjectives) ? content.upcomingObjectives : [];
+            var upcoming = Array.isArray(content.upcomingObjectives)
+              ? content.upcomingObjectives
+              : [];
             var weak = Array.isArray(content.weakConcepts) ? content.weakConcepts : [];
             var actions = Array.isArray(content.nextActions)
               ? content.nextActions
@@ -29,7 +31,11 @@
                 ];
 
             var html = '<div class="sa-shell">';
-            html += h.headerHtml("Live plan", "Choose what to do next in this study session.", "Plan");
+            html += h.headerHtml(
+              "Live plan",
+              "Choose what to do next in this study session.",
+              "Plan",
+            );
             html += h.pendingOverlay(ctx.state);
             html += h.statusHtml(ctx.state);
             html += '<div class="sa-card sa-stack">';
@@ -49,7 +55,10 @@
             if (weak.length) {
               html += '<div><div class="sa-field-label">Needs attention</div><div class="sa-row">';
               weak.slice(0, 6).forEach(function (item) {
-                html += '<span class="sa-pill sa-pill-warning">' + h.escapeHtml(item.name || item.id) + "</span>";
+                html +=
+                  '<span class="sa-pill sa-pill-warning">' +
+                  h.escapeHtml(item.name || item.id) +
+                  "</span>";
               });
               html += "</div></div>";
             }

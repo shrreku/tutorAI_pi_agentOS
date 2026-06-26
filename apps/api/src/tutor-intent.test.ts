@@ -8,9 +8,15 @@ import {
 describe("detectLearnerTurnGoal", () => {
   it("detects mastery answers and quiz requests", () => {
     expect(detectLearnerTurnGoal("Tangent line. Is that correction right?")).toBe("mastery_answer");
-    expect(detectLearnerTurnGoal("Can you make me a quiz I can study from?")).toBe("quiz_or_artifact");
-    expect(detectLearnerTurnGoal("Please keep it tied to the source for revision.")).toBe("artifact_followup");
-    expect(detectLearnerTurnGoal("Teach me the topic and check whether I am missing a key idea.")).toBe("lesson_opening");
+    expect(detectLearnerTurnGoal("Can you make me a quiz I can study from?")).toBe(
+      "quiz_or_artifact",
+    );
+    expect(detectLearnerTurnGoal("Please keep it tied to the source for revision.")).toBe(
+      "artifact_followup",
+    );
+    expect(
+      detectLearnerTurnGoal("Teach me the topic and check whether I am missing a key idea."),
+    ).toBe("lesson_opening");
   });
 });
 

@@ -102,7 +102,9 @@ describe("synthetic learner eval contracts", () => {
     expect(regenerated.generatedAt).toBe("2026-05-23T00:00:00.000Z");
     expect(regenerated.compatibilityStatus).toBe("compatible");
     expect(regenerated.learnerAnalyticsScope).toBe("eval_only");
-    expect(regenerated.tutoringReadyState).toEqual(syntheticLearnerEvalTracerBulletFixture.tutoringReadyState);
+    expect(regenerated.tutoringReadyState).toEqual(
+      syntheticLearnerEvalTracerBulletFixture.tutoringReadyState,
+    );
 
     const freshness = evaluateEvalSourceFixtureFreshness({
       fixture: regenerated,
@@ -113,15 +115,25 @@ describe("synthetic learner eval contracts", () => {
   });
 
   it("validates the tracer bullet persona and scenario fixtures", () => {
-    expect(syntheticLearnerPersonaSchema.array().parse(syntheticLearnerEvalTracerBulletPersonas)).toHaveLength(3);
-    expect(syntheticLearnerScenarioSchema.array().parse(syntheticLearnerEvalTracerBulletScenarios)).toHaveLength(3);
+    expect(
+      syntheticLearnerPersonaSchema.array().parse(syntheticLearnerEvalTracerBulletPersonas),
+    ).toHaveLength(3);
+    expect(
+      syntheticLearnerScenarioSchema.array().parse(syntheticLearnerEvalTracerBulletScenarios),
+    ).toHaveLength(3);
     expect(syntheticLearnerEvalTracerBulletScenarios[1]?.browserSteps).toHaveLength(2);
-    expect(syntheticLearnerScenarioSchema.parse(syntheticLearnerEvalAutonomousDiscoveryScenario).runKind).toBe("full_autonomous");
-    expect(syntheticLearnerEvalAutonomousDiscoveryScenario.autonomousConfig?.durableWritesScope).toBe("eval_owned_notebooks");
+    expect(
+      syntheticLearnerScenarioSchema.parse(syntheticLearnerEvalAutonomousDiscoveryScenario).runKind,
+    ).toBe("full_autonomous");
+    expect(
+      syntheticLearnerEvalAutonomousDiscoveryScenario.autonomousConfig?.durableWritesScope,
+    ).toBe("eval_owned_notebooks");
   });
 
   it("validates trait-estimation scenarios", () => {
-    const parsed = syntheticLearnerScenarioSchema.array().parse(syntheticLearnerTraitEstimationScenarios);
+    const parsed = syntheticLearnerScenarioSchema
+      .array()
+      .parse(syntheticLearnerTraitEstimationScenarios);
 
     expect(parsed).toHaveLength(5);
     expect(parsed.map((scenario) => scenario.id)).toEqual([
@@ -132,11 +144,13 @@ describe("synthetic learner eval contracts", () => {
       "scenario_trait_low_confidence_high_mastery",
     ]);
     for (const scenario of parsed) {
-      expect(scenario.assertionRefs.map((ref) => ref.refId)).toEqual(expect.arrayContaining([
-        "runtime_trait_estimation",
-        "persistence_trait_estimates",
-        "persistence_trait_recommendation_only",
-      ]));
+      expect(scenario.assertionRefs.map((ref) => ref.refId)).toEqual(
+        expect.arrayContaining([
+          "runtime_trait_estimation",
+          "persistence_trait_estimates",
+          "persistence_trait_recommendation_only",
+        ]),
+      );
     }
   });
 
@@ -204,7 +218,12 @@ describe("synthetic learner eval contracts", () => {
       scenario: syntheticLearnerEvalTracerBulletScenarios[1]!,
       persona: syntheticLearnerEvalTracerBulletPersonas[1]!,
       learnerMode: "beat_llm",
-      simulatorModelConfig: { provider: "stub", model: "stub-student", temperature: 0, maxActionRepairAttempts: 1 },
+      simulatorModelConfig: {
+        provider: "stub",
+        model: "stub-student",
+        temperature: 0,
+        maxActionRepairAttempts: 1,
+      },
     });
     expect(goldenPlan).toMatchObject({
       runKind: "golden_journey",
@@ -239,26 +258,32 @@ describe("synthetic learner eval contracts", () => {
       autonomyStartProfile: "oriented_entry",
     });
 
-    expect(() => planSyntheticLearnerEvalRun({
-      scenario: syntheticLearnerEvalTracerBulletScenarios[0]!,
-      persona: syntheticLearnerEvalTracerBulletPersonas[0]!,
-      learnerMode: "full_autonomous_llm",
-    })).toThrow(/incompatible/);
+    expect(() =>
+      planSyntheticLearnerEvalRun({
+        scenario: syntheticLearnerEvalTracerBulletScenarios[0]!,
+        persona: syntheticLearnerEvalTracerBulletPersonas[0]!,
+        learnerMode: "full_autonomous_llm",
+      }),
+    ).toThrow(/incompatible/);
   });
 
   it("normalizes model-shaped Synthetic Learner actions into the strict action contract", () => {
-    expect(syntheticLearnerActionDecisionSchema.parse({
-      action: "request_artifact",
-      parameters: { query: "Please make me a source-grounded quiz for exam prep." },
-    })).toMatchObject({
+    expect(
+      syntheticLearnerActionDecisionSchema.parse({
+        action: "request_artifact",
+        parameters: { query: "Please make me a source-grounded quiz for exam prep." },
+      }),
+    ).toMatchObject({
       action: "chat.respond",
       learnerMessage: "Please make me a source-grounded quiz for exam prep.",
     });
 
-    expect(syntheticLearnerActionDecisionSchema.parse({
-      action: "artifact.list",
-      parameters: {},
-    })).toMatchObject({
+    expect(
+      syntheticLearnerActionDecisionSchema.parse({
+        action: "artifact.list",
+        parameters: {},
+      }),
+    ).toMatchObject({
       action: "artifact.list",
       rationale: "Synthetic Learner selected artifact.list.",
     });
@@ -296,8 +321,12 @@ describe("synthetic learner eval contracts", () => {
     expect(prompt).toContain(`Max turns: ${scenario.maxTurns}`);
     expect(prompt).toContain(`Allowed actions: ${scenario.allowedActions.join(", ")}`);
     expect(prompt).toContain(`Stop conditions: ${scenario.stopConditions.join(", ")}`);
-    expect(prompt).toContain(`Assertion refs: ${scenario.assertionRefs.map((ref) => ref.refId).join(", ")}`);
-    expect(prompt).toContain(`constraints=${formatSyntheticLearnerList(persona.responsePolicy.constraints, "; ")}`);
+    expect(prompt).toContain(
+      `Assertion refs: ${scenario.assertionRefs.map((ref) => ref.refId).join(", ")}`,
+    );
+    expect(prompt).toContain(
+      `constraints=${formatSyntheticLearnerList(persona.responsePolicy.constraints, "; ")}`,
+    );
     expect(prompt).toContain("Beats:");
     expect(prompt).toContain(scenario.beats[0]?.liveInstruction ?? "");
   });
@@ -315,9 +344,7 @@ describe("synthetic learner eval contracts", () => {
       seededNotebookId: syntheticLearnerEvalTracerBulletFixture.seededNotebookId,
       status: "planned",
     });
-    expect(
-      new Set(matrix.runs.map((run) => `${run.personaId}:${run.scenarioId}`)),
-    ).toHaveLength(9);
+    expect(new Set(matrix.runs.map((run) => `${run.personaId}:${run.scenarioId}`))).toHaveLength(9);
   });
 
   it("validates persisted run records with learner-visible assertions", () => {
@@ -435,8 +462,17 @@ describe("synthetic learner eval contracts", () => {
       },
     });
 
-    expect(assertions.map((assertion) => assertion.status)).toEqual(["passed", "passed", "passed", "passed", "passed", "passed"]);
-    expect(assertions[0]?.evidenceRefs).toEqual(expect.arrayContaining([{ refType: "session", refId: "sess_1" }]));
+    expect(assertions.map((assertion) => assertion.status)).toEqual([
+      "passed",
+      "passed",
+      "passed",
+      "passed",
+      "passed",
+      "passed",
+    ]);
+    expect(assertions[0]?.evidenceRefs).toEqual(
+      expect.arrayContaining([{ refType: "session", refId: "sess_1" }]),
+    );
     expect(syntheticLearnerAssertionSchema.parse(assertions[1]!).passed).toBe(true);
   });
 
@@ -477,13 +513,20 @@ describe("synthetic learner eval contracts", () => {
             masteryEvidenceRefs: [{ refType: "turn", refId: "turn_before" }],
             artifactRefs: [{ refType: "artifact", refId: "artifact_before" }],
             traitEstimateRefs: [{ refType: "trait_estimate", refId: "lte_1" }],
-            personalizationRecommendationRefs: [{ refType: "personalization_recommendation", refId: "pr_1" }],
+            personalizationRecommendationRefs: [
+              { refType: "personalization_recommendation", refId: "pr_1" },
+            ],
           },
         },
       },
     });
 
-    expect(assertions.map((assertion) => assertion.status)).toEqual(["passed", "passed", "passed", "passed"]);
+    expect(assertions.map((assertion) => assertion.status)).toEqual([
+      "passed",
+      "passed",
+      "passed",
+      "passed",
+    ]);
   });
 
   it("fails persistence_trait_estimates when required trait snapshots are missing", () => {
@@ -525,7 +568,9 @@ describe("synthetic learner eval contracts", () => {
               { refType: "curriculum", refId: "curriculum_forbidden" },
             ],
             traitEstimateRefs: [{ refType: "trait_estimate", refId: "lte_1" }],
-            personalizationRecommendationRefs: [{ refType: "personalization_recommendation", refId: "pr_1" }],
+            personalizationRecommendationRefs: [
+              { refType: "personalization_recommendation", refId: "pr_1" },
+            ],
           },
         },
       },
@@ -533,10 +578,12 @@ describe("synthetic learner eval contracts", () => {
 
     expect(assertions[0]?.status).toBe("failed");
     expect(assertions[0]?.failureMessage).toContain("forbidden product state");
-    expect(assertions[0]?.details.forbiddenDeltas).toEqual(expect.arrayContaining([
-      expect.objectContaining({ field: "masteryEvidenceRefs" }),
-      expect.objectContaining({ field: "curriculumRefs" }),
-    ]));
+    expect(assertions[0]?.details.forbiddenDeltas).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "masteryEvidenceRefs" }),
+        expect.objectContaining({ field: "curriculumRefs" }),
+      ]),
+    );
   });
 
   it("fails trait recommendation-only assertions when tutoring artifacts change during estimation", () => {
@@ -622,18 +669,24 @@ describe("synthetic learner eval contracts", () => {
       ],
     });
     expect(skipped[0]?.status).toBe("failed");
-    expect(skipped[0]?.failureMessage).toContain("Required persisted evidence snapshot was unavailable");
+    expect(skipped[0]?.failureMessage).toContain(
+      "Required persisted evidence snapshot was unavailable",
+    );
     expect(skipped[0]?.details.reason).toBe("unavailable_required_snapshot");
   });
 
   it("keeps explicitly optional persistence assertions skippable when snapshots are unavailable", () => {
     const assertions = evaluateSyntheticLearnerAssertions({
-      assertionRefs: [{ refType: "assertion", refId: "persistence_artifact_status", required: false }],
+      assertionRefs: [
+        { refType: "assertion", refId: "persistence_artifact_status", required: false },
+      ],
       tutorMessages: ["We can keep going."],
     });
 
     expect(assertions[0]?.status).toBe("skipped");
-    expect(assertions[0]?.failureMessage).toContain("Optional persisted evidence snapshot was unavailable");
+    expect(assertions[0]?.failureMessage).toContain(
+      "Optional persisted evidence snapshot was unavailable",
+    );
     expect(assertions[0]?.details.reason).toBe("skipped_optional_snapshot");
   });
 
@@ -660,7 +713,9 @@ describe("synthetic learner eval contracts", () => {
     });
 
     expect(assertions[0]?.status).toBe("passed");
-    expect(assertions[0]?.evidenceRefs).toEqual(expect.arrayContaining([{ refType: "turn", refId: "turn_trace_1" }]));
+    expect(assertions[0]?.evidenceRefs).toEqual(
+      expect.arrayContaining([{ refType: "turn", refId: "turn_trace_1" }]),
+    );
   });
 
   it("uses compact mastery evidence event payloads for persistence assertions", () => {
@@ -682,7 +737,9 @@ describe("synthetic learner eval contracts", () => {
     });
 
     expect(assertions[0]?.status).toBe("passed");
-    expect(assertions[0]?.evidenceRefs).toEqual(expect.arrayContaining([{ refType: "turn", refId: "turn_compact_1" }]));
+    expect(assertions[0]?.evidenceRefs).toEqual(
+      expect.arrayContaining([{ refType: "turn", refId: "turn_compact_1" }]),
+    );
   });
 
   it("checks runtime assertions by feature instead of requiring mastery evidence for every runtime path", () => {
@@ -695,7 +752,11 @@ describe("synthetic learner eval contracts", () => {
       tutorMessages: ["I created a source-grounded quiz."],
       toolEvents: [
         { label: "completed", toolName: "notebook.get_context", nodeRefs: [] },
-        { label: "completed", toolName: "artifact.create_quiz", nodeRefs: [{ refType: "artifact", refId: "artifact_1" }] },
+        {
+          label: "completed",
+          toolName: "artifact.create_quiz",
+          nodeRefs: [{ refType: "artifact", refId: "artifact_1" }],
+        },
       ],
       runtimeEvents: [
         {
@@ -829,7 +890,11 @@ describe("synthetic learner eval contracts", () => {
 
     const parsedJson = JSON.parse(exportJson.reportContent) as {
       metadata: { format: string; artifactPath: string };
-      run: { status: string; reportMetadata: Array<{ artifactPath: string }>; scenarioRuns: unknown[] };
+      run: {
+        status: string;
+        reportMetadata: Array<{ artifactPath: string }>;
+        scenarioRuns: unknown[];
+      };
     };
     expect(parsedJson.metadata.format).toBe("json");
     expect(parsedJson.metadata.artifactPath).toBe("eval-runs/slrun_traceable_eval_run.json");
@@ -907,7 +972,8 @@ describe("synthetic learner eval contracts", () => {
       failureSummary: "The learner could not inspect the generated quiz artifact.",
       transcriptExcerpt: ["STUDENT: Can I try the quiz?", "SIMULATOR ACTION FAILED: artifact.view"],
       evidenceRefs: [{ refType: "artifact", refId: "artifact_quiz_1" }],
-      reproductionCommand: "pnpm --filter @studyagent/worker synthetic-learner-evals -- --learner-mode=scenario_autonomous_llm --scenario=scenario_artifact_request",
+      reproductionCommand:
+        "pnpm --filter @studyagent/worker synthetic-learner-evals -- --learner-mode=scenario_autonomous_llm --scenario=scenario_artifact_request",
     });
 
     const matrix = buildSyntheticLearnerEvalMatrix({
@@ -1011,7 +1077,10 @@ describe("synthetic learner eval contracts", () => {
     });
 
     expect(candidates.map((candidate) => candidate.kind)).toEqual(["warning", "warning"]);
-    expect(candidates.map((candidate) => candidate.reason)).toEqual(["invalid_action_repaired", "optional_assertion_skipped"]);
+    expect(candidates.map((candidate) => candidate.reason)).toEqual([
+      "invalid_action_repaired",
+      "optional_assertion_skipped",
+    ]);
     expect(candidates[0]?.publishedIssueUrl).toBeUndefined();
   });
 });

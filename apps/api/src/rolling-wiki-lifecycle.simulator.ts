@@ -1,4 +1,7 @@
-import { compileSourceToWikiChangeSet, resolvePageReadinessFromWikiPage } from "@studyagent/wiki-core";
+import {
+  compileSourceToWikiChangeSet,
+  resolvePageReadinessFromWikiPage,
+} from "@studyagent/wiki-core";
 import { pageReadinessSchema, type GenerationMode, type PageReadiness } from "@studyagent/schemas";
 
 export type RollingWikiPage = {
@@ -180,8 +183,7 @@ export function simulateInitialBuild(
 
   const pages = state.pages.map((page) => {
     const isModule1Topic =
-      page.pageType === "topic" ||
-      (page.pageType === "concept" && module1.objectiveIds.length > 0);
+      page.pageType === "topic" || (page.pageType === "concept" && module1.objectiveIds.length > 0);
     const isModulePage = page.pageKey === `module:${module1.id}`;
     if (!isModule1Topic && !isModulePage) return page;
 
@@ -204,7 +206,11 @@ export function simulateInitialBuild(
   return {
     ...state,
     pages,
-    events: [...state.events, "generation.initial_build.completed", "generation.page.readiness_changed"],
+    events: [
+      ...state.events,
+      "generation.initial_build.completed",
+      "generation.page.readiness_changed",
+    ],
   };
 }
 
@@ -290,7 +296,11 @@ export async function simulateConceptTouch(input: {
     state: {
       ...baselineState,
       pages: updatedPages,
-      events: [...baselineState.events, "generation.touch.completed", "wiki.page.readiness_changed"],
+      events: [
+        ...baselineState.events,
+        "generation.touch.completed",
+        "wiki.page.readiness_changed",
+      ],
     },
     foregroundTimedOut,
     pageReadiness: polished.readiness,
@@ -298,9 +308,13 @@ export async function simulateConceptTouch(input: {
 }
 
 export function assertNoAutoFlashcardArtifacts(state: RollingWikiNotebookState): void {
-  const autoArtifacts = state.artifacts.filter((artifact) => AUTO_ARTIFACT_TYPES.has(artifact.artifactType));
+  const autoArtifacts = state.artifacts.filter((artifact) =>
+    AUTO_ARTIFACT_TYPES.has(artifact.artifactType),
+  );
   if (autoArtifacts.length > 0) {
-    throw new Error(`unexpected auto artifacts: ${autoArtifacts.map((artifact) => artifact.artifactType).join(", ")}`);
+    throw new Error(
+      `unexpected auto artifacts: ${autoArtifacts.map((artifact) => artifact.artifactType).join(", ")}`,
+    );
   }
 }
 

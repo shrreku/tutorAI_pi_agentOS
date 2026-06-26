@@ -48,7 +48,11 @@ export async function beginGenerationJob(
     idempotencyKey: input.idempotencyKey,
   });
   if (existing?.status === "completed") {
-    const targetComplete = await isTargetAlreadyComplete(dbClient, input.notebookId, input.idempotencyKey);
+    const targetComplete = await isTargetAlreadyComplete(
+      dbClient,
+      input.notebookId,
+      input.idempotencyKey,
+    );
     if (targetComplete) {
       return { job: existing, skip: true, reason: "idempotent_skip" };
     }

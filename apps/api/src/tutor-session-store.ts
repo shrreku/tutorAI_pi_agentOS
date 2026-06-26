@@ -33,7 +33,9 @@ export async function resolveTutorSession(
   const rows = await dbClient.db
     .select()
     .from(tutorSessions)
-    .where(and(eq(tutorSessions.notebookId, input.notebookId), eq(tutorSessions.userId, input.userId)))
+    .where(
+      and(eq(tutorSessions.notebookId, input.notebookId), eq(tutorSessions.userId, input.userId)),
+    )
     .orderBy(desc(tutorSessions.startedAt))
     .limit(5);
   return rows.find((row) => input.allowedStatuses.includes(row.status)) ?? null;

@@ -12,9 +12,7 @@ const baseEvidence = {
   userId: "user_1",
   correctnessLabel: "partial" as const,
   overallScore: 0.55,
-  conceptScores: [
-    { conceptId: "concept_1", score: 0.5, delta: 0.04, role: "primary" as const },
-  ],
+  conceptScores: [{ conceptId: "concept_1", score: 0.5, delta: 0.04, role: "primary" as const }],
   misconceptions: [{ conceptId: "concept_1", description: "Confused slope with intercept" }],
   readiness: "developing" as const,
   tutoringIntervention: "guided_practice" as const,

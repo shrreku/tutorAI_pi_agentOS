@@ -124,10 +124,7 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, externalRefr
   const activeStatusFilterSet = new Set(activeStatusFilters);
 
   // GF-0608: source picker for source_wiki_map
-  const {
-    data: sources = [],
-    isLoading: isSourcesLoading,
-  } = useQuery({
+  const { data: sources = [], isLoading: isSourcesLoading } = useQuery({
     queryKey: notebookSourcesQueryKey(notebookId),
     enabled: viewMode === "source_wiki_map",
     queryFn: () => fetchNotebookSources(notebookId),
@@ -191,10 +188,17 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, externalRefr
   useEffect(() => {
     if (!selectedNodeId) return;
     if (graphData?.nodes.some((node) => node.id === selectedNodeId)) return;
-    dispatchShell({ type: "removeMissingSelectedNode", availableNodeIds: graphData?.nodes.map((node) => node.id) ?? [] });
+    dispatchShell({
+      type: "removeMissingSelectedNode",
+      availableNodeIds: graphData?.nodes.map((node) => node.id) ?? [],
+    });
   }, [graphData, selectedNodeId]);
 
-  const handleLayoutChange = async (nodeId: string, position: { x: number; y: number }, nodeType?: string) => {
+  const handleLayoutChange = async (
+    nodeId: string,
+    position: { x: number; y: number },
+    nodeType?: string,
+  ) => {
     try {
       await saveGraphNodeLayout({
         notebookId,
@@ -249,7 +253,8 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, externalRefr
   );
 
   const selectedNode = graphData?.nodes.find((n) => n.id === selectedNodeId) ?? null;
-  const curriculumOutline = curriculumReadModel ?? (graphData ? buildCurriculumOutline(graphData) : null);
+  const curriculumOutline =
+    curriculumReadModel ?? (graphData ? buildCurriculumOutline(graphData) : null);
 
   // GF-0607: filtered graph data (type + status)
   // GF-3A: Promote current-path concepts in study_map mode
@@ -263,12 +268,16 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, externalRefr
           const status = typeof n.properties.status === "string" ? n.properties.status : undefined;
           return status !== undefined && activeStatusFilterSet.has(status);
         };
-        const filteredNodes = byDefaultVisibility.nodes.filter((n) => nodePassesType(n) && nodePassesStatus(n));
+        const filteredNodes = byDefaultVisibility.nodes.filter(
+          (n) => nodePassesType(n) && nodePassesStatus(n),
+        );
         const visibleIds = new Set(filteredNodes.map((n) => n.id));
         const filteredEdges =
           activeTypeFilterSet.size === 0 && activeStatusFilterSet.size === 0
             ? byDefaultVisibility.edges
-            : byDefaultVisibility.edges.filter((e) => visibleIds.has(e.source) && visibleIds.has(e.target));
+            : byDefaultVisibility.edges.filter(
+                (e) => visibleIds.has(e.source) && visibleIds.has(e.target),
+              );
 
         if (viewMode === "study_map" && studyState?.studyPlan?.currentObjective) {
           const readModelPathIds = graphData.readModel?.emphasis.currentPathConceptIds ?? [];
@@ -278,12 +287,16 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, externalRefr
               ? readModelPathIds
               : byDefaultVisibility.edges.flatMap((edge) => {
                   if (edge.source === currentObjectiveId) {
-                    return byDefaultVisibility.nodes.some((node) => node.id === edge.target && node.nodeType === "concept")
+                    return byDefaultVisibility.nodes.some(
+                      (node) => node.id === edge.target && node.nodeType === "concept",
+                    )
                       ? [edge.target]
                       : [];
                   }
                   if (edge.target === currentObjectiveId) {
-                    return byDefaultVisibility.nodes.some((node) => node.id === edge.source && node.nodeType === "concept")
+                    return byDefaultVisibility.nodes.some(
+                      (node) => node.id === edge.source && node.nodeType === "concept",
+                    )
                       ? [edge.source]
                       : [];
                   }
@@ -295,13 +308,15 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, externalRefr
             { ...byDefaultVisibility, nodes: filteredNodes, edges: filteredEdges },
             currentPathIds,
           );
-          const presented = isDeveloperMode ? promoted : limitLearnerGraphDensity(collapseObjectiveHistory(promoted), 80);
+          const presented = isDeveloperMode
+            ? promoted
+            : limitLearnerGraphDensity(collapseObjectiveHistory(promoted), 80);
           return presented;
         }
         const filtered = { ...byDefaultVisibility, nodes: filteredNodes, edges: filteredEdges };
         return viewMode === "study_map" && !isDeveloperMode
-            ? limitLearnerGraphDensity(collapseObjectiveHistory(filtered), 80)
-            : filtered;
+          ? limitLearnerGraphDensity(collapseObjectiveHistory(filtered), 80)
+          : filtered;
       })()
     : null;
 
@@ -323,7 +338,10 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, externalRefr
   };
 
   return (
-    <div className="whiteboard-shell" style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+    <div
+      className="whiteboard-shell"
+      style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}
+    >
       {/* Header toolbar */}
       <div
         className="whiteboard-toolbar"
@@ -348,7 +366,11 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, externalRefr
               data-active={viewMode === mode}
               style={{ padding: "6px 10px", fontSize: 11 }}
             >
-              {mode === "curriculum" ? "Curriculum" : mode === "study_map" ? "Study Map" : "Source Wiki"}
+              {mode === "curriculum"
+                ? "Curriculum"
+                : mode === "study_map"
+                  ? "Study Map"
+                  : "Source Wiki"}
             </button>
           ))}
         </div>
@@ -359,7 +381,14 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, externalRefr
             value={selectedSourceId ?? ""}
             onChange={(e) => dispatchShell({ type: "setSelectedSource", sourceId: e.target.value })}
             aria-label="Source Wiki source"
-            style={{ fontSize: 11, padding: "6px 8px", border: "1px solid var(--line)", borderRadius: 8, background: "var(--panel)", color: "var(--text)" }}
+            style={{
+              fontSize: 11,
+              padding: "6px 8px",
+              border: "1px solid var(--line)",
+              borderRadius: 8,
+              background: "var(--panel)",
+              color: "var(--text)",
+            }}
           >
             {sources.map((s) => (
               <option key={s.id} value={s.id}>
@@ -374,9 +403,20 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, externalRefr
         {/* GF-0608: Topic layer display for source_wiki_map */}
         {viewMode === "source_wiki_map" && topicLayer.length > 0 && (
           <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
-            <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)" }}>Topics</span>
+            <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)" }}>
+              Topics
+            </span>
             {topicLayer.map((topic) => (
-              <span key={topic.id} style={{ fontSize: 10, padding: "3px 7px", borderRadius: 999, background: "var(--accent-soft)", color: "var(--accent)" }}>
+              <span
+                key={topic.id}
+                style={{
+                  fontSize: 10,
+                  padding: "3px 7px",
+                  borderRadius: 999,
+                  background: "var(--accent-soft)",
+                  color: "var(--accent)",
+                }}
+              >
                 {topic.title} ({topic.conceptCount} concepts)
               </span>
             ))}
@@ -387,10 +427,13 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, externalRefr
           <button
             onClick={() => dispatchShell({ type: "setShowFilters", show: !showFilters })}
             className="study-chip-button"
-            data-active={showFilters || (activeTypeFilterSet.size + activeStatusFilterSet.size) > 0}
+            data-active={showFilters || activeTypeFilterSet.size + activeStatusFilterSet.size > 0}
             aria-expanded={showFilters}
           >
-            Filters{(activeTypeFilterSet.size + activeStatusFilterSet.size) > 0 ? ` (${activeTypeFilterSet.size + activeStatusFilterSet.size})` : ""}
+            Filters
+            {activeTypeFilterSet.size + activeStatusFilterSet.size > 0
+              ? ` (${activeTypeFilterSet.size + activeStatusFilterSet.size})`
+              : ""}
           </button>
           {showFilters && (
             <div className="whiteboard-filter-popover">
@@ -400,7 +443,12 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, externalRefr
                   {NODE_TYPES.map((type) => {
                     const active = activeTypeFilterSet.has(type);
                     return (
-                      <button key={type} type="button" onClick={() => toggleTypeFilter(type)} data-active={active}>
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => toggleTypeFilter(type)}
+                        data-active={active}
+                      >
                         {learnerFacingNodeTypeLabel(type, { devMode: isDeveloperMode })}
                       </button>
                     );
@@ -413,7 +461,12 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, externalRefr
                   {STATUS_OPTIONS.map((status) => {
                     const active = activeStatusFilterSet.has(status);
                     return (
-                      <button key={status} type="button" onClick={() => toggleStatusFilter(status)} data-active={active}>
+                      <button
+                        key={status}
+                        type="button"
+                        onClick={() => toggleStatusFilter(status)}
+                        data-active={active}
+                      >
                         {learnerFacingPipelineStatus(status, { devMode: isDeveloperMode })}
                       </button>
                     );
@@ -495,11 +548,15 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, externalRefr
       {filteredGraphData && !isLoading && (
         <div className="whiteboard-statusbar">
           <strong>
-            {viewMode === "source_wiki_map" ? "Source Wiki" : viewMode === "study_map" ? "Study Map" : "Curriculum"}
+            {viewMode === "source_wiki_map"
+              ? "Source Wiki"
+              : viewMode === "study_map"
+                ? "Study Map"
+                : "Curriculum"}
           </strong>
           <span>{filteredGraphData.nodes.length} nodes</span>
           <span>{filteredGraphData.edges.length} edges</span>
-          {(activeTypeFilterSet.size + activeStatusFilterSet.size) > 0 && (
+          {activeTypeFilterSet.size + activeStatusFilterSet.size > 0 && (
             <span style={{ color: "var(--accent)" }}>
               {graphData!.nodes.length - filteredGraphData.nodes.length} filtered
             </span>
@@ -515,7 +572,9 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, externalRefr
             </span>
           )}
           {graphData?.readModel?.projectionWarning && (
-            <span style={{ color: "var(--warn, #9a6700)" }}>{graphData.readModel.projectionWarning}</span>
+            <span style={{ color: "var(--warn, #9a6700)" }}>
+              {graphData.readModel.projectionWarning}
+            </span>
           )}
         </div>
       )}
@@ -583,31 +642,42 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, externalRefr
           </div>
         )}
 
-        {viewMode === "source_wiki_map" && sources.length === 0 && !isLoading && !isSourcesLoading && (
-          <div
-            style={{
-              position: "absolute",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -50%)",
-              zIndex: 10,
-              textAlign: "center",
-              color: "#6b7280",
-            }}
-          >
-            <div style={{ fontSize: 14 }}>No sources in this notebook.</div>
-            <div style={{ fontSize: 12, marginTop: 4 }}>Upload a source to see the wiki map.</div>
-          </div>
-        )}
+        {viewMode === "source_wiki_map" &&
+          sources.length === 0 &&
+          !isLoading &&
+          !isSourcesLoading && (
+            <div
+              style={{
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                zIndex: 10,
+                textAlign: "center",
+                color: "#6b7280",
+              }}
+            >
+              <div style={{ fontSize: 14 }}>No sources in this notebook.</div>
+              <div style={{ fontSize: 12, marginTop: 4 }}>Upload a source to see the wiki map.</div>
+            </div>
+          )}
 
-        {viewMode === "curriculum" && rightPanelMode === "workspace" && !isLoading && !error && curriculumOutline && (
-          <CurriculumBrowser
-            outline={curriculumOutline}
-            studyState={studyState ?? null}
-            currentObjectiveId={studyState?.studyPlan?.currentObjective?.id ?? studyState?.objectiveList?.currentObjectiveId ?? null}
-            onOpenNode={(nodeId) => handleNodeSelect(nodeId)}
-          />
-        )}
+        {viewMode === "curriculum" &&
+          rightPanelMode === "workspace" &&
+          !isLoading &&
+          !error &&
+          curriculumOutline && (
+            <CurriculumBrowser
+              outline={curriculumOutline}
+              studyState={studyState ?? null}
+              currentObjectiveId={
+                studyState?.studyPlan?.currentObjective?.id ??
+                studyState?.objectiveList?.currentObjectiveId ??
+                null
+              }
+              onOpenNode={(nodeId) => handleNodeSelect(nodeId)}
+            />
+          )}
 
         {/* GF-1 (NEW): Right panel mode state machine */}
         {rightPanelMode === "workspace" && viewMode !== "curriculum" && (
@@ -622,7 +692,7 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, externalRefr
                 layoutVersion={layoutVersion}
               />
             )}
-            
+
             {/* GF-0604: Node Detail Panel Overlay (workspace mode only) */}
             {selectedNode && selectedNode.nodeType !== "tutor_session" && !showProvenance && (
               <NodeDetailPanel
@@ -674,7 +744,11 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, externalRefr
         isOpen={showProvenance}
         onClose={() => dispatchShell({ type: "closeEvidence" })}
         nodeId={selectedNode?.id}
-        nodeTitle={(selectedNode?.properties?.title ?? selectedNode?.properties?.canonicalName ?? selectedNode?.properties?.canonical_name) as string | undefined}
+        nodeTitle={
+          (selectedNode?.properties?.title ??
+            selectedNode?.properties?.canonicalName ??
+            selectedNode?.properties?.canonical_name) as string | undefined
+        }
         nodeType={selectedNode?.nodeType}
         notebookId={notebookId}
         confidence={selectedNode?.properties?.confidence as number | undefined}
@@ -707,24 +781,81 @@ function CurriculumBrowser({
   currentObjectiveId: string | null;
   onOpenNode: (nodeId: string) => void;
 }) {
-  const objectives = outline.modules.flatMap((module) => module.objectives).concat(outline.orphanObjectives);
-  const completedCount = objectives.filter((objective) => objective.status === "completed" || objective.status === "mastered").length;
+  const objectives = outline.modules
+    .flatMap((module) => module.objectives)
+    .concat(outline.orphanObjectives);
+  const completedCount = objectives.filter(
+    (objective) => objective.status === "completed" || objective.status === "mastered",
+  ).length;
 
   return (
-    <div style={{ height: "100%", overflow: "auto", background: "#fff", padding: "20px clamp(16px, 3vw, 40px)" }}>
+    <div
+      style={{
+        height: "100%",
+        overflow: "auto",
+        background: "#fff",
+        padding: "20px clamp(16px, 3vw, 40px)",
+      }}
+    >
       <div style={{ maxWidth: 980, margin: "0 auto" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", paddingBottom: 16, marginBottom: 18, borderBottom: "1px solid #e5e7eb" }}>
-          <span style={{ color: "#6b7280", fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Course</span>
-          <strong style={{ fontSize: 18, lineHeight: 1.2, color: "#111827" }}>{outline.curriculum?.title ?? "Curriculum"}</strong>
-          <span style={{ padding: "3px 8px", background: "#f3f4f6", borderRadius: 9999, fontSize: 12 }}>{outline.modules.length} modules</span>
-          <span style={{ padding: "3px 8px", background: "#f3f4f6", borderRadius: 9999, fontSize: 12 }}>{objectives.length} objectives</span>
-          <span style={{ padding: "3px 8px", background: "#ecfdf5", color: "#047857", borderRadius: 9999, fontSize: 12 }}>{completedCount} completed</span>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            flexWrap: "wrap",
+            paddingBottom: 16,
+            marginBottom: 18,
+            borderBottom: "1px solid #e5e7eb",
+          }}
+        >
+          <span
+            style={{ color: "#6b7280", fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}
+          >
+            Course
+          </span>
+          <strong style={{ fontSize: 18, lineHeight: 1.2, color: "#111827" }}>
+            {outline.curriculum?.title ?? "Curriculum"}
+          </strong>
+          <span
+            style={{ padding: "3px 8px", background: "#f3f4f6", borderRadius: 9999, fontSize: 12 }}
+          >
+            {outline.modules.length} modules
+          </span>
+          <span
+            style={{ padding: "3px 8px", background: "#f3f4f6", borderRadius: 9999, fontSize: 12 }}
+          >
+            {objectives.length} objectives
+          </span>
+          <span
+            style={{
+              padding: "3px 8px",
+              background: "#ecfdf5",
+              color: "#047857",
+              borderRadius: 9999,
+              fontSize: 12,
+            }}
+          >
+            {completedCount} completed
+          </span>
           {studyState?.coverage && (
-            <span style={{ display: "flex", gap: 8, flexWrap: "wrap", color: "#4b5563", fontSize: 12 }}>
-              <span>Planned <strong style={{ color: "#111827" }}>{studyState.coverage.planned}</strong></span>
-              <span>Introduced <strong style={{ color: "#111827" }}>{studyState.coverage.introduced}</strong></span>
-              <span>Checked <strong style={{ color: "#111827" }}>{studyState.coverage.checked}</strong></span>
-              <span>Review <strong style={{ color: "#111827" }}>{studyState.coverage.needsReview}</strong></span>
+            <span
+              style={{ display: "flex", gap: 8, flexWrap: "wrap", color: "#4b5563", fontSize: 12 }}
+            >
+              <span>
+                Planned <strong style={{ color: "#111827" }}>{studyState.coverage.planned}</strong>
+              </span>
+              <span>
+                Introduced{" "}
+                <strong style={{ color: "#111827" }}>{studyState.coverage.introduced}</strong>
+              </span>
+              <span>
+                Checked <strong style={{ color: "#111827" }}>{studyState.coverage.checked}</strong>
+              </span>
+              <span>
+                Review{" "}
+                <strong style={{ color: "#111827" }}>{studyState.coverage.needsReview}</strong>
+              </span>
             </span>
           )}
         </div>
@@ -732,13 +863,37 @@ function CurriculumBrowser({
         <main style={{ minWidth: 0 }}>
           <div style={{ color: "#6b7280", fontSize: 16, marginBottom: 20 }}>Course syllabus</div>
           {outline.modules.length === 0 && outline.orphanObjectives.length === 0 ? (
-            <div style={{ border: "1px solid #e5e7eb", borderRadius: 8, padding: 18, color: "#6b7280", background: "#f9fafb" }}>
-              No curriculum path is available yet. The tutor chat can build the first plan after sources are ready.
+            <div
+              style={{
+                border: "1px solid #e5e7eb",
+                borderRadius: 8,
+                padding: 18,
+                color: "#6b7280",
+                background: "#f9fafb",
+              }}
+            >
+              No curriculum path is available yet. The tutor chat can build the first plan after
+              sources are ready.
             </div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 30, borderLeft: "2px solid #e5e7eb", paddingLeft: 28 }}>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 30,
+                borderLeft: "2px solid #e5e7eb",
+                paddingLeft: 28,
+              }}
+            >
               {outline.modules.map((module, moduleIndex) => (
-                <details key={module.id} open={module.objectives.some((objective) => objective.id === currentObjectiveId) || moduleIndex === 0} style={{ position: "relative" }}>
+                <details
+                  key={module.id}
+                  open={
+                    module.objectives.some((objective) => objective.id === currentObjectiveId) ||
+                    moduleIndex === 0
+                  }
+                  style={{ position: "relative" }}
+                >
                   <div
                     style={{
                       position: "absolute",
@@ -762,18 +917,50 @@ function CurriculumBrowser({
                       Module {moduleIndex + 1}: {module.title}
                     </div>
                   </summary>
-                  <button type="button" onClick={() => onOpenNode(module.id)} style={{ marginTop: 6, border: "1px solid #d1d5db", background: "#fff", borderRadius: 999, padding: "2px 8px", color: "#374151", fontSize: 12, cursor: "pointer" }}>
+                  <button
+                    type="button"
+                    onClick={() => onOpenNode(module.id)}
+                    style={{
+                      marginTop: 6,
+                      border: "1px solid #d1d5db",
+                      background: "#fff",
+                      borderRadius: 999,
+                      padding: "2px 8px",
+                      color: "#374151",
+                      fontSize: 12,
+                      cursor: "pointer",
+                    }}
+                  >
                     Open module
                   </button>
-                  {module.summary && <p style={{ color: "#374151", fontSize: 15, lineHeight: 1.5, margin: "8px 0 16px" }}>{module.summary}</p>}
-                  <ObjectiveList objectives={module.objectives} currentObjectiveId={currentObjectiveId} onOpenNode={onOpenNode} />
+                  {module.summary && (
+                    <p
+                      style={{
+                        color: "#374151",
+                        fontSize: 15,
+                        lineHeight: 1.5,
+                        margin: "8px 0 16px",
+                      }}
+                    >
+                      {module.summary}
+                    </p>
+                  )}
+                  <ObjectiveList
+                    objectives={module.objectives}
+                    currentObjectiveId={currentObjectiveId}
+                    onOpenNode={onOpenNode}
+                  />
                 </details>
               ))}
 
               {outline.orphanObjectives.length > 0 && (
                 <section style={{ position: "relative" }}>
                   <div style={{ fontSize: 22, lineHeight: 1.25, fontWeight: 800 }}>Objectives</div>
-                  <ObjectiveList objectives={outline.orphanObjectives} currentObjectiveId={currentObjectiveId} onOpenNode={onOpenNode} />
+                  <ObjectiveList
+                    objectives={outline.orphanObjectives}
+                    currentObjectiveId={currentObjectiveId}
+                    onOpenNode={onOpenNode}
+                  />
                 </section>
               )}
             </div>
@@ -794,7 +981,9 @@ function ObjectiveList({
   onOpenNode: (nodeId: string) => void;
 }) {
   if (objectives.length === 0) {
-    return <div style={{ color: "#9ca3af", fontSize: 14, marginTop: 12 }}>No objectives recorded.</div>;
+    return (
+      <div style={{ color: "#9ca3af", fontSize: 14, marginTop: 12 }}>No objectives recorded.</div>
+    );
   }
 
   return (
@@ -841,13 +1030,40 @@ function ObjectiveList({
               <span style={{ display: "block", fontSize: 16, fontWeight: 800 }}>
                 {index + 1}. {objective.title}
               </span>
-              {objective.summary && <span style={{ display: "block", color: "#6b7280", marginTop: 3, lineHeight: 1.45 }}>{objective.summary}</span>}
+              {objective.summary && (
+                <span
+                  style={{ display: "block", color: "#6b7280", marginTop: 3, lineHeight: 1.45 }}
+                >
+                  {objective.summary}
+                </span>
+              )}
             </span>
-            <span style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end", color: "#6b7280", fontSize: 12 }}>
+            <span
+              style={{
+                display: "flex",
+                gap: 6,
+                flexWrap: "wrap",
+                justifyContent: "flex-end",
+                color: "#6b7280",
+                fontSize: 12,
+              }}
+            >
               {isCurrent && <span style={{ color: "#1d4ed8", fontWeight: 700 }}>Current</span>}
-              <InlineNodeList label="session" refs={refsForInlineList(objective.sessionRefs, objective.sessionIds)} onOpenNode={onOpenNode} />
-              <InlineNodeList label="artifact" refs={refsForInlineList(objective.artifactRefs, objective.artifactIds)} onOpenNode={onOpenNode} />
-              <InlineNodeList label="concept" refs={refsForInlineList(objective.conceptRefs, objective.conceptIds)} onOpenNode={onOpenNode} />
+              <InlineNodeList
+                label="session"
+                refs={refsForInlineList(objective.sessionRefs, objective.sessionIds)}
+                onOpenNode={onOpenNode}
+              />
+              <InlineNodeList
+                label="artifact"
+                refs={refsForInlineList(objective.artifactRefs, objective.artifactIds)}
+                onOpenNode={onOpenNode}
+              />
+              <InlineNodeList
+                label="concept"
+                refs={refsForInlineList(objective.conceptRefs, objective.conceptIds)}
+                onOpenNode={onOpenNode}
+              />
             </span>
           </div>
         );
@@ -856,7 +1072,10 @@ function ObjectiveList({
   );
 }
 
-function refsForInlineList(refs: Array<{ id: string; title: string }> | undefined, ids: string[]): Array<{ id: string; title: string | null }> {
+function refsForInlineList(
+  refs: Array<{ id: string; title: string }> | undefined,
+  ids: string[],
+): Array<{ id: string; title: string | null }> {
   if (refs?.length) return refs.map((ref) => ({ id: ref.id, title: ref.title }));
   return ids.map((id) => ({ id, title: null }));
 }
@@ -882,12 +1101,24 @@ function InlineNodeList({
           onOpenNode={onOpenNode}
         />
       ))}
-      {refs.length > shown.length && <span style={{ color: "#6b7280", padding: "1px 0" }}>+{refs.length - shown.length} more</span>}
+      {refs.length > shown.length && (
+        <span style={{ color: "#6b7280", padding: "1px 0" }}>
+          +{refs.length - shown.length} more
+        </span>
+      )}
     </>
   );
 }
 
-function InlineOpenButton({ label, nodeId, onOpenNode }: { label: string; nodeId: string; onOpenNode: (nodeId: string) => void }) {
+function InlineOpenButton({
+  label,
+  nodeId,
+  onOpenNode,
+}: {
+  label: string;
+  nodeId: string;
+  onOpenNode: (nodeId: string) => void;
+}) {
   return (
     <span
       role="button"

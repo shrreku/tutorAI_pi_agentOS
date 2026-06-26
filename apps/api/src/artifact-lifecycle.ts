@@ -92,9 +92,7 @@ const SUPPORTED_ARTIFACT_TYPES = [
   "diagram",
 ] as const;
 
-export function normalizeArtifactLifecycleStatus(
-  status: string,
-): ArtifactLifecycleStatus | null {
+export function normalizeArtifactLifecycleStatus(status: string): ArtifactLifecycleStatus | null {
   const normalized = status.trim().toLowerCase();
   if (normalized === "approved" || normalized === "saved") return "ready";
   if (normalized === "superseded") return "archived";
@@ -279,11 +277,7 @@ export function applyArtifactLifecycleAction(input: {
     normalizeArtifactLifecycleStatus(input.currentStatus) ??
     (input.currentStatus as ArtifactLifecycleStatus);
   const to =
-    input.action === "approve"
-      ? "ready"
-      : input.action === "reject"
-        ? "rejected"
-        : "archived";
+    input.action === "approve" ? "ready" : input.action === "reject" ? "rejected" : "archived";
   const transition = validateArtifactTransition(from, to);
   const quality = decideArtifactQuality({
     artifactType: input.artifactType,
@@ -415,7 +409,9 @@ function typeSpecificQualityIssues(type: string, payload: Record<string, unknown
   if (type === "note") {
     const markdown = stringOrNull(payload.markdown ?? payload.noteMarkdown ?? payload.body);
     const personalization = isRecord(payload.personalization) ? payload.personalization : null;
-    const personalizedSections = Array.isArray(personalization?.sections) ? personalization.sections : [];
+    const personalizedSections = Array.isArray(personalization?.sections)
+      ? personalization.sections
+      : [];
     const personalizedBodies = personalizedSections.filter(
       (section) => isRecord(section) && stringOrNull(section.body as string)?.length,
     );

@@ -37,7 +37,9 @@ describe("recordAndApplyMasteryEvidence", () => {
     applyMasteryEvidence.mockReset();
     persistMasteryEvidence.mockResolvedValue({ evidenceId: evidence.id, eventId: "evt_1" });
     applyMasteryEvidence.mockResolvedValue({
-      updatedConceptStates: [{ conceptId: "concept_1", masteryScore: 0.8, nextReviewAt: new Date().toISOString() }],
+      updatedConceptStates: [
+        { conceptId: "concept_1", masteryScore: 0.8, nextReviewAt: new Date().toISOString() },
+      ],
       weakConceptIds: [],
     });
   });

@@ -58,7 +58,9 @@ class FakeQuery {
   }
 
   then<TResult1 = Array<Record<string, unknown>>, TResult2 = never>(
-    onfulfilled?: ((value: Array<Record<string, unknown>>) => TResult1 | PromiseLike<TResult1>) | null,
+    onfulfilled?:
+      | ((value: Array<Record<string, unknown>>) => TResult1 | PromiseLike<TResult1>)
+      | null,
     onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
   ) {
     return Promise.resolve(this.rows).then(onfulfilled, onrejected);
@@ -136,7 +138,10 @@ describe("eval run routes", () => {
       startedAt: "2026-05-22T00:00:00.000Z",
       completedAt: "2026-05-22T00:02:00.000Z",
       notebookRefs: [{ refType: "notebook", refId: "nb_eval_fixture_001" }],
-      transcript: ["RUN STARTED: slrun_eval_dashboard_001", "FINAL: failed - 1 scenario run failed."],
+      transcript: [
+        "RUN STARTED: slrun_eval_dashboard_001",
+        "FINAL: failed - 1 scenario run failed.",
+      ],
       scenarioRuns: matrix.runs.slice(0, 4).map((run, index) => ({
         ...run,
         id: `slrun_eval_dashboard_001_${index}`,
@@ -147,20 +152,21 @@ describe("eval run routes", () => {
         completedAt: `2026-05-22T00:0${index}:30.000Z`,
         durationMs: 30_000,
         steps: [],
-        assertions: index === 3
-          ? [
-              {
-                id: "learner_visible_no_id_leak",
-                category: "learner_visible",
-                description: "Tutor text does not leak raw IDs.",
-                status: "failed",
-                passed: false,
-                failureMessage: "Tutor text leaks machine-generated content: [object Object]",
-                evidenceRefs: [],
-                details: {},
-              },
-            ]
-          : [],
+        assertions:
+          index === 3
+            ? [
+                {
+                  id: "learner_visible_no_id_leak",
+                  category: "learner_visible",
+                  description: "Tutor text does not leak raw IDs.",
+                  status: "failed",
+                  passed: false,
+                  failureMessage: "Tutor text leaks machine-generated content: [object Object]",
+                  evidenceRefs: [],
+                  details: {},
+                },
+              ]
+            : [],
         artifactRefs: [],
         screenshotRefs: [],
         traceRefs: [],
@@ -197,7 +203,11 @@ describe("eval run routes", () => {
     expect(postBody.summary.status).toBe("failed");
     expect(postBody.summary.scenarioRunCount).toBe(4);
     expect(postBody.summary.failedScenarioCount).toBe(1);
-    expect(postBody.summary.personaIds).toEqual(expect.arrayContaining(syntheticLearnerEvalTracerBulletPersonas.slice(0, 2).map((persona) => persona.id)));
+    expect(postBody.summary.personaIds).toEqual(
+      expect.arrayContaining(
+        syntheticLearnerEvalTracerBulletPersonas.slice(0, 2).map((persona) => persona.id),
+      ),
+    );
     expect(postBody.run.transcript).toContain("RUN STARTED: slrun_eval_dashboard_001");
 
     expect(fakeDb.inserted.get(syntheticLearnerEvalRuns)).toHaveLength(1);
@@ -207,7 +217,11 @@ describe("eval run routes", () => {
       url: "/eval/runs",
     });
     expect(listResponse.statusCode).toBe(200);
-    const listBody = listResponse.json() as { runs: Array<{ summary: { id: string; scenarioRunCount: number; failedScenarioCount: number } }> };
+    const listBody = listResponse.json() as {
+      runs: Array<{
+        summary: { id: string; scenarioRunCount: number; failedScenarioCount: number };
+      }>;
+    };
     expect(listBody.runs).toHaveLength(1);
     expect(listBody.runs[0]?.summary.id).toBe("slrun_eval_dashboard_001");
     expect(listBody.runs[0]?.summary.failedScenarioCount).toBe(1);
@@ -219,7 +233,11 @@ describe("eval run routes", () => {
     expect(detailResponse.statusCode).toBe(200);
     const detailBody = detailResponse.json() as {
       summary: { id: string; transcriptLineCount: number };
-      run: { id: string; transcript: string[]; scenarioRuns: Array<{ personaId: string; scenarioId: string }> };
+      run: {
+        id: string;
+        transcript: string[];
+        scenarioRuns: Array<{ personaId: string; scenarioId: string }>;
+      };
     };
     expect(detailBody.summary.id).toBe("slrun_eval_dashboard_001");
     expect(detailBody.summary.transcriptLineCount).toBeGreaterThan(0);
@@ -241,7 +259,9 @@ describe("eval run routes", () => {
       id: "snap_eval_post_001",
       notebookId: matrix.fixture.seededNotebookId,
       capturedAt: "2026-05-22T00:01:00.000Z",
-      masteryEvidence: [{ ref: { refType: "turn", refId: "turn_post_001" }, overallScore: 0.8, confidence: 0.9 }],
+      masteryEvidence: [
+        { ref: { refType: "turn", refId: "turn_post_001" }, overallScore: 0.8, confidence: 0.9 },
+      ],
     });
     const runRecord = buildSyntheticLearnerEvalRunRecord({
       matrix,
@@ -366,19 +386,26 @@ describe("eval run routes", () => {
       },
     });
     expect(patchResponse.statusCode).toBe(200);
-    const patchBody = patchResponse.json() as { run: { status: string; observationEvents: Array<{ id: string }> } };
+    const patchBody = patchResponse.json() as {
+      run: { status: string; observationEvents: Array<{ id: string }> };
+    };
     expect(patchBody.run.status).toBe("running");
-    expect(patchBody.run.observationEvents.map((event) => event.id)).toEqual(["obs_live_1", "obs_live_2"]);
+    expect(patchBody.run.observationEvents.map((event) => event.id)).toEqual([
+      "obs_live_1",
+      "obs_live_2",
+    ]);
   });
 
   it("parses compact eval run update notifications", () => {
     expect(
-      parseEvalRunUpdateNotificationPayload(JSON.stringify({
-        runId: "slrun_notify_1",
-        ownerId: "user_eval_1",
-        status: "running",
-        updatedAt: "2026-05-22T00:00:02.000Z",
-      })),
+      parseEvalRunUpdateNotificationPayload(
+        JSON.stringify({
+          runId: "slrun_notify_1",
+          ownerId: "user_eval_1",
+          status: "running",
+          updatedAt: "2026-05-22T00:00:02.000Z",
+        }),
+      ),
     ).toEqual({
       runId: "slrun_notify_1",
       ownerId: "user_eval_1",
@@ -389,14 +416,18 @@ describe("eval run routes", () => {
 
   it("rejects malformed eval run update notifications", () => {
     expect(parseEvalRunUpdateNotificationPayload("not-json")).toBeNull();
-    expect(parseEvalRunUpdateNotificationPayload(JSON.stringify({ runId: "slrun_missing_owner" }))).toBeNull();
     expect(
-      parseEvalRunUpdateNotificationPayload(JSON.stringify({
-        runId: "slrun_bad_date",
-        ownerId: "user_eval_1",
-        status: "running",
-        updatedAt: "nope",
-      })),
+      parseEvalRunUpdateNotificationPayload(JSON.stringify({ runId: "slrun_missing_owner" })),
+    ).toBeNull();
+    expect(
+      parseEvalRunUpdateNotificationPayload(
+        JSON.stringify({
+          runId: "slrun_bad_date",
+          ownerId: "user_eval_1",
+          status: "running",
+          updatedAt: "nope",
+        }),
+      ),
     ).toBeNull();
   });
 });

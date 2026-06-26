@@ -5,7 +5,8 @@ import { registerEvalEvidenceSnapshotRoutes } from "./eval-evidence-snapshot.js"
 const captureNotebookEvalEvidenceSnapshot = vi.fn();
 
 vi.mock("../eval-evidence-snapshot-capture.js", () => ({
-  captureNotebookEvalEvidenceSnapshot: (...args: unknown[]) => captureNotebookEvalEvidenceSnapshot(...args),
+  captureNotebookEvalEvidenceSnapshot: (...args: unknown[]) =>
+    captureNotebookEvalEvidenceSnapshot(...args),
 }));
 
 vi.mock("../auth.js", () => ({

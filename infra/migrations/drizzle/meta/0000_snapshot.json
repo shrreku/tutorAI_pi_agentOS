@@ -94,12 +94,8 @@
           "name": "agent_runs_session_id_tutor_sessions_id_fk",
           "tableFrom": "agent_runs",
           "tableTo": "tutor_sessions",
-          "columnsFrom": [
-            "session_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["session_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -107,12 +103,8 @@
           "name": "agent_runs_turn_id_tutor_turns_id_fk",
           "tableFrom": "agent_runs",
           "tableTo": "tutor_turns",
-          "columnsFrom": [
-            "turn_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["turn_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -235,12 +227,8 @@
           "name": "artifacts_notebook_id_notebooks_id_fk",
           "tableFrom": "artifacts",
           "tableTo": "notebooks",
-          "columnsFrom": [
-            "notebook_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["notebook_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -358,12 +346,8 @@
           "name": "chunks_source_version_id_source_versions_id_fk",
           "tableFrom": "chunks",
           "tableTo": "source_versions",
-          "columnsFrom": [
-            "source_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["source_version_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -371,12 +355,8 @@
           "name": "chunks_parent_chunk_id_chunks_id_fk",
           "tableFrom": "chunks",
           "tableTo": "chunks",
-          "columnsFrom": [
-            "parent_chunk_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["parent_chunk_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -450,12 +430,8 @@
           "name": "claim_concept_links_claim_id_claims_id_fk",
           "tableFrom": "claim_concept_links",
           "tableTo": "claims",
-          "columnsFrom": [
-            "claim_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["claim_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -463,12 +439,8 @@
           "name": "claim_concept_links_concept_id_concepts_id_fk",
           "tableFrom": "claim_concept_links",
           "tableTo": "concepts",
-          "columnsFrom": [
-            "concept_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["concept_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -614,12 +586,8 @@
           "name": "claims_notebook_id_notebooks_id_fk",
           "tableFrom": "claims",
           "tableTo": "notebooks",
-          "columnsFrom": [
-            "notebook_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["notebook_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -627,12 +595,8 @@
           "name": "claims_source_id_sources_id_fk",
           "tableFrom": "claims",
           "tableTo": "sources",
-          "columnsFrom": [
-            "source_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["source_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -640,12 +604,8 @@
           "name": "claims_source_version_id_source_versions_id_fk",
           "tableFrom": "claims",
           "tableTo": "source_versions",
-          "columnsFrom": [
-            "source_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["source_version_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -747,12 +707,8 @@
           "name": "concepts_notebook_id_notebooks_id_fk",
           "tableFrom": "concepts",
           "tableTo": "notebooks",
-          "columnsFrom": [
-            "notebook_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["notebook_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -867,12 +823,8 @@
           "name": "curricula_notebook_id_notebooks_id_fk",
           "tableFrom": "curricula",
           "tableTo": "notebooks",
-          "columnsFrom": [
-            "notebook_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["notebook_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -987,12 +939,8 @@
           "name": "events_notebook_id_notebooks_id_fk",
           "tableFrom": "events",
           "tableTo": "notebooks",
-          "columnsFrom": [
-            "notebook_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["notebook_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1000,12 +948,8 @@
           "name": "events_session_id_tutor_sessions_id_fk",
           "tableFrom": "events",
           "tableTo": "tutor_sessions",
-          "columnsFrom": [
-            "session_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["session_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -1013,12 +957,8 @@
           "name": "events_run_id_agent_runs_id_fk",
           "tableFrom": "events",
           "tableTo": "agent_runs",
-          "columnsFrom": [
-            "run_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["run_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -1171,12 +1111,8 @@
           "name": "graph_relations_notebook_id_notebooks_id_fk",
           "tableFrom": "graph_relations",
           "tableTo": "notebooks",
-          "columnsFrom": [
-            "notebook_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["notebook_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1288,12 +1224,8 @@
           "name": "learning_state_notebook_id_notebooks_id_fk",
           "tableFrom": "learning_state",
           "tableTo": "notebooks",
-          "columnsFrom": [
-            "notebook_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["notebook_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1301,12 +1233,8 @@
           "name": "learning_state_user_id_users_id_fk",
           "tableFrom": "learning_state",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1314,12 +1242,8 @@
           "name": "learning_state_concept_id_concepts_id_fk",
           "tableFrom": "learning_state",
           "tableTo": "concepts",
-          "columnsFrom": [
-            "concept_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["concept_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1402,12 +1326,8 @@
           "name": "neo4j_projection_state_notebook_id_notebooks_id_fk",
           "tableFrom": "neo4j_projection_state",
           "tableTo": "notebooks",
-          "columnsFrom": [
-            "notebook_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["notebook_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1503,12 +1423,8 @@
           "name": "notebooks_owner_id_users_id_fk",
           "tableFrom": "notebooks",
           "tableTo": "users",
-          "columnsFrom": [
-            "owner_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owner_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1657,12 +1573,8 @@
           "name": "objectives_notebook_id_notebooks_id_fk",
           "tableFrom": "objectives",
           "tableTo": "notebooks",
-          "columnsFrom": [
-            "notebook_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["notebook_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1670,12 +1582,8 @@
           "name": "objectives_curriculum_id_curricula_id_fk",
           "tableFrom": "objectives",
           "tableTo": "curricula",
-          "columnsFrom": [
-            "curriculum_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["curriculum_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1781,12 +1689,8 @@
           "name": "quiz_attempts_artifact_id_artifacts_id_fk",
           "tableFrom": "quiz_attempts",
           "tableTo": "artifacts",
-          "columnsFrom": [
-            "artifact_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["artifact_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1794,12 +1698,8 @@
           "name": "quiz_attempts_notebook_id_notebooks_id_fk",
           "tableFrom": "quiz_attempts",
           "tableTo": "notebooks",
-          "columnsFrom": [
-            "notebook_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["notebook_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1807,12 +1707,8 @@
           "name": "quiz_attempts_user_id_users_id_fk",
           "tableFrom": "quiz_attempts",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1911,12 +1807,8 @@
           "name": "source_versions_source_id_sources_id_fk",
           "tableFrom": "source_versions",
           "tableTo": "sources",
-          "columnsFrom": [
-            "source_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["source_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2027,12 +1919,8 @@
           "name": "sources_notebook_id_notebooks_id_fk",
           "tableFrom": "sources",
           "tableTo": "notebooks",
-          "columnsFrom": [
-            "notebook_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["notebook_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2166,12 +2054,8 @@
           "name": "study_plans_notebook_id_notebooks_id_fk",
           "tableFrom": "study_plans",
           "tableTo": "notebooks",
-          "columnsFrom": [
-            "notebook_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["notebook_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2179,12 +2063,8 @@
           "name": "study_plans_user_id_users_id_fk",
           "tableFrom": "study_plans",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2297,12 +2177,8 @@
           "name": "tool_calls_run_id_agent_runs_id_fk",
           "tableFrom": "tool_calls",
           "tableTo": "agent_runs",
-          "columnsFrom": [
-            "run_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["run_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2310,12 +2186,8 @@
           "name": "tool_calls_session_id_tutor_sessions_id_fk",
           "tableFrom": "tool_calls",
           "tableTo": "tutor_sessions",
-          "columnsFrom": [
-            "session_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["session_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2323,12 +2195,8 @@
           "name": "tool_calls_turn_id_tutor_turns_id_fk",
           "tableFrom": "tool_calls",
           "tableTo": "tutor_turns",
-          "columnsFrom": [
-            "turn_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["turn_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -2424,12 +2292,8 @@
           "name": "tutor_sessions_notebook_id_notebooks_id_fk",
           "tableFrom": "tutor_sessions",
           "tableTo": "notebooks",
-          "columnsFrom": [
-            "notebook_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["notebook_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2437,12 +2301,8 @@
           "name": "tutor_sessions_user_id_users_id_fk",
           "tableFrom": "tutor_sessions",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2542,12 +2402,8 @@
           "name": "tutor_turns_session_id_tutor_sessions_id_fk",
           "tableFrom": "tutor_turns",
           "tableTo": "tutor_sessions",
-          "columnsFrom": [
-            "session_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["session_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2703,12 +2559,8 @@
           "name": "whiteboard_edges_notebook_id_notebooks_id_fk",
           "tableFrom": "whiteboard_edges",
           "tableTo": "notebooks",
-          "columnsFrom": [
-            "notebook_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["notebook_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2716,12 +2568,8 @@
           "name": "whiteboard_edges_source_whiteboard_node_id_whiteboard_nodes_id_fk",
           "tableFrom": "whiteboard_edges",
           "tableTo": "whiteboard_nodes",
-          "columnsFrom": [
-            "source_whiteboard_node_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["source_whiteboard_node_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2729,12 +2577,8 @@
           "name": "whiteboard_edges_target_whiteboard_node_id_whiteboard_nodes_id_fk",
           "tableFrom": "whiteboard_edges",
           "tableTo": "whiteboard_nodes",
-          "columnsFrom": [
-            "target_whiteboard_node_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["target_whiteboard_node_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2742,12 +2586,8 @@
           "name": "whiteboard_edges_relation_id_graph_relations_id_fk",
           "tableFrom": "whiteboard_edges",
           "tableTo": "graph_relations",
-          "columnsFrom": [
-            "relation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["relation_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -2842,12 +2682,8 @@
           "name": "whiteboard_nodes_notebook_id_notebooks_id_fk",
           "tableFrom": "whiteboard_nodes",
           "tableTo": "notebooks",
-          "columnsFrom": [
-            "notebook_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["notebook_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2963,12 +2799,8 @@
           "name": "wiki_page_blocks_page_id_wiki_pages_id_fk",
           "tableFrom": "wiki_page_blocks",
           "tableTo": "wiki_pages",
-          "columnsFrom": [
-            "page_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["page_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -3116,12 +2948,8 @@
           "name": "wiki_pages_notebook_id_notebooks_id_fk",
           "tableFrom": "wiki_pages",
           "tableTo": "notebooks",
-          "columnsFrom": [
-            "notebook_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["notebook_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }

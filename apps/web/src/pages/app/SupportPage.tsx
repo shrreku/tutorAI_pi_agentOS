@@ -84,7 +84,11 @@ export function SupportPage() {
 
             <label className="tb-field">
               <span>What happened?</span>
-              <textarea value={message} onChange={(event) => setMessage(event.target.value)} rows={5} />
+              <textarea
+                value={message}
+                onChange={(event) => setMessage(event.target.value)}
+                rows={5}
+              />
             </label>
 
             <div className="tb-actions">

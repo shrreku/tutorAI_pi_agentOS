@@ -24,7 +24,12 @@ describe("adaptive curriculum from mastery evidence", () => {
       triggerSource: "runtime_auto",
       sourceRefs: [],
       contextRefs: [],
-      evaluatorProvenance: { mode: "deterministic", model: null, fallbackUsed: false, notes: "test" },
+      evaluatorProvenance: {
+        mode: "deterministic",
+        model: null,
+        fallbackUsed: false,
+        notes: "test",
+      },
     });
     expect(shouldApplyDurablePlanChange(signals)).toBe(true);
 
@@ -44,7 +49,9 @@ describe("adaptive curriculum from mastery evidence", () => {
     });
 
     expect(patch?.plannedObjectiveIds).toContain("obj_b");
-    expect(patch?.plannedObjectiveIds.indexOf("obj_b")).toBeLessThan(patch!.plannedObjectiveIds.indexOf("obj_a"));
+    expect(patch?.plannedObjectiveIds.indexOf("obj_b")).toBeLessThan(
+      patch!.plannedObjectiveIds.indexOf("obj_a"),
+    );
     expect(patch?.recommendationReasonJson.masteryEvidenceIds).toEqual(["mev_r1"]);
   });
 
@@ -97,7 +104,12 @@ describe("adaptive curriculum from mastery evidence", () => {
         triggerSource: "runtime_auto",
         sourceRefs: [{ refType: "source", refId: "src_1" }],
         contextRefs: [],
-        evaluatorProvenance: { mode: "deterministic", model: null, fallbackUsed: false, notes: "test" },
+        evaluatorProvenance: {
+          mode: "deterministic",
+          model: null,
+          fallbackUsed: false,
+          notes: "test",
+        },
       },
       { sourceCoverageGap: true },
     );

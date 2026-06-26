@@ -15,11 +15,22 @@ type CreditSummary = {
 type CreditsResponse = {
   userId: string;
   summary: CreditSummary;
-  ledger: Array<{ id: string; creditType: string; entryType: string; amountCents: number; reason: string | null; createdAt: string }>;
+  ledger: Array<{
+    id: string;
+    creditType: string;
+    entryType: string;
+    amountCents: number;
+    reason: string | null;
+    createdAt: string;
+  }>;
 };
 
 export function AdminCreditsPage() {
-  const { data: usersData, error: usersError, loading: usersLoading } = useAdminFetch<UsersResponse>("/admin/users");
+  const {
+    data: usersData,
+    error: usersError,
+    loading: usersLoading,
+  } = useAdminFetch<UsersResponse>("/admin/users");
   const [userId, setUserId] = useState("");
   const [amountCents, setAmountCents] = useState("100");
   const [creditType, setCreditType] = useState<"tutor" | "ingestion">("tutor");
@@ -69,32 +80,55 @@ export function AdminCreditsPage() {
         <div className="tb-form">
           <label>
             Learner
-            <select className="tb-input" value={userId} onChange={(event) => {
-              setUserId(event.target.value);
-              if (event.target.value) void loadLedger(event.target.value);
-            }}>
+            <select
+              className="tb-input"
+              value={userId}
+              onChange={(event) => {
+                setUserId(event.target.value);
+                if (event.target.value) void loadLedger(event.target.value);
+              }}
+            >
               <option value="">Select user</option>
               {usersData.users.map((user) => (
-                <option key={user.id} value={user.id}>{user.email}</option>
+                <option key={user.id} value={user.id}>
+                  {user.email}
+                </option>
               ))}
             </select>
           </label>
           <label>
             Credit type
-            <select className="tb-input" value={creditType} onChange={(event) => setCreditType(event.target.value as "tutor" | "ingestion")}>
+            <select
+              className="tb-input"
+              value={creditType}
+              onChange={(event) => setCreditType(event.target.value as "tutor" | "ingestion")}
+            >
               <option value="tutor">Tutor</option>
               <option value="ingestion">Ingestion</option>
             </select>
           </label>
           <label>
             Amount (cents)
-            <input className="tb-input" value={amountCents} onChange={(event) => setAmountCents(event.target.value)} />
+            <input
+              className="tb-input"
+              value={amountCents}
+              onChange={(event) => setAmountCents(event.target.value)}
+            />
           </label>
           <label>
             Reason
-            <input className="tb-input" value={reason} onChange={(event) => setReason(event.target.value)} />
+            <input
+              className="tb-input"
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+            />
           </label>
-          <button type="button" className="tb-button tb-button-primary" disabled={busy || !userId} onClick={(event) => void adjustCredits(event)}>
+          <button
+            type="button"
+            className="tb-button tb-button-primary"
+            disabled={busy || !userId}
+            onClick={(event) => void adjustCredits(event)}
+          >
             Adjust credits
           </button>
         </div>
@@ -103,8 +137,8 @@ export function AdminCreditsPage() {
       {ledger ? (
         <>
           <p>
-            Tutor: {ledger.summary.tutorCreditsCents}¢ · Ingestion: {ledger.summary.ingestionCreditsCents}¢
-            {ledger.summary.exhausted ? " · Exhausted" : ""}
+            Tutor: {ledger.summary.tutorCreditsCents}¢ · Ingestion:{" "}
+            {ledger.summary.ingestionCreditsCents}¢{ledger.summary.exhausted ? " · Exhausted" : ""}
           </p>
           <AdminTable>
             <thead>

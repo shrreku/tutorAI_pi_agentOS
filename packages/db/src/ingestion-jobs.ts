@@ -44,7 +44,9 @@ export async function enqueueIngestionJob(
       notebookId: input.notebookId,
       sourceId: input.sourceId,
       sourceVersionId: input.sourceVersionId,
-      ...(input.ingestionReservationId ? { ingestionReservationId: input.ingestionReservationId } : {}),
+      ...(input.ingestionReservationId
+        ? { ingestionReservationId: input.ingestionReservationId }
+        : {}),
     },
   });
   await notifyIngestionJobs(dbClient, jobId);
@@ -150,7 +152,11 @@ export async function failIngestionJob(
     error: string;
     retryDelayMs?: number;
   },
-): Promise<{ retry: boolean; status: Extract<IngestionJobStatus, "queued" | "failed">; runAt?: Date }> {
+): Promise<{
+  retry: boolean;
+  status: Extract<IngestionJobStatus, "queued" | "failed">;
+  runAt?: Date;
+}> {
   const [row] = await dbClient.db
     .select({
       attemptsStarted: ingestionJobs.attemptsStarted,
@@ -160,7 +166,11 @@ export async function failIngestionJob(
     .where(eq(ingestionJobs.id, input.jobId))
     .limit(1);
   const retry = Boolean(row && row.attemptsStarted < row.maxAttempts);
-  const runAt = retry ? new Date(Date.now() + (input.retryDelayMs ?? retryDelayForAttemptMs(row?.attemptsStarted ?? 1))) : undefined;
+  const runAt = retry
+    ? new Date(
+        Date.now() + (input.retryDelayMs ?? retryDelayForAttemptMs(row?.attemptsStarted ?? 1)),
+      )
+    : undefined;
 
   await dbClient.db
     .update(ingestionJobs)

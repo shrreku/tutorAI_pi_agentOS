@@ -43,7 +43,9 @@ type WorkspaceShellContextValue = {
   setTutorRuntime: (runtime: TutorRuntimeContext) => void;
   dispatchShell: Dispatch<WorkspaceShellAction>;
   launchInteractiveSurface: (detail: InteractiveSurfaceLaunchDetail) => void;
-  registerInteractiveSurfaceLaunchHandler: (handler: (detail: InteractiveSurfaceLaunchDetail) => void) => () => void;
+  registerInteractiveSurfaceLaunchHandler: (
+    handler: (detail: InteractiveSurfaceLaunchDetail) => void,
+  ) => () => void;
 };
 
 const WorkspaceShellContext = createContext<WorkspaceShellContextValue | null>(null);
@@ -65,7 +67,9 @@ export function WorkspaceShellProvider({
     null,
   );
   const [tutorRuntime, setTutorRuntime] = useState<TutorRuntimeContext>({});
-  const interactiveSurfaceLaunchHandlerRef = useRef<((detail: InteractiveSurfaceLaunchDetail) => void) | null>(null);
+  const interactiveSurfaceLaunchHandlerRef = useRef<
+    ((detail: InteractiveSurfaceLaunchDetail) => void) | null
+  >(null);
 
   const setDraftTutorPrompt = useCallback((prompt: DraftTutorPrompt | string | null) => {
     setDraftTutorPromptState(typeof prompt === "string" ? { prompt } : prompt);

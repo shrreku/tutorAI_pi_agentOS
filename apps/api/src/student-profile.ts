@@ -69,8 +69,10 @@ export async function upsertStudentProfile(
     backgroundSummary: input.patch.backgroundSummary ?? existing?.backgroundSummary ?? null,
     pacePreference: input.patch.pacePreference ?? existing?.pacePreference ?? null,
     depthPreference: input.patch.depthPreference ?? existing?.depthPreference ?? null,
-    examplePreferencesJson: input.patch.examplePreferencesJson ?? existing?.examplePreferencesJson ?? {},
-    assessmentPreferenceJson: input.patch.assessmentPreferenceJson ?? existing?.assessmentPreferenceJson ?? {},
+    examplePreferencesJson:
+      input.patch.examplePreferencesJson ?? existing?.examplePreferencesJson ?? {},
+    assessmentPreferenceJson:
+      input.patch.assessmentPreferenceJson ?? existing?.assessmentPreferenceJson ?? {},
     constraintsJson: input.patch.constraintsJson ?? existing?.constraintsJson ?? {},
   };
 
@@ -93,7 +95,11 @@ export async function upsertStudentProfile(
     });
   }
 
-  const profile = (await readStudentProfile(dbClient, input.notebookId, input.userId)) as StudentProfileRecord;
+  const profile = (await readStudentProfile(
+    dbClient,
+    input.notebookId,
+    input.userId,
+  )) as StudentProfileRecord;
   const event = await appendEvent(dbClient, {
     notebookId: input.notebookId,
     eventType: "student_profile.updated",
