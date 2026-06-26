@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Source · Ch. 7 — TutorBook</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body data-theme="mist">
+<div class="app">
+  <div data-include="topbar"></div>
+
+  <div class="ref-page">
+    <div class="ref-container">
+      <div class="ref-top">
+        <a class="back-link" href="study-map.html">← Back to Study Map</a>
+        <div class="ref-actions">
+          <button class="btn" data-ask-tutor>💬 Ask tutor</button>
+          <button class="btn" data-evidence-open>🛡 Evidence</button>
+        </div>
+      </div>
+
+      <div class="ref-header">
+        <div class="badges">
+          <span class="badge" style="background:var(--green-deep);color:#fff;border-color:var(--green-deep)">SOURCE</span>
+          <span class="badge green">Ready to study</span>
+        </div>
+        <h1>Organic Chemistry Textbook · Ch. 7</h1>
+        <div class="summary">PDF · 248 pages · Ready</div>
+      </div>
+
+      <div class="source-layout">
+        <div class="thumb-list" data-thumb-list>
+          <div class="thumb" data-thumb>p. 140</div>
+          <div class="thumb selected" data-thumb>p. 142</div>
+          <div class="thumb" data-thumb>p. 143</div>
+          <div class="thumb" data-thumb>p. 144</div>
+          <div class="thumb" data-thumb>p. 145</div>
+        </div>
+        <div class="card" style="padding:24px">
+          <h3 style="margin:0 0 12px">Page 142 · 7.3 The SN2 Mechanism</h3>
+          <p>The SN2 mechanism proceeds through a single concerted transition state in which the nucleophile approaches the substrate carbon from the side opposite the leaving group. As the new C–Nu bond forms, the C–L bond breaks simultaneously.</p>
+          <p>The geometry of the transition state is trigonal bipyramidal around the reacting carbon, with three substituents lying in a plane and the nucleophile and leaving group occupying the apical positions.</p>
+          <div class="callout green">
+            <div class="label">Highlighted · cited in tutor</div>
+            <p style="margin:6px 0 0">Primary substrates react fastest because steric hindrance is minimized at the transition state.</p>
+          </div>
+          <p>Consequently, reaction rates follow the order methyl &gt; 1° &gt; 2° &gt;&gt; 3°, and tertiary substrates typically undergo elimination rather than substitution under these conditions.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div data-include="statusbar"></div>
+</div>
+
+<div data-include="drawer"></div>
+<div class="scrim" data-scrim></div>
+
+<script src="app.js"></script>
+<script src="partials.js"></script>
+</body>
+</html>

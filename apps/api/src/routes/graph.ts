@@ -34,7 +34,9 @@ import {
 import { z } from "zod";
 import type { AppContext } from "../context.js";
 import { appendEventWithTutorCacheInvalidation as appendEvent } from "../agentic-cache-invalidation.js";
-import { resolveActor } from "../auth.js";
+import { requireLearner } from "../hosted-beta/learner-gate.js";
+import { requireOwnedNotebook } from "../hosted-beta/notebook-context.js";
+import { sendAuthOrEntitlementError } from "../hosted-beta/entitlements.js";
 import type { GraphCanvasNode, GraphCanvasEdge } from "@studyagent/schemas";
 import { buildNodeEvidence, buildReferenceSurface as buildReferenceSurfaceModule, readablePlanningSummary } from "../reference-surface.js";
 import { buildSourceWikiReadModel, buildStudyMapReadModel } from "../workspace-read-model.js";
@@ -65,6 +67,17 @@ const graphQueryBodySchema = z.discriminatedUnion("name", [
 ]);
 
 export async function registerGraphRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
+  async function requireRouteOwnedNotebook(request: import("fastify").FastifyRequest, reply: import("fastify").FastifyReply, notebookId: string) {
+    try {
+      const { actor } = await requireLearner(ctx, request);
+      const owned = await requireOwnedNotebook(ctx, actor.id, notebookId);
+      return { actor, owned };
+    } catch (error) {
+      sendAuthOrEntitlementError(reply, error);
+      return null;
+    }
+  }
+
     // Save or update node layout positions (persisted to whiteboard_nodes)
     app.post<{
       Params: { notebookId: string; nodeId: string };
@@ -72,19 +85,10 @@ export async function registerGraphRoutes(app: FastifyInstance, ctx: AppContext)
     }>(
       "/notebooks/:notebookId/graph/layout/:nodeId",
       async (request, reply) => {
-        const actor = await resolveActor(ctx, request);
         const { notebookId, nodeId } = request.params;
+        const routeCtx = await requireRouteOwnedNotebook(request, reply, notebookId);
+        if (!routeCtx) return;
         const { position, nodeType = "unknown", refType = "whiteboard_node" } = request.body;
-
-        const [owned] = await ctx.db.db
-          .select()
-          .from(notebooks)
-          .where(and(eq(notebooks.id, notebookId), eq(notebooks.ownerId, actor.id)))
-          .limit(1);
-
-        if (!owned) {
-          return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
-        }
 
         const existing = await ctx.db.db
           .select()
@@ -118,18 +122,11 @@ export async function registerGraphRoutes(app: FastifyInstance, ctx: AppContext)
     app.delete<{ Params: { notebookId: string } }>(
       "/notebooks/:notebookId/graph/layout",
       async (request, reply) => {
-        const actor = await resolveActor(ctx, request);
         const { notebookId } = request.params;
-
-        const [owned] = await ctx.db.db
-          .select()
-          .from(notebooks)
-          .where(and(eq(notebooks.id, notebookId), eq(notebooks.ownerId, actor.id)))
-          .limit(1);
-
-        if (!owned) {
-          return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
-        }
+        const routeCtx = await requireRouteOwnedNotebook(request, reply, notebookId);
+        if (!routeCtx) return;
+        const { actor } = routeCtx;
+        const contentNotebookId = routeCtx.owned.contentNotebookId;
 
         await ctx.db.db
           .delete(whiteboardNodes)
@@ -143,18 +140,11 @@ export async function registerGraphRoutes(app: FastifyInstance, ctx: AppContext)
   app.get<{ Params: { notebookId: string } }>(
     "/notebooks/:notebookId/graph/layout",
     async (request, reply) => {
-      const actor = await resolveActor(ctx, request);
       const { notebookId } = request.params;
-
-      const [owned] = await ctx.db.db
-        .select()
-        .from(notebooks)
-        .where(and(eq(notebooks.id, notebookId), eq(notebooks.ownerId, actor.id)))
-        .limit(1);
-
-      if (!owned) {
-        return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
-      }
+      const routeCtx = await requireRouteOwnedNotebook(request, reply, notebookId);
+      if (!routeCtx) return;
+      const { actor } = routeCtx;
+      const contentNotebookId = routeCtx.owned.contentNotebookId;
 
       const rows = await ctx.db.db
         .select()
@@ -175,18 +165,11 @@ export async function registerGraphRoutes(app: FastifyInstance, ctx: AppContext)
   app.get<{ Params: { notebookId: string } }>(
     "/notebooks/:notebookId/graph/neo4j-health",
     async (request, reply) => {
-      const actor = await resolveActor(ctx, request);
       const { notebookId } = request.params;
-
-      const [owned] = await ctx.db.db
-        .select()
-        .from(notebooks)
-        .where(and(eq(notebooks.id, notebookId), eq(notebooks.ownerId, actor.id)))
-        .limit(1);
-
-      if (!owned) {
-        return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
-      }
+      const routeCtx = await requireRouteOwnedNotebook(request, reply, notebookId);
+      if (!routeCtx) return;
+      const { actor } = routeCtx;
+      const contentNotebookId = routeCtx.owned.contentNotebookId;
 
       if (!ctx.env.NEO4J_URI || !ctx.env.NEO4J_PASSWORD) {
         return reply.status(503).send({ ok: false, message: "Neo4j credentials not configured" });
@@ -210,18 +193,11 @@ export async function registerGraphRoutes(app: FastifyInstance, ctx: AppContext)
   app.post<{ Params: { notebookId: string } }>(
     "/notebooks/:notebookId/graph/query",
     async (request, reply) => {
-      const actor = await resolveActor(ctx, request);
       const { notebookId } = request.params;
-
-      const [owned] = await ctx.db.db
-        .select()
-        .from(notebooks)
-        .where(and(eq(notebooks.id, notebookId), eq(notebooks.ownerId, actor.id)))
-        .limit(1);
-
-      if (!owned) {
-        return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
-      }
+      const routeCtx = await requireRouteOwnedNotebook(request, reply, notebookId);
+      if (!routeCtx) return;
+      const { actor } = routeCtx;
+      const contentNotebookId = routeCtx.owned.contentNotebookId;
 
       if (!ctx.env.NEO4J_URI || !ctx.env.NEO4J_PASSWORD) {
         return reply.status(503).send({ code: "graph_unavailable", message: "Neo4j not configured" });
@@ -237,15 +213,15 @@ export async function registerGraphRoutes(app: FastifyInstance, ctx: AppContext)
       try {
         const body = parsed.data;
         if (body.name === "study_map") {
-          const data = await queryStudyMapSimple(session, notebookId, body.limit);
+          const data = await queryStudyMapSimple(session, contentNotebookId, body.limit);
           const nodes = normalizeNeo4jCanvasNodes(data.nodes);
           const nodeIds = new Set(nodes.map((n) => n.id));
           const base = { nodes, edges: normalizeNeo4jCanvasEdges(data.edges, nodeIds) };
-          const projectionHealth = await loadNotebookProjectionHealth(ctx.db, notebookId, body.devMode);
+          const projectionHealth = await loadNotebookProjectionHealth(ctx.db, contentNotebookId, body.devMode);
           const projectionWarning =
             projectionHealth.learnerWarning ??
             (base.nodes.length === 0 ? "Study Map is still building. Uploaded sources may still be processing." : null);
-          const readModelPayload = await buildStudyMapReadModel(ctx, notebookId, actor.id, base, {
+          const readModelPayload = await buildStudyMapReadModel(ctx, contentNotebookId, actor.id, base, {
             devMode: body.devMode,
             projectionWarning,
             projectionHealth,
@@ -260,18 +236,18 @@ export async function registerGraphRoutes(app: FastifyInstance, ctx: AppContext)
           });
         }
         if (body.name === "source_wiki_map") {
-          const data = await querySourceWikiMapSimple(session, notebookId, body.sourceId, body.limit);
+          const data = await querySourceWikiMapSimple(session, contentNotebookId, body.sourceId, body.limit);
           const nodes = normalizeNeo4jCanvasNodes(data.nodes).filter((node) => node.nodeType !== "claim");
           const nodeIds = new Set(nodes.map((n) => n.id));
           const edges = normalizeNeo4jCanvasEdges(data.edges, nodeIds);
           const projected = buildSourceWikiTopicProjection({ notebookId, sourceId: body.sourceId, nodes, edges });
-          const projectionHealth = await loadSourceProjectionHealth(ctx.db, notebookId, body.sourceId, body.devMode);
+          const projectionHealth = await loadSourceProjectionHealth(ctx.db, contentNotebookId, body.sourceId, body.devMode);
           const projectionWarning =
             projectionHealth.learnerWarning ??
             (projected.nodes.length <= 1 ? "Source Wiki is still building for this source." : null);
           const readModelPayload = await buildSourceWikiReadModel(
             ctx,
-            notebookId,
+            contentNotebookId,
             actor.id,
             projected,
             body.sourceId,
@@ -288,7 +264,7 @@ export async function registerGraphRoutes(app: FastifyInstance, ctx: AppContext)
           });
         }
         if (body.name === "concept_neighborhood") {
-          const nb = await queryConceptNeighborhood(session, notebookId, body.conceptId, body.limit);
+          const nb = await queryConceptNeighborhood(session, contentNotebookId, body.conceptId, body.limit);
           // Flatten neighborhood into canvas nodes+edges
           const rawNodes: GraphCanvasNode[] = [];
           const makeNode = (id: string, label: string, nodeType: string, title: string): GraphCanvasNode => ({
@@ -314,7 +290,7 @@ export async function registerGraphRoutes(app: FastifyInstance, ctx: AppContext)
         }
         const pathResult = await queryConceptShortestPath(
           session,
-          notebookId,
+          contentNotebookId,
           body.fromConceptId,
           body.toConceptId,
           body.maxHops,
@@ -348,41 +324,27 @@ export async function registerGraphRoutes(app: FastifyInstance, ctx: AppContext)
   app.get<{ Params: { notebookId: string; nodeId: string } }>(
     "/notebooks/:notebookId/nodes/:nodeId/provenance",
     async (request, reply) => {
-      const actor = await resolveActor(ctx, request);
       const { notebookId, nodeId } = request.params;
-
-      const [owned] = await ctx.db.db
-        .select()
-        .from(notebooks)
-        .where(and(eq(notebooks.id, notebookId), eq(notebooks.ownerId, actor.id)))
-        .limit(1);
-
-      if (!owned) {
-        return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
-      }
+      const routeCtx = await requireRouteOwnedNotebook(request, reply, notebookId);
+      if (!routeCtx) return;
+      const { actor } = routeCtx;
+      const contentNotebookId = routeCtx.owned.contentNotebookId;
 
       const devMode = typeof request.query === "object" && request.query !== null && (request.query as Record<string, unknown>).devMode === "true";
-      return reply.send(await buildNodeEvidence(ctx, notebookId, nodeId, { devMode }));
+      return reply.send(await buildNodeEvidence(ctx, contentNotebookId, nodeId, { devMode }));
     },
   );
 
   app.get<{ Params: { notebookId: string; nodeId: string } }>(
     "/notebooks/:notebookId/nodes/:nodeId/reference-surface",
     async (request, reply) => {
-      const actor = await resolveActor(ctx, request);
       const { notebookId, nodeId } = request.params;
+      const routeCtx = await requireRouteOwnedNotebook(request, reply, notebookId);
+      if (!routeCtx) return;
+      const { actor } = routeCtx;
+      const contentNotebookId = routeCtx.owned.contentNotebookId;
 
-      const [owned] = await ctx.db.db
-        .select()
-        .from(notebooks)
-        .where(and(eq(notebooks.id, notebookId), eq(notebooks.ownerId, actor.id)))
-        .limit(1);
-
-      if (!owned) {
-        return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
-      }
-
-      const surface = await buildReferenceSurfaceModule(ctx, notebookId, nodeId, { userId: actor.id });
+      const surface = await buildReferenceSurfaceModule(ctx, contentNotebookId, nodeId, { userId: actor.id });
       return reply.send(surface);
     },
   );
@@ -393,18 +355,11 @@ export async function registerGraphRoutes(app: FastifyInstance, ctx: AppContext)
   }>(
     "/notebooks/:notebookId/nodes/:nodeId/regenerate-reference",
     async (request, reply) => {
-      const actor = await resolveActor(ctx, request);
       const { notebookId, nodeId } = request.params;
-
-      const [owned] = await ctx.db.db
-        .select()
-        .from(notebooks)
-        .where(and(eq(notebooks.id, notebookId), eq(notebooks.ownerId, actor.id)))
-        .limit(1);
-
-      if (!owned) {
-        return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
-      }
+      const routeCtx = await requireRouteOwnedNotebook(request, reply, notebookId);
+      if (!routeCtx) return;
+      const { actor } = routeCtx;
+      const contentNotebookId = routeCtx.owned.contentNotebookId;
 
       const instruction =
         typeof request.body?.instruction === "string" && request.body.instruction.trim()
@@ -421,20 +376,13 @@ export async function registerGraphRoutes(app: FastifyInstance, ctx: AppContext)
   app.get<{ Params: { notebookId: string } }>(
     "/notebooks/:notebookId/curriculum-outline",
     async (request, reply) => {
-      const actor = await resolveActor(ctx, request);
       const { notebookId } = request.params;
+      const routeCtx = await requireRouteOwnedNotebook(request, reply, notebookId);
+      if (!routeCtx) return;
+      const { actor } = routeCtx;
+      const contentNotebookId = routeCtx.owned.contentNotebookId;
 
-      const [owned] = await ctx.db.db
-        .select()
-        .from(notebooks)
-        .where(and(eq(notebooks.id, notebookId), eq(notebooks.ownerId, actor.id)))
-        .limit(1);
-
-      if (!owned) {
-        return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
-      }
-
-      return reply.send(await buildCurriculumOutlineReadModel(ctx, notebookId, actor.id));
+      return reply.send(await buildCurriculumOutlineReadModel(ctx, contentNotebookId, actor.id));
     },
   );
 }

@@ -17,6 +17,30 @@ vi.mock("../auth.js", () => ({
   resolveActor: vi.fn(async () => ({ id: "user_eval_1" })),
 }));
 
+vi.mock("../hosted-beta/entitlements.js", async () => {
+  const actual = await vi.importActual<typeof import("../hosted-beta/entitlements.js")>(
+    "../hosted-beta/entitlements.js",
+  );
+  const now = new Date();
+  return {
+    ...actual,
+    requireAdminAccess: vi.fn(async () => ({
+      actor: { id: "user_eval_1", email: "eval@test.local" },
+      productState: {
+        userId: "user_eval_1",
+        studyAccess: 1,
+        ingestionAccess: 0,
+        adminAccess: 1,
+        pilotTagsJson: [],
+        onboardingJson: {},
+        trialBudgetGrantedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      },
+    })),
+  };
+});
+
 class FakeQuery {
   constructor(private rows: Array<Record<string, unknown>>) {}
 

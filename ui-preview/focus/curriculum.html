@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Curriculum — Focus</title>
+<link rel="stylesheet" href="../styles.css" />
+<link rel="stylesheet" href="focus.css" />
+</head>
+<body data-theme="focus">
+<div class="app">
+  <div data-include="topbar"></div>
+
+  <div class="workspace" data-evidence>
+    <div class="workspace-main">
+      <div class="workspace-canvas">
+        <div class="surface-switch" data-surface>
+          <a href="study-map.html">Map</a>
+          <a href="curriculum.html" class="active">Curriculum</a>
+          <a href="source-wiki.html">Library</a>
+        </div>
+
+        <h1 style="margin:0 0 4px;font-size:24px">Curriculum Timeline</h1>
+        <div class="muted" style="color:var(--text-muted);font-family:var(--font-ui);margin-bottom:18px">8 modules · 42 objectives · 12 completed</div>
+
+        <div class="module active open" data-module>
+          <div class="module-head">
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+            <div class="t">Ch. 7 · Substitution reactions</div>
+            <div class="spacer"></div>
+            <span class="badge" style="background:var(--accent);color:#fff;border-color:var(--accent)">Current</span>
+          </div>
+          <div class="module-body">
+            <div class="obj-item done"><div class="mark">✓</div><div>Obj 4 · Leaving groups</div></div>
+            <a class="obj-item active" href="page-concept.html"><div class="mark"></div><div>Obj 5 · SN2 mechanism</div></a>
+            <div class="obj-item"><div class="mark"></div><div>Obj 6 · Stereochemistry</div></div>
+          </div>
+        </div>
+
+        <div class="module" data-module>
+          <div class="module-head">
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+            <div class="t">Ch. 6 · Alkyl halides</div>
+            <div class="spacer"></div><span class="badge gray">Done</span>
+          </div>
+          <div class="module-body">
+            <div class="obj-item done"><div class="mark">✓</div><div>Obj 1 · Nomenclature</div></div>
+            <div class="obj-item done"><div class="mark">✓</div><div>Obj 2 · Synthesis</div></div>
+          </div>
+        </div>
+
+        <div class="module" data-module>
+          <div class="module-head">
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+            <div class="t">Ch. 8 · Elimination</div>
+            <div class="spacer"></div><span class="badge orange">Up next</span>
+          </div>
+          <div class="module-body">
+            <div class="obj-item"><div class="mark"></div><div>Obj 1 · E1 mechanism</div></div>
+            <div class="obj-item"><div class="mark"></div><div>Obj 2 · E2 mechanism</div></div>
+          </div>
+        </div>
+      </div>
+      <div data-include="statusbar"></div>
+    </div>
+
+    <div data-include="tutor" data-context="Obj 5 · SN2 Mechanism"></div>
+  </div>
+</div>
+
+<script src="../app.js"></script>
+<script src="../partials.js"></script>
+</body>
+</html>

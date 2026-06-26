@@ -12,7 +12,8 @@
     { "path": "../../packages/graph" },
     { "path": "../../packages/agent-runtime" },
     { "path": "../../packages/eval-runner" },
-    { "path": "../../packages/wiki-generation" }
+    { "path": "../../packages/wiki-generation" },
+    { "path": "../worker" }
   ],
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "src/**/*.d.ts"]
 }

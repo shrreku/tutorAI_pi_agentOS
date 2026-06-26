@@ -38,7 +38,7 @@ export function createMasteryWriteHandlers(
           referenceAnswer: input.referenceAnswer,
           evidenceType: normalizeMasteryEvidenceType(input.evidenceType),
           triggerSource: normalizeMasteryTriggerSource(input.triggerSource),
-        }, judge ? { judge } : {});
+        }, judge ? { judge, analyticsContext: appCtx } : { analyticsContext: appCtx });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         throw new ToolError("mastery_evaluation_failed", `Mastery evaluation failed: ${message}`);

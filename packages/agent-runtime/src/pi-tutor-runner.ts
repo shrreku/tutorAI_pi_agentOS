@@ -113,6 +113,20 @@ export type PiAgentSessionEvent =
       };
     };
 
+function buildRuntimeToolContext(run: StudyAgentRuntimeRun, turnId?: string) {
+  return {
+    userId: run.userId,
+    notebookId: run.notebookId,
+    ...(run.contentNotebookId ? { contentNotebookId: run.contentNotebookId } : {}),
+    ...(run.sessionId ? { sessionId: run.sessionId } : {}),
+    ...(turnId ? { turnId } : {}),
+    runId: run.runId,
+    traceId: run.traceId,
+    selectedNodeRefs: run.selectedNodeRefs,
+    permissions: { read: true, write: true },
+  } as const;
+}
+
 export async function* runStudyAgentTutorSession(input: PiAgentSessionInput): AsyncGenerator<PiAgentSessionEvent> {
   if (input.config?.useMock) {
     yield* runMockStudyAgentTutorSession(input);
@@ -133,16 +147,7 @@ export async function* runStudyAgentTutorSession(input: PiAgentSessionInput): As
   let toolCallCount = 0;
   let sawToolActivity = false;
 
-  const toolContext = {
-    userId: run.userId,
-    notebookId: run.notebookId,
-    ...(run.sessionId ? { sessionId: run.sessionId } : {}),
-    ...(input.turnId ? { turnId: input.turnId } : {}),
-    runId: run.runId,
-    traceId: run.traceId,
-    selectedNodeRefs: run.selectedNodeRefs,
-    permissions: { read: true, write: true },
-  } as const;
+  const toolContext = buildRuntimeToolContext(run, input.turnId);
 
   push({
     type: "message_start",
@@ -650,16 +655,7 @@ async function* runMockStudyAgentTutorSession(input: PiAgentSessionInput): Async
       toolCallCount = reserveRuntimeToolCallBudget(toolCallCount, run.budgets.maxToolCalls);
     } catch (error) {
       const failure = classifyRuntimeError(error);
-      const toolContext = {
-        userId: run.userId,
-        notebookId: run.notebookId,
-        ...(run.sessionId ? { sessionId: run.sessionId } : {}),
-        ...(input.turnId ? { turnId: input.turnId } : {}),
-        runId: run.runId,
-        traceId: run.traceId,
-        selectedNodeRefs: run.selectedNodeRefs,
-        permissions: { read: true, write: true },
-      } as const;
+      const toolContext = buildRuntimeToolContext(run, input.turnId);
       const resumableDraft = await createResumableQuizDraftForBudgetExhaustion(
         toolRegistry,
         step.toolName,
@@ -734,16 +730,7 @@ async function* runMockStudyAgentTutorSession(input: PiAgentSessionInput): Async
         toolRegistry,
         step.toolName,
         step.args,
-        {
-          userId: run.userId,
-          notebookId: run.notebookId,
-          ...(run.sessionId ? { sessionId: run.sessionId } : {}),
-          ...(input.turnId ? { turnId: input.turnId } : {}),
-          runId: run.runId,
-          traceId: run.traceId,
-          selectedNodeRefs: run.selectedNodeRefs,
-          permissions: { read: true, write: true },
-        },
+        buildRuntimeToolContext(run, input.turnId),
       );
       const latencyMs = Date.now() - startedAt.getTime();
       await onToolLifecycleEvent?.({

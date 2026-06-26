@@ -522,7 +522,7 @@ export async function ensureConceptPage(
     throw new Error("Concept touch cannot create topic page shells.");
   }
   const concept = await loadConcept(ctx, input.notebookId, input.conceptId);
-  if (!concept) {
+  if (!concept && !input.conceptName?.trim()) {
     throw new Error(`Concept ${input.conceptId} was not found in notebook ${input.notebookId}.`);
   }
 
@@ -532,7 +532,7 @@ export async function ensureConceptPage(
     page = await createHeuristicConceptPage(ctx, {
       notebookId: input.notebookId,
       conceptId: input.conceptId,
-      title: input.conceptName ?? concept.canonicalName,
+      title: input.conceptName?.trim() || concept!.canonicalName,
       toolCtx: input.toolCtx,
     });
   }

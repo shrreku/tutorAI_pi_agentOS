@@ -23,6 +23,98 @@ The default product shape is a left tutor panel plus a right Workspace. The tuto
 
 Notebook: the top-level learning container. Owns sources, wiki pages, concepts, claims, curriculum, sessions, artifacts, learner state, graph layout, events, and settings.
 
+Public Preview Access: anonymous access to landing pages, demos, and product information without access to real learner workspaces, tutor sessions, saved progress, or source-backed study material. The `/demo` page is copy-only for hosted beta launch.
+
+Hosted Beta Surface: set of public, learner, and admin pages required to run the hosted product test, including landing/demo/contact pages, login, Beta Consent, template onboarding, workspace creation, learner workspace, credits, access-code redemption, feedback/support, data deletion, and admin console.
+
+Working Brand: temporary public-facing name and domain used for the hosted beta before final naming is resolved; the current Working Brand is TutorBook on `tutorbook.me`.
+
+Study Access: authenticated access that lets a learner study from pre-ingested StudyAgent material without being allowed to upload sources or trigger ingestion.
+
+Ingestion Access: elevated access that lets a learner upload sources and create or refresh source-backed learning material through ingestion.
+
+Access Code: typed grant bundle that can give a learner specific Product Entitlements, Tutor Credits, Ingestion Credits, Study Template access, or pilot tags without making upload privileges public by default.
+
+Single-Use Access Code: Access Code intended for one learner redemption.
+
+Campaign Access Code: Access Code intended for a bounded pilot, class, or cohort, with explicit redemption limits and expiry.
+
+Product Entitlement: StudyAgent-owned permission or allowance that controls what an authenticated learner can do in the product, such as Study Access, Ingestion Access, or a usage allowance.
+
+Usage Allowance: bounded amount of StudyAgent activity a learner may consume before needing renewal, admin review, payment, or a higher entitlement.
+
+Usage Guardrail: hard product limit that protects learner privacy, system reliability, provider quotas, and hosted spend at expensive or abuse-prone boundaries.
+
+Tutor Credits: cost-backed Usage Allowance consumed by tutor sessions, learner-facing model responses, generated study aids, or other model-backed study activity.
+
+Trial Tutor Budget: one-time Tutor Credits granted to a logged-in learner for initial product validation before Feedback Grants, payment, or admin top-up.
+
+Ingestion Credits: Usage Allowance consumed by uploading, parsing, indexing, embedding, and compiling new learner sources.
+
+Ingestion Queue Limit: Usage Guardrail that caps queued Private Learner Sources per learner while allowing multiple uploads to wait for On-Demand Ingestion.
+
+Credit Ledger: StudyAgent-owned record of credit grants, usage debits, adjustments, expirations, and payment-backed purchases.
+
+Credit Reservation: temporary hold against a learner's Credit Ledger before model-backed tutor or ingestion work starts, settled to actual usage or released after the work finishes.
+
+Credit Balance Indicator: learner-facing percentage view of remaining Usage Allowance, while exact dollar, token, provider, and run-level costs remain admin/internal detail.
+
+Credit Exhausted State: learner state where read-only study review remains available but expensive actions such as tutor turns, artifact generation, source upload, ingestion retry, and Paid Credit Checkout are blocked until credits are granted or purchased.
+
+Paid Credit Top-Up: future learner purchase of additional Tutor Credits or Ingestion Credits, disabled by default during the first hosted beta.
+
+Paid Credit Checkout: payment-provider-backed flow that converts a successful learner payment into a Credit Ledger grant.
+
+Feedback Grant: manual or rule-based credit top-up given in exchange for useful product feedback, observed real study usage, or other validation signal.
+
+On-Demand Ingestion: ingestion execution model where uploads enqueue durable work and a worker is started only when there is source processing to do.
+
+Ingestion Trigger: protected system action that starts an On-Demand Ingestion worker after durable source work has been queued.
+
+Ingestion Status: learner-facing state of uploaded source processing, covering queued, processing, ready to study, failed, and retry-needed outcomes.
+
+Ingestion Review: admin review path for failed or repeatedly stalled Private Learner Sources after the learner's self-serve retry is exhausted.
+
+Learning Feedback: structured learner report about a real study attempt, including the goal, whether StudyAgent helped, where it failed or confused the learner, and whether follow-up contact is allowed.
+
+Support Report: typed learner-submitted report for learning feedback, wrong or confusing tutor output, ingestion problems, privacy requests, credit or access issues, bugs, or UX issues, with safe operational context attached for admin review.
+
+Error Monitoring: exception and crash tracking for the web app, API, and worker, separate from Product Analytics Events, Analytics Mirrors, operational metrics, and LLM traces.
+
+Activated Learner: logged-in learner who starts from a Study Template, completes at least one tutor session with a Mastery Check or quiz interaction, and submits Learning Feedback.
+
+Product Analytics Event: first-party record of learner or product activity used to understand activation, retention, credit use, feedback, and access flows without replacing notebook events or operational telemetry.
+
+Analytics Mirror: sanitized copy of selected Product Analytics Events sent to an external analytics tool for dashboards, funnels, cohorts, and experiments.
+
+Identified Analytics: Analytics Mirror data that includes contactable learner identity such as name or email for product follow-up and feedback review, while excluding source contents, tutor transcripts, uploaded files, and private learning-state detail.
+
+Study Workspace Replay: replay-style Analytics Mirror capture of learner browser behavior in StudyAgent, used to understand onboarding friction, tutor/workspace usability, and product bugs without treating replayed study content as the product analytics source of truth.
+
+Analytics Spend Guard: policy that prevents analytics tooling from creating automatic paid overage; lower-value capture such as replay may stop while first-party Product Analytics Events continue.
+
+Admin Console: internal operator surface for reviewing learners, workspaces, entitlements, credits, feedback, activation, and safety controls during the hosted product test.
+
+Study Template: reusable pre-ingested learning material that learners can start from without owning the original ingestion workflow.
+
+Published Study Template: admin-approved Study Template that authenticated learners may use to create Personal Learner Workspaces.
+
+Study Template Summary: learner-facing metadata for a Published Study Template, including topic, Source Level, estimated time, best-fit study mode, and expected learning outcome.
+
+Learner Onboarding Prompt: optional first-run prompt that asks what the learner is trying to study and their rough level so StudyAgent can order templates and improve activation analytics without blocking entry.
+
+Template Readiness: publication gate for a Study Template requiring completed ingestion, learner-readable Source Wiki and Study Map surfaces, a working first lesson, at least one Mastery Check or quiz path, working Evidence links, no obvious unsupported claims in the first path, and an admin smoke test.
+
+Source Rights Review: admin publishing gate that confirms a Study Template's sources are allowed to be exposed to other learners.
+
+Private Learner Source: source uploaded by a learner into a Personal Learner Workspace; it is private by default and never becomes a Study Template without a separate publishing workflow and Source Rights Review.
+
+Learner Data Deletion: learner-facing control to delete Personal Learner Workspaces and Private Learner Sources, plus a request flow for full account deletion across identity, product data, analytics, and retained operational records.
+
+Beta Consent: first-entry acknowledgement that StudyAgent is experimental, AI outputs may be wrong, identified analytics and replay may be collected, uploaded sources are processed by third-party services, and the product is not for high-stakes educational decisions.
+
+Personal Learner Workspace: a learner-owned study space created from a Study Template or learner-uploaded sources, with private sessions, mastery, Live Plan state, artifacts, and feedback.
+
 Source: immutable learner material such as PDFs, markdown, transcripts, articles, lecture notes, or images. Sources are parsed into source spans, document trees, chunks, assets, concepts, and claims. Sources are versioned and citeable.
 
 Source Level: the intended academic level of a source, such as high school, undergraduate, graduate, professional, or unknown.
@@ -45,6 +137,18 @@ Outside-Source Extension: learner-approved teaching that goes beyond the uploade
 
 LLM Wiki: the durable knowledge layer between raw sources and live tutoring. It contains concepts, claims, pages, relations, citations, artifacts, confidence, contradictions, supersession, and session crystallization outputs. It is compiled incrementally instead of regenerated from scratch per query, and may become more polished over time through background enrichment and tutor-triggered repair.
 
+Portable Source Knowledge Bundle: shareable representation of source-derived notebook knowledge. It contains source-grounded concepts, pages, claims, citations, Evidence relationships, and knowledge links, and excludes learner-specific mastery, sessions, Live Plan state, private artifacts, credits, and personal annotations.
+
+Source-Scoped Knowledge Bundle: Portable Source Knowledge Bundle centered on one Source and the source-derived concepts, pages, claims, Evidence, and knowledge links needed to reuse that source's knowledge elsewhere.
+
+Notebook-Scoped Knowledge Bundle: Portable Source Knowledge Bundle centered on a curated multi-source notebook knowledge set. It may combine multiple sources and cross-source concepts, pages, claims, Evidence, and links while still excluding learner-specific state.
+
+Portable Knowledge Import Review: validation step for bringing a Portable Source Knowledge Bundle into a notebook. It resolves incoming portable identities against existing notebook knowledge and treats creates, updates, contradictions, and supersessions as reviewable knowledge changes before they become durable StudyAgent knowledge.
+
+Portable Knowledge Identity: stable human-readable identity for a knowledge object inside a Portable Source Knowledge Bundle. It is independent of StudyAgent database IDs, which may be retained only as optional round-trip metadata.
+
+StudyAgent OKF Profile: StudyAgent's OKF-compatible knowledge bundle convention. It keeps the open markdown/frontmatter/link shape while adding source-grounded learning fields for Evidence, readiness, claims, source links, and round-trip identity.
+
 Source Wiki Page: durable source-grounded reference surface generated from the LLM Wiki for a topic, concept, or source summary.
 
 Page Readiness: persisted learner-facing state for a Source Wiki Page or node, shown as a concise badge such as Still improving, Ready to study, Needs more source support, or Needs refresh.
@@ -52,6 +156,8 @@ Page Readiness: persisted learner-facing state for a Source Wiki Page or node, s
 Topic Page: notebook-global Source Wiki Page that teaches a source-grounded topic by combining multiple related concepts, with links to the modules, objectives, sources, and Concept Pages where it appears.
 
 Claim: atomic source-linked knowledge statement. Claims are evidence objects and should not be the default learner-facing reading surface. They support confidence, provenance, contradiction, and supersession.
+
+Portable Claim Document: first-class claim representation inside a Portable Source Knowledge Bundle. It exists for auditability, Evidence tracing, contradiction, and supersession, while learner-facing pages may embed selected claim text as readable notes.
 
 Concept: learnable knowledge node. Concepts connect to source evidence, claims, pages, objectives, quizzes, notes, weak concepts, and related concepts.
 
@@ -164,6 +270,8 @@ Interactive Learning Action: a validated learner action emitted by an Interactiv
 Interactive Learning Intervention: tutor help or recommended next action prompted by Interactive Learning Actions. Ordinary actions should update state and Workspace surfaces without automatically invoking the tutor; tutor intervention should be explicit, tutor-led within an active lesson, or suggested when repeated evidence crosses an intervention threshold.
 
 Evidence: learner-facing trust layer: citations, source excerpts, source titles/pages, and relevant source-backed claims.
+
+Portable Evidence Document: bounded source excerpt or citation record inside a Portable Source Knowledge Bundle. It carries enough source span and rights context to ground claims and pages without requiring the full original source to be redistributed.
 
 Interactive Evidence: progressively disclosed Evidence inside an Interactive Learning Surface. Source-grounded blocks should carry Evidence refs, show compact citation affordances, and reveal relevant excerpts when feedback, worked steps, or source-specific claims are shown.
 

@@ -1,3 +1,12 @@
+export {
+  captureException,
+  initSentry,
+  resetSentryForTests,
+  scrubEvent,
+  scrubRecord,
+  type SentryScrubbableEvent,
+} from "./sentry.js";
+
 export type TraceContext = {
   traceId: string;
   requestId?: string;

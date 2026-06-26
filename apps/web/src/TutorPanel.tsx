@@ -133,14 +133,6 @@ type NotebookSettings = {
   };
 };
 
-export type TutorSessionInsights = {
-  turnCount: number;
-  summary: string;
-  taughtPoints: string[];
-  doubts: string[];
-  nextSteps: string[];
-};
-
 interface TutorPanelProps {
   notebookId: string;
   selectedNodeRefs?: SelectedNodeRef[];
@@ -627,7 +619,6 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
   const selectedHistoryTraceData = useMemo(() => traceDataForSession(traceData, selectedHistorySessionId), [selectedHistorySessionId, traceData]);
   const activeTraceData = selectedHistoryTraceData ?? traceData;
   const persistedMessages = useMemo(() => messagesFromTraceData(activeTraceData), [activeTraceData]);
-  const sessionInsights = useMemo(() => buildTutorSessionInsights(activeTraceData), [activeTraceData]);
   const displayMessages = useMemo(
     () => selectedHistoryTraceData ? persistedMessages : mergePersistedAndLiveMessages(persistedMessages, messages),
     [messages, persistedMessages, selectedHistoryTraceData],
@@ -981,19 +972,6 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
               Back to current
             </button>
           </div>
-        )}
-        {sessionInsights.turnCount > 0 && (
-          <section style={{ border: "1px solid #e5e7eb", borderRadius: 10, background: "#fff", padding: 12, display: "grid", gap: 10 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline" }}>
-              <strong style={{ fontSize: 13, color: "#111827" }}>Session insights</strong>
-              <span style={{ fontSize: 11, color: "#6b7280" }}>{sessionInsights.summary}</span>
-            </div>
-            <div style={{ display: "grid", gap: 10 }}>
-              <SessionInsightList title="What was taught" items={sessionInsights.taughtPoints} emptyMessage="No teaching notes yet." />
-              <SessionInsightList title="Doubts and friction" items={sessionInsights.doubts} emptyMessage="No explicit doubts captured yet." />
-              <SessionInsightList title="Next steps" items={sessionInsights.nextSteps} emptyMessage="Continue the current session goal." />
-            </div>
-          </section>
         )}
         {displayMessages.map((msg, index) => {
           const traceTurn = traceTurnForAssistantMessage(displayMessages, index, activeTraceData);
@@ -1554,67 +1532,6 @@ export function buildTutorSelectedNodeRefs(baseRefs: SelectedNodeRef[], selected
     seen.add(key);
     return true;
   });
-}
-
-export function buildTutorSessionInsights(traceData: ChatTraceResponse | null): TutorSessionInsights {
-  const turns = traceData?.turns ?? [];
-  const taughtPoints: string[] = [];
-  const doubts: string[] = [];
-  for (const turn of turns) {
-    if (turn.assistantMessage && taughtPoints.length < 4) {
-      const snippet = summarizeTutorInsight(turn.assistantMessage);
-      if (snippet && !taughtPoints.includes(snippet)) {
-        taughtPoints.push(snippet);
-      }
-    }
-    if (turn.userMessage && looksLikeTutorDoubt(turn.userMessage)) {
-      const snippet = summarizeTutorInsight(turn.userMessage);
-      if (snippet && !doubts.includes(snippet)) {
-        doubts.push(snippet);
-      }
-    }
-  }
-
-  const lastAssistantMessage = [...turns].reverse().find((turn) => typeof turn.assistantMessage === "string" && turn.assistantMessage.trim());
-  const nextSteps = lastAssistantMessage?.assistantMessage
-    ? [summarizeTutorInsight(lastAssistantMessage.assistantMessage, 160)].filter(Boolean)
-    : ["Continue the current session goal in tutor chat."];
-
-  return {
-    turnCount: turns.length,
-    summary: turns.length > 0 ? `${turns.length} turn${turns.length === 1 ? "" : "s"} captured` : "No turns recorded yet",
-    taughtPoints: taughtPoints.length > 0 ? taughtPoints : ["No teaching notes yet."],
-    doubts: doubts.length > 0 ? doubts : ["No explicit doubts captured yet."],
-    nextSteps,
-  };
-}
-
-function summarizeTutorInsight(text: string, maxLength = 140): string {
-  const normalized = text.trim().replace(/\s+/g, " ");
-  if (normalized.length <= maxLength) return normalized;
-  return `${normalized.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
-}
-
-function looksLikeTutorDoubt(text: string): boolean {
-  const normalized = text.trim().toLowerCase();
-  if (!normalized) return false;
-  return /\?|confus|stuck|unclear|don't understand|do not understand|why|how/.test(normalized);
-}
-
-function SessionInsightList({ title, items, emptyMessage }: { title: string; items: string[]; emptyMessage: string }) {
-  return (
-    <div style={{ display: "grid", gap: 6 }}>
-      <div style={{ fontSize: 12, fontWeight: 800, color: "#6b7280", textTransform: "uppercase" }}>{title}</div>
-      <div style={{ display: "grid", gap: 6 }}>
-        {items.map((item) => (
-          <div key={item} style={{ padding: "8px 10px", borderRadius: 8, background: "#f9fafb", border: "1px solid #e5e7eb", color: "#374151", lineHeight: 1.45 }}>
-            {item}
-          </div>
-        ))}
-        {items.length === 0 && <div style={{ color: "#6b7280" }}>{emptyMessage}</div>}
-      </div>
-    </div>
-  );
 }
 
 export function traceTurnForAssistantMessage(

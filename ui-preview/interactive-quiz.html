@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Interactive Quiz — TutorBook</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body data-theme="mist">
+<div class="app">
+  <div data-include="topbar"></div>
+
+  <div class="workspace" data-evidence>
+    <div class="workspace-main">
+      <div class="workspace-canvas">
+        <div class="surface-switch" data-surface>
+          <a href="study-map.html" class="active">Study Map</a>
+          <a href="curriculum.html">Curriculum</a>
+          <a href="source-wiki.html">Source Wiki</a>
+        </div>
+
+        <div class="card" style="max-width:880px;margin:0 auto;padding:28px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+            <a class="back-link" href="study-map.html">← Back to Study Map</a>
+            <div class="ref-actions">
+              <button class="btn" data-ask-tutor>💬 Ask tutor</button>
+              <button class="btn" data-evidence-open>🛡 Evidence</button>
+            </div>
+          </div>
+
+          <span class="badge yellow">QUIZ</span>
+          <h1 style="margin:8px 0 4px">SN2 Reaction stereochemistry Quiz</h1>
+          <div class="muted" style="color:var(--text-muted)">3 questions · Ch. 7 · Ready to study</div>
+
+          <div style="margin:16px 0">
+            <div class="progress"><span style="width:40%"></span></div>
+            <div class="muted" style="color:var(--text-muted);font-size:12px;margin-top:6px">2 / 5 answered</div>
+          </div>
+
+          <div class="quiz-q" data-quiz-q>
+            <div class="qlabel">Q1 · Multiple choice</div>
+            <div class="qtext">Which of the following substrates is most reactive under SN2 conditions?</div>
+            <div class="opt" data-quiz-opt><div class="radio"></div>Tertiary bromide</div>
+            <div class="opt" data-quiz-opt><div class="radio"></div>Secondary bromide</div>
+            <div class="opt selected" data-quiz-opt><div class="radio"></div>Methyl bromide (Selected)</div>
+            <div class="opt" data-quiz-opt><div class="radio"></div>Aryl bromide</div>
+          </div>
+
+          <div class="quiz-q" data-quiz-q>
+            <div class="qlabel">Q2 · Short answer</div>
+            <div class="qtext">What is the kinetic order of an SN2 reaction?</div>
+            <input class="input" value="Bimolecular / Second order" />
+          </div>
+
+          <div class="quiz-q" data-quiz-q>
+            <div class="qlabel">Q3 · Numerical</div>
+            <div class="qtext">If the substrate concentration is doubled, by what factor does the rate increase?</div>
+            <input class="input" style="max-width:120px" value="2" />
+          </div>
+
+          <div style="display:flex;justify-content:flex-end;margin-top:14px">
+            <button class="btn primary">Submit Answers</button>
+          </div>
+        </div>
+      </div>
+      <div data-include="statusbar"></div>
+    </div>
+
+    <div data-include="tutor" data-context="SN2 quiz"></div>
+  </div>
+</div>
+
+<div data-include="drawer"></div>
+<div class="scrim" data-scrim></div>
+
+<script src="app.js"></script>
+<script src="partials.js"></script>
+</body>
+</html>

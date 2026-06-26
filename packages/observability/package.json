@@ -13,6 +13,8 @@
     "@langfuse/client": "4.6.1",
     "@langfuse/otel": "4.6.1",
     "@langfuse/tracing": "4.6.1",
-    "@opentelemetry/sdk-node": "^0.218.0"
+    "@opentelemetry/sdk-node": "^0.218.0",
+    "@sentry/node": "^9.47.1",
+    "@sentry/react": "^9.47.1"
   }
 }

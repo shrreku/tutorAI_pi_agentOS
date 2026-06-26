@@ -2,7 +2,7 @@ import { and, asc, desc, eq, gt, sql } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { syntheticLearnerEvalRunRecordSchema, type SyntheticLearnerEvalRunRecord } from "@studyagent/schemas";
 import type { AppContext } from "../context.js";
-import { resolveActor } from "../auth.js";
+import { withAdminAccess } from "../hosted-beta/route-guards.js";
 import { syntheticLearnerEvalRuns } from "@studyagent/db";
 
 const EVAL_RUN_EVENT_CHANNEL = "studyagent_eval_run_events";
@@ -33,133 +33,138 @@ export async function registerEvalRunRoutes(app: FastifyInstance, ctx: AppContex
   });
 
   app.get("/eval/runs", async (request, reply) => {
-    const actor = await resolveActor(ctx, request);
-    const rows = await ctx.db.db
-      .select()
-      .from(syntheticLearnerEvalRuns)
-      .where(eq(syntheticLearnerEvalRuns.ownerId, actor.id))
-      .orderBy(desc(syntheticLearnerEvalRuns.startedAt));
+    return withAdminAccess(ctx, request, reply, async (actor) => {
+      const rows = await ctx.db.db
+        .select()
+        .from(syntheticLearnerEvalRuns)
+        .where(eq(syntheticLearnerEvalRuns.ownerId, actor.id))
+        .orderBy(desc(syntheticLearnerEvalRuns.startedAt));
 
-    return reply.send({
-      runs: rows.map((row) => ({
-        summary: summarizeEvalRun(syntheticLearnerEvalRunRecordSchema.parse(row.runJson), row),
-        run: syntheticLearnerEvalRunRecordSchema.parse(row.runJson),
-      })),
+      return reply.send({
+        runs: rows.map((row) => ({
+          summary: summarizeEvalRun(syntheticLearnerEvalRunRecordSchema.parse(row.runJson), row),
+          run: syntheticLearnerEvalRunRecordSchema.parse(row.runJson),
+        })),
+      });
     });
   });
 
   app.get<{ Querystring: { after?: string } }>("/eval/runs/stream", async (request, reply) => {
-    const actor = await resolveActor(ctx, request);
-    await notifier.ready();
+    return withAdminAccess(ctx, request, reply, async (actor) => {
+      await notifier.ready();
 
-    reply.raw.writeHead(200, {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache, no-transform",
-      Connection: "keep-alive",
-      "X-Accel-Buffering": "no",
-    });
+      reply.raw.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
+      });
 
-    let closed = false;
-    let cursor = parseEvalRunUpdateCursor(request.query.after);
+      let closed = false;
+      let cursor = parseEvalRunUpdateCursor(request.query.after);
 
-    const flush = async () => {
-      if (closed) {
-        return;
-      }
+      const flush = async () => {
+        if (closed) {
+          return;
+        }
 
-      const rows = await ctx.db.db
-        .select()
-        .from(syntheticLearnerEvalRuns)
-        .where(and(eq(syntheticLearnerEvalRuns.ownerId, actor.id), gt(syntheticLearnerEvalRuns.updatedAt, cursor)))
-        .orderBy(asc(syntheticLearnerEvalRuns.updatedAt))
-        .limit(100);
+        const rows = await ctx.db.db
+          .select()
+          .from(syntheticLearnerEvalRuns)
+          .where(and(eq(syntheticLearnerEvalRuns.ownerId, actor.id), gt(syntheticLearnerEvalRuns.updatedAt, cursor)))
+          .orderBy(asc(syntheticLearnerEvalRuns.updatedAt))
+          .limit(100);
 
-      for (const row of rows) {
-        cursor = row.updatedAt;
-        writeSse(reply.raw, "eval_run.updated", evalRunUpdateEnvelopeFromRow(row));
-      }
-    };
+        for (const row of rows) {
+          cursor = row.updatedAt;
+          writeSse(reply.raw, "eval_run.updated", evalRunUpdateEnvelopeFromRow(row));
+        }
+      };
 
-    const drain = createSerializedDrain(flush, (error) => {
-      if (!closed) {
-        writeSse(reply.raw, "eval_run.stream_failed", { message: String(error) });
-      }
-    });
-    const unsubscribe = notifier.subscribe((event) => {
-      if (event.ownerId !== actor.id) return;
-      cursor = maxDate(cursor, new Date(event.updatedAt));
-      writeSse(reply.raw, "eval_run.updated", evalRunUpdateEnvelopeFromNotification(event));
-    });
+      const drain = createSerializedDrain(flush, (error) => {
+        if (!closed) {
+          writeSse(reply.raw, "eval_run.stream_failed", { message: String(error) });
+        }
+      });
+      const unsubscribe = notifier.subscribe((event) => {
+        if (event.ownerId !== actor.id) return;
+        cursor = maxDate(cursor, new Date(event.updatedAt));
+        writeSse(reply.raw, "eval_run.updated", evalRunUpdateEnvelopeFromNotification(event));
+      });
 
-    await drain();
+      await drain();
 
-    await new Promise<void>((resolve) => {
-      request.raw.on("close", () => {
-        closed = true;
-        unsubscribe();
-        drain.close();
-        resolve();
+      await new Promise<void>((resolve) => {
+        request.raw.on("close", () => {
+          closed = true;
+          unsubscribe();
+          drain.close();
+          resolve();
+        });
       });
     });
   });
 
   app.get<{ Params: { runId: string } }>("/eval/runs/:runId", async (request, reply) => {
-    const actor = await resolveActor(ctx, request);
-    const [row] = await ctx.db.db
-      .select()
-      .from(syntheticLearnerEvalRuns)
-      .where(and(eq(syntheticLearnerEvalRuns.id, request.params.runId), eq(syntheticLearnerEvalRuns.ownerId, actor.id)))
-      .limit(1);
+    return withAdminAccess(ctx, request, reply, async (actor) => {
+      const [row] = await ctx.db.db
+        .select()
+        .from(syntheticLearnerEvalRuns)
+        .where(and(eq(syntheticLearnerEvalRuns.id, request.params.runId), eq(syntheticLearnerEvalRuns.ownerId, actor.id)))
+        .limit(1);
 
-    if (!row) {
-      return reply.status(404).send({ code: "not_found", message: "Eval run not found" });
-    }
+      if (!row) {
+        return reply.status(404).send({ code: "not_found", message: "Eval run not found" });
+      }
 
-    const run = syntheticLearnerEvalRunRecordSchema.parse(row.runJson);
-    return reply.send({
-      summary: summarizeEvalRun(run, row),
-      run,
+      const run = syntheticLearnerEvalRunRecordSchema.parse(row.runJson);
+      return reply.send({
+        summary: summarizeEvalRun(run, row),
+        run,
+      });
     });
   });
 
   app.post<{ Body: unknown }>("/eval/runs", async (request, reply) => {
-    const actor = await resolveActor(ctx, request);
-    const run = syntheticLearnerEvalRunRecordSchema.parse(request.body);
-    try {
-      const summary = await upsertEvalRun(ctx, actor.id, run);
-      return reply.status(201).send({ summary, run });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Invalid eval run";
-      return reply.status(400).send({ code: "invalid_eval_run", message });
-    }
+    return withAdminAccess(ctx, request, reply, async (actor) => {
+      const run = syntheticLearnerEvalRunRecordSchema.parse(request.body);
+      try {
+        const summary = await upsertEvalRun(ctx, actor.id, run);
+        return reply.status(201).send({ summary, run });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Invalid eval run";
+        return reply.status(400).send({ code: "invalid_eval_run", message });
+      }
+    });
   });
 
   app.patch<{ Params: { runId: string }; Body: unknown }>("/eval/runs/:runId", async (request, reply) => {
-    const actor = await resolveActor(ctx, request);
-    const patch = syntheticLearnerEvalRunRecordSchema.partial().extend({
-      observationEvents: syntheticLearnerEvalRunRecordSchema.shape.observationEvents.optional(),
-    }).parse(request.body);
-    const [existing] = await ctx.db.db
-      .select()
-      .from(syntheticLearnerEvalRuns)
-      .where(and(eq(syntheticLearnerEvalRuns.id, request.params.runId), eq(syntheticLearnerEvalRuns.ownerId, actor.id)))
-      .limit(1);
+    return withAdminAccess(ctx, request, reply, async (actor) => {
+      const patch = syntheticLearnerEvalRunRecordSchema.partial().extend({
+        observationEvents: syntheticLearnerEvalRunRecordSchema.shape.observationEvents.optional(),
+      }).parse(request.body);
+      const [existing] = await ctx.db.db
+        .select()
+        .from(syntheticLearnerEvalRuns)
+        .where(and(eq(syntheticLearnerEvalRuns.id, request.params.runId), eq(syntheticLearnerEvalRuns.ownerId, actor.id)))
+        .limit(1);
 
-    if (!existing) {
-      return reply.status(404).send({ code: "not_found", message: "Eval run not found" });
-    }
+      if (!existing) {
+        return reply.status(404).send({ code: "not_found", message: "Eval run not found" });
+      }
 
-    const mergedRun = syntheticLearnerEvalRunRecordSchema.parse({
-      ...syntheticLearnerEvalRunRecordSchema.parse(existing.runJson),
-      ...patch,
-      id: request.params.runId,
-      observationEvents: mergeObservationEvents(
-        syntheticLearnerEvalRunRecordSchema.parse(existing.runJson).observationEvents,
-        patch.observationEvents ?? [],
-      ),
+      const mergedRun = syntheticLearnerEvalRunRecordSchema.parse({
+        ...syntheticLearnerEvalRunRecordSchema.parse(existing.runJson),
+        ...patch,
+        id: request.params.runId,
+        observationEvents: mergeObservationEvents(
+          syntheticLearnerEvalRunRecordSchema.parse(existing.runJson).observationEvents,
+          patch.observationEvents ?? [],
+        ),
+      });
+      const summary = await upsertEvalRun(ctx, actor.id, mergedRun, Boolean(existing));
+      return reply.send({ summary, run: mergedRun });
     });
-    const summary = await upsertEvalRun(ctx, actor.id, mergedRun, Boolean(existing));
-    return reply.send({ summary, run: mergedRun });
   });
 }
 

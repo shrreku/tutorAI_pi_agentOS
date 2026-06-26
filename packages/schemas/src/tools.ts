@@ -12,6 +12,7 @@ export const sideEffectClassSchema = z.enum([
 export const toolContextSchema = z.object({
   userId: idSchema,
   notebookId: idSchema,
+  contentNotebookId: idSchema.optional(),
   sessionId: idSchema.optional(),
   runId: idSchema,
   turnId: idSchema.optional(),

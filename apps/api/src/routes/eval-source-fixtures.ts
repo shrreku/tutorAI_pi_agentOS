@@ -20,7 +20,7 @@ import {
   type EvalSourceFixtureFreshnessMode,
   type EvalSourceFixtureManifest,
 } from "@studyagent/schemas";
-import { resolveActor } from "../auth.js";
+import { withAdminAccess } from "../hosted-beta/route-guards.js";
 import type { AppContext } from "../context.js";
 
 type EvalSourceFixtureSeedState = {
@@ -156,7 +156,7 @@ export async function registerEvalSourceFixtureRoutes(app: FastifyInstance, ctx:
   app.post<{ Params: { fixtureId: string }; Body: { title?: string; freshnessMode?: EvalSourceFixtureFreshnessMode } }>(
     "/eval/source-fixtures/:fixtureId/notebooks",
     async (request, reply) => {
-      const actor = await resolveActor(ctx, request);
+      return withAdminAccess(ctx, request, reply, async (actor) => {
       const fixture = syntheticLearnerEvalSourceFixtures[request.params.fixtureId as keyof typeof syntheticLearnerEvalSourceFixtures];
 
       if (!fixture) {
@@ -188,6 +188,7 @@ export async function registerEvalSourceFixtureRoutes(app: FastifyInstance, ctx:
       });
 
       return reply.status(201).send({ ...imported, freshness });
+      });
     },
   );
 }

@@ -4,6 +4,13 @@ import { notebooks, tutorSessions, tutorTurns } from "@studyagent/db";
 import type { AppContext } from "../context.js";
 import { registerTutorRoutes } from "./tutor.js";
 
+vi.mock("../hosted-beta/learner-gate.js", () => ({
+  requireLearner: vi.fn(async () => ({
+    actor: { id: "user_1", email: "learner@studyagent.local" },
+    productState: { studyAccess: 1, ingestionAccess: 0, adminAccess: 0 },
+  })),
+}));
+
 const {
   appendEventMock,
   disposeSessionMock,
@@ -97,7 +104,16 @@ class FakeDb {
               return Promise.resolve(db.turns.slice(0, limitCount));
             }
             if (table === notebooks) {
-              return Promise.resolve([]);
+              return Promise.resolve([
+                {
+                  id: "nb_1",
+                  ownerId: "user_1",
+                  title: "Notebook",
+                  disabledAt: null,
+                  settingsJson: {},
+                  workspaceType: "personal_learner",
+                },
+              ].slice(0, limitCount));
             }
             return Promise.resolve([]);
           },
@@ -139,7 +155,7 @@ describe("tutor lifecycle routes", () => {
     fakeDb = new FakeDb();
     const ctx = {
       db: { db: fakeDb },
-      env: {},
+      env: { DISABLE_AUTH: true },
     } as unknown as AppContext;
 
     app = Fastify();

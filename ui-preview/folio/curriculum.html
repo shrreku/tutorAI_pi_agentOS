@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Curriculum — Folio</title>
+<link rel="stylesheet" href="../styles.css" />
+<link rel="stylesheet" href="folio.css" />
+</head>
+<body data-theme="folio">
+<div class="app">
+  <div data-include="topbar"></div>
+
+  <div class="workspace" data-evidence>
+    <div class="workspace-main">
+      <div class="workspace-canvas">
+        <div class="surface-switch" data-surface>
+          <a href="study-map.html">Study Map</a>
+          <a href="curriculum.html" class="active">Curriculum</a>
+          <a href="source-wiki.html">Library</a>
+        </div>
+
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px">
+          <div>
+            <h1 style="margin:0;font-size:26px">Organic Chemistry I</h1>
+            <div class="muted" style="color:var(--text-muted);font-family:var(--font-ui)">8 modules · 42 objectives · 12 completed</div>
+          </div>
+          <div class="stats-cards" style="min-width:340px">
+            <div class="stat-card"><div class="n">8</div><div class="l">Planned</div></div>
+            <div class="stat-card"><div class="n">5</div><div class="l">Introduced</div></div>
+            <div class="stat-card"><div class="n">3</div><div class="l">Checked</div></div>
+            <div class="stat-card"><div class="n">2</div><div class="l">Review</div></div>
+          </div>
+        </div>
+
+        <div class="module active open" data-module>
+          <div class="module-head">
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+            <div class="t">Ch. 7 · Substitution reactions</div>
+            <div class="spacer"></div>
+            <span class="badge green">Current</span>
+          </div>
+          <div class="module-body">
+            <div class="obj-item done"><div class="mark">✓</div><div>Obj 4 · Leaving groups</div></div>
+            <a class="obj-item active" href="page-concept.html"><div class="mark"></div><div>Obj 5 · SN2 mechanism</div></a>
+            <div class="obj-item"><div class="mark"></div><div>Obj 6 · Stereochemistry</div></div>
+          </div>
+        </div>
+
+        <div class="module" data-module>
+          <div class="module-head">
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+            <div class="t">Ch. 6 · Alkyl halides</div>
+            <div class="spacer"></div>
+            <span class="badge gray">Done</span>
+          </div>
+          <div class="module-body">
+            <div class="obj-item done"><div class="mark">✓</div><div>Obj 1 · Nomenclature</div></div>
+            <div class="obj-item done"><div class="mark">✓</div><div>Obj 2 · Synthesis</div></div>
+          </div>
+        </div>
+
+        <div class="module" data-module>
+          <div class="module-head">
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+            <div class="t">Ch. 8 · Elimination</div>
+            <div class="spacer"></div>
+            <span class="badge orange">Up next</span>
+          </div>
+          <div class="module-body">
+            <div class="obj-item"><div class="mark"></div><div>Obj 1 · E1 mechanism</div></div>
+            <div class="obj-item"><div class="mark"></div><div>Obj 2 · E2 mechanism</div></div>
+          </div>
+        </div>
+      </div>
+      <div data-include="statusbar"></div>
+    </div>
+
+    <div data-include="tutor" data-context="Obj 5 · SN2 Mechanism"></div>
+  </div>
+</div>
+
+<script src="../app.js"></script>
+<script src="../partials.js"></script>
+</body>
+</html>

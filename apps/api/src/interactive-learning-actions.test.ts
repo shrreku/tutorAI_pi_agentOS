@@ -6,6 +6,23 @@ import type { AppContext } from "./context.js";
 import { dispatchInteractiveLearningAction } from "./interactive-learning-actions.js";
 import { registerInteractiveLearningRoutes } from "./routes/interactive-learning.js";
 
+vi.mock("./hosted-beta/learner-gate.js", () => ({
+  requireLearner: vi.fn(async () => ({
+    actor: { id: "usr_1", email: "learner@studyagent.local" },
+    productState: { studyAccess: 1, ingestionAccess: 0, adminAccess: 0 },
+  })),
+}));
+
+vi.mock("./hosted-beta/notebook-context.js", () => ({
+  requireOwnedNotebook: vi.fn(async (_ctx: unknown, _actorId: string, notebookId: string) => ({
+    notebook: { id: notebookId, ownerId: "usr_1", settingsJson: {} },
+    learnerNotebookId: notebookId,
+    contentNotebookId: notebookId,
+    templateNotebookId: null,
+    templateId: null,
+  })),
+}));
+
 const {
   appendEventMock,
   recordQuizAttemptMock,
@@ -231,7 +248,7 @@ describe("interactive learning actions", () => {
 
   it("rejects malformed action envelopes", async () => {
     const result = await dispatchInteractiveLearningAction({
-      ctx: { db: { db: new FakeDb() }, env: {} } as unknown as AppContext,
+      ctx: { db: { db: new FakeDb() }, env: { DISABLE_AUTH: true } } as unknown as AppContext,
       notebookId: "nb_1",
       userId: "user_1",
       envelope: { actionName: "quiz.answer_submitted" },
@@ -245,7 +262,7 @@ describe("interactive learning actions", () => {
 
   it("rejects actions for notebooks the user does not own", async () => {
     const result = await dispatchInteractiveLearningAction({
-      ctx: { db: { db: new FakeDb(false) }, env: {} } as unknown as AppContext,
+      ctx: { db: { db: new FakeDb(false) }, env: { DISABLE_AUTH: true } } as unknown as AppContext,
       notebookId: "nb_1",
       userId: "user_1",
       envelope: {
@@ -271,7 +288,7 @@ describe("interactive learning actions", () => {
 
   it("routes quiz answer submission through server-evaluated recordQuizAttempt and returns updated block state", async () => {
     const result = await dispatchInteractiveLearningAction({
-      ctx: { db: { db: new FakeDb() }, env: {} } as unknown as AppContext,
+      ctx: { db: { db: new FakeDb() }, env: { DISABLE_AUTH: true } } as unknown as AppContext,
       notebookId: "nb_1",
       userId: "user_1",
       envelope: {
@@ -328,7 +345,7 @@ describe("interactive learning actions", () => {
     const result = await dispatchInteractiveLearningAction({
       ctx: {
         db: { db: new FakeDb() },
-        env: { OPENROUTER_API_KEY: "sk-test" },
+        env: { OPENROUTER_API_KEY: "sk-test", DISABLE_AUTH: true },
       } as unknown as AppContext,
       notebookId: "nb_1",
       userId: "user_1",
@@ -385,7 +402,7 @@ describe("interactive learning actions", () => {
       .mockResolvedValueOnce(surfaceWithBlocks([evidenceBlock]));
 
     const result = await dispatchInteractiveLearningAction({
-      ctx: { db: { db: new FakeDb() }, env: {} } as unknown as AppContext,
+      ctx: { db: { db: new FakeDb() }, env: { DISABLE_AUTH: true } } as unknown as AppContext,
       notebookId: "nb_1",
       userId: "user_1",
       envelope: {
@@ -425,7 +442,7 @@ describe("interactive learning actions", () => {
       .mockResolvedValueOnce(surfaceWithBlocks([flashcardBlock]));
 
     const result = await dispatchInteractiveLearningAction({
-      ctx: { db: { db: new FakeDb(true, "art_flash") }, env: {} } as unknown as AppContext,
+      ctx: { db: { db: new FakeDb(true, "art_flash") }, env: { DISABLE_AUTH: true } } as unknown as AppContext,
       notebookId: "nb_1",
       userId: "user_1",
       envelope: {
@@ -465,7 +482,7 @@ describe("interactive learning actions", () => {
       .mockResolvedValueOnce(surfaceWithBlocks([workedBlock]));
 
     const result = await dispatchInteractiveLearningAction({
-      ctx: { db: { db: new FakeDb(true, "art_worked") }, env: {} } as unknown as AppContext,
+      ctx: { db: { db: new FakeDb(true, "art_worked") }, env: { DISABLE_AUTH: true } } as unknown as AppContext,
       notebookId: "nb_1",
       userId: "user_1",
       envelope: {
@@ -507,7 +524,7 @@ describe("interactive learning actions", () => {
       .mockResolvedValueOnce(surfaceWithBlocks([livePlanBlock]));
 
     const result = await dispatchInteractiveLearningAction({
-      ctx: { db: { db: new FakeDb() }, env: {} } as unknown as AppContext,
+      ctx: { db: { db: new FakeDb() }, env: { DISABLE_AUTH: true } } as unknown as AppContext,
       notebookId: "nb_1",
       userId: "user_1",
       envelope: {
@@ -538,7 +555,7 @@ describe("interactive learning actions", () => {
       .mockResolvedValueOnce(surfaceWithBlocks([quizBlock]));
 
     const result = await dispatchInteractiveLearningAction({
-      ctx: { db: { db: new FakeDb() }, env: {} } as unknown as AppContext,
+      ctx: { db: { db: new FakeDb() }, env: { DISABLE_AUTH: true } } as unknown as AppContext,
       notebookId: "nb_1",
       userId: "user_1",
       envelope: {
@@ -579,7 +596,7 @@ describe("interactive learning actions", () => {
       .mockResolvedValueOnce(surfaceWithBlocks([personalizationBlock]));
 
     const result = await dispatchInteractiveLearningAction({
-      ctx: { db: { db: new FakeDb() }, env: {} } as unknown as AppContext,
+      ctx: { db: { db: new FakeDb() }, env: { DISABLE_AUTH: true } } as unknown as AppContext,
       notebookId: "nb_1",
       userId: "user_1",
       envelope: {
@@ -620,7 +637,7 @@ describe("interactive learning actions", () => {
       .mockResolvedValueOnce(surfaceWithBlocks([simulationBlock]));
 
     const result = await dispatchInteractiveLearningAction({
-      ctx: { db: { db: new FakeDb() }, env: {} } as unknown as AppContext,
+      ctx: { db: { db: new FakeDb() }, env: { DISABLE_AUTH: true } } as unknown as AppContext,
       notebookId: "nb_1",
       userId: "user_1",
       envelope: {
@@ -667,7 +684,7 @@ describe("interactive learning routes", () => {
     const app = Fastify();
     await registerInteractiveLearningRoutes(app, {
       db: { db: new FakeDb() },
-      env: {},
+      env: { DISABLE_AUTH: true },
     } as unknown as AppContext);
 
     const response = await app.inject({

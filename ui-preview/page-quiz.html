@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Quiz · SN2 mechanism — TutorBook</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body data-theme="mist">
+<div class="app">
+  <div data-include="topbar"></div>
+
+  <div class="ref-page">
+    <div class="ref-container">
+      <div class="ref-top">
+        <a class="back-link" href="study-map.html">← Back to Study Map</a>
+        <div class="ref-actions">
+          <button class="btn" data-ask-tutor>💬 Ask tutor</button>
+          <button class="btn" data-evidence-open>🛡 Evidence</button>
+        </div>
+      </div>
+
+      <div class="ref-header">
+        <div class="badges">
+          <span class="badge yellow">QUIZ</span>
+          <span class="badge green">Ready to study</span>
+        </div>
+        <h1>SN2 mechanism quiz</h1>
+        <div class="summary">5 questions · Ch. 7 · Ready to study</div>
+      </div>
+
+      <div style="margin:16px 0">
+        <div class="progress"><span style="width:40%"></span></div>
+        <div class="muted" style="color:var(--text-muted);font-size:12px;margin-top:6px">2 / 5</div>
+      </div>
+
+      <div class="quiz-q" data-quiz-q>
+        <div class="qlabel">Q1 · Multiple choice</div>
+        <div class="qtext">Which substrate most favors SN2?</div>
+        <div class="opt" data-quiz-opt><div class="radio"></div>Tertiary chloride</div>
+        <div class="opt selected" data-quiz-opt><div class="radio"></div>Primary alkyl iodide</div>
+        <div class="opt" data-quiz-opt><div class="radio"></div>Aryl bromide</div>
+      </div>
+
+      <div class="quiz-q" data-quiz-q>
+        <div class="qlabel">Q2 · Short answer</div>
+        <div class="qtext">Why do polar aprotic solvents accelerate SN2?</div>
+        <textarea class="input" rows="3" placeholder="They solvate the nucleophile less, keeping it more reactive..."></textarea>
+      </div>
+
+      <div class="quiz-q" data-quiz-q>
+        <div class="qlabel">Q3 · Numerical</div>
+        <div class="qtext">If [Nu⁻] doubles, what is the new rate when k = 2.4×10⁻³ M⁻¹s⁻¹?</div>
+        <input class="input" style="max-width:200px" value="4.8 × 10⁻³" />
+      </div>
+
+      <button class="btn primary">Submit answer</button>
+    </div>
+  </div>
+
+  <div data-include="statusbar"></div>
+</div>
+
+<div data-include="drawer"></div>
+<div class="scrim" data-scrim></div>
+
+<script src="app.js"></script>
+<script src="partials.js"></script>
+</body>
+</html>

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Formula Sheet — TutorBook</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body data-theme="mist">
+<div class="app">
+  <div data-include="topbar"></div>
+
+  <div class="ref-page">
+    <div class="ref-container">
+      <div class="ref-top">
+        <a class="back-link" href="study-map.html">← Back to Study Map</a>
+        <div class="ref-actions">
+          <button class="btn" data-ask-tutor>💬 Ask tutor</button>
+          <button class="btn" data-evidence-open>🛡 Evidence</button>
+        </div>
+      </div>
+
+      <div class="ref-header">
+        <div class="badges"><span class="kicker">REFERENCE</span><span class="badge green">Ready to study</span></div>
+        <h1>Formula sheet · Substitution</h1>
+        <div class="summary">Quick reference for rate laws and constants.</div>
+      </div>
+
+      <table class="formula-table">
+        <thead><tr><th>Quantity</th><th>Formula</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>SN2 rate</td><td class="code">Rate = k[RX][Nu⁻]</td><td>Second order, bimolecular</td></tr>
+          <tr><td>SN1 rate</td><td class="code">Rate = k[RX]</td><td>First order, unimolecular</td></tr>
+          <tr><td>Half-life (1st order)</td><td class="code">t½ = ln(2)/k</td><td>Independent of [A]₀</td></tr>
+          <tr><td>Arrhenius</td><td class="code">k = A·e^(−Ea/RT)</td><td>Temperature dependence</td></tr>
+          <tr><td>Walden inversion</td><td class="code">[R] → [S]</td><td>Config inversion at C</td></tr>
+          <tr><td>Gas constant</td><td class="code">R = 8.314 J·mol⁻¹·K⁻¹</td><td>SI</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div data-include="statusbar"></div>
+</div>
+
+<div data-include="drawer"></div>
+<div class="scrim" data-scrim></div>
+
+<script src="app.js"></script>
+<script src="partials.js"></script>
+</body>
+</html>

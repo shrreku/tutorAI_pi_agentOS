@@ -4,6 +4,13 @@ import { agentRuns, artifacts, concepts, notebooks, sources, tutorSessions, tuto
 import type { AppContext } from "../context.js";
 import { registerTutorRoutes } from "./tutor.js";
 
+vi.mock("../hosted-beta/learner-gate.js", () => ({
+  requireLearner: vi.fn(async () => ({
+    actor: { id: "user_1", email: "learner@studyagent.local" },
+    productState: { studyAccess: 1, ingestionAccess: 0, adminAccess: 0 },
+  })),
+}));
+
 const {
   appendEventMock,
   recordLearnerTraitSignalMock,
@@ -19,8 +26,21 @@ vi.mock("@studyagent/db", async () => {
   return {
     ...actual,
     appendEvent: appendEventMock,
+    grantTrialBudgetIfNeeded: vi.fn(async () => ({ granted: false, amountCents: 0 })),
   };
 });
+
+vi.mock("../hosted-beta/credit-reservation.js", () => ({
+  TUTOR_TURN_ESTIMATE_CENTS: 10,
+  InsufficientCreditsError: class InsufficientCreditsError extends Error {
+    code = "credit_exhausted";
+  },
+  isCreditExhausted: vi.fn(async () => false),
+  createReservation: vi.fn(async () => ({ id: "cres_test", status: "active" })),
+  settleReservation: vi.fn(async () => ({ id: "cres_test", status: "settled" })),
+  releaseReservation: vi.fn(async () => ({ id: "cres_test", status: "released" })),
+  costCentsFromRuntimeUsage: vi.fn(() => 10),
+}));
 
 vi.mock("../auth.js", () => ({
   resolveActor: vi.fn(async () => ({ id: "user_1" })),
@@ -267,7 +287,7 @@ describe("tutor chat route", () => {
     fakeDb = new FakeDb();
     const ctx = {
       db: { db: fakeDb },
-      env: { OPENROUTER_API_KEY: "key" },
+      env: { OPENROUTER_API_KEY: "key", DISABLE_AUTH: true },
     } as unknown as AppContext;
 
     app = Fastify();

@@ -1,6 +1,6 @@
 import { GetObjectCommand, type S3Client } from "@aws-sdk/client-s3";
 import type { loadEnv } from "@studyagent/config";
-import { appendEvent, chunks, sourceVersions, sources, type DbClient } from "@studyagent/db";
+import { appendEvent, chunks, notebooks, sourceVersions, sources, trackProductEvent, type DbClient } from "@studyagent/db";
 import { documentTreeToChunks, parserForSourceType, type ParserSelectionOptions } from "@studyagent/ingestion";
 import { embedTextsOpenRouter } from "@studyagent/search";
 import { startActiveObservation } from "@studyagent/observability";
@@ -16,6 +16,7 @@ export type IngestionPipelineJob = {
     notebookId: string;
     sourceId: string;
     sourceVersionId: string;
+    ingestionReservationId?: string | null;
   };
   attemptsStarted: number;
 };
@@ -40,7 +41,13 @@ export async function processIngestionPipelineJob(input: {
         await appendEvent(dbClient, {
           notebookId,
           eventType: "ingestion.job.started",
-          payload: { jobId: job.id, sourceId, sourceVersionId, attempt: job.attemptsStarted },
+          payload: {
+            jobId: job.id,
+            sourceId,
+            sourceVersionId,
+            attempt: job.attemptsStarted,
+            ingestionReservationId: job.data.ingestionReservationId ?? null,
+          },
         });
 
         jobObservation.update({
@@ -49,6 +56,7 @@ export async function processIngestionPipelineJob(input: {
             notebookId,
             sourceId,
             sourceVersionId,
+            ingestionReservationId: job.data.ingestionReservationId ?? null,
             attempt: job.attemptsStarted,
           },
         });
@@ -330,7 +338,20 @@ export async function processIngestionPipelineJob(input: {
         await appendEvent(dbClient, {
           notebookId,
           eventType: "ingestion.job.completed",
-          payload: { jobId: job.id, sourceId, sourceVersionId, terminalStatus },
+          payload: {
+            jobId: job.id,
+            sourceId,
+            sourceVersionId,
+            terminalStatus,
+            ingestionReservationId: job.data.ingestionReservationId ?? null,
+          },
+        });
+        await trackIngestionProductEvent(dbClient, notebookId, "ingestion_completed", {
+          jobId: job.id,
+          sourceId,
+          sourceVersionId,
+          terminalStatus,
+          ingestionReservationId: job.data.ingestionReservationId ?? null,
         });
 
         jobObservation.update({
@@ -343,6 +364,7 @@ export async function processIngestionPipelineJob(input: {
             vectorEmbeddings,
             embeddingModel,
             enrichmentOk,
+            ingestionReservationId: job.data.ingestionReservationId ?? null,
           },
         });
       },
@@ -357,16 +379,53 @@ export async function processIngestionPipelineJob(input: {
         sourceId,
         sourceVersionId,
         message: err instanceof Error ? err.message : String(err),
+        ingestionReservationId: job.data.ingestionReservationId ?? null,
       },
     });
+    await trackIngestionProductEvent(dbClient, notebookId, "ingestion_failed", {
+      jobId: job.id,
+      sourceId,
+      sourceVersionId,
+      message: err instanceof Error ? err.message.slice(0, 500) : String(err).slice(0, 500),
+      ingestionReservationId: job.data.ingestionReservationId ?? null,
+    });
+
+    const [failedSource] = await dbClient.db.select().from(sources).where(eq(sources.id, sourceId)).limit(1);
+    const metadata = failedSource?.metadataJson ?? {};
+    const learnerRetryCount =
+      typeof metadata.learnerRetryCount === "number" && Number.isInteger(metadata.learnerRetryCount)
+        ? metadata.learnerRetryCount
+        : 0;
+    const failureStatus = learnerRetryCount >= 1 ? "ingestion_review" : "failed";
 
     await dbClient.db
       .update(sources)
-      .set({ status: "failed", updatedAt: new Date() })
+      .set({ status: failureStatus, updatedAt: new Date() })
       .where(eq(sources.id, sourceId));
 
     throw err;
   }
+}
+
+async function trackIngestionProductEvent(
+  dbClient: DbClient,
+  notebookId: string,
+  eventName: string,
+  properties: Record<string, unknown>,
+): Promise<void> {
+  const [notebook] = await dbClient.db
+    .select({ ownerId: notebooks.ownerId })
+    .from(notebooks)
+    .where(eq(notebooks.id, notebookId))
+    .limit(1);
+  if (!notebook?.ownerId) {
+    return;
+  }
+  await trackProductEvent(dbClient, {
+    userId: notebook.ownerId,
+    eventName,
+    properties: { notebookId, ...properties },
+  });
 }
 
 function uploadFilename(source: { title: string; metadataJson: Record<string, unknown> }): string {

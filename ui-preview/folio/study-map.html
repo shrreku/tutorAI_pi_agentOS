@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Study Map — Folio</title>
+<link rel="stylesheet" href="../styles.css" />
+<link rel="stylesheet" href="folio.css" />
+</head>
+<body data-theme="folio">
+<div class="app">
+  <div data-include="topbar"></div>
+
+  <div class="workspace" data-evidence>
+    <div class="workspace-main">
+      <div class="workspace-canvas">
+        <div class="surface-switch" data-surface>
+          <a href="study-map.html" class="active">Study Map</a>
+          <a href="curriculum.html">Curriculum</a>
+          <a href="source-wiki.html">Library</a>
+        </div>
+
+        <div class="map-canvas" style="height:560px;position:relative">
+          <div class="edge" style="left:220px;top:120px;width:120px;transform:rotate(20deg)"></div>
+          <div class="edge" style="left:340px;top:160px;width:140px;transform:rotate(-10deg)"></div>
+          <div class="edge" style="left:220px;top:240px;width:120px;transform:rotate(60deg)"></div>
+
+          <div class="node xl" style="left:30px;top:40px">
+            <div class="type curriculum">II. CURRICULUM</div>
+            <div class="title">Substitution Reactions</div>
+            <div class="progress" style="margin:8px 0"><span style="width:38%"></span></div>
+            <div class="meta" style="font-family:var(--font-ui)">Completed: 3 of 8 modules</div>
+          </div>
+
+          <div class="node xl" style="left:30px;top:230px">
+            <div class="type plan">I. LEARNING PATH</div>
+            <div class="title">Substitution Steps</div>
+            <ul style="margin:6px 0;padding-left:16px;font-family:var(--font-ui);font-size:12px">
+              <li style="color:var(--text-faint)">Step 1 · Proton transfer (Done)</li>
+              <li style="color:var(--accent-deep);font-weight:600">Step 2 · Backside attack</li>
+              <li style="color:var(--text-faint)">Step 3 · Product isolation</li>
+            </ul>
+          </div>
+
+          <a class="node selected" href="page-concept.html" style="left:360px;top:60px">
+            <div class="type concept">III. CONCEPT</div>
+            <div class="title">SN2 Reaction</div>
+            <div class="pill-row"><span class="badge red">Review recommended</span></div>
+          </a>
+
+          <div class="node" style="left:360px;top:230px">
+            <div class="type objective">IV. PIN</div>
+            <div class="title">Transition State</div>
+            <div class="meta" style="font-family:var(--font-ui)">SN2 Inversion</div>
+          </div>
+
+          <div class="node s" style="left:610px;top:90px"><div class="title">SN2 rate</div><div class="meta" style="font-family:var(--font-ui)">☑ checkpoint</div></div>
+          <div class="node xs" style="left:610px;top:200px"><div class="title">Leaving groups</div></div>
+          <div class="node xs" style="left:610px;top:280px"><div class="title">Solvent effects</div></div>
+
+          <div class="zoom"><button>+</button><button>−</button><button>⤢</button></div>
+        </div>
+      </div>
+      <div data-include="statusbar"></div>
+    </div>
+
+    <div data-include="tutor" data-context="SN2 Mechanism"></div>
+  </div>
+</div>
+
+<script src="../app.js"></script>
+<script src="../partials.js"></script>
+</body>
+</html>

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Live Plan — Focus</title>
+<link rel="stylesheet" href="../styles.css" />
+<link rel="stylesheet" href="focus.css" />
+</head>
+<body data-theme="focus">
+<div class="app">
+  <div data-include="topbar"></div>
+  <div class="ref-page">
+    <div class="ref-container">
+      <div class="ref-top">
+        <a class="back-link" href="study-map.html">← Back to Study Map</a>
+        <div class="ref-actions"><button class="btn" data-ask-tutor>💬 Ask tutor</button><button class="btn" data-evidence-open>🛡 Evidence</button></div>
+      </div>
+      <div class="ref-header"><div class="badges"><span class="kicker">LIVE PLAN</span><span class="badge green">Ready to study</span></div><h1>Session plan · Ch. 7</h1><div class="summary">Current objective · 3 weak concepts</div></div>
+      <div class="plan-grid">
+        <div class="card"><h4>Next actions</h4>
+          <a class="action-card active" href="page-concept.html"><div class="ico">▶</div><div>Review SN2 with evidence</div></a>
+          <a class="action-card" href="page-quiz.html"><div class="ico">○</div><div>Practice quiz · 5 questions</div></a>
+          <a class="action-card" href="page-source.html"><div class="ico">○</div><div>Read Ch. 8 preview</div></a>
+        </div>
+        <div class="card"><h4>OBJECTIVE STACK</h4>
+          <div class="stack-item done"><div class="mark">✓</div><div>Obj 4 · Leaving groups</div></div>
+          <div class="stack-item current"><div class="mark"></div><div>Obj 5 · SN2 mechanism</div></div>
+          <div class="stack-item"><div class="mark"></div><div>Obj 6 · Stereochemistry</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div data-include="statusbar"></div>
+</div>
+<div data-include="drawer"></div><div class="scrim" data-scrim></div>
+<script src="../app.js"></script><script src="../partials.js"></script>
+</body>
+</html>

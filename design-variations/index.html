@@ -1,0 +1,1860 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TutorBook · Workspace Design Variations</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600;700&family=Instrument+Serif:ital@0;1&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=JetBrains+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --indigo:#6366f1; --indigo-deep:#4f46e5; --indigo-tint:#eef2ff; --indigo-border:#c7d2fe;
+    /* shared type system */
+    --sans:'Inter',system-ui,sans-serif;
+    --serif:'Instrument Serif','Newsreader',Georgia,serif;
+    --display:'Fraunces','Instrument Serif',Georgia,serif;
+    --mono:'JetBrains Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{font-family:var(--sans);background:#0b1020;color:#0f172a;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  /* refined numeric + kerning for body text */
+  .variant{font-feature-settings:"cv11","ss01","tnum" 0}
+  /* eyebrow / label role */
+  .eyebrow{font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:#94a3b8}
+
+  /* ===== Switcher ===== */
+  #switcher{
+    position:fixed;top:0;left:0;right:0;z-index:1000;
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+    padding:10px 18px;background:rgba(11,16,32,.92);
+    backdrop-filter:blur(14px);border-bottom:1px solid rgba(255,255,255,.08);
+    color:#e2e8f0;font-size:13px;
+  }
+  #switcher .brand{font-weight:600;letter-spacing:.2px;display:flex;align-items:center;gap:8px}
+  #switcher .brand .dot{width:18px;height:18px;border-radius:6px;background:linear-gradient(135deg,#6366f1,#8b5cf6);box-shadow:0 0 12px #6366f188}
+  #switcher .seg{display:flex;gap:4px;background:rgba(255,255,255,.06);padding:4px;border-radius:10px;flex-wrap:wrap}
+  #switcher .seg button{
+    appearance:none;border:0;background:transparent;color:#cbd5e1;
+    padding:7px 12px;border-radius:7px;font-size:12px;font-weight:500;cursor:pointer;
+    font-family:inherit;transition:.15s;
+  }
+  #switcher .seg button:hover{color:#fff;background:rgba(255,255,255,.06)}
+  #switcher .seg button.active{background:#6366f1;color:#fff;box-shadow:0 2px 10px #6366f155}
+  #switcher .sp{flex:1}
+  #switcher .toggle{display:flex;align-items:center;gap:6px;color:#94a3b8;font-size:12px;cursor:pointer;user-select:none}
+  #switcher .toggle input{accent-color:#6366f1}
+
+  #stage{position:absolute;inset:46px 0 0 0}
+  .variant{display:none;height:100%}
+  .variant.active{display:block}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* ============================================================
+     V0 — IMPROVED ORIGINAL (faithful to nodes.pen, polished)
+     Layout: topbar / [400px chat | canvas]
+     ============================================================ */
+  .v0{background:linear-gradient(135deg,#eef2ff 0%,#f8fafc 50%,#e0e7ff 100%);color:#0f172a}
+  .v0 .shell{display:grid;grid-template-rows:52px 1fr;height:100%}
+  .v0 .topbar{display:flex;align-items:center;gap:14px;padding:0 18px;background:rgba(255,255,255,.85);backdrop-filter:blur(14px);border-bottom:1px solid #e2e8f0}
+  .v0 .logo{width:22px;height:22px;border-radius:7px;background:linear-gradient(135deg,#6366f1,#8b5cf6)}
+  .v0 .ws-title{font-family:var(--display);font-size:16px;font-weight:500;letter-spacing:-.01em;color:#0f172a}
+  .v0 .ingest{font-size:11px;color:#64748b;background:#f1f5f9;padding:3px 9px;border-radius:999px;display:flex;align-items:center;gap:6px}
+  .v0 .ingest::before{content:"";width:6px;height:6px;border-radius:50%;background:#10b981;box-shadow:0 0 0 3px #10b98133}
+  .v0 .sp{flex:1}
+  .v0 .search{background:rgba(255,255,255,.7);border:1px solid #e2e8f0;border-radius:8px;padding:6px 12px;font-size:12px;color:#64748b;width:220px}
+  .v0 .credits{font-size:11px;font-weight:600;color:#4f46e5;background:#eef2ff;border:1px solid #c7d2fe;padding:4px 10px;border-radius:999px}
+  .v0 .avatar{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#f472b6,#a78bfa);font-size:11px;color:#fff;display:grid;place-items:center;font-weight:600}
+
+  .v0 .body{display:grid;grid-template-columns:400px 1fr;overflow:hidden}
+  .v0 .chat{background:rgba(255,255,255,.75);backdrop-filter:blur(14px);border-right:1px solid #e2e8f0;display:flex;flex-direction:column}
+  .v0 .chat-head{padding:14px 16px;border-bottom:1px solid #eef2f7}
+  .v0 .chat-title{display:flex;align-items:center;gap:8px;font-family:var(--display);font-size:17px;font-weight:500;letter-spacing:-.01em;margin-bottom:11px}
+  .v0 .new-btn{margin-left:auto;font-size:11px;font-weight:600;color:#4f46e5;background:#eef2ff;border:1px solid #c7d2fe;padding:4px 10px;border-radius:7px;cursor:pointer}
+  .v0 .tabs{display:flex;gap:2px;background:#f1f5f9;padding:3px;border-radius:9px;font-size:11.5px}
+  .v0 .tabs button{flex:1;border:0;background:transparent;padding:6px;border-radius:7px;font-weight:500;color:#64748b;cursor:pointer;font-family:inherit}
+  .v0 .tabs button.on{background:#fff;color:#0f172a;box-shadow:0 1px 3px #00000010}
+  .v0 .session-bar{margin-top:10px;font-size:11px;color:#64748b;display:flex;align-items:center;gap:8px}
+  .v0 .obj-chip{background:#eef2ff;color:#4f46e5;padding:3px 9px;border-radius:999px;font-weight:600;font-size:10.5px}
+
+  .v0 .thread{flex:1;padding:14px 16px;overflow-y:auto;display:flex;flex-direction:column;gap:12px}
+  .v0 .u-row{align-self:flex-end;max-width:84%;background:#eef2ff;border:1px solid #c7d2fe;color:#312e81;padding:8px 12px;border-radius:14px 14px 4px 14px;font-size:12.5px}
+  .v0 .activity{background:#f8fafc;border:1px solid #eef2f0;border-radius:10px;padding:10px 12px}
+  .v0 .activity .lbl{font-family:var(--mono);font-size:9.5px;font-weight:500;letter-spacing:.12em;color:#94a3b8;text-transform:uppercase;display:flex;align-items:center;gap:6px;cursor:pointer}
+  .v0 .activity .lbl::after{content:"▾";margin-left:auto;color:#cbd5e1}
+  .v0 .step{display:flex;align-items:center;gap:8px;font-size:11.5px;color:#475569;margin-top:8px}
+  .v0 .step .ck{width:14px;height:14px;border-radius:50%;background:#10b981;color:#fff;display:grid;place-items:center;font-size:9px}
+  .v0 .step.run .ck{background:transparent;border:2px solid #6366f1;border-right-color:transparent;animation:spin 1s linear infinite}
+  .v0 .thinking{font-family:var(--serif);font-style:italic;font-size:13px;color:#64748b;border-left:2px solid #c7d2fe;padding-left:10px;margin-top:8px;line-height:1.55}
+  .v0 .tutor{background:#fff;border:1px solid #eef2f0;border-radius:12px;padding:12px 14px;font-family:var(--serif);font-size:14.5px;color:#1e293b;line-height:1.6}
+  .v0 .cite{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:600;color:#4f46e5;background:#eef2ff;border:1px solid #c7d2fe;padding:2px 8px;border-radius:999px;margin-left:4px;cursor:pointer}
+  .v0 .cite.active{background:#6366f1;color:#fff;border-color:#6366f1}
+  .v0 .fb{display:flex;gap:6px;margin-top:8px}
+  .v0 .fb button{border:1px solid #e2e8f0;background:#fff;border-radius:7px;padding:3px 8px;font-size:11px;color:#64748b;cursor:pointer}
+
+  .v0 .composer{padding:12px 16px;border-top:1px solid #eef2f7}
+  .v0 .ctx-chips{display:flex;gap:6px;margin-bottom:8px}
+  .v0 .ctx{font-size:10px;background:#f1f5f9;border:1px solid #e2e8f0;padding:3px 8px;border-radius:6px;color:#475569;display:flex;align-items:center;gap:5px}
+  .v0 .ctx .x{color:#cbd5e1;cursor:pointer}
+  .v0 .input{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;font-size:12.5px;color:#94a3b8;min-height:46px}
+  .v0 .send-row{display:flex;align-items:center;gap:10px;margin-top:8px}
+  .v0 .hint{font-size:10.5px;color:#94a3b8}
+  .v0 .send{margin-left:auto;width:30px;height:30px;border-radius:50%;border:0;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;cursor:pointer;display:grid;place-items:center}
+
+  .v0 .canvas{position:relative;overflow:hidden;background:radial-gradient(circle at 30% 20%,#ffffff 0%,#eef2ff 40%,#e0e7ff 100%)}
+  .v0 .surf{position:absolute;top:14px;left:18px;display:flex;gap:4px;background:rgba(255,255,255,.9);backdrop-filter:blur(10px);border:1px solid #e2e8f0;border-radius:10px;padding:4px;z-index:3}
+  .v0 .surf button{border:0;background:transparent;padding:7px 14px;border-radius:7px;font-size:12px;font-weight:500;color:#64748b;cursor:pointer;font-family:inherit}
+  .v0 .surf button.on{background:#6366f1;color:#fff}
+  .v0 .tools{position:absolute;top:14px;right:18px;display:flex;gap:6px;z-index:3}
+  .v0 .tool{width:32px;height:32px;border-radius:9px;background:rgba(255,255,255,.9);border:1px solid #e2e8f0;display:grid;place-items:center;cursor:pointer;font-size:14px;color:#64748b}
+  .v0 .nodes{position:absolute;inset:0}
+  .v0 .node{position:absolute;background:rgba(255,255,255,.86);border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 4px 16px #6366f112;cursor:pointer;transition:.18s}
+  .v0 .node:hover{transform:translateY(-2px)}
+  .v0 .node.sel{border:2px solid #8b5cf6;box-shadow:0 0 0 4px #8b5cf625}
+  .v0 .node .stripe{position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:12px 0 0 12px}
+  .v0 .node .hd{display:flex;align-items:center;gap:6px;padding:8px 10px 0}
+  .v0 .node .badge{font-family:var(--mono);font-size:8.5px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;padding:2px 6px;border-radius:5px}
+  .v0 .node .ttl{padding:2px 10px 8px;font-size:12.5px;font-weight:600;color:#0f172a;letter-spacing:-.005em}
+  .v0 .node .meta{padding:0 10px 8px;font-size:10px;color:#94a3b8;display:flex;align-items:center;gap:6px}
+  .v0 .node .shield{margin-left:auto;color:#6366f1}
+  .v0 .node.xl{width:200px;padding-bottom:8px}
+  .v0 .node.xl .ttl{font-family:var(--display);font-size:16px;font-weight:500;letter-spacing:-.01em;padding-top:5px}
+  .v0 .node.xl .obj{padding:6px 10px;font-size:10px;color:#64748b;border-top:1px solid #eef2f7}
+  .v0 .node.xl .obj div{padding:3px 0}
+  .v0 .node.xl .obj .now{color:#4f46e5;font-weight:600}
+  .v0 .node.l{width:200px}
+  .v0 .node.l .prog{margin:4px 10px 8px;height:4px;background:#eef2f7;border-radius:999px;overflow:hidden}
+  .v0 .node.l .prog i{display:block;height:100%;background:#6366f1;border-radius:999px}
+  .v0 .node.m{width:184px}
+  .v0 .node.s{width:148px}
+  .v0 .node.s .bracket{position:absolute;width:8px;height:8px;border:2px solid #94a3b8}
+  .v0 .node.s .b1{top:6px;left:6px;border-right:0;border-bottom:0}
+  .v0 .node.s .b2{top:6px;right:6px;border-right:0;border-bottom:0}
+  .v0 .node.s .b3{bottom:6px;left:6px;border-right:0;border-top:0}
+  .v0 .node.s .b4{bottom:6px;right:6px;border-left:0;border-top:0}
+  .v0 svg.edges{position:absolute;inset:0;pointer-events:none;z-index:1}
+  .v0 svg.edges path{stroke:#c7d2fe;stroke-width:1.5;fill:none}
+  .v0 .statusbar{position:absolute;bottom:0;left:0;right:0;height:30px;background:rgba(255,255,255,.85);backdrop-filter:blur(10px);border-top:1px solid #e2e8f0;display:flex;align-items:center;padding:0 16px;font-family:var(--mono);font-size:10.5px;color:#64748b;gap:14px;z-index:2}
+  .v0 .statusbar .sp{flex:1}
+  .v0 .statusbar .obj{color:#7c3aed;font-weight:600}
+
+  .v0 .evidence-open .canvas,.v0 .evidence-open .chat{filter:blur(2px);opacity:.5;pointer-events:none}
+  .v0 .glass{position:absolute;inset:0;background:rgba(241,245,249,.65);backdrop-filter:blur(16px);z-index:40;display:none}
+  .v0 .evidence-open .glass{display:block}
+  .v0 .drawer{position:absolute;top:0;right:0;bottom:0;width:400px;background:#fff;border-left:1px solid #e2e8f0;box-shadow:-12px 0 36px #0f172a18;z-index:50;transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column}
+  .v0 .evidence-open .drawer{transform:none}
+  .v0 .drawer-head{padding:16px;border-bottom:1px solid #eef2f7;display:flex;align-items:center;gap:10px}
+  .v0 .drawer-head .ttl{font-family:var(--display);font-size:16px;font-weight:500}
+  .v0 .drawer-head .ctx{font-size:11px;color:#64748b}
+  .v0 .drawer-head .x{margin-left:auto;width:26px;height:26px;border-radius:7px;border:1px solid #e2e8f0;background:#fff;cursor:pointer;color:#64748b}
+  .v0 .src-pills{padding:14px 16px;border-bottom:1px solid #eef2f7;display:flex;gap:8px;flex-wrap:wrap}
+  .v0 .src{font-size:11px;padding:5px 11px;border-radius:999px;border:1px solid #e2e8f0;background:#fff;color:#475569;cursor:pointer;display:flex;align-items:center;gap:6px}
+  .v0 .src.on{border-color:#6366f1;background:#eef2ff;color:#4f46e5}
+  .v0 .src .d{width:6px;height:6px;border-radius:50%;background:#94a3b8}
+  .v0 .src.on .d{background:#6366f1}
+  .v0 .drawer-body{flex:1;display:grid;grid-template-columns:72px 1fr;overflow:hidden}
+  .v0 .thumbs{padding:14px 8px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;border-right:1px solid #eef2f7;background:#f8fafc}
+  .v0 .thumb{width:56px;height:72px;background:#e2e8f0;border-radius:5px;position:relative;overflow:hidden;cursor:pointer;border:2px solid transparent}
+  .v0 .thumb i{position:absolute;left:8px;right:8px;height:3px;background:#cbd5e1;border-radius:2px}
+  .v0 .thumb i:nth-child(1){top:10px}.v0 .thumb i:nth-child(2){top:18px;width:70%}.v0 .thumb i:nth-child(3){top:26px}.v0 .thumb i:nth-child(4){top:34px;width:60%}
+  .v0 .thumb.on{background:#fff;border-color:#6366f1}.v0 .thumb.on i{background:#6366f1}
+  .v0 .excerpt{padding:16px;overflow-y:auto}
+  .v0 .locator{font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:.1em;color:#94a3b8;text-transform:uppercase}
+  .v0 .src-title{font-family:var(--display);font-size:15px;font-weight:500;margin-top:4px;color:#0f172a;letter-spacing:-.01em}
+  .v0 .quote{margin-top:12px;font-family:var(--serif);font-size:14px;line-height:1.65;color:#334155;border-left:3px solid #c7d2fe;padding:12px;background:#f8fafc;border-radius:0 8px 8px 0}
+  .v0 .open-cta{margin-top:16px;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#fff;background:#6366f1;padding:8px 14px;border-radius:8px;cursor:pointer;border:0}
+
+  /* ============================================================
+     V1 — FOCUS MAP  (full-bleed canvas, floating tutor dock,
+         inline node peek, spotlight evidence)
+     Layout: topbar / full-bleed canvas with floating chat DOCK
+             (resizable, docked bottom-right) + peek panel.
+     Evidence = spotlight: dims canvas, highlights one node,
+             drawer slides over right.
+     ============================================================ */
+  /* calm graphite + muted sage — no neon, no aurora, no glow */
+  .v1{background:#222831;color:#d6d3d1}
+  .v1 .shell{display:grid;grid-template-rows:52px 1fr;height:100%}
+  .v1 .topbar{display:flex;align-items:center;gap:14px;padding:0 18px;background:#262d38;border-bottom:1px solid #333b47}
+  .v1 .logo{width:22px;height:22px;border-radius:6px;background:#7c9885}
+  .v1 .ws-title{font-family:var(--display);font-size:16px;font-weight:500;letter-spacing:-.01em;color:#e7e5e4}
+  .v1 .ingest{font-size:11px;color:#a8a29e;display:flex;align-items:center;gap:6px}
+  .v1 .ingest::before{content:"";width:6px;height:6px;border-radius:50%;background:#7c9885}
+  .v1 .sp{flex:1}
+  .v1 .search{background:#2c3440;border:1px solid #333b47;border-radius:8px;padding:6px 12px;font-size:12px;color:#a8a29e;width:200px}
+  .v1 .credits{font-size:11px;color:#a3b5a0;background:#2c3440;border:1px solid #3a4a3f;padding:4px 10px;border-radius:999px}
+  .v1 .avatar{width:28px;height:28px;border-radius:50%;background:#7c9885;font-size:11px;color:#222831;display:grid;place-items:center;font-weight:600}
+
+  /* full-bleed canvas — flat, calm, single subtle vignette */
+  .v1 .canvas{position:relative;overflow:hidden;height:100%;background:#222831}
+  .v1 .grid-bg{position:absolute;inset:0;background-image:
+      linear-gradient(rgba(255,255,255,.022) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(255,255,255,.022) 1px,transparent 1px);
+      background-size:40px 40px;pointer-events:none}
+  .v1 .surf{position:absolute;top:16px;left:18px;display:flex;gap:3px;background:#262d38;border:1px solid #333b47;border-radius:10px;padding:4px;z-index:3}
+  .v1 .surf button{border:0;background:transparent;padding:7px 14px;border-radius:7px;font-size:12px;font-weight:500;color:#a8a29e;cursor:pointer;font-family:inherit}
+  .v1 .surf button.on{background:#7c9885;color:#222831;font-weight:600}
+  .v1 .zoom{position:absolute;bottom:18px;right:18px;display:flex;flex-direction:column;gap:4px;z-index:3}
+  .v1 .zoom button{width:34px;height:34px;border-radius:9px;background:#262d38;border:1px solid #333b47;color:#d6d3d1;cursor:pointer;font-size:14px}
+  .v1 svg.edges{position:absolute;inset:0;pointer-events:none;z-index:1}
+  .v1 svg.edges path{stroke:#3a4150;stroke-width:1.5;fill:none}
+  .v1 svg.edges path.live{stroke:#7c9885;stroke-width:2}
+  .v1 .nodes{position:absolute;inset:0;z-index:2}
+  .v1 .node{position:absolute;background:#2c3440;border:1px solid #3a4150;border-radius:12px;box-shadow:0 4px 14px rgba(0,0,0,.25);cursor:pointer;transition:.18s}
+  .v1 .node:hover{transform:translateY(-2px);border-color:#4a5563}
+  .v1 .node.sel{border-color:#7c9885;box-shadow:0 0 0 3px rgba(124,152,133,.22)}
+  .v1 .node.spotlit{border-color:#a3b5a0;box-shadow:0 0 0 4px rgba(124,152,133,.3)}
+  .v1 .node .stripe{position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:0 3px 3px 0}
+  .v1 .node .hd{display:flex;align-items:center;gap:6px;padding:9px 12px 0}
+  .v1 .node .badge{font-family:var(--mono);font-size:8.5px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;padding:2px 6px;border-radius:5px;background:#222831;color:#a8a29e}
+  .v1 .node .ttl{padding:4px 12px 9px;font-size:12.5px;font-weight:600;color:#e7e5e4;letter-spacing:-.005em}
+  .v1 .node .meta{padding:0 12px 9px;font-size:10px;color:#78716c;display:flex;align-items:center;gap:6px;font-family:var(--mono)}
+  .v1 .node .shield{margin-left:auto;color:#7c9885}
+  .v1 .node.xl{width:200px;padding-bottom:8px}
+  .v1 .node.xl .ttl{font-family:var(--display);font-size:15px;font-weight:500;letter-spacing:-.01em;padding-top:5px}
+  .v1 .node.xl .obj{padding:7px 12px;font-size:10px;color:#a8a29e;border-top:1px solid #333b47;font-family:var(--mono)}
+  .v1 .node.xl .obj div{padding:2px 0}
+  .v1 .node.xl .obj .now{color:#a3b5a0;font-weight:600}
+  .v1 .node.l{width:200px}
+  .v1 .node.l .prog{margin:4px 12px 9px;height:3px;background:#3a4150;border-radius:999px;overflow:hidden}
+  .v1 .node.l .prog i{display:block;height:100%;background:#7c9885}
+  .v1 .node.m{width:186px}
+  .v1 .node.s{width:150px}
+  .v1 .node.s .bracket{position:absolute;width:7px;height:7px;border:1.5px solid #4a5563}
+  .v1 .node.s .b1{top:6px;left:6px;border-right:0;border-bottom:0}
+  .v1 .node.s .b2{top:6px;right:6px;border-left:0;border-bottom:0}
+  .v1 .node.s .b3{bottom:6px;left:6px;border-right:0;border-top:0}
+  .v1 .node.s .b4{bottom:6px;right:6px;border-left:0;border-top:0}
+
+  /* inline peek panel anchored to selected node */
+  .v1 .peek{position:absolute;z-index:5;width:280px;background:#262d38;border:1px solid #333b47;border-radius:12px;box-shadow:0 12px 36px rgba(0,0,0,.4);display:none;flex-direction:column}
+  .v1 .peek.show{display:flex}
+  .v1 .peek-head{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid #333b47}
+  .v1 .peek-head .pb{font-family:var(--mono);font-size:8.5px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;padding:2px 6px;border-radius:5px;background:#2c3440;color:#a3b5a0}
+  .v1 .peek-head .pt{font-family:var(--display);font-size:15px;font-weight:500;color:#e7e5e4;letter-spacing:-.01em}
+  .v1 .peek-head .x{margin-left:auto;cursor:pointer;color:#78716c;font-size:14px}
+  .v1 .peek-body{padding:12px 14px;font-size:12px;line-height:1.6;color:#d6d3d1;font-family:var(--serif)}
+  .v1 .peek-body .sum{color:#a8a29e;font-size:12px;margin-bottom:10px}
+  .v1 .peek-actions{display:flex;gap:8px;padding:0 14px 12px;flex-wrap:wrap}
+  .v1 .peek-actions button{font-size:11px;font-weight:500;border-radius:8px;padding:6px 11px;cursor:pointer;font-family:inherit;border:1px solid #3a4a3f;background:#2c3440;color:#a3b5a0}
+  .v1 .peek-actions button.pri{background:#7c9885;color:#222831;border:0;font-weight:600}
+
+  /* floating tutor DOCK bottom-right */
+  .v1 .dock{position:absolute;right:18px;bottom:60px;width:360px;height:480px;background:#262d38;border:1px solid #333b47;border-radius:14px;box-shadow:0 16px 48px rgba(0,0,0,.45);z-index:6;display:flex;flex-direction:column;overflow:hidden;transition:height .2s, width .2s}
+  .v1 .dock.min{height:54px}
+  .v1 .dock-head{display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid #333b47;cursor:pointer}
+  .v1 .dock-head .dh-t{font-family:var(--display);font-size:15px;font-weight:500;color:#e7e5e4}
+  .v1 .dock-head .dh-obj{font-size:10.5px;color:#a3b5a0;background:#2c3440;border:1px solid #3a4a3f;padding:2px 8px;border-radius:999px;font-family:var(--mono);letter-spacing:.04em}
+  .v1 .dock-head .dh-ctrl{margin-left:auto;display:flex;gap:6px}
+  .v1 .dock-head .dh-ctrl span{width:22px;height:22px;border-radius:6px;background:#2c3440;display:grid;place-items:center;cursor:pointer;color:#a8a29e;font-size:11px}
+  .v1 .dock-thread{flex:1;padding:12px 14px;overflow-y:auto;display:flex;flex-direction:column;gap:10px}
+  .v1 .dock .u-row{align-self:flex-end;max-width:85%;background:#3a4a3f;border:1px solid #4a5a4f;color:#e7e5e4;padding:8px 11px;border-radius:13px 13px 4px 13px;font-size:12px}
+  .v1 .dock .activity{background:#222831;border:1px solid #333b47;border-radius:10px;padding:9px 11px}
+  .v1 .dock .activity .lbl{font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.12em;color:#78716c;text-transform:uppercase}
+  .v1 .dock .step{display:flex;align-items:center;gap:7px;font-size:11.5px;color:#d6d3d1;margin-top:7px}
+  .v1 .dock .step .ck{width:13px;height:13px;border-radius:50%;background:rgba(124,152,133,.18);color:#a3b5a0;display:grid;place-items:center;font-size:8px;border:1px solid rgba(124,152,133,.45)}
+  .v1 .dock .step.run .ck{background:transparent;border:2px solid #7c9885;border-right-color:transparent;animation:spin 1s linear infinite}
+  .v1 .dock .thinking{font-family:var(--serif);font-style:italic;font-size:12px;color:#a8a29e;border-left:2px solid #3a4a3f;padding-left:9px;margin-top:7px;line-height:1.55}
+  .v1 .dock .tutor{font-family:var(--serif);font-size:13.5px;line-height:1.65;color:#e7e5e4;padding:2px 0}
+  .v1 .dock .cite{display:inline-flex;align-items:center;gap:4px;font-size:9.5px;color:#a3b5a0;background:rgba(124,152,133,.14);border:1px solid rgba(124,152,133,.35);padding:2px 7px;border-radius:999px;margin-left:3px;cursor:pointer;font-family:var(--sans);font-weight:500}
+  .v1 .dock .cite.active{background:#7c9885;color:#222831;border-color:#7c9885;font-weight:600}
+  .v1 .dock .fb{display:flex;gap:5px;margin-top:8px}
+  .v1 .dock .fb button{border:1px solid #333b47;background:#222831;border-radius:6px;padding:3px 8px;font-size:10.5px;color:#a8a29e;cursor:pointer}
+  .v1 .dock-composer{padding:10px 14px;border-top:1px solid #333b47}
+  .v1 .dock .ctx-chips{display:flex;gap:5px;margin-bottom:7px}
+  .v1 .dock .ctx{font-size:9.5px;background:#222831;border:1px solid #333b47;padding:2px 7px;border-radius:5px;color:#d6d3d1;display:flex;align-items:center;gap:4px}
+  .v1 .dock .ctx .x{color:#57534e;cursor:pointer}
+  .v1 .dock .input{background:#222831;border:1px solid #333b47;border-radius:9px;padding:9px 11px;font-size:12px;color:#78716c}
+  .v1 .dock .send-row{display:flex;align-items:center;gap:8px;margin-top:7px}
+  .v1 .dock .hint{font-size:10px;color:#57534e}
+  .v1 .dock .send{margin-left:auto;width:28px;height:28px;border-radius:50%;border:0;background:#7c9885;color:#222831;cursor:pointer;display:grid;place-items:center;font-weight:700}
+
+  /* spotlight evidence: dims everything except spotlit node */
+  .v1 .scrim{position:absolute;inset:0;background:rgba(20,24,32,.62);backdrop-filter:blur(4px);z-index:7;display:none}
+  .v1 .evidence-open .scrim{display:block}
+  .v1 .evidence-open .nodes,.v1 .evidence-open .dock,.v1 .evidence-open .peek{z-index:8}
+  .v1 .evidence-open .node:not(.spotlit){opacity:.2;filter:blur(2px)}
+  .v1 .drawer{position:absolute;top:0;right:0;bottom:0;width:420px;background:#262d38;border-left:1px solid #333b47;box-shadow:-12px 0 40px rgba(0,0,0,.5);z-index:50;transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column}
+  .v1 .evidence-open .drawer{transform:none}
+  .v1 .drawer-head{padding:16px 18px;border-bottom:1px solid #333b47;display:flex;align-items:center;gap:10px}
+  .v1 .drawer-head .ttl{font-family:var(--display);font-size:17px;font-weight:500;color:#e7e5e4;letter-spacing:-.01em}
+  .v1 .drawer-head .ctx{font-size:11px;color:#a8a29e;font-family:var(--mono)}
+  .v1 .drawer-head .x{margin-left:auto;width:28px;height:28px;border-radius:8px;border:1px solid #333b47;background:#2c3440;cursor:pointer;color:#a8a29e}
+  .v1 .src-pills{padding:14px 18px;border-bottom:1px solid #333b47;display:flex;gap:8px;flex-wrap:wrap}
+  .v1 .src{font-size:11px;padding:5px 11px;border-radius:999px;border:1px solid #333b47;background:#2c3440;color:#d6d3d1;cursor:pointer;display:flex;align-items:center;gap:6px}
+  .v1 .src.on{border-color:#7c9885;background:rgba(124,152,133,.16);color:#a3b5a0}
+  .v1 .src .d{width:6px;height:6px;border-radius:50%;background:#57534e}
+  .v1 .src.on .d{background:#7c9885}
+  .v1 .drawer-body{flex:1;display:grid;grid-template-columns:78px 1fr;overflow:hidden}
+  .v1 .thumbs{padding:14px 10px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;border-right:1px solid #333b47;background:#222831}
+  .v1 .thumb{width:58px;height:74px;background:#2c3440;border-radius:6px;position:relative;overflow:hidden;cursor:pointer;border:2px solid transparent}
+  .v1 .thumb i{position:absolute;left:8px;right:8px;height:3px;background:#3a4150;border-radius:2px}
+  .v1 .thumb i:nth-child(1){top:10px}.v1 .thumb i:nth-child(2){top:18px;width:70%}.v1 .thumb i:nth-child(3){top:26px}.v1 .thumb i:nth-child(4){top:34px;width:60%}
+  .v1 .thumb.on{background:#2c3440;border-color:#7c9885}
+  .v1 .thumb.on i{background:#7c9885}
+  .v1 .excerpt{padding:18px;overflow-y:auto}
+  .v1 .locator{font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:.1em;color:#78716c;text-transform:uppercase}
+  .v1 .src-title{font-family:var(--display);font-size:16px;font-weight:500;margin-top:4px;color:#e7e5e4;letter-spacing:-.01em}
+  .v1 .quote{margin-top:14px;font-family:var(--serif);font-size:14.5px;line-height:1.75;color:#d6d3d1;border-left:2px solid #7c9885;padding:4px 0 4px 14px}
+  .v1 .open-cta{margin-top:18px;display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:#222831;background:#7c9885;padding:9px 16px;border-radius:9px;cursor:pointer;border:0}
+
+  .v1 .minimap{position:absolute;bottom:18px;left:18px;width:160px;height:104px;background:#262d38;border:1px solid #333b47;border-radius:10px;padding:8px;z-index:3}
+  .v1 .minimap .mm-t{font-family:var(--mono);font-size:9px;color:#78716c;margin-bottom:4px;letter-spacing:.1em}
+  .v1 .minimap .mm-box{position:relative;height:74px;background:#222831;border-radius:5px;overflow:hidden}
+  .v1 .minimap .mm-box i{position:absolute;width:5px;height:5px;border-radius:1px;background:#4a5563}
+  .v1 .minimap .mm-box i.now{background:#7c9885}
+  .v1 .minimap .mm-viewport{position:absolute;border:1.5px solid #7c9885;border-radius:3px}
+
+  /* ============================================================
+     V2 — NARRATIVE DOC  (workspace-as-document)
+     Layout: topbar / [TOC rail 240px | scrollable document]
+     The workspace reads as a long-form document: an H1 hero, a
+     prose "Where you are" intro, then sections (Current objective,
+     Study map as an embedded figure, Sources, Quiz). The tutor is
+     a sticky in-line aside (margin note), evidence is a footnote
+     popover anchored to a superscript.
+     Different: no graph canvas, no chat rail — content is linear
+     and readable like a chapter.
+     ============================================================ */
+  .v2{background:#fbfaf7;color:#1c1917}
+  .v2 .shell{display:grid;grid-template-rows:52px 1fr;height:100%}
+  .v2 .topbar{display:flex;align-items:center;gap:14px;padding:0 18px;background:#fff;border-bottom:1px solid #e7e5e4}
+  .v2 .logo{width:22px;height:22px;border-radius:6px;background:#1c1917;color:#fbfaf7;display:grid;place-items:center;font-family:var(--display);font-weight:600;font-size:13px}
+  .v2 .ws-title{font-family:var(--display);font-size:16px;font-weight:500;letter-spacing:-.01em}
+  .v2 .ws-title .pre{color:#a8a29e;font-weight:400;font-style:italic;margin-right:6px}
+  .v2 .ingest{font-size:11px;color:#78716c;background:#f5f5f4;border:1px solid #e7e5e4;padding:3px 9px;border-radius:6px;display:flex;align-items:center;gap:6px}
+  .v2 .ingest::before{content:"";width:6px;height:6px;border-radius:50%;background:#16a34a}
+  .v2 .sp{flex:1}
+  .v2 .search{background:#f5f5f4;border:1px solid #e7e5e4;border-radius:8px;padding:6px 12px;font-size:12px;color:#a8a29e;width:200px;font-family:var(--serif);font-style:italic}
+  .v2 .credits{font-size:11px;color:#1c1917;background:#fff;border:1px solid #e7e5e4;padding:4px 10px;border-radius:6px;font-weight:600}
+  .v2 .avatar{width:28px;height:28px;border-radius:50%;background:#1c1917;color:#fff;font-size:11px;display:grid;place-items:center;font-weight:600}
+
+  .v2 .body{display:grid;grid-template-columns:220px minmax(0,1fr) 340px;overflow:hidden}
+  /* TOC rail */
+  .v2 .toc{background:#f5f5f4;border-right:1px solid #e7e5e4;display:flex;flex-direction:column;overflow:hidden}
+  .v2 .toc-head{padding:16px 18px 10px}
+  .v2 .toc-head .eyb{font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:#a8a29e}
+  .v2 .toc-head .tt{font-family:var(--display);font-size:14px;font-weight:500;margin-top:3px;letter-spacing:-.01em;line-height:1.25}
+  .v2 .toc-list{flex:1;overflow-y:auto;padding:4px 10px 12px}
+  .v2 .toc-list a{display:block;font-size:12px;color:#57534e;padding:6px 10px;border-radius:6px;cursor:pointer;text-decoration:none;line-height:1.35;transition:.12s}
+  .v2 .toc-list a:hover{background:#fbfaf7;color:#1c1917}
+  .v2 .toc-list a.on{background:#1c1917;color:#fbfaf7;font-weight:500}
+  .v2 .toc-list a.sub{padding-left:20px;font-size:11px;color:#78716c}
+  .v2 .toc-list a.sub.on{background:transparent;color:#1c1917;font-weight:600}
+  .v2 .toc-foot{padding:12px 18px;border-top:1px solid #e7e5e4;font-size:10.5px;color:#78716c;line-height:1.45}
+  .v2 .toc-foot b{color:#1c1917;font-weight:600}
+
+  /* document column — centered readable measure */
+  .v2 .doc-wrap{overflow-y:auto;background:#fbfaf7;display:flex;justify-content:center}
+  .v2 .doc{padding:32px 40px 80px;max-width:640px;width:100%}
+  /* status strip — where you are at a glance */
+  .v2 .status-strip{background:#fff;border:1px solid #e7e5e4;border-radius:12px;padding:14px 18px;margin-bottom:28px;display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}
+  .v2 .status-strip .ss-lab{font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:#a8a29e}
+  .v2 .status-strip .ss-obj{font-family:var(--display);font-size:17px;font-weight:500;letter-spacing:-.01em;margin-top:3px;line-height:1.25}
+  .v2 .status-strip .ss-meta{font-family:var(--mono);font-size:10px;color:#78716c;margin-top:4px}
+  .v2 .status-strip .ss-prog{text-align:right}
+  .v2 .status-strip .ss-pct{font-family:var(--display);font-size:28px;font-weight:400;letter-spacing:-.02em;color:#1c1917;line-height:1}
+  .v2 .status-strip .ss-bar{width:100px;height:5px;background:#f5f5f4;border-radius:999px;overflow:hidden;margin-top:6px;margin-left:auto}
+  .v2 .status-strip .ss-bar i{display:block;height:100%;width:38%;background:#1c1917;border-radius:999px}
+  .v2 .doc-eyb{font-family:var(--mono);font-size:9.5px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:#a8a29e}
+  .v2 .doc h1{font-family:var(--display);font-size:36px;font-weight:400;letter-spacing:-.02em;line-height:1.08;margin:6px 0 8px;color:#1c1917}
+  .v2 .doc h1 em{font-style:italic;color:#57534e}
+  .v2 .doc .byline{font-family:var(--serif);font-style:italic;font-size:14px;color:#78716c;margin-bottom:24px}
+  .v2 .doc .lead{font-family:var(--serif);font-size:17px;line-height:1.65;color:#44403c;margin-bottom:32px}
+  .v2 .doc .lead .drop{float:left;font-family:var(--display);font-size:48px;line-height:.82;font-weight:400;padding:4px 10px 0 0;color:#1c1917}
+  .v2 .doc section{margin-bottom:36px;scroll-margin-top:20px}
+  .v2 .doc h2{font-family:var(--display);font-size:22px;font-weight:500;letter-spacing:-.01em;margin:0 0 14px;color:#1c1917;display:flex;align-items:baseline;gap:10px;padding-bottom:10px;border-bottom:1px solid #e7e5e4}
+  .v2 .doc h2 .hn{font-family:var(--mono);font-size:11px;color:#a8a29e;font-weight:500}
+  .v2 .doc p{font-family:var(--serif);font-size:15.5px;line-height:1.72;color:#292524;margin:0 0 16px}
+  .v2 .doc p .cite{font-family:var(--sans);font-size:9.5px;font-weight:600;color:#9a3412;background:#fff7ed;border:1px solid #fed7aa;padding:1px 7px;border-radius:5px;cursor:pointer;vertical-align:super;margin:0 1px}
+  .v2 .doc p .cite.active{background:#1c1917;color:#fff;border-color:#1c1917}
+
+  /* objective callout */
+  .v2 .obj-callout{background:#fff;border:1px solid #e7e5e4;border-left:4px solid #1c1917;border-radius:0 10px 10px 0;padding:14px 18px;margin:0 0 16px}
+  .v2 .obj-callout .lab{font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:#a8a29e}
+  .v2 .obj-callout .ot{font-family:var(--display);font-size:18px;font-weight:500;margin-top:4px;letter-spacing:-.01em;line-height:1.25}
+  .v2 .obj-callout .od{font-family:var(--serif);font-size:14px;color:#57534e;margin-top:6px;line-height:1.6}
+
+  /* embedded study-map figure */
+  .v2 .figure{background:#fff;border:1px solid #e7e5e4;border-radius:12px;padding:16px;margin:0}
+  .v2 .figure .fig-cap{display:flex;align-items:baseline;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+  .v2 .figure .fig-cap .fn{font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:#a8a29e}
+  .v2 .figure .fig-cap .ft{font-family:var(--serif);font-style:italic;font-size:12.5px;color:#57534e}
+  .v2 .fig-map{position:relative;height:200px;background:#fbfaf7;border:1px solid #e7e5e4;border-radius:9px;overflow:hidden}
+  .v2 .fig-map svg{position:absolute;inset:0}
+  .v2 .fig-map svg path{stroke:#d6d3d1;stroke-width:1.5;fill:none}
+  .v2 .fig-map svg path.live{stroke:#1c1917;stroke-width:2}
+  .v2 .fig-map .fn{position:absolute;background:#fff;border:1px solid #e7e5e4;border-radius:8px;padding:7px 10px;box-shadow:0 2px 8px #0000000a;cursor:pointer;transition:.15s}
+  .v2 .fig-map .fn:hover{border-color:#a8a29e}
+  .v2 .fig-map .fn.on{border-color:#1c1917;box-shadow:0 0 0 3px #1c191722}
+  .v2 .fig-map .fn .fb{font-family:var(--mono);font-size:8px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:#a8a29e}
+  .v2 .fig-map .fn .ftt{font-family:var(--display);font-size:13px;font-weight:500;margin-top:2px;letter-spacing:-.01em}
+  .v2 .fig-map .fn .fst{position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:8px 0 0 8px}
+
+  /* sources list */
+  .v2 .src-list{display:flex;flex-direction:column;gap:7px;margin:0}
+  .v2 .src-item{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid #e7e5e4;border-radius:10px;padding:11px 14px;cursor:pointer;transition:.15s}
+  .v2 .src-item:hover{border-color:#a8a29e;background:#fafaf9}
+  .v2 .src-item .sth{width:36px;height:46px;background:#f5f5f4;border:1px solid #e7e5e4;border-radius:4px;flex:0 0 auto;position:relative}
+  .v2 .src-item .sth i{position:absolute;left:5px;right:5px;height:2px;background:#d6d3d1;border-radius:1px}
+  .v2 .src-item .sth i:nth-child(1){top:7px}.v2 .src-item .sth i:nth-child(2){top:13px;width:70%}.v2 .src-item .sth i:nth-child(3){top:19px}
+  .v2 .src-item .sti{flex:1}
+  .v2 .src-item .stt{font-family:var(--display);font-size:15px;font-weight:500;letter-spacing:-.01em}
+  .v2 .src-item .stm{font-family:var(--serif);font-style:italic;font-size:12.5px;color:#78716c;margin-top:1px}
+  .v2 .src-item .spp{font-size:11px;color:#1c1917;font-family:var(--mono)}
+
+  /* quiz block */
+  .v2 .quiz{background:#fff;border:1px solid #e7e5e4;border-radius:12px;padding:18px 20px;margin:0}
+  .v2 .quiz .qh{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+  .v2 .quiz .qh .qn{font-family:var(--display);font-size:18px;font-weight:500}
+  .v2 .quiz .qh .qpr{margin-left:auto;font-family:var(--mono);font-size:11px;color:#78716c}
+  .v2 .quiz .qq{font-family:var(--serif);font-size:16px;line-height:1.6;color:#292524;margin-bottom:12px}
+  .v2 .quiz .qo{display:flex;flex-direction:column;gap:7px}
+  .v2 .quiz .qo label{display:flex;align-items:center;gap:10px;font-family:var(--serif);font-size:14.5px;color:#44403c;padding:9px 14px;border:1px solid #e7e5e4;border-radius:8px;cursor:pointer}
+  .v2 .quiz .qo label:hover{background:#fbfaf7}
+  .v2 .quiz .qo label .k{width:20px;height:20px;border-radius:50%;border:1.5px solid #a8a29e;display:grid;place-items:center;font-family:var(--mono);font-size:10px;color:#78716c}
+  .v2 .quiz .qo label.on{border-color:#1c1917;background:#1c191708}
+  .v2 .quiz .qo label.on .k{border-color:#1c1917;color:#1c1917}
+  .v2 .quiz .qsub{margin-top:14px;font-size:12.5px;font-weight:600;color:#fff;background:#1c1917;border:0;border-radius:8px;padding:9px 18px;cursor:pointer}
+
+  /* tutor rail — persistent chat column (essential) */
+  .v2 .tutor-rail{background:#fff;border-left:1px solid #e7e5e4;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+  .v2 .tr-head{padding:14px 16px;border-bottom:1px solid #e7e5e4;background:#fafaf9}
+  .v2 .tr-head .trt{font-family:var(--display);font-size:16px;font-weight:500;letter-spacing:-.01em}
+  .v2 .tr-head .trm{margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .v2 .tr-head .tr-chip{font-size:10px;color:#9a3412;background:#fff7ed;border:1px solid #fed7aa;padding:3px 9px;border-radius:999px;font-weight:600}
+  .v2 .tr-head .tr-turn{font-family:var(--mono);font-size:9.5px;color:#a8a29e;letter-spacing:.04em}
+  .v2 .tr-thread{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:12px;min-height:0}
+  .v2 .tr-turn{display:flex;flex-direction:column;gap:8px}
+  .v2 .tr-lab{font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:#a8a29e}
+  .v2 .tr-lab.tutor{color:#9a3412}
+  .v2 .tr-u{align-self:flex-end;max-width:88%;background:#1c1917;color:#fafaf9;padding:9px 12px;border-radius:10px 10px 3px 10px;font-family:var(--serif);font-size:13.5px;line-height:1.55}
+  .v2 .tr-act{background:#fafaf9;border:1px solid #e7e5e4;border-radius:10px;padding:10px 12px}
+  .v2 .tr-act .lab{font-family:var(--mono);font-size:8.5px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:#a8a29e;margin-bottom:6px}
+  .v2 .tnstep{font-family:var(--sans);font-size:11px;color:#57534e;display:flex;align-items:center;gap:7px;padding:2px 0}
+  .v2 .tnstep .ck{width:12px;height:12px;border-radius:50%;background:#16a34a;color:#fff;display:grid;place-items:center;font-size:7px;flex:0 0 auto}
+  .v2 .tnstep.run .ck{background:transparent;border:2px solid #9a3412;border-right-color:transparent;animation:spin 1s linear infinite}
+  .v2 .tn-thinking{font-family:var(--serif);font-style:italic;font-size:12px;color:#a8a29e;border-left:2px solid #fde68a;padding-left:9px;margin-top:4px}
+  .v2 .tr-body{font-family:var(--serif);font-size:14px;line-height:1.65;color:#292524}
+  .v2 .tr-body .cite{font-family:var(--sans);font-size:9.5px;font-weight:600;color:#9a3412;background:#fff7ed;border:1px solid #fed7aa;padding:2px 7px;border-radius:5px;cursor:pointer;vertical-align:baseline}
+  .v2 .tr-body .cite.active{background:#1c1917;color:#fff;border-color:#1c1917}
+  .v2 .tr-inline{margin-top:8px;background:#fafaf9;border:1px solid #e7e5e4;border-left:3px solid #1c1917;border-radius:0 8px 8px 0;padding:10px 12px}
+  .v2 .tr-inline .il-loc{font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:#a8a29e}
+  .v2 .tr-inline .il-q{font-family:var(--serif);font-size:12px;color:#44403c;margin-top:4px;line-height:1.55}
+  .v2 .tr-actions{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}
+  .v2 .tr-actions button{font-family:var(--sans);font-size:10.5px;font-weight:500;border:1px solid #e7e5e4;background:#fff;border-radius:7px;padding:5px 9px;cursor:pointer;color:#57534e;display:inline-flex;align-items:center;gap:4px;transition:.12s}
+  .v2 .tr-actions button:hover{border-color:#fdba74;background:#fff7ed;color:#9a3412}
+  .v2 .tr-actions button.pri{border-color:#1c1917;background:#1c1917;color:#fff;font-weight:600}
+  .v2 .tr-composer{border-top:1px solid #e7e5e4;padding:12px 16px;background:#fafaf9}
+  .v2 .tr-composer .ctx-chips{display:flex;gap:5px;margin-bottom:8px;flex-wrap:wrap}
+  .v2 .tr-composer .ctx{font-size:10px;background:#fff;border:1px solid #e7e5e4;padding:3px 8px;border-radius:6px;color:#57534e;display:flex;align-items:center;gap:4px;font-family:var(--sans)}
+  .v2 .tr-composer .ctx .x{color:#d6d3d1;cursor:pointer}
+  .v2 .tr-composer .input{background:#fff;border:1px solid #e7e5e4;border-radius:10px;padding:10px 12px;font-family:var(--serif);font-style:italic;font-size:13px;color:#a8a29e;min-height:44px}
+  .v2 .tr-composer .qa{display:flex;gap:5px;margin-top:8px;flex-wrap:wrap}
+  .v2 .tr-composer .qa button{font-family:var(--sans);font-size:10px;font-weight:500;border:1px solid #e7e5e4;background:#fff;border-radius:999px;padding:4px 9px;cursor:pointer;color:#57534e;white-space:nowrap}
+  .v2 .tr-composer .qa button:hover{border-color:#fdba74;background:#fff7ed;color:#9a3412}
+  .v2 .tr-composer .sr{display:flex;align-items:center;gap:8px;margin-top:8px}
+  .v2 .tr-composer .sr .h{font-family:var(--mono);font-size:9px;color:#a8a29e;letter-spacing:.04em}
+  .v2 .tr-composer .sr .send{margin-left:auto;width:30px;height:30px;border-radius:8px;border:0;background:#1c1917;color:#fff;cursor:pointer;display:grid;place-items:center;font-size:12px}
+
+  /* evidence = footnote popover */
+  .v2 .footnote{position:relative;display:inline-block}
+  .v2 .footnote .fn-pop{position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%) translateY(6px);width:340px;background:#fff;border:1px solid #1c1917;border-radius:12px;box-shadow:0 16px 48px rgba(0,0,0,.18);z-index:60;opacity:0;pointer-events:none;transition:.18s}
+  .v2 .footnote.open .fn-pop{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0)}
+  .v2 .footnote .fn-pop::after{content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);border:7px solid transparent;border-top-color:#1c1917}
+  .v2 .fn-pop .fph{padding:12px 14px;border-bottom:1px solid #e7e5e4;display:flex;align-items:center;gap:8px}
+  .v2 .fn-pop .fph .ftt{font-family:var(--display);font-size:14px;font-weight:500}
+  .v2 .fn-pop .fph .x{margin-left:auto;cursor:pointer;color:#a8a29e;font-size:14px}
+  .v2 .fn-pop .fpb{padding:14px}
+  .v2 .fn-pop .floc{font-family:var(--mono);font-size:9.5px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:#a8a29e}
+  .v2 .fn-pop .fst{font-family:var(--display);font-size:14px;font-weight:500;margin-top:3px}
+  .v2 .fn-pop .fq{font-family:var(--serif);font-size:13.5px;line-height:1.65;color:#44403c;margin-top:8px;border-left:2px solid #1c1917;padding-left:11px}
+  .v2 .fn-pop .fo{margin-top:12px;font-size:11.5px;font-weight:600;color:#fff;background:#1c1917;border:0;border-radius:7px;padding:7px 14px;cursor:pointer}
+  .v2 .doc-scrim{position:fixed;inset:52px 0 0 0;background:rgba(28,25,23,.2);backdrop-filter:blur(2px);z-index:55;display:none}
+  .v2 .evidence-open .doc-scrim{display:block}
+  .v2 .v2-drawer{position:absolute;top:0;right:340px;bottom:0;width:380px;background:#fff;border-left:1px solid #e7e5e4;box-shadow:-12px 0 40px rgba(0,0,0,.12);z-index:56;transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column}
+  .v2 .evidence-open .v2-drawer{transform:none}
+  .v2 .v2-drawer .drawer-head{padding:14px 16px;border-bottom:1px solid #e7e5e4;display:flex;align-items:center;gap:10px}
+  .v2 .v2-drawer .drawer-head .ttl{font-family:var(--display);font-size:16px;font-weight:500}
+  .v2 .v2-drawer .drawer-head .ctx{font-size:11px;color:#78716c;font-family:var(--mono)}
+  .v2 .v2-drawer .drawer-head .x{margin-left:auto;width:26px;height:26px;border-radius:7px;border:1px solid #e7e5e4;background:#fff;cursor:pointer;color:#78716c}
+  .v2 .v2-drawer .src-pills{padding:12px 16px;border-bottom:1px solid #e7e5e4;display:flex;gap:6px}
+  .v2 .v2-drawer .src{font-size:11px;padding:4px 10px;border-radius:999px;border:1px solid #e7e5e4;background:#fff;color:#57534e;cursor:pointer;display:flex;align-items:center;gap:5px}
+  .v2 .v2-drawer .src.on{border-color:#1c1917;background:#1c191708;color:#1c1917;font-weight:600}
+  .v2 .v2-drawer .src .d{width:5px;height:5px;border-radius:50%;background:#a8a29e}
+  .v2 .v2-drawer .src.on .d{background:#1c1917}
+
+  /* ============================================================
+     V4 — BENTO HOME  (dashboard-first tile grid + expand stage)
+     Layout: topbar / a bento grid of tiles (objective, map preview,
+     tutor preview, sources, quiz, stats). Clicking a tile EXPANDS
+     it to a full stage (the others collapse to a rail).
+     Different: the default is an overview dashboard, not a canvas
+     or chat; full surfaces live one click away inside tiles.
+     ============================================================ */
+  .v4{background:#f4f4f5;color:#18181b}
+  .v4 .shell{display:grid;grid-template-rows:52px 1fr;height:100%}
+  .v4 .topbar{display:flex;align-items:center;gap:14px;padding:0 18px;background:#fff;border-bottom:1px solid #e4e4e7}
+  .v4 .logo{width:22px;height:22px;border-radius:6px;background:#18181b;color:#fff;display:grid;place-items:center;font-weight:700;font-size:12px}
+  .v4 .ws-title{font-family:var(--display);font-size:16px;font-weight:500;letter-spacing:-.01em}
+  .v4 .ingest{font-size:11px;color:#52525b;background:#f4f4f5;border:1px solid #e4e4e7;padding:3px 9px;border-radius:6px;display:flex;align-items:center;gap:6px}
+  .v4 .ingest::before{content:"";width:6px;height:6px;border-radius:50%;background:#16a34a}
+  .v4 .sp{flex:1}
+  .v4 .search{background:#f4f4f5;border:1px solid #e4e4e7;border-radius:8px;padding:6px 12px;font-size:12px;color:#a1a1aa;width:200px}
+  .v4 .credits{font-size:11px;color:#18181b;background:#fff;border:1px solid #e4e4e7;padding:4px 10px;border-radius:6px;font-weight:600}
+  .v4 .avatar{width:28px;height:28px;border-radius:50%;background:#18181b;color:#fff;font-size:11px;display:grid;place-items:center;font-weight:600}
+
+  .v4 .body{position:relative;overflow:hidden;padding:16px 20px 20px;height:100%;box-sizing:border-box}
+  /* bento grid — 12-col explicit placement */
+  .v4 .bento{
+    display:grid;
+    grid-template-columns:repeat(12,1fr);
+    grid-template-rows:minmax(88px,auto) 1fr minmax(100px,auto);
+    gap:12px;
+    height:100%;
+    min-height:0;
+    transition:grid-template-columns .25s, grid-template-rows .25s;
+  }
+  .v4 .tile{
+    background:#fff;border:1px solid #e4e4e7;border-radius:14px;
+    padding:14px 16px;overflow:hidden;cursor:pointer;
+    transition:border-color .15s, box-shadow .15s, transform .15s;
+    display:flex;flex-direction:column;position:relative;min-height:0;min-width:0;
+  }
+  .v4 .tile:hover{border-color:#a1a1aa;box-shadow:0 4px 18px #0000000c}
+  .v4 .tile .th{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex:0 0 auto}
+  .v4 .tile .th .ic{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;font-size:13px;color:#fff;flex:0 0 auto}
+  .v4 .tile .th .tt{font-family:var(--display);font-size:15px;font-weight:500;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .v4 .tile .th .eb{margin-left:auto;font-family:var(--mono);font-size:8.5px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:#a1a1aa;flex:0 0 auto}
+  .v4 .tile .td{font-family:var(--serif);font-size:13px;line-height:1.55;color:#52525b;flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center}
+  .v4 .tile .expand-hint{position:absolute;bottom:10px;right:12px;font-family:var(--mono);font-size:8.5px;color:#a1a1aa;letter-spacing:.06em;opacity:0;transition:.15s;pointer-events:none}
+  .v4 .tile:hover .expand-hint{opacity:1}
+
+  /* tile placement */
+  .v4 .t-obj{grid-column:1/8;grid-row:1;background:#18181b;color:#fafafa;border-color:#18181b;padding:16px 20px}
+  .v4 .t-obj .th .tt{color:#fafafa}
+  .v4 .t-obj .th .eb{color:#71717a}
+  .v4 .t-obj .td{color:#d4d4d8;justify-content:flex-start}
+  .v4 .t-obj .obj-now{font-family:var(--display);font-size:20px;font-weight:400;letter-spacing:-.015em;color:#fafafa;margin:2px 0 4px;line-height:1.2}
+  .v4 .t-obj .obj-meta{font-family:var(--mono);font-size:10px;color:#a1a1aa;letter-spacing:.04em}
+  .v4 .t-obj .obj-prog{margin-top:10px;height:4px;background:#3f3f46;border-radius:999px;overflow:hidden;max-width:280px}
+  .v4 .t-obj .obj-prog i{display:block;height:100%;background:#fafafa;border-radius:999px}
+  .v4 .t-stats{grid-column:8/13;grid-row:1}
+  .v4 .t-tutor{grid-column:1/5;grid-row:2}
+  .v4 .t-map{grid-column:5/13;grid-row:2}
+  .v4 .t-src{grid-column:1/5;grid-row:3}
+  .v4 .t-quiz{grid-column:5/10;grid-row:3}
+
+  /* map preview inside tile */
+  .v4 .map-prev{position:relative;flex:1;min-height:120px;background:#fafafa;border:1px solid #e4e4e7;border-radius:10px;overflow:hidden}
+  .v4 .map-prev svg{position:absolute;inset:0}
+  .v4 .map-prev svg path{stroke:#d4d4d8;stroke-width:1.5;fill:none}
+  .v4 .map-prev svg path.live{stroke:#18181b;stroke-width:2}
+  .v4 .map-prev .mn{position:absolute;background:#fff;border:1px solid #e4e4e7;border-radius:7px;padding:5px 8px;box-shadow:0 2px 6px #0000000a;cursor:pointer}
+  .v4 .map-prev .mn.on{border-color:#18181b;box-shadow:0 0 0 3px #18181b22}
+  .v4 .map-prev .mn .mb{font-family:var(--mono);font-size:7.5px;color:#a1a1aa;letter-spacing:.06em}
+  .v4 .map-prev .mn .mtt{font-family:var(--display);font-size:11px;font-weight:500}
+  .v4 .map-prev .mn .ms{position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:7px 0 0 7px}
+
+  /* tutor preview — compact but readable */
+  .v4 .tut-prev{flex:1;min-height:0;display:flex;flex-direction:column;gap:6px;overflow:hidden}
+  .v4 .tut-prev .tu{align-self:flex-end;max-width:90%;background:#18181b;color:#fafafa;padding:6px 10px;border-radius:10px 10px 3px 10px;font-size:11.5px;font-family:var(--serif);line-height:1.45}
+  .v4 .tut-prev .tt2{background:#f4f4f5;border:1px solid #e4e4e7;border-radius:10px;padding:8px 10px;font-family:var(--serif);font-size:12px;line-height:1.5;color:#3f3f46;flex:1;overflow:hidden}
+  .v4 .tut-prev .tt2 .cite{font-family:var(--sans);font-size:9px;font-weight:600;color:#18181b;background:#e4e4e7;padding:1px 5px;border-radius:4px;cursor:pointer;vertical-align:baseline}
+  .v4 .tut-prev .tt2 .cite.active{background:#18181b;color:#fff}
+  .v4 .tut-prev .tcomp{flex:0 0 auto;background:#f4f4f5;border:1px solid #e4e4e7;border-radius:8px;padding:6px 10px;font-size:11px;color:#a1a1aa;font-family:var(--serif);font-style:italic}
+
+  /* sources / quiz tiles */
+  .v4 .src-prev{display:flex;flex-direction:column;gap:6px;flex:1;min-height:0;justify-content:center}
+  .v4 .src-prev .si{display:flex;align-items:center;gap:8px;font-size:11px;color:#3f3f46}
+  .v4 .src-prev .si .sd{width:16px;height:22px;background:#f4f4f5;border:1px solid #e4e4e7;border-radius:3px;flex:0 0 auto}
+  .v4 .src-prev .si .sn{font-family:var(--display);font-size:12px;font-weight:500;flex:1;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .v4 .src-prev .si .sp{font-family:var(--mono);font-size:9px;color:#a1a1aa;flex:0 0 auto}
+  .v4 .quiz-prev{display:flex;flex-direction:column;min-height:0;flex:1}
+  .v4 .quiz-prev .qq{font-family:var(--serif);font-size:12.5px;line-height:1.45;color:#3f3f46;flex:1}
+  .v4 .quiz-prev .qo{display:flex;flex-direction:column;gap:4px;margin-top:6px}
+  .v4 .quiz-prev .qo div{font-size:10.5px;color:#52525b;font-family:var(--serif);padding:4px 8px;border:1px solid #e4e4e7;border-radius:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .v4 .quiz-prev .qo div.on{border-color:#18181b;background:#18181b08;font-weight:600}
+
+  /* stats tile — compact top row */
+  .v4 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;flex:1;align-content:center}
+  .v4 .stats .st{text-align:center}
+  .v4 .stats .st .sv{font-family:var(--display);font-size:26px;font-weight:400;letter-spacing:-.02em;color:#18181b;line-height:1}
+  .v4 .stats .st .sl{font-family:var(--mono);font-size:8.5px;color:#a1a1aa;letter-spacing:.1em;text-transform:uppercase;margin-top:3px}
+
+  /* expanded stage: icon rail + full stage */
+  .v4 .bento.expanded{
+    grid-template-columns:76px 1fr;
+    grid-template-rows:repeat(6,52px);
+    gap:0;
+    align-content:start;
+  }
+  .v4 .bento.expanded .tile{
+    grid-column:1 !important;grid-row:auto !important;
+    border-radius:0;border-left:0;border-right:1px solid #e4e4e7;
+    padding:0;height:52px;min-height:52px;max-height:52px;
+    flex-direction:row;align-items:center;justify-content:center;
+    box-shadow:none;transform:none;
+  }
+  .v4 .bento.expanded .tile:first-child{border-top:0}
+  .v4 .bento.expanded .tile .th{margin:0;gap:0;justify-content:center;width:100%}
+  .v4 .bento.expanded .tile .th .tt,.v4 .bento.expanded .tile .th .eb{display:none}
+  .v4 .bento.expanded .tile .th .ic{width:36px;height:36px;border-radius:10px;font-size:15px}
+  .v4 .bento.expanded .tile:not(.expanded) .td,
+  .v4 .bento.expanded .tile:not(.expanded) .map-prev,
+  .v4 .bento.expanded .tile:not(.expanded) .tut-prev,
+  .v4 .bento.expanded .tile:not(.expanded) .src-prev,
+  .v4 .bento.expanded .tile:not(.expanded) .qq,
+  .v4 .bento.expanded .tile:not(.expanded) .qo,
+  .v4 .bento.expanded .tile:not(.expanded) .stats,
+  .v4 .bento.expanded .tile:not(.expanded) .obj-now,
+  .v4 .bento.expanded .tile:not(.expanded) .obj-meta,
+  .v4 .bento.expanded .tile:not(.expanded) .obj-prog,
+  .v4 .bento.expanded .tile:not(.expanded) .obj-detail,
+  .v4 .bento.expanded .tile:not(.expanded) .chat-stage,
+  .v4 .bento.expanded .tile:not(.expanded) .map-stage,
+  .v4 .bento.expanded .tile:not(.expanded) .expand-hint{display:none !important}
+  .v4 .bento.expanded .tile.expanded{
+    grid-column:2 !important;grid-row:1 / span 6 !important;
+    height:100% !important;max-height:none !important;min-height:0 !important;
+    align-self:stretch;
+    border-radius:14px;border:1px solid #e4e4e7;margin:0;
+    padding:20px 24px;cursor:default;flex-direction:column;align-items:stretch;
+    justify-content:flex-start;overflow:hidden;
+  }
+  .v4 .bento.expanded .tile.expanded.t-obj{background:#18181b;border-color:#18181b}
+  .v4 .bento.expanded .tile:not(.expanded):hover{background:#f4f4f5}
+  .v4 .bento.expanded .tile.expanded{border-color:#e4e4e7}
+  .v4 .bento.expanded .tile.expanded .th .tt{display:block;color:inherit}
+  .v4 .bento.expanded .tile.expanded .th .eb{display:block}
+  .v4 .bento.expanded .tile.expanded .th{margin-bottom:12px;justify-content:flex-start;gap:8px;width:auto}
+  .v4 .bento.expanded .tile.expanded .th .ic{width:28px;height:28px;border-radius:8px;font-size:13px}
+  .v4 .tile.expanded .back{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;color:#fff;background:#18181b;border:0;border-radius:7px;padding:6px 12px;cursor:pointer;margin-bottom:12px;flex:0 0 auto}
+  .v4 .tile .back{display:none}
+  /* expanded surfaces: hide preview, show full stage */
+  .v4 .chat-stage,.v4 .obj-detail,.v4 .map-stage{display:none}
+  .v4 .tile.expanded.t-tutor .tut-prev{display:none}
+  .v4 .tile.expanded.t-tutor .chat-stage{display:flex;flex-direction:column;flex:1;min-height:0;max-width:720px;width:100%}
+  .v4 .tile.expanded.t-obj .td{display:none}
+  .v4 .tile.expanded.t-obj .obj-detail{display:flex;flex-direction:column;flex:1;max-width:560px}
+  .v4 .tile.expanded.t-map .map-prev{display:none}
+  .v4 .tile.expanded.t-map .map-stage{display:flex;flex-direction:column;flex:1;min-height:0}
+  .v4 .map-stage .map-prev{flex:1;min-height:280px;margin-top:8px}
+  .v4 .map-stage .map-prev .mn{padding:8px 12px;min-width:72px}
+  .v4 .map-stage .map-prev .mtt{font-size:13px}
+  .v4 .map-stage .map-prev .mb{font-size:8px}
+  .v4 .tile.expanded.t-src .src-prev,
+  .v4 .tile.expanded.t-quiz .qq{flex:1}
+  .v4 .tile.expanded.t-src .src-prev .si{padding:12px 14px;border:1px solid #e4e4e7;border-radius:10px}
+  .v4 .tile.expanded.t-quiz .qo div{white-space:normal;padding:10px 12px;font-size:13px}
+  .v4 .tile.expanded.t-stats .stats{align-content:start;padding-top:20px}
+  .v4 .tile.expanded.t-stats .stats .sv{font-size:42px}
+
+  /* evidence drawer for bento */
+  .v4 .evidence-open .bento,.v4 .evidence-open .body{filter:none}
+  .v4 .ev-scrim{position:absolute;inset:0;background:rgba(24,24,27,.4);backdrop-filter:blur(4px);z-index:40;display:none}
+  .v4 .evidence-open .ev-scrim{display:block}
+  .v4 .drawer{position:absolute;top:72px;right:20px;bottom:20px;width:400px;background:#fff;border:1px solid #e4e4e7;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.2);z-index:50;transform:translateX(120%);transition:transform .3s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;overflow:hidden}
+  .v4 .evidence-open .drawer{transform:none}
+  .v4 .drawer-head{padding:16px 18px;border-bottom:1px solid #e4e4e7;display:flex;align-items:center;gap:10px}
+  .v4 .drawer-head .ttl{font-family:var(--display);font-size:17px;font-weight:500;letter-spacing:-.01em}
+  .v4 .drawer-head .ctx{font-size:11px;color:#a1a1aa;font-family:var(--mono)}
+  .v4 .drawer-head .x{margin-left:auto;width:28px;height:28px;border-radius:8px;border:1px solid #e4e4e7;background:#fff;cursor:pointer;color:#71717a}
+  .v4 .src-pills{padding:14px 18px;border-bottom:1px solid #e4e4e7;display:flex;gap:8px;flex-wrap:wrap}
+  .v4 .src{font-size:11px;padding:5px 11px;border-radius:999px;border:1px solid #e4e4e7;background:#fff;color:#52525b;cursor:pointer;display:flex;align-items:center;gap:6px}
+  .v4 .src.on{border-color:#18181b;background:#18181b08;color:#18181b;font-weight:600}
+  .v4 .src .d{width:6px;height:6px;border-radius:50%;background:#a1a1aa}
+  .v4 .src.on .d{background:#18181b}
+  .v4 .drawer-body{flex:1;display:grid;grid-template-columns:78px 1fr;overflow:hidden}
+  .v4 .thumbs{padding:14px 10px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;border-right:1px solid #e4e4e7;background:#f4f4f5}
+  .v4 .thumb{width:58px;height:74px;background:#e4e4e7;border-radius:6px;position:relative;overflow:hidden;cursor:pointer;border:2px solid transparent}
+  .v4 .thumb i{position:absolute;left:8px;right:8px;height:3px;background:#d4d4d8;border-radius:2px}
+  .v4 .thumb i:nth-child(1){top:10px}.v4 .thumb i:nth-child(2){top:18px;width:70%}.v4 .thumb i:nth-child(3){top:26px}.v4 .thumb i:nth-child(4){top:34px;width:60%}
+  .v4 .thumb.on{background:#fff;border-color:#18181b}
+  .v4 .thumb.on i{background:#18181b}
+  .v4 .excerpt{padding:18px;overflow-y:auto}
+  .v4 .locator{font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:.1em;color:#a1a1aa;text-transform:uppercase}
+  .v4 .src-title{font-family:var(--display);font-size:16px;font-weight:500;margin-top:4px;letter-spacing:-.01em}
+  .v4 .quote{margin-top:14px;font-family:var(--serif);font-size:14.5px;line-height:1.7;color:#3f3f46;border-left:2px solid #18181b;padding:4px 0 4px 14px}
+  .v4 .open-cta{margin-top:18px;display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:#fff;background:#18181b;padding:9px 16px;border-radius:9px;cursor:pointer;border:0}
+
+  /* v4 expanded tile: full chat surface (tutor tile) */
+  .v4 .tile.expanded .ex-head{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+  .v4 .tile.expanded .ex-head h3{margin:0;font-family:var(--display);font-size:22px;font-weight:500;letter-spacing:-.01em}
+  .v4 .tile.expanded .ex-head .ex-chip{font-size:11px;color:#9a3412;background:#fff7ed;border:1px solid #fed7aa;padding:4px 11px;border-radius:999px;font-weight:600}
+  .v4 .tile.expanded .ex-head .ex-meta{margin-left:auto;font-family:var(--mono);font-size:10px;color:#a1a1aa;letter-spacing:.04em}
+  .v4 .chat-stage{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+  .v4 .chat-thread{flex:1;overflow-y:auto;padding:4px 2px 16px;display:flex;flex-direction:column;gap:14px}
+  .v4 .ct-turn{display:flex;flex-direction:column;gap:10px}
+  .v4 .ct-lab{font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:#a1a1aa}
+  .v4 .ct-lab.tutor{color:#9a3412}
+  .v4 .ct-u{align-self:flex-end;max-width:74%;background:#18181b;color:#fafafa;padding:11px 15px;border-radius:6px 16px 16px 16px;font-family:var(--serif);font-size:15px;line-height:1.55}
+  .v4 .ct-act{background:#f4f4f5;border:1px solid #e4e4e7;border-radius:11px;padding:12px 14px}
+  .v4 .ct-act .lab{font-family:var(--mono);font-size:8.5px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:#a1a1aa;margin-bottom:8px}
+  .v4 .ct-step{font-family:var(--sans);font-size:12.5px;color:#52525b;display:flex;align-items:center;gap:8px;padding:2px 0}
+  .v4 .ct-step .ck{width:14px;height:14px;border-radius:50%;background:#16a34a;color:#fff;display:grid;place-items:center;font-size:8px;flex:0 0 auto}
+  .v4 .ct-step.run .ck{background:transparent;border:2px solid #ea580c;border-right-color:transparent;animation:spin 1s linear infinite}
+  .v4 .ct-think{font-family:var(--serif);font-style:italic;font-size:13px;color:#78716c;border-left:2px solid #fdba74;padding-left:10px;margin-top:4px}
+  .v4 .ct-tutor{font-family:var(--serif);font-size:16px;line-height:1.7;color:#27272a}
+  .v4 .ct-tutor .cite{font-family:var(--sans);font-size:10.5px;font-weight:600;color:#9a3412;background:#fff7ed;border:1px solid #fed7aa;padding:2px 8px;border-radius:6px;cursor:pointer;vertical-align:baseline}
+  .v4 .ct-tutor .cite.active{background:#ea580c;color:#fff;border-color:#ea580c}
+  .v4 .ct-inline{margin-top:8px;background:#fff;border:1px solid #e4e4e7;border-left:3px solid #ea580c;border-radius:0 10px 10px 0;padding:10px 12px}
+  .v4 .ct-inline .il-loc{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#a1a1aa}
+  .v4 .ct-inline .il-t{font-family:var(--display);font-size:13.5px;font-weight:500;margin-top:2px}
+  .v4 .ct-inline .il-q{font-family:var(--serif);font-size:13px;color:#52525b;margin-top:5px;line-height:1.55}
+  .v4 .ct-actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:4px}
+  .v4 .ct-actions button{font-family:var(--sans);font-size:11.5px;font-weight:500;border:1px solid #e4e4e7;background:#fff;border-radius:8px;padding:6px 11px;cursor:pointer;color:#52525b;display:inline-flex;align-items:center;gap:6px;transition:.15s}
+  .v4 .ct-actions button:hover{border-color:#fdba74;background:#fff7ed;color:#9a3412}
+  .v4 .ct-actions button.pri{border-color:#18181b;background:#18181b;color:#fff;font-weight:600}
+  .v4 .chat-composer{border-top:1px solid #e4e4e7;padding-top:12px}
+  .v4 .chat-composer .ctx-chips{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+  .v4 .chat-composer .ctx{font-size:11px;background:#f4f4f5;border:1px solid #e4e4e7;padding:4px 9px;border-radius:6px;color:#52525b;display:flex;align-items:center;gap:5px;font-family:var(--sans)}
+  .v4 .chat-composer .ctx .x{color:#d4d4d8;cursor:pointer}
+  .v4 .chat-composer .input{background:#f4f4f5;border:1px solid #e4e4e7;border-radius:11px;padding:13px 15px;font-family:var(--serif);font-size:14.5px;color:#a1a1aa;min-height:52px}
+  .v4 .chat-composer .qa{display:flex;gap:7px;margin-top:9px;flex-wrap:wrap}
+  .v4 .chat-composer .qa button{font-family:var(--sans);font-size:11.5px;font-weight:500;border:1px solid #e4e4e7;background:#fff;border-radius:999px;padding:6px 12px;cursor:pointer;color:#52525b;display:inline-flex;align-items:center;gap:6px;transition:.15s}
+  .v4 .chat-composer .qa button:hover{border-color:#fdba74;background:#fff7ed;color:#9a3412}
+  .v4 .chat-composer .sr{display:flex;align-items:center;gap:10px;margin-top:9px}
+  .v4 .chat-composer .sr .h{font-family:var(--mono);font-size:9.5px;color:#a1a1aa;letter-spacing:.04em}
+  .v4 .chat-composer .sr .send{margin-left:auto;width:34px;height:34px;border-radius:9px;border:0;background:#ea580c;color:#fff;cursor:pointer;display:grid;place-items:center}
+  /* objective expanded detail */
+  .v4 .tile.expanded .obj-detail{flex:1;overflow-y:auto}
+  .v4 .obj-detail .od-row{display:flex;align-items:center;gap:14px;padding:12px 0;border-bottom:1px solid #e4e4e7}
+  .v4 .obj-detail .od-row .odl{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:#a1a1aa;width:120px;flex:0 0 auto}
+  .v4 .obj-detail .od-row .odv{font-family:var(--serif);font-size:15px;color:#27272a}
+  .v4 .obj-detail .od-bar{margin:14px 0 8px;height:8px;background:#f4f4f5;border-radius:999px;overflow:hidden}
+  .v4 .obj-detail .od-bar i{display:block;height:100%;width:38%;background:#18181b;border-radius:999px}
+
+  /* ============================================================
+     V3 — CHAT-PRIMARY  (tutor dominant, mini-map peek,
+         inline expandable evidence inside the thread)
+     Layout: topbar / [tutor column ~62% | peek panel]
+     The chat IS the app. The map is a secondary peek; evidence
+     unfolds inline. Enriched with in-thread action affordances
+     and a richer composer + quick actions.
+     ============================================================ */
+  .v3{background:#fafaf9;color:#1c1917}
+  .v3 .shell{display:grid;grid-template-rows:52px 1fr;height:100%}
+  .v3 .topbar{display:flex;align-items:center;gap:14px;padding:0 18px;background:#fff;border-bottom:1px solid #e7e5e4}
+  .v3 .logo{width:22px;height:22px;border-radius:6px;background:#ea580c;color:#fff;display:grid;place-items:center;font-weight:700;font-size:12px}
+  .v3 .ws-title{font-family:var(--display);font-size:16px;font-weight:500;letter-spacing:-.01em}
+  .v3 .ws-title .pre{color:#a8a29e;font-weight:400;margin-right:5px;font-style:italic}
+  .v3 .ingest{font-size:11px;color:#78716c;background:#f5f5f4;border:1px solid #e7e5e4;padding:3px 9px;border-radius:6px;display:flex;align-items:center;gap:6px}
+  .v3 .ingest::before{content:"";width:6px;height:6px;border-radius:50%;background:#16a34a}
+  .v3 .sp{flex:1}
+  .v3 .search{background:#f5f5f4;border:1px solid #e7e5e4;border-radius:8px;padding:6px 12px;font-size:12px;color:#a8a29e;width:220px;font-family:var(--serif);font-style:italic}
+  .v3 .credits{font-size:11px;color:#1c1917;background:#fef3c7;border:1px solid #fde68a;padding:4px 10px;border-radius:6px;font-weight:600}
+  .v3 .avatar{width:28px;height:28px;border-radius:50%;background:#1c1917;color:#fff;font-size:11px;display:grid;place-items:center;font-weight:600}
+
+  .v3 .body{display:grid;grid-template-columns:1fr 360px;overflow:hidden}
+  /* chat is the primary surface */
+  .v3 .chat{display:flex;flex-direction:column;overflow:hidden;background:#fafaf9;min-width:0}
+  .v3 .chat-head{padding:14px 24px;border-bottom:1px solid #e7e5e4;background:#fff}
+  .v3 .ch-row{display:flex;align-items:center;gap:12px}
+  .v3 .chat-head h2{margin:0;font-family:var(--display);font-size:19px;font-weight:500;letter-spacing:-.01em}
+  .v3 .chat-head .obj-chip{font-size:11px;color:#9a3412;background:#fff7ed;border:1px solid #fed7aa;padding:4px 11px;border-radius:999px;font-weight:600;display:inline-flex;align-items:center;gap:6px}
+  .v3 .chat-head .obj-chip::before{content:"";width:6px;height:6px;border-radius:50%;background:#ea580c}
+  .v3 .chat-head .new-btn{margin-left:auto;font-size:11px;font-weight:600;color:#fff;background:#1c1917;padding:6px 13px;border-radius:7px;cursor:pointer;border:0}
+  .v3 .chat-head .meta{margin-top:8px;font-size:11.5px;color:#78716c;display:flex;gap:16px;flex-wrap:wrap}
+  .v3 .chat-head .meta b{color:#1c1917;font-weight:600}
+  .v3 .chat-head .meta span{display:inline-flex;align-items:center;gap:5px}
+  /* objective progress strip */
+  .v3 .obj-strip{margin-top:10px;display:flex;align-items:center;gap:10px}
+  .v3 .obj-strip .lab{font-family:var(--mono);font-size:9.5px;color:#a8a29e;letter-spacing:.1em;text-transform:uppercase}
+  .v3 .obj-strip .bar{flex:1;height:5px;background:#f5f5f4;border-radius:999px;overflow:hidden;border:1px solid #e7e5e4}
+  .v3 .obj-strip .bar i{display:block;height:100%;width:38%;background:#ea580c;border-radius:999px}
+  .v3 .obj-strip .pc{font-family:var(--mono);font-size:10px;color:#78716c}
+
+  .v3 .thread{flex:1;overflow-y:auto;padding:28px 24px 12px;max-width:820px;margin:0 auto;width:100%;scroll-behavior:smooth}
+  .v3 .turn{display:flex;flex-direction:column;gap:12px;margin-bottom:26px}
+  .v3 .turn-label{font-family:var(--mono);font-size:9.5px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:#a8a29e;display:flex;align-items:center;gap:8px}
+  .v3 .turn-label .avatar-sm{width:18px;height:18px;border-radius:50%;background:#1c1917}
+  .v3 .turn-label.tutor{color:#9a3412}
+  .v3 .u-row{align-self:flex-end;max-width:72%;background:#1c1917;color:#fafaf9;padding:11px 15px;border-radius:6px 16px 16px 16px;font-family:var(--serif);font-size:15px;line-height:1.55}
+  .v3 .activity{background:#fff;border:1px solid #e7e5e4;border-radius:12px;padding:14px 16px;box-shadow:0 1px 2px #0000000a}
+  .v3 .activity .lbl{font-family:var(--mono);font-size:9.5px;font-weight:500;letter-spacing:.1em;color:#a8a29e;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;gap:6px}
+  .v3 .activity .lbl::after{content:"▾";margin-left:auto;color:#d6d3d1}
+  .v3 .step{display:flex;align-items:center;gap:9px;font-size:13px;color:#44403c;margin-top:9px;font-family:var(--sans)}
+  .v3 .step .ck{width:16px;height:16px;border-radius:50%;background:#16a34a;color:#fff;display:grid;place-items:center;font-size:10px;flex:0 0 auto}
+  .v3 .step.run .ck{background:transparent;border:2px solid #ea580c;border-right-color:transparent;animation:spin 1s linear infinite}
+  .v3 .thinking{font-family:var(--serif);font-style:italic;font-size:14px;color:#78716c;border-left:3px solid #fde68a;padding-left:12px;margin-top:11px;line-height:1.6}
+  .v3 .tutor{font-family:var(--serif);font-size:16px;line-height:1.72;color:#1c1917;padding:2px 2px}
+  .v3 .tutor .cite{display:inline-flex;align-items:center;gap:4px;font-family:var(--sans);font-size:10.5px;color:#9a3412;background:#fff7ed;border:1px solid #fed7aa;padding:2px 8px;border-radius:6px;margin:0 2px;cursor:pointer;font-weight:600;vertical-align:baseline}
+  .v3 .tutor .cite::before{content:"🛡";font-size:9px}
+  .v3 .tutor .cite.active{background:#ea580c;color:#fff;border-color:#ea580c}
+  /* INLINE evidence card inside the thread */
+  .v3 .inline-ev{margin-top:12px;background:#fff;border:1px solid #e7e5e4;border-left:3px solid #ea580c;border-radius:0 12px 12px 0;overflow:hidden;max-height:0;transition:max-height .3s ease}
+  .v3 .inline-ev.open{max-height:420px}
+  .v3 .inline-ev .ie-head{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid #f5f5f4;cursor:pointer}
+  .v3 .inline-ev .ie-head .ie-t{font-family:var(--sans);font-size:12px;font-weight:600;color:#1c1917}
+  .v3 .inline-ev .ie-head .ie-chev{margin-left:auto;color:#a8a29e;transition:transform .2s}
+  .v3 .inline-ev.open .ie-chev{transform:rotate(180deg)}
+  .v3 .inline-ev .ie-src-row{display:flex;gap:6px;padding:10px 14px 0;flex-wrap:wrap}
+  .v3 .inline-ev .ie-src{font-size:10.5px;padding:3px 9px;border-radius:999px;border:1px solid #e7e5e4;background:#f5f5f4;color:#57534e;cursor:pointer;font-family:var(--sans);font-weight:500}
+  .v3 .inline-ev .ie-src.on{border-color:#ea580c;background:#fff7ed;color:#9a3412}
+  .v3 .inline-ev .ie-body{display:flex;gap:14px;padding:12px 14px}
+  .v3 .inline-ev .ie-thumbs{display:flex;flex-direction:column;gap:8px}
+  .v3 .inline-ev .ie-thumb{width:46px;height:60px;background:#f5f5f4;border:1px solid #e7e5e4;border-radius:5px;position:relative;cursor:pointer;flex:0 0 auto}
+  .v3 .inline-ev .ie-thumb.on{border-color:#ea580c;border-width:2px;background:#fff7ed}
+  .v3 .inline-ev .ie-thumb i{position:absolute;left:6px;right:6px;height:2px;background:#d6d3d1;border-radius:1px}
+  .v3 .inline-ev .ie-thumb i:nth-child(1){top:8px}.v3 .inline-ev .ie-thumb i:nth-child(2){top:14px;width:70%}.v3 .inline-ev .ie-thumb i:nth-child(3){top:20px}
+  .v3 .inline-ev .ie-excerpt{flex:1;min-width:0}
+  .v3 .inline-ev .ie-loc{font-family:var(--mono);font-size:9.5px;font-weight:500;letter-spacing:.1em;color:#a8a29e;text-transform:uppercase}
+  .v3 .inline-ev .ie-title{font-family:var(--display);font-size:14px;font-weight:500;margin-top:3px;letter-spacing:-.01em}
+  .v3 .inline-ev .ie-quote{margin-top:8px;font-family:var(--serif);font-size:13.5px;line-height:1.65;color:#44403c}
+  .v3 .inline-ev .ie-open{margin-top:10px;font-size:11.5px;font-weight:600;color:#fff;background:#1c1917;border:0;border-radius:6px;padding:6px 12px;cursor:pointer}
+
+  /* in-thread action affordances — what the learner can DO next */
+  .v3 .turn-actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:4px}
+  .v3 .turn-actions button{font-family:var(--sans);font-size:11.5px;font-weight:500;border:1px solid #e7e5e4;background:#fff;border-radius:8px;padding:6px 11px;cursor:pointer;color:#44403c;display:inline-flex;align-items:center;gap:6px;transition:.15s}
+  .v3 .turn-actions button:hover{border-color:#fdba74;background:#fff7ed;color:#9a3412}
+  .v3 .turn-actions button.pri{border-color:#1c1917;background:#1c1917;color:#fff;font-weight:600}
+  .v3 .turn-actions button.pri:hover{background:#292524}
+  .v3 .turn-actions button .ai{font-size:13px}
+  .v3 .turn-foot{display:flex;align-items:center;gap:10px;margin-top:6px}
+  .v3 .fb button{border:1px solid #e7e5e4;background:#fff;border-radius:8px;padding:6px 11px;font-size:11.5px;color:#78716c;cursor:pointer}
+  .v3 .turn-foot .tag{font-family:var(--mono);font-size:10px;color:#a8a29e;letter-spacing:.04em}
+
+  /* composer */
+  .v3 .composer-wrap{border-top:1px solid #e7e5e4;background:#fff;padding:14px 24px 18px}
+  .v3 .composer{max-width:820px;margin:0 auto}
+  .v3 .ctx-chips{display:flex;gap:6px;margin-bottom:9px;flex-wrap:wrap}
+  .v3 .ctx{font-size:11px;background:#f5f5f4;border:1px solid #e7e5e4;padding:4px 9px;border-radius:6px;color:#44403c;display:flex;align-items:center;gap:5px;font-family:var(--sans)}
+  .v3 .ctx .x{color:#d6d3d1;cursor:pointer}
+  .v3 .input{background:#fafaf9;border:1px solid #e7e5e4;border-radius:12px;padding:14px 16px;font-family:var(--serif);font-size:14.5px;color:#a8a29e;min-height:56px}
+  .v3 .quick-actions{display:flex;gap:7px;margin-top:10px;flex-wrap:wrap}
+  .v3 .quick-actions button{font-family:var(--sans);font-size:11.5px;font-weight:500;border:1px solid #e7e5e4;background:#fff;border-radius:999px;padding:6px 13px;cursor:pointer;color:#57534e;display:inline-flex;align-items:center;gap:6px;transition:.15s}
+  .v3 .quick-actions button:hover{border-color:#fed7aa;background:#fff7ed;color:#9a3412}
+  .v3 .quick-actions button .qi{font-size:13px;opacity:.8}
+  .v3 .send-row{display:flex;align-items:center;gap:12px;margin-top:10px}
+  .v3 .hint{font-family:var(--mono);font-size:10px;color:#a8a29e;letter-spacing:.04em}
+  .v3 .send{margin-left:auto;width:36px;height:36px;border-radius:9px;border:0;background:#ea580c;color:#fff;cursor:pointer;display:grid;place-items:center}
+
+  /* peek panel */
+  .v3 .peek{background:#fff;border-left:1px solid #e7e5e4;display:flex;flex-direction:column;overflow:hidden}
+  .v3 .peek-tabs{display:flex;border-bottom:1px solid #e7e5e4;font-size:12px}
+  .v3 .peek-tabs button{flex:1;border:0;background:transparent;padding:11px;color:#a8a29e;cursor:pointer;font-family:inherit;border-bottom:2px solid transparent;font-weight:500}
+  .v3 .peek-tabs button.on{color:#1c1917;border-color:#ea580c;font-weight:600}
+  .v3 .peek-body{flex:1;overflow-y:auto;padding:16px}
+  /* mini map */
+  .v3 .minimap{position:relative;height:200px;background:#fafaf9;border:1px solid #e7e5e4;border-radius:12px;overflow:hidden;margin-bottom:14px}
+  .v3 .minimap .mm-grid{position:absolute;inset:0;background-image:radial-gradient(circle,#d6d3d155 1px,transparent 1px);background-size:14px 14px}
+  .v3 .minimap svg{position:absolute;inset:0}
+  .v3 .minimap svg path{stroke:#d6d3d1;stroke-width:1.5;fill:none}
+  .v3 .minimap svg path.live{stroke:#ea580c;stroke-width:2}
+  .v3 .minimap .mn{position:absolute;width:10px;height:10px;border-radius:3px;background:#fff;border:1px solid #a8a29e}
+  .v3 .minimap .mn.now{background:#ea580c;border-color:#ea580c;box-shadow:0 0 0 3px #ea580c33}
+  .v3 .minimap .mm-label{position:absolute;bottom:6px;left:8px;font-family:var(--mono);font-size:9px;color:#a8a29e;letter-spacing:.08em}
+  .v3 .minimap .expand{position:absolute;top:6px;right:6px;font-size:10px;color:#78716c;background:#fff;border:1px solid #e7e5e4;border-radius:6px;padding:3px 7px;cursor:pointer;font-family:var(--sans);font-weight:500}
+  /* node chips list */
+  .v3 .chips-h{font-family:var(--mono);font-size:9.5px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:#a8a29e;margin:6px 0 8px}
+  .v3 .nchip{display:flex;align-items:center;gap:9px;padding:9px 11px;border:1px solid #e7e5e4;border-radius:9px;margin-bottom:6px;cursor:pointer;transition:.15s}
+  .v3 .nchip:hover{background:#fafaf9;border-color:#fdba74}
+  .v3 .nchip.on{background:#fff7ed;border-color:#fed7aa}
+  .v3 .nchip .nsw{width:8px;height:8px;border-radius:2px;flex:0 0 auto}
+  .v3 .nchip .nbd{font-family:var(--mono);font-size:8px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:#78716c}
+  .v3 .nchip .nt{font-size:12.5px;font-weight:500;color:#1c1917;flex:1;font-family:var(--sans)}
+  .v3 .nchip .nmeta{font-size:10px;color:#a8a29e;font-family:var(--sans)}
+  /* sources tab content */
+  .v3 .src-item{display:flex;align-items:center;gap:11px;padding:10px;border:1px solid #e7e5e4;border-radius:10px;margin-bottom:7px;cursor:pointer;transition:.15s}
+  .v3 .src-item:hover{background:#fafaf9;border-color:#fdba74}
+  .v3 .src-item .sth{width:30px;height:40px;background:#f5f5f4;border:1px solid #e7e5e4;border-radius:4px;flex:0 0 auto;position:relative}
+  .v3 .src-item .sth i{position:absolute;left:4px;right:4px;height:2px;background:#d6d3d1;border-radius:1px}
+  .v3 .src-item .sth i:nth-child(1){top:6px}.v3 .src-item .sth i:nth-child(2){top:12px;width:70%}.v3 .src-item .sth i:nth-child(3){top:18px}
+  .v3 .src-item .sti{flex:1;min-width:0}
+  .v3 .src-item .stt{font-family:var(--display);font-size:13.5px;font-weight:500;letter-spacing:-.01em}
+  .v3 .src-item .stm{font-family:var(--serif);font-style:italic;font-size:11.5px;color:#78716c}
+  .v3 .src-item .spp{font-family:var(--mono);font-size:9.5px;color:#a8a29e}
+  .v3 .legend{font-family:var(--serif);font-size:12.5px;color:#78716c;padding:12px 0 0;border-top:1px solid #e7e5e4;margin-top:12px;line-height:1.55}
+  .v3 .legend b{font-family:var(--display);font-size:13.5px;color:#1c1917;font-weight:500}
+
+  /* shared legend/hint bars (only v0) */
+  .legend{position:absolute;bottom:42px;left:18px;background:rgba(255,255,255,.9);backdrop-filter:blur(10px);border:1px solid #e2e8f0;border-radius:11px;padding:12px 14px;font-size:11px;color:#64748b;z-index:3;max-width:260px;box-shadow:0 4px 18px #6366f118}
+  .legend b{display:block;font-size:12px;color:#0f172a;margin-bottom:6px}
+  .legend .types{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .legend .t{display:flex;align-items:center;gap:5px;font-size:10px}
+  .legend .t .sw{width:9px;height:9px;border-radius:3px}
+  .hint-bar{position:absolute;bottom:42px;right:18px;background:rgba(255,255,255,.9);backdrop-filter:blur(10px);border:1px solid #e2e8f0;border-radius:10px;padding:8px 12px;font-size:11px;color:#64748b;z-index:3;display:flex;align-items:center;gap:8px}
+  .hint-bar kbd{background:#f1f5f9;border:1px solid #e2e8f0;border-radius:4px;padding:1px 6px;font-size:10px;font-family:'JetBrains Mono',monospace}
+</style>
+</head>
+<body>
+
+<div id="switcher">
+  <div class="brand"><div class="dot"></div> TutorBook · Workspace Variations</div>
+  <div class="seg" id="seg">
+    <button data-v="v0">Improved Original</button>
+    <button data-v="v1" class="active">Focus Map · dock</button>
+    <button data-v="v2">Narrative Doc</button>
+    <button data-v="v3">Chat-Primary</button>
+    <button data-v="v4">Bento Home</button>
+  </div>
+  <div class="sp"></div>
+  <label class="toggle"><input type="checkbox" id="evToggle" checked /> Open Evidence</label>
+</div>
+
+<div id="stage">
+
+  <!-- ========================================================
+       V0 — IMPROVED ORIGINAL
+       ======================================================== -->
+  <div class="variant v0" id="v0">
+    <div class="shell">
+      <div class="topbar">
+        <div class="logo"></div>
+        <div class="ws-title">Organic Chemistry I</div>
+        <div class="ingest">3 sources ready</div>
+        <div class="sp"></div>
+        <input class="search" placeholder="Search nodes, sources…" />
+        <div class="credits">120 credits</div>
+        <div class="avatar">SK</div>
+      </div>
+      <div class="body">
+        <div class="chat">
+          <div class="chat-head">
+            <div class="chat-title"><span>🎓</span> Tutor <button class="new-btn">+ New</button></div>
+            <div class="tabs"><button class="on">Tutor</button><button>History</button><button>Settings</button></div>
+            <div class="session-bar"><span class="obj-chip">Learn · SN2 mechanism</span><span>Session active</span></div>
+          </div>
+          <div class="thread">
+            <div class="u-row">Walk me through why SN2 inverts the stereochemistry.</div>
+            <div class="activity">
+              <div class="lbl">Agent activity</div>
+              <div class="step"><span class="ck">✓</span> Checked learning state</div>
+              <div class="step"><span class="ck">✓</span> Pulled Ch. 7 source</div>
+              <div class="step run"><span class="ck"></span> Composing explanation</div>
+              <div class="thinking">Connecting backside attack to Walden inversion so the spatial argument lands first…</div>
+            </div>
+            <div class="tutor">The nucleophile attacks from the side opposite the leaving group, so the three substituents flip through a planar transition state — that's Walden inversion.<span class="cite active" data-cite>Ch. 7 · p. 142</span>
+              <div class="fb"><button>👍</button><button>👎</button></div>
+            </div>
+          </div>
+          <div class="composer">
+            <div class="ctx-chips"><span class="ctx">SN2 mechanism <span class="x">×</span></span><span class="ctx">Ch. 7 source <span class="x">×</span></span></div>
+            <div class="input">Ask a follow-up, or ⇧↵ to steer…</div>
+            <div class="send-row"><span class="hint">↵ send · ⇧↵ steer</span><button class="send">➤</button></div>
+          </div>
+        </div>
+        <div class="canvas">
+          <div class="surf"><button class="on">Study Map</button><button>Curriculum</button><button>Source Wiki</button></div>
+          <div class="tools"><div class="tool">⊞</div><div class="tool">⧉</div><div class="tool">⑂</div><div class="tool">↻</div></div>
+          <svg class="edges" id="v0edges"></svg>
+          <div class="nodes" id="v0nodes"></div>
+          <div class="legend">
+            <b>Mist Glass — improved original</b>Faithful to nodes.pen with tighter spacing, hover lift, animated edges on the active path, and a slide-in evidence drawer.
+            <div class="types">
+              <span class="t"><span class="sw" style="background:#10b981"></span>source</span>
+              <span class="t"><span class="sw" style="background:#6366f1"></span>concept</span>
+              <span class="t"><span class="sw" style="background:#f59e0b"></span>artifact</span>
+              <span class="t"><span class="sw" style="background:#8b5cf6"></span>plan</span>
+            </div>
+          </div>
+          <div class="hint-bar">Click a node or citation to open <kbd>Evidence</kbd></div>
+          <div class="statusbar"><span>Study Map · 24 nodes · 31 edges</span><span class="sp"></span><span>Selected: SN2 mechanism</span><span class="sp"></span><span class="obj">Objective 5 · SN2 mechanism</span></div>
+        </div>
+      </div>
+      <div class="glass"></div>
+      <div class="drawer">
+        <div class="drawer-head"><div><div class="ttl">Evidence</div><div class="ctx">SN2 mechanism · Concept</div></div><button class="x" data-close>✕</button></div>
+        <div class="src-pills"><div class="src on"><span class="d"></span> Ch. 7 PDF</div><div class="src"><span class="d"></span> Lecture 3</div><div class="src"><span class="d"></span> Wiki</div></div>
+        <div class="drawer-body">
+          <div class="thumbs">
+            <div class="thumb"><i></i><i></i><i></i><i></i></div>
+            <div class="thumb on"><i></i><i></i><i></i><i></i></div>
+            <div class="thumb"><i></i><i></i><i></i><i></i></div>
+            <div class="thumb"><i></i><i></i><i></i><i></i></div>
+          </div>
+          <div class="excerpt">
+            <div class="locator">Page 142 · §7.2</div>
+            <div class="src-title">Organic Chemistry — Ch. 7</div>
+            <div class="quote">"Primary substrates react via SN2: the nucleophile attacks from the back, displacing the leaving group in a single concerted step with inversion of configuration."</div>
+            <button class="open-cta">Open PDF at page 142 →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================
+       V1 — FOCUS MAP  (full-bleed canvas + floating dock + peek + spotlight)
+       ======================================================== -->
+  <div class="variant v1 active" id="v1">
+    <div class="shell">
+      <div class="topbar">
+        <div class="logo"></div>
+        <div class="ws-title">Organic Chemistry I</div>
+        <div class="ingest">3 sources indexed</div>
+        <div class="sp"></div>
+        <input class="search" placeholder="Search the map…" />
+        <div class="credits">120 credits</div>
+        <div class="avatar">SK</div>
+      </div>
+      <div class="canvas">
+        <div class="grid-bg"></div>
+        <div class="surf"><button class="on">Study Map</button><button>Curriculum</button><button>Source Wiki</button></div>
+        <div class="zoom"><button>+</button><button>−</button><button>⤢</button></div>
+        <svg class="edges" id="v1edges"></svg>
+        <div class="nodes" id="v1nodes"></div>
+
+        <!-- peek panel anchored near selected node -->
+        <div class="peek show" id="v1peek">
+          <div class="peek-head"><span class="pb">CONCEPT</span><span class="pt">SN2 mechanism</span><span class="x" data-peek-close>✕</span></div>
+          <div class="peek-body">
+            <div class="sum">Backside attack · Walden inversion · concerted, single-step.</div>
+            <div>Strong nucleophiles favor SN2; tertiary substrates are blocked by steric hindrance.</div>
+          </div>
+          <div class="peek-actions">
+            <button class="pri" data-peek-open>Open concept</button>
+            <button data-peek-open>Ask tutor</button>
+            <button data-peek-open>Evidence</button>
+          </div>
+        </div>
+
+        <!-- floating tutor dock -->
+        <div class="dock" id="v1dock">
+          <div class="dock-head" data-dock-toggle>
+            <span>🎓</span><span class="dh-t">Tutor</span><span class="dh-obj">Learn · SN2</span>
+            <span class="dh-ctrl"><span>—</span><span>▢</span></span>
+          </div>
+          <div class="dock-thread">
+            <div class="u-row">Walk me through why SN2 inverts the stereochemistry.</div>
+            <div class="activity">
+              <div class="lbl">Agent activity</div>
+              <div class="step"><span class="ck">✓</span> Checked learning state</div>
+              <div class="step"><span class="ck">✓</span> Pulled Ch. 7 source</div>
+              <div class="step run"><span class="ck"></span> Composing explanation</div>
+              <div class="thinking">Connecting backside attack to Walden inversion…</div>
+            </div>
+            <div class="tutor">The nucleophile attacks from the back, so the three substituents flip through a planar transition state — Walden inversion.<span class="cite active" data-cite>Ch. 7 · p. 142</span>
+              <div class="fb"><button>👍</button><button>👎</button></div>
+            </div>
+          </div>
+          <div class="dock-composer">
+            <div class="ctx-chips"><span class="ctx">SN2 mechanism <span class="x">×</span></span><span class="ctx">Ch. 7 source <span class="x">×</span></span></div>
+            <div class="input">Ask a follow-up…</div>
+            <div class="send-row"><span class="hint">↵ send · ⇧↵ steer</span><button class="send">➤</button></div>
+          </div>
+        </div>
+
+        <!-- minimap -->
+        <div class="minimap">
+          <div class="mm-t">OVERVIEW</div>
+          <div class="mm-box">
+            <i style="left:10%;top:20%"></i><i style="left:25%;top:35%"></i>
+            <i class="now" style="left:45%;top:30%"></i><i style="left:60%;top:55%"></i>
+            <i style="left:75%;top:25%"></i><i style="left:30%;top:70%"></i>
+            <div class="mm-viewport" style="left:38%;top:18%;width:30%;height:40%"></div>
+          </div>
+        </div>
+      </div>
+      <div class="scrim"></div>
+      <div class="drawer">
+        <div class="drawer-head"><div><div class="ttl">Evidence</div><div class="ctx">SN2 mechanism · spotlight</div></div><button class="x" data-close>✕</button></div>
+        <div class="src-pills"><div class="src on"><span class="d"></span> Ch. 7 PDF</div><div class="src"><span class="d"></span> Lecture 3</div><div class="src"><span class="d"></span> Wiki</div></div>
+        <div class="drawer-body">
+          <div class="thumbs">
+            <div class="thumb"><i></i><i></i><i></i><i></i></div>
+            <div class="thumb on"><i></i><i></i><i></i><i></i></div>
+            <div class="thumb"><i></i><i></i><i></i><i></i></div>
+            <div class="thumb"><i></i><i></i><i></i><i></i></div>
+          </div>
+          <div class="excerpt">
+            <div class="locator">page 142 · §7.2</div>
+            <div class="src-title">Organic Chemistry — Ch. 7</div>
+            <div class="quote">"Primary substrates react via SN2: the nucleophile attacks from the back, displacing the leaving group in a single concerted step with inversion of configuration."</div>
+            <button class="open-cta">Open PDF at page 142 →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================
+       V2 — NARRATIVE DOC  (workspace-as-document)
+       ======================================================== -->
+  <div class="variant v2" id="v2">
+    <div class="shell">
+      <div class="topbar">
+        <div class="logo">T</div>
+        <div class="ws-title"><span class="pre">Chapter</span>Organic Chemistry I</div>
+        <div class="ingest">3 sources ready</div>
+        <div class="sp"></div>
+        <input class="search" placeholder="Search the chapter…" />
+        <div class="credits">120 credits</div>
+        <div class="avatar">SK</div>
+      </div>
+      <div class="body">
+        <!-- TOC rail -->
+        <div class="toc">
+          <div class="toc-head"><div class="eyb">Contents</div><div class="tt">Ch. 7 · Substitution</div></div>
+          <div class="toc-list">
+            <a href="#v2-intro" class="on" data-toc>Overview</a>
+            <a href="#v2-obj" data-toc>Current objective</a>
+            <a href="#v2-map" data-toc>Study map</a>
+            <a href="#v2-map" class="sub" data-toc>SN2 mechanism</a>
+            <a href="#v2-src" data-toc>Sources</a>
+            <a href="#v2-quiz" data-toc>Quiz</a>
+            <a href="#v2-next" data-toc>Next steps</a>
+          </div>
+          <div class="toc-foot"><b>4 of 12</b> modules · <b>5 of 8</b> objectives</div>
+        </div>
+
+        <!-- document column -->
+        <div class="doc-wrap">
+          <div class="doc" id="v2doc">
+            <div class="status-strip">
+              <div>
+                <div class="ss-lab">Now learning</div>
+                <div class="ss-obj">Explain why SN2 inverts stereochemistry</div>
+                <div class="ss-meta">Ch. 7 · Substitution · Objective 5 of 8</div>
+              </div>
+              <div class="ss-prog">
+                <div class="ss-pct">38%</div>
+                <div class="ss-bar"><i></i></div>
+              </div>
+            </div>
+
+            <section id="v2-intro">
+              <div class="doc-eyb">Chapter 7 · Substitution</div>
+              <h1>Where you are, <em>and why</em></h1>
+              <div class="byline">A live chapter kept current by your tutor · 25 June 2026</div>
+              <p class="lead"><span class="drop">Y</span>ou've spent the last two sessions on nucleophilic substitution, and you're now at the hinge between SN2 and SN1. The study map below shows SN2 mechanism wired into the sources and artifacts that ground it. Use the tutor panel on the right to ask questions as you read.</p>
+            </section>
+
+            <section id="v2-obj">
+              <h2><span class="hn">01</span> Current objective</h2>
+              <div class="obj-callout">
+                <div class="lab">Objective 5 of 8</div>
+                <div class="ot">Explain why SN2 inverts the stereochemistry</div>
+                <div class="od">Use backside attack and the pentacoordinate transition state to argue for Walden inversion. Cite the textbook passage before moving to SN1.</div>
+              </div>
+              <p>Connect the spatial argument — attack from the side opposite the leaving group — to the kinetic one: SN2 is bimolecular, so rate depends on both substrate and nucleophile<span class="cite active" data-cite>Ch. 7 · p. 142</span>.</p>
+            </section>
+
+            <section id="v2-map">
+              <h2><span class="hn">02</span> Study map</h2>
+              <p>Each card is a gateway into a reference surface. The highlighted path is what your tutor laid out for this objective.</p>
+              <div class="figure">
+                <div class="fig-cap"><span class="fn">Figure 1</span><span class="ft">Study map for Ch. 7, current objective highlighted.</span></div>
+                <div class="fig-map" id="v2figmap">
+                  <svg viewBox="0 0 720 200" id="v2figsvg"></svg>
+                </div>
+              </div>
+            </section>
+
+            <section id="v2-src">
+              <h2><span class="hn">03</span> Sources</h2>
+              <p>Three sources ground this chapter.</p>
+              <div class="src-list">
+                <div class="src-item"><div class="sth"><i></i><i></i><i></i></div><div class="sti"><div class="stt">Organic Chemistry — Ch. 7</div><div class="stm">Textbook · substitution</div></div><div class="spp">412 pp</div></div>
+                <div class="src-item"><div class="sth"><i></i><i></i><i></i></div><div class="sti"><div class="stt">Lecture 3 · Substitution</div><div class="stm">Slide deck · Walden inversion</div></div><div class="spp">24 slides</div></div>
+                <div class="src-item"><div class="sth"><i></i><i></i><i></i></div><div class="sti"><div class="stt">Wiki · Nucleophilic subst.</div><div class="stm">Reference · SN2 kinetics</div></div><div class="spp">5 sections</div></div>
+              </div>
+            </section>
+
+            <section id="v2-quiz">
+              <h2><span class="hn">04</span> Quiz</h2>
+              <p>Two questions stand between you and the next objective.</p>
+              <div class="quiz">
+                <div class="qh"><span class="qn">SN2 mechanism — Q1</span><span class="qpr">1 / 5</span></div>
+                <div class="qq">Which feature of the SN2 transition state explains inversion of configuration?</div>
+                <div class="qo">
+                  <label class="on"><span class="k">A</span> The nucleophile and leaving group are on opposite sides</label>
+                  <label><span class="k">B</span> The carbon is sp² hybridized throughout</label>
+                  <label><span class="k">C</span> The reaction is unimolecular</label>
+                  <label><span class="k">D</span> A carbocation intermediate forms</label>
+                </div>
+                <button class="qsub">Submit answer</button>
+              </div>
+            </section>
+
+            <section id="v2-next">
+              <h2><span class="hn">05</span> Next steps</h2>
+              <p>Once you've finished the quiz, the tutor will move you onto <em>SN1 vs SN2</em>. This page will rewrite itself around the new focus.</p>
+            </section>
+          </div>
+        </div>
+
+        <!-- tutor rail — always visible -->
+        <div class="tutor-rail">
+          <div class="tr-head">
+            <div class="trt">Tutor</div>
+            <div class="trm">
+              <span class="tr-chip">Learn · SN2 mechanism</span>
+              <span class="tr-turn">Turn 3</span>
+            </div>
+          </div>
+          <div class="tr-thread">
+            <div class="tr-turn">
+              <div class="tr-lab">You</div>
+              <div class="tr-u">Walk me through why SN2 inverts the stereochemistry.</div>
+            </div>
+            <div class="tr-turn">
+              <div class="tr-lab tutor">✦ Tutor</div>
+              <div class="tr-act">
+                <div class="lab">Agent activity</div>
+                <div class="tnstep"><span class="ck">✓</span> Checked learning state</div>
+                <div class="tnstep"><span class="ck">✓</span> Pulled Ch. 7 source</div>
+                <div class="tnstep run"><span class="ck"></span> Composing explanation</div>
+                <div class="tn-thinking">Connecting backside attack to Walden inversion…</div>
+              </div>
+              <div class="tr-body">The nucleophile attacks from the side opposite the leaving group, so the three substituents flip through a planar transition state — Walden inversion<span class="cite active" data-cite>Ch. 7 · p. 142</span>. Primary substrates favor this because there's room for backside attack.</div>
+              <div class="tr-inline">
+                <div class="il-loc">Page 142 · §7.2</div>
+                <div class="il-q">"Primary substrates react via SN2: the nucleophile attacks from the back… with inversion of configuration."</div>
+              </div>
+              <div class="tr-actions">
+                <button class="pri">✓ Mark done</button>
+                <button>＋ Cite to map</button>
+                <button>? Quiz me</button>
+                <button>↺ Explain simpler</button>
+              </div>
+            </div>
+          </div>
+          <div class="tr-composer">
+            <div class="ctx-chips"><span class="ctx">SN2 mechanism <span class="x">×</span></span><span class="ctx">Ch. 7 <span class="x">×</span></span></div>
+            <div class="input">Ask about anything on this page…</div>
+            <div class="qa">
+              <button>Quiz me on SN2</button>
+              <button>Explain again</button>
+              <button>What's next?</button>
+            </div>
+            <div class="sr"><span class="h">↵ send · ⇧↵ steer</span><button class="send">➤</button></div>
+          </div>
+        </div>
+      </div>
+      <div class="doc-scrim"></div>
+      <!-- evidence drawer -->
+      <div class="drawer v2-drawer">
+        <div class="drawer-head"><div><div class="ttl">Evidence</div><div class="ctx">Ch. 7 · p. 142</div></div><button class="x" data-close>✕</button></div>
+        <div class="src-pills"><div class="src on"><span class="d"></span> Ch. 7 PDF</div><div class="src"><span class="d"></span> Lecture 3</div></div>
+        <div class="drawer-body" style="grid-template-columns:1fr">
+          <div class="excerpt" style="padding:18px">
+            <div class="locator" style="font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:#a8a29e">Page 142 · §7.2</div>
+            <div class="src-title" style="font-family:var(--display);font-size:16px;font-weight:500;margin-top:4px">Organic Chemistry — Ch. 7</div>
+            <div class="quote" style="margin-top:12px;font-family:var(--serif);font-size:14px;line-height:1.7;color:#44403c;border-left:2px solid #1c1917;padding-left:12px">"Primary substrates react via SN2: the nucleophile attacks from the back, displacing the leaving group in a single concerted step with inversion of configuration."</div>
+            <button class="open-cta" style="margin-top:16px;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#fff;background:#1c1917;border:0;border-radius:8px;padding:8px 14px;cursor:pointer">Open PDF at page 142 →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================
+       V3 — CHAT-PRIMARY PEEK
+       ======================================================== -->
+  <div class="variant v3" id="v3">
+    <div class="shell">
+      <div class="topbar">
+        <div class="logo">T</div>
+        <div class="ws-title"><span class="pre">Workspace /</span>Organic Chemistry I</div>
+        <div class="ingest">3 sources ready</div>
+        <div class="sp"></div>
+        <input class="search" placeholder="Ask or search…" />
+        <div class="credits">120 credits</div>
+        <div class="avatar">SK</div>
+      </div>
+      <div class="body">
+        <!-- chat is primary -->
+        <div class="chat">
+          <div class="chat-head">
+            <div class="ch-row">
+              <h2>Tutor session</h2>
+              <span class="obj-chip">Learn · SN2 mechanism</span>
+              <button class="new-btn">+ New session</button>
+            </div>
+            <div class="meta"><span><b>Ch. 7</b> · Substitution</span><span>Turn 3</span><span>Objective 5 of 8</span><span>· 3 sources ready</span></div>
+            <div class="obj-strip">
+              <span class="lab">Objective</span>
+              <span class="bar"><i></i></span>
+              <span class="pc">38%</span>
+            </div>
+          </div>
+          <div class="thread">
+            <div class="turn">
+              <div class="turn-label"><span class="avatar-sm"></span> You</div>
+              <div class="u-row">Walk me through why SN2 inverts the stereochemistry.</div>
+            </div>
+            <div class="turn">
+              <div class="turn-label tutor">✦ Tutor</div>
+              <div class="activity">
+                <div class="lbl">Agent activity ▾</div>
+                <div class="step"><span class="ck">✓</span> Checked learning state</div>
+                <div class="step"><span class="ck">✓</span> Pulled Ch. 7 source</div>
+                <div class="step run"><span class="ck"></span> Composing explanation</div>
+                <div class="thinking">Connecting backside attack to Walden inversion so the spatial argument lands first…</div>
+              </div>
+              <div class="tutor">The nucleophile attacks from the side opposite the leaving group, so the three substituents flip through a planar transition state — that's Walden inversion. Primary substrates favor this because there's room for backside attack<span class="cite active" data-cite>Ch. 7 · p. 142</span><span class="cite" data-cite>Slide 7</span>.</div>
+              <!-- inline expandable evidence -->
+              <div class="inline-ev open" data-inline-ev>
+                <div class="ie-head" data-ie-toggle>
+                  <span style="color:#ea580c">🛡</span>
+                  <span class="ie-t">Evidence · 2 sources for this claim</span>
+                  <span class="ie-chev">▾</span>
+                </div>
+                <div class="ie-src-row">
+                  <span class="ie-src on">Ch. 7 PDF</span>
+                  <span class="ie-src">Lecture 3</span>
+                </div>
+                <div class="ie-body">
+                  <div class="ie-thumbs">
+                    <div class="ie-thumb on"><i></i><i></i><i></i></div>
+                    <div class="ie-thumb"><i></i><i></i><i></i></div>
+                  </div>
+                  <div class="ie-excerpt">
+                    <div class="ie-loc">Page 142 · §7.2</div>
+                    <div class="ie-title">Organic Chemistry — Ch. 7</div>
+                    <div class="ie-quote">"Primary substrates react via SN2: the nucleophile attacks from the back, displacing the leaving group in a single concerted step with inversion of configuration."</div>
+                    <button class="ie-open">Open PDF at p.142 →</button>
+                  </div>
+                </div>
+              </div>
+              <!-- in-thread actions: what the learner can do next -->
+              <div class="turn-actions">
+                <button class="pri"><span class="ai">✓</span> Mark objective done</button>
+                <button><span class="ai">＋</span> Cite to map</button>
+                <button><span class="ai">?</span> Quiz me on this</button>
+                <button><span class="ai">↺</span> Explain differently</button>
+                <button><span class="ai">🃏</span> Make flashcards</button>
+              </div>
+              <div class="turn-foot">
+                <div class="fb"><button>👍 Helpful</button><button>👎 Not quite</button></div>
+                <span class="tag">· cite to add to map</span>
+              </div>
+            </div>
+          </div>
+          <div class="composer-wrap">
+            <div class="composer">
+              <div class="ctx-chips"><span class="ctx">SN2 mechanism <span class="x">×</span></span><span class="ctx">Ch. 7 source <span class="x">×</span></span></div>
+              <div class="input">Ask a follow-up, or ⇧↵ to steer the agent…</div>
+              <div class="quick-actions">
+                <button><span class="qi">⊞</span> Attach a node</button>
+                <button><span class="qi">?</span> Quiz me</button>
+                <button><span class="qi">↺</span> Explain again, simpler</button>
+                <button><span class="qi">🛡</span> Show me the evidence</button>
+                <button><span class="qi">↗</span> What's next?</button>
+              </div>
+              <div class="send-row"><span class="hint">↵ send · ⇧↵ steer · @ attach node</span><button class="send">➤</button></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- peek panel -->
+        <div class="peek">
+          <div class="peek-tabs" id="v3tabs"><button class="on" data-tab="map">Study Map</button><button data-tab="sources">Sources</button><button data-tab="history">History</button></div>
+          <div class="peek-body">
+            <div data-pane="map">
+              <div class="minimap">
+                <div class="mm-grid"></div>
+                <svg viewBox="0 0 200 160">
+                  <path d="M30 40 Q 60 20 90 50" class="live"/>
+                  <path d="M90 50 Q 120 80 150 60"/>
+                  <path d="M90 50 Q 70 90 50 120"/>
+                  <path d="M150 60 Q 170 100 160 130"/>
+                </svg>
+                <div class="mn" style="left:12%;top:22%"></div>
+                <div class="mn now" style="left:42%;top:28%"></div>
+                <div class="mn" style="left:72%;top:34%"></div>
+                <div class="mn" style="left:22%;top:72%"></div>
+                <div class="mn" style="left:78%;top:78%"></div>
+                <div class="mm-label">SN2 · zoomed</div>
+                <div class="expand">Expand ↗</div>
+              </div>
+              <div class="chips-h">Nodes in view</div>
+              <div class="nchip on"><span class="nsw" style="background:#6366f1"></span><span class="nt">SN2 mechanism</span><span class="nbd">concept</span></div>
+              <div class="nchip"><span class="nsw" style="background:#10b981"></span><span class="nt">Org. Chem textbook</span><span class="nbd">source</span></div>
+              <div class="nchip"><span class="nsw" style="background:#f59e0b"></span><span class="nt">SN2 flashcards</span><span class="nbd">artifact</span></div>
+              <div class="nchip"><span class="nsw" style="background:#06b6d4"></span><span class="nt">Nucleophilic subst.</span><span class="nbd">wiki</span></div>
+              <div class="nchip"><span class="nsw" style="background:#2563eb"></span><span class="nt">SN2 walkthrough</span><span class="nbd">session</span></div>
+            </div>
+            <div data-pane="sources" style="display:none">
+              <div class="chips-h">Sources · Ch. 7</div>
+              <div class="src-item"><div class="sth"><i></i><i></i><i></i></div><div class="sti"><div class="stt">Organic Chemistry — Ch. 7</div><div class="stm">Textbook · substitution</div></div><div class="spp">412pp</div></div>
+              <div class="src-item"><div class="sth"><i></i><i></i><i></i></div><div class="sti"><div class="stt">Lecture 3 · Substitution</div><div class="stm">Slide deck · Walden inversion</div></div><div class="spp">24sl</div></div>
+              <div class="src-item"><div class="sth"><i></i><i></i><i></i></div><div class="sti"><div class="stt">Wiki · Nucleophilic subst.</div><div class="stm">Reference · SN2 kinetics</div></div><div class="spp">5§</div></div>
+            </div>
+            <div data-pane="history" style="display:none">
+              <div class="chips-h">Recent sessions</div>
+              <div class="nchip"><span class="nsw" style="background:#2563eb"></span><span class="nt">SN2 walkthrough</span><span class="nmeta">Yesterday</span></div>
+              <div class="nchip"><span class="nsw" style="background:#2563eb"></span><span class="nt">Recall · nucleophiles</span><span class="nmeta">2 days ago</span></div>
+              <div class="nchip"><span class="nsw" style="background:#2563eb"></span><span class="nt">Alkenes intro</span><span class="nmeta">4 days ago</span></div>
+            </div>
+            <div class="legend">
+              <b>Chat-Primary</b><br/>The tutor is the app. The map is a compact peek you can expand; evidence unfolds inline inside the conversation. Use the actions under any turn to steer, quiz, or push a claim onto the map.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================
+       V4 — BENTO HOME  (dashboard tiles + expand stage)
+       ======================================================== -->
+  <div class="variant v4" id="v4">
+    <div class="shell">
+      <div class="topbar">
+        <div class="logo">T</div>
+        <div class="ws-title">Organic Chemistry I</div>
+        <div class="ingest">3 sources ready</div>
+        <div class="sp"></div>
+        <input class="search" placeholder="Search workspace…" />
+        <div class="credits">120 credits</div>
+        <div class="avatar">SK</div>
+      </div>
+      <div class="body">
+        <div class="bento" id="v4bento">
+
+          <!-- objective tile -->
+          <div class="tile t-obj" data-tile="obj">
+            <div class="th"><div class="ic" style="background:#18181b">◎</div><div class="tt">Objective</div><div class="eb">5 of 8</div></div>
+            <div class="td">
+              <div class="obj-now">Explain why SN2 inverts stereochemistry</div>
+              <div class="obj-meta">Ch. 7 · Substitution · 38% module done</div>
+              <div class="obj-prog"><i style="width:38%"></i></div>
+            </div>
+            <div class="expand-hint">expand ↗</div>
+            <!-- expanded detail -->
+            <div class="obj-detail">
+              <div class="od-bar"><i></i></div>
+              <div class="od-row"><span class="odl">Module</span><span class="odv">Ch. 7 · Substitution</span></div>
+              <div class="od-row"><span class="odl">Objective</span><span class="odv">Explain why SN2 inverts stereochemistry</span></div>
+              <div class="od-row"><span class="odl">Criterion</span><span class="odv">Cite backside attack + the pentacoordinate transition state</span></div>
+              <div class="od-row"><span class="odl">Sources</span><span class="odv">Textbook p.142 · Lecture 3 · Wiki</span></div>
+              <div class="od-row"><span class="odl">Next</span><span class="odv">Compare SN1 vs SN2</span></div>
+            </div>
+          </div>
+
+          <!-- map tile -->
+          <div class="tile t-map" data-tile="map">
+            <div class="th"><div class="ic" style="background:#6366f1">⊞</div><div class="tt">Study Map</div><div class="eb">24 nodes</div></div>
+            <div class="map-prev" id="v4mapprev">
+              <svg viewBox="0 0 400 220" id="v4mapsvg"></svg>
+            </div>
+            <div class="map-stage">
+              <div class="ex-head"><h3>Study Map</h3><span class="ex-chip">Ch. 7 · Substitution</span><span class="ex-meta">24 nodes · 31 edges</span></div>
+              <div class="map-prev" id="v4mapstage">
+                <svg viewBox="0 0 600 320" id="v4mapsvg-lg"></svg>
+              </div>
+            </div>
+            <div class="expand-hint">expand ↗</div>
+          </div>
+
+          <!-- tutor tile -->
+          <div class="tile t-tutor" data-tile="tutor">
+            <div class="th"><div class="ic" style="background:#ea580c">🎓</div><div class="tt">Tutor</div><div class="eb">turn 3</div></div>
+            <div class="tut-prev">
+              <div class="tu">Walk me through why SN2 inverts the stereochemistry.</div>
+              <div class="tt2">The nucleophile attacks from the back, so the substituents flip through a planar transition state — Walden inversion<span class="cite active" data-cite>Ch.7 · p.142</span>.</div>
+              <div class="tcomp">Ask a follow-up…</div>
+            </div>
+            <!-- expanded: full chat stage -->
+            <div class="chat-stage">
+              <div class="ex-head"><h3>Tutor session</h3><span class="ex-chip">Learn · SN2 mechanism</span><span class="ex-meta">Turn 3 · Ch. 7</span></div>
+              <div class="chat-thread">
+                <div class="ct-turn">
+                  <div class="ct-lab">You</div>
+                  <div class="ct-u">Walk me through why SN2 inverts the stereochemistry.</div>
+                </div>
+                <div class="ct-turn">
+                  <div class="ct-lab tutor">✦ Tutor</div>
+                  <div class="ct-act">
+                    <div class="lab">Agent activity</div>
+                    <div class="ct-step"><span class="ck">✓</span> Checked learning state</div>
+                    <div class="ct-step"><span class="ck">✓</span> Pulled Ch. 7 source</div>
+                    <div class="ct-step run"><span class="ck"></span> Composing explanation</div>
+                    <div class="ct-think">Connecting backside attack to Walden inversion…</div>
+                  </div>
+                  <div class="ct-tutor">The nucleophile attacks from the side opposite the leaving group, so the three substituents flip through a planar transition state — Walden inversion<span class="cite active" data-cite>Ch. 7 · p. 142</span>.</div>
+                  <div class="ct-inline">
+                    <div class="il-loc">Page 142 · §7.2</div>
+                    <div class="il-t">Organic Chemistry — Ch. 7</div>
+                    <div class="il-q">"Primary substrates react via SN2: the nucleophile attacks from the back, displacing the leaving group in a single concerted step with inversion of configuration."</div>
+                  </div>
+                  <div class="ct-actions">
+                    <button class="pri"><span>✓</span> Mark objective done</button>
+                    <button><span>＋</span> Cite to map</button>
+                    <button><span>?</span> Quiz me</button>
+                    <button><span>↺</span> Explain differently</button>
+                  </div>
+                </div>
+              </div>
+              <div class="chat-composer">
+                <div class="ctx-chips"><span class="ctx">SN2 mechanism <span class="x">×</span></span><span class="ctx">Ch. 7 source <span class="x">×</span></span></div>
+                <div class="input">Ask a follow-up, or ⇧↵ to steer…</div>
+                <div class="qa">
+                  <button>⊞ Attach a node</button>
+                  <button>? Quiz me</button>
+                  <button>↺ Explain again, simpler</button>
+                  <button>↗ What's next?</button>
+                </div>
+                <div class="sr"><span class="h">↵ send · ⇧↵ steer · @ attach node</span><button class="send">➤</button></div>
+              </div>
+            </div>
+            <div class="expand-hint">expand ↗</div>
+          </div>
+
+          <!-- sources tile -->
+          <div class="tile t-src" data-tile="src">
+            <div class="th"><div class="ic" style="background:#10b981">▤</div><div class="tt">Sources</div><div class="eb">3</div></div>
+            <div class="src-prev">
+              <div class="si"><div class="sd"></div><div class="sn">Org. Chem Ch.7</div><div class="sp">412pp</div></div>
+              <div class="si"><div class="sd"></div><div class="sn">Lecture 3</div><div class="sp">24sl</div></div>
+              <div class="si"><div class="sd"></div><div class="sn">Wiki · subst.</div><div class="sp">5§</div></div>
+            </div>
+            <div class="expand-hint">expand ↗</div>
+          </div>
+
+          <!-- quiz tile -->
+          <div class="tile t-quiz quiz-prev" data-tile="quiz">
+            <div class="th"><div class="ic" style="background:#f59e0b">?</div><div class="tt">Quiz</div><div class="eb">1/5</div></div>
+            <div class="qq">Which feature of the SN2 transition state explains inversion?</div>
+            <div class="qo">
+              <div class="on">A · opposite-side attack</div>
+              <div>B · sp² throughout</div>
+              <div>C · unimolecular</div>
+            </div>
+            <div class="expand-hint">expand ↗</div>
+          </div>
+
+          <!-- stats tile -->
+          <div class="tile t-stats" data-tile="stats">
+            <div class="th"><div class="ic" style="background:#7c3aed">↗</div><div class="tt">This week</div><div class="eb">overview</div></div>
+            <div class="stats">
+              <div class="st"><div class="sv">4</div><div class="sl">sessions</div></div>
+              <div class="st"><div class="sv">11</div><div class="sl">objectives</div></div>
+              <div class="st"><div class="sv">87%</div><div class="sl">recall</div></div>
+            </div>
+            <div class="expand-hint">expand ↗</div>
+          </div>
+
+        </div>
+        <div class="ev-scrim"></div>
+        <div class="drawer">
+          <div class="drawer-head"><div><div class="ttl">Evidence</div><div class="ctx">SN2 mechanism · Ch. 7</div></div><button class="x" data-close>✕</button></div>
+          <div class="src-pills"><div class="src on"><span class="d"></span> Ch. 7 PDF</div><div class="src"><span class="d"></span> Lecture 3</div><div class="src"><span class="d"></span> Wiki</div></div>
+          <div class="drawer-body">
+            <div class="thumbs">
+              <div class="thumb"><i></i><i></i><i></i><i></i></div>
+              <div class="thumb on"><i></i><i></i><i></i><i></i></div>
+              <div class="thumb"><i></i><i></i><i></i><i></i></div>
+              <div class="thumb"><i></i><i></i><i></i><i></i></div>
+            </div>
+            <div class="excerpt">
+              <div class="locator">Page 142 · §7.2</div>
+              <div class="src-title">Organic Chemistry — Ch. 7</div>
+              <div class="quote">"Primary substrates react via SN2: the nucleophile attacks from the back, displacing the leaving group in a single concerted step with inversion of configuration."</div>
+              <button class="open-cta">Open PDF at page 142 →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  const seg = document.getElementById('seg');
+  const evToggle = document.getElementById('evToggle');
+
+  // ---- shared node data (v0 + v1 canvas) ----
+  const NODES = [
+    {id:'xl', cls:'xl', x:60, y:70, badge:'LIVE PLAN', title:'Session plan · Ch. 7', stripe:'#8b5cf6',
+      obj:[['prev','Recall · nucleophiles'],['now','Learn · SN2 mechanism'],['next','Practice · SN1 vs SN2']]},
+    {id:'l1', cls:'l', x:320, y:80, badge:'CURRICULUM', title:'Ch. 7 · Substitution', stripe:'#f97316', prog:38, meta:'3/8 modules'},
+    {id:'m1', cls:'m', x:560, y:70, badge:'CONCEPT', title:'SN2 mechanism', stripe:'#6366f1', sel:true, meta:'12 references', shield:true},
+    {id:'m2', cls:'m', x:560, y:200, badge:'SOURCE', title:'Org. Chem textbook', stripe:'#10b981', meta:'Ch. 7 · 412 pp', shield:true},
+    {id:'m3', cls:'m', x:320, y:230, badge:'SESSION', title:'SN2 walkthrough', stripe:'#2563eb', meta:'Yesterday', shield:true},
+    {id:'s1', cls:'s', x:90, y:300, badge:'OBJECTIVE', title:'Walden inversion', stripe:'#6366f1', meta:'weak concept'},
+    {id:'s2', cls:'s', x:90, y:380, badge:'TOPIC', title:'Stereochemistry', stripe:'#0ea5e9', meta:'covered'},
+    {id:'m4', cls:'m', x:780, y:330, badge:'WIKI', title:'Nucleophilic subst.', stripe:'#06b6d4', meta:'5 sections'},
+    {id:'m5', cls:'m', x:780, y:470, badge:'ARTIFACT', title:'SN2 flashcards', stripe:'#f59e0b', meta:'24 cards'},
+  ];
+
+  function badgeStyle(v){
+    if(v==='v0') return {bg:'#eef2ff', fg:'#4f46e5'};
+    if(v==='v1') return {bg:'#222831', fg:'#a8a29e'};
+    return {bg:'#f5f5f4', fg:'#78716c'};
+  }
+
+  function dim(n){ return {xl:[200,220],l:[200,150],m:[186,100],s:[150,70]}[n.cls]; }
+
+  function renderNodes(v){
+    const host = document.getElementById(v+'nodes'); if(!host) return;
+    host.innerHTML = '';
+    NODES.forEach(n=>{
+      const el = document.createElement('div');
+      el.className = 'node '+n.cls + (n.sel?' sel':'');
+      el.style.left = n.x+'px'; el.style.top = n.y+'px';
+      el.dataset.id = n.id;
+      const bs = badgeStyle(v);
+      let inner = '<div class="stripe" style="background:'+n.stripe+'"></div>';
+      inner += '<div class="hd"><span class="badge" style="background:'+bs.bg+';color:'+bs.fg+'">'+n.badge+'</span></div>';
+      inner += '<div class="ttl">'+n.title+'</div>';
+      if(n.cls==='xl'){
+        inner += '<div class="obj">';
+        n.obj.forEach(o=> inner += '<div class="'+(o[0]==='now'?'now':'')+'">'+o[1]+'</div>');
+        inner += '</div>';
+      } else if(n.cls==='l'){
+        inner += '<div class="prog"><i style="width:'+n.prog+'%"></i></div>';
+        inner += '<div class="meta">'+n.meta+'</div>';
+      } else if(n.cls==='s'){
+        inner += '<span class="bracket b1"></span><span class="bracket b2"></span><span class="bracket b3"></span><span class="bracket b4"></span>';
+        inner += '<div class="hd" style="padding-top:14px"><span class="badge" style="background:'+bs.bg+';color:'+bs.fg+'">'+n.badge+'</span></div>';
+        inner += '<div class="ttl" style="padding-top:2px">'+n.title+'</div>';
+        inner += '<div class="meta">'+n.meta+'</div>';
+      } else {
+        inner += '<div class="meta">'+n.meta+(n.shield?'<span class="shield" style="margin-left:auto">🛡</span>':'')+'</div>';
+      }
+      el.innerHTML = inner;
+      el.addEventListener('click', ()=>{
+        evToggle.checked = true; applyEvidence(v, true);
+        host.querySelectorAll('.node').forEach(x=>x.classList.remove('sel'));
+        el.classList.add('sel');
+      });
+      host.appendChild(el);
+    });
+  }
+
+  function renderEdges(v){
+    const svg = document.getElementById(v+'edges'); if(!svg) return;
+    const w = svg.clientWidth||1200, h = svg.clientHeight||800;
+    svg.setAttribute('viewBox','0 0 '+w+' '+h);
+    const pos = id => { const n = NODES.find(x=>x.id===id); const d = dim(n); return [n.x+d[0]/2, n.y+d[1]/2]; };
+    const links = [['xl','l1',true],['l1','m1',true],['m1','m2',false],['m1','m3',false],['m1','m4',true],['m4','m5',false],['xl','s1',false],['s1','s2',false]];
+    let html = '';
+    links.forEach(l=>{
+      const a = pos(l[0]), b = pos(l[1]);
+      const mx = (a[0]+b[0])/2, my = (a[1]+b[1])/2 - 30;
+      html += '<path class="'+(l[2]?'live':'')+'" d="M'+a[0]+' '+a[1]+' Q '+mx+' '+my+' '+b[0]+' '+b[1]+'"/>';
+    });
+    svg.innerHTML = html;
+  }
+
+  // ---- v2 figure map (doc) ----
+  const FIG = [
+    {id:'f1', x:36, y:68, badge:'CONCEPT', title:'SN2 mechanism', stripe:'#1c1917', on:true},
+    {id:'f2', x:188, y:22, badge:'SOURCE', title:'Textbook Ch.7', stripe:'#10b981'},
+    {id:'f3', x:188, y:118, badge:'SESSION', title:'SN2 walkthrough', stripe:'#2563eb'},
+    {id:'f4', x:380, y:36, badge:'WIKI', title:'Nucleophilic subst.', stripe:'#06b6d4'},
+    {id:'f5', x:380, y:128, badge:'ARTIFACT', title:'SN2 flashcards', stripe:'#f59e0b'},
+    {id:'f6', x:520, y:72, badge:'OBJECTIVE', title:'Walden inversion', stripe:'#1c1917'},
+  ];
+  function renderV2Figure(){
+    const host = document.getElementById('v2figmap'); if(!host) return;
+    const svg = document.getElementById('v2figsvg');
+    host.querySelectorAll('.fn').forEach(el=>el.remove());
+    const links = [['f1','f2',true],['f1','f3',true],['f3','f4',false],['f4','f5',false],['f1','f6',false]];
+    let sh = '';
+    links.forEach(l=>{
+      const a = FIG.find(x=>x.id===l[0]), b = FIG.find(x=>x.id===l[1]);
+      sh += '<path class="'+(l[2]?'live':'')+'" d="M'+(a.x+58)+' '+(a.y+20)+' Q '+((a.x+b.x)/2)+' '+((a.y+b.y)/2-18)+' '+(b.x+28)+' '+(b.y+20)+'"/>';
+    });
+    svg.innerHTML = sh;
+    FIG.forEach(n=>{
+      const el = document.createElement('div');
+      el.className = 'fn'+(n.on?' on':'');
+      el.style.left = n.x+'px'; el.style.top = n.y+'px';
+      el.innerHTML = '<span class="fst" style="background:'+n.stripe+'"></span><div class="fb">'+n.badge+'</div><div class="ftt">'+n.title+'</div>';
+      el.addEventListener('click', ()=>{ evToggle.checked=true; applyEvidence('v2',true); });
+      host.appendChild(el);
+    });
+  }
+
+  // ---- v4 bento map preview ----
+  const BMAP = [
+    {id:'b1', x:28, y:72, badge:'CONCEPT', title:'SN2', stripe:'#6366f1', on:true},
+    {id:'b2', x:132, y:38, badge:'SOURCE', title:'Textbook', stripe:'#10b981'},
+    {id:'b3', x:132, y:128, badge:'SESSION', title:'Walkthrough', stripe:'#2563eb'},
+    {id:'b4', x:248, y:78, badge:'WIKI', title:'Subst.', stripe:'#06b6d4'},
+    {id:'b5', x:248, y:158, badge:'ARTIFACT', title:'Cards', stripe:'#f59e0b'},
+  ];
+  const BMAP_LG = [
+    {id:'b1', x:48, y:110, badge:'CONCEPT', title:'SN2 mechanism', stripe:'#6366f1', on:true},
+    {id:'b2', x:220, y:52, badge:'SOURCE', title:'Textbook Ch.7', stripe:'#10b981'},
+    {id:'b3', x:220, y:200, badge:'SESSION', title:'SN2 walkthrough', stripe:'#2563eb'},
+    {id:'b4', x:400, y:100, badge:'WIKI', title:'Nucleophilic subst.', stripe:'#06b6d4'},
+    {id:'b5', x:400, y:220, badge:'ARTIFACT', title:'Flashcards', stripe:'#f59e0b'},
+  ];
+  function renderBentoMap(hostId, svgId, nodes, links){
+    const host = document.getElementById(hostId); if(!host) return;
+    const svg = document.getElementById(svgId); if(!svg) return;
+    host.querySelectorAll('.mn').forEach(el=>el.remove());
+    let sh = '';
+    links.forEach(l=>{
+      const a = nodes.find(x=>x.id===l[0]), b = nodes.find(x=>x.id===l[1]);
+      const aw = a.title.length > 6 ? 72 : 52;
+      sh += '<path class="'+(l[2]?'live':'')+'" d="M'+(a.x+aw/2)+' '+(a.y+22)+' Q '+((a.x+b.x)/2)+' '+((a.y+b.y)/2-20)+' '+(b.x+aw/2)+' '+(b.y+22)+'"/>';
+    });
+    svg.innerHTML = sh;
+    nodes.forEach(n=>{
+      const el = document.createElement('div');
+      el.className = 'mn'+(n.on?' on':'');
+      el.style.left = n.x+'px'; el.style.top = n.y+'px';
+      el.innerHTML = '<span class="ms" style="background:'+n.stripe+'"></span><div class="mb">'+n.badge+'</div><div class="mtt">'+n.title+'</div>';
+      el.addEventListener('click', e=>{ e.stopPropagation(); evToggle.checked=true; applyEvidence('v4',true); });
+      host.appendChild(el);
+    });
+  }
+  function renderV4Map(){
+    const links = [['b1','b2',true],['b1','b3',true],['b3','b4',false],['b4','b5',false]];
+    renderBentoMap('v4mapprev','v4mapsvg',BMAP,links);
+    renderBentoMap('v4mapstage','v4mapsvg-lg',BMAP_LG,links);
+  }
+
+  function applyEvidence(v, open){
+    const variant = document.getElementById(v);
+    variant.classList.toggle('evidence-open', open);
+    if(v==='v1'){
+      const sel = variant.querySelector('.node.sel');
+      variant.querySelectorAll('.node').forEach(n=>n.classList.remove('spotlit'));
+      if(open && sel) sel.classList.add('spotlit');
+    }
+  }
+
+  function show(id){
+    document.querySelectorAll('.variant').forEach(v=>v.classList.toggle('active', v.id===id));
+    document.querySelectorAll('#seg button').forEach(b=>b.classList.toggle('active', b.dataset.v===id));
+    if(id==='v0'||id==='v1'){ renderNodes(id); renderEdges(id); }
+    if(id==='v2') renderV2Figure();
+    if(id==='v4') renderV4Map();
+    applyEvidence(id, evToggle.checked);
+  }
+
+  seg.addEventListener('click', e=>{
+    const b = e.target.closest('button'); if(!b) return;
+    show(b.dataset.v);
+  });
+  evToggle.addEventListener('change', ()=>{
+    const active = document.querySelector('.variant.active').id;
+    applyEvidence(active, evToggle.checked);
+  });
+
+  // close buttons
+  document.querySelectorAll('[data-close]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const v = b.closest('.variant');
+      v.classList.remove('evidence-open'); evToggle.checked=false;
+    });
+  });
+  // citation chips open evidence
+  document.querySelectorAll('[data-cite]').forEach(c=>{
+    c.addEventListener('click', e=>{
+      e.stopPropagation();
+      const v = c.closest('.variant');
+      v.classList.add('evidence-open'); evToggle.checked=true;
+      if(v.id==='v1'){
+        const sel = v.querySelector('.node.sel');
+        v.querySelectorAll('.node').forEach(n=>n.classList.remove('spotlit'));
+        if(sel) sel.classList.add('spotlit');
+      }
+    });
+  });
+
+  // v1 dock toggle (minimize)
+  document.querySelectorAll('[data-dock-toggle]').forEach(h=>{
+    h.addEventListener('click', e=>{
+      if(e.target.closest('.dh-ctrl')) h.closest('.dock').classList.toggle('min');
+    });
+  });
+  // v1 peek close / open
+  const peek = document.getElementById('v1peek');
+  document.querySelectorAll('[data-peek-close]').forEach(b=>b.addEventListener('click',()=>peek.classList.remove('show')));
+  document.querySelectorAll('[data-peek-open]').forEach(b=>b.addEventListener('click',()=>{
+    if(b.textContent.trim().toLowerCase().includes('evidence')){ evToggle.checked=true; applyEvidence('v1',true); }
+  }));
+
+  // v3 inline evidence toggle
+  document.querySelectorAll('[data-ie-toggle]').forEach(h=>{
+    h.addEventListener('click', ()=>h.closest('.inline-ev').classList.toggle('open'));
+  });
+  // v3 inline-ev thumb selection
+  document.querySelectorAll('.v3 .ie-thumb').forEach(t=>{
+    t.addEventListener('click', ()=>{
+      t.parentElement.querySelectorAll('.ie-thumb').forEach(x=>x.classList.remove('on'));
+      t.classList.add('on');
+    });
+  });
+  // v3 inline-ev source-pill selection
+  document.querySelectorAll('.v3 .ie-src').forEach(s=>{
+    s.addEventListener('click', ()=>{
+      s.parentElement.querySelectorAll('.ie-src').forEach(x=>x.classList.remove('on'));
+      s.classList.add('on');
+    });
+  });
+  // v3 peek tabs
+  const v3tabs = document.getElementById('v3tabs');
+  if(v3tabs){
+    v3tabs.querySelectorAll('button').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        v3tabs.querySelectorAll('button').forEach(b=>b.classList.remove('on'));
+        btn.classList.add('on');
+        const pane = btn.dataset.tab;
+        btn.closest('.peek').querySelectorAll('[data-pane]').forEach(p=>{
+          p.style.display = p.dataset.pane===pane ? '' : 'none';
+        });
+      });
+    });
+  }
+
+  // v2 TOC scroll navigation
+  document.querySelectorAll('.v2 [data-toc]').forEach(a=>{
+    a.addEventListener('click', e=>{
+      e.preventDefault();
+      const wrap = document.querySelector('.v2 .doc-wrap');
+      const target = document.querySelector(a.getAttribute('href'));
+      if(wrap && target){
+        wrap.scrollTo({top: target.offsetTop - 20, behavior:'smooth'});
+      }
+      document.querySelectorAll('.v2 [data-toc]').forEach(x=>x.classList.remove('on'));
+      a.classList.add('on');
+    });
+  });
+
+  // v4 bento tile expansion
+  const bento = document.getElementById('v4bento');
+  if(bento){
+    bento.querySelectorAll('.tile').forEach(tile=>{
+      tile.addEventListener('click', e=>{
+        if(e.target.closest('.back')) return;
+        if(e.target.closest('.drawer') || e.target.closest('[data-cite]')) return;
+        if(bento.classList.contains('expanded')){
+          // clicking the rail (a non-expanded tile) switches to it
+          if(!tile.classList.contains('expanded')){
+            bento.querySelectorAll('.tile').forEach(t=>t.classList.remove('expanded'));
+            tile.classList.add('expanded');
+          }
+          return;
+        }
+        bento.classList.add('expanded');
+        bento.querySelectorAll('.tile').forEach(t=>t.classList.remove('expanded'));
+        tile.classList.add('expanded');
+      });
+    });
+    // back button
+    bento.addEventListener('click', e=>{
+      const back = e.target.closest('.back');
+      if(back){ bento.classList.remove('expanded'); bento.querySelectorAll('.tile').forEach(t=>t.classList.remove('expanded')); }
+    });
+  }
+  // inject a back button into each tile when expanded (CSS shows it only when .expanded)
+  document.querySelectorAll('.v4 .tile').forEach(t=>{
+    if(!t.querySelector('.back')){
+      const b = document.createElement('button');
+      b.className='back'; b.textContent='← Back to overview';
+      t.insertBefore(b, t.firstChild);
+    }
+  });
+
+  show('v1');
+  window.addEventListener('resize', ()=>{
+    const active = document.querySelector('.variant.active').id;
+    if(active==='v0'||active==='v1') renderEdges(active);
+  });
+})();
+</script>
+</body>
+</html>

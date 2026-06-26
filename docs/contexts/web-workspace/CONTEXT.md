@@ -6,7 +6,10 @@ The web shell is not the teaching engine. Teaching happens through the tutor run
 
 ## Owned Code
 
-- `apps/web/src/App.tsx`: route state, notebook list, active notebook, source summary, split layout, selected node refs, event stream subscription, workspace refresh coordination.
+- `apps/web/src/App.tsx`: entry → `AppRouter`.
+- `apps/web/src/routing/`: TutorBook route map, guards, session provider, API helpers.
+- `apps/web/src/pages/public/`, `pages/app/`, `pages/admin/`: hosted-beta product shell pages.
+- `apps/web/src/NotebookWorkspacePage.tsx`: notebook Workspace at `/notebooks/:notebookId`.
 - `apps/web/src/TutorPanel.tsx`: chat UX, tutor mode, session controls, chat history, live trace display, study-plan modal, artifact modal, artifact consent settings, quiz/flashcard review interactions.
 - `apps/web/src/Whiteboard.tsx`: graph mode, filters, selected node, viewer/workspace state, Evidence drawer state, Dev Mode, graph refresh, source picker, curriculum browser.
 - `apps/web/src/GraphCanvas.tsx`: React Flow renderer, graph response mapping, selection, pane clearing, dragging, saved layout persistence.
@@ -19,7 +22,19 @@ The web shell is not the teaching engine. Teaching happens through the tutor run
 
 ## Key Concepts
 
-Notebook: top-level study workspace.
+TutorBook App Shell: learner-facing navigation outside the notebook Workspace — dashboard, consent, credits, access codes, support, and account. Distinct from the study-time Workspace shell.
+
+Notebook Workspace: the two-pane study UI shell (tutor + graph/reference surfaces) at `/notebooks/:notebookId`. Hosts study for one Notebook; not the Notebook entity itself. This URL is intentional long-term — aligned with ADR-0001 and notebook-scoped APIs, not a beta-only path.
+
+Personal Learner Workspace: learner-facing name for a learner-owned study space — created from a Published Study Template or an empty start. Sessions, mastery, Live Plan, artifacts, and feedback are private to that workspace. Maps to exactly one Notebook in the API and data model.
+
+Notebook: canonical API and data-model term (ADR-0001). Personal Learner Workspace is the learner-facing synonym for the same entity in hosted-beta flows; prefer "workspace" in UI copy and "notebook" in API routes and schemas.
+
+Published Study Template: admin-approved, source-backed study material learners can start from. Shared template content is read-only to learners; learner state does not mutate the template.
+
+Beta Consent: versioned acknowledgement required before protected learner routes.
+
+Credit Balance Indicator: learner-visible percent of Tutor Credits remaining; not dollar amounts.
 
 Source: uploaded material. Source status drives readiness labels such as `uploaded`, processing phases, `tutoring_ready`, and `failed`.
 
@@ -55,9 +70,29 @@ Evidence: source excerpts and supporting notes shown in the drawer. Avoid learne
 
 Dev Mode: expands hidden graph detail and shows the harness/developer timeline.
 
+UI Example Set: exported PNG screenshots of designed components, screens, and packs under `ui-example/`. Organized by visual theme and component category (node-pack, workspace-screens, chat-components, reference-surfaces, evidence-components, etc.). Handoff visuals for designers and implementers; not runtime assets.
+
+Layout Paradigm: the structural arrangement of tutor chat, workspace canvas, reference surfaces, and evidence within the Notebook Workspace shell — independent of visual theme. **Classic split** (`topbar / [chat rail | canvas]`) is the beta implementation default. Alternative paradigms remain under active evaluation in `design-variations/` in parallel with Folio theme work.
+
+Layout Paradigm Contenders: the shortlist for serious evaluation — **v1 Focus Map · dock** (canvas-primary, floating tutor dock), **v3 Chat-primary** (tutor-dominant, map peek, inline evidence), **v4 Bento Home** (overview tiles expand to full stage). **v2 Narrative Doc** is archived as exploration only unless revived. **Improved Original** (classic split) remains the shipped beta default until a contender wins.
+
+Layout Prototype Priority: **v1 Focus Map · dock** is first to receive a Folio-language design pass — canvas-primary layout with floating tutor dock, node peek, and minimap (`design-variations/` v1). v3 and v4 remain contenders but are not first in the Folio prototype queue.
+
+Visual Theme: a coherent palette, typography, elevation, and chrome treatment applied across the Notebook Workspace and TutorBook shell. Explored themes include Mist Glass (frosted panels, indigo accents), Folio (editorial ivory, serif display), and Focus (minimalist slate, floating dock). Layout paradigms are explored separately in `design-variations/`.
+
+Implementation Baseline Theme: the visual theme targeted for near-term implementation. **Mist Glass** — most complete design kit (`nodes.pen`, `ui-example/mist-glass/`). **Hosted beta ships 100% Mist Glass** — no mixed themes in production until Folio reaches kit parity.
+
+Design North Star Theme: the preferred long-term product aesthetic. **Folio** — editorial ivory, warm scrims, serif display type. Documented in [`docs/frontend/13-folio-design-kit.md`](../frontend/13-folio-design-kit.md). Not yet complete enough to replace the implementation baseline. Improvement priority: **(1) completeness** — fill missing surface kits at Mist Glass parity; **(2) aesthetic polish** — refine ivory/serif treatment on specific screens; **(3) structural change** — layout paradigm shifts only after the full Folio kit exists. Folio remains in Pencil and `ui-example/folio/` until a coordinated theme migration.
+
+Design Kit: one theme's complete export from a Pencil file — reusable components plus full screens — cataloged in `ui-example/<theme>/README.md`. Mist Glass maps to `nodes.pen`; Folio and Focus map to `untitled.pen` / `gemini.pen`.
+
+Visual Reference Policy: frontend spec docs describe behavior and anatomy only. Screenshots are indexed in `docs/frontend/README.md` and `ui-example/` READMEs — not embedded inline in numbered spec files.
+
 ## User Workflows
 
-Notebook entry: user opens `/notebooks`, creates or selects a notebook, and the app routes to `/notebooks/:notebookId`.
+Hosted beta entry: user visits `/`, signs in at `/login`, accepts Beta Consent at `/app/consent`, lands on dashboard at `/app`, selects a Published Study Template or creates an empty workspace, then routes to `/notebooks/:notebookId`.
+
+Notebook entry (direct): user opens `/notebooks/:notebookId` when they already have a workspace URL or continue from dashboard.
 
 Source ingestion: user uploads a source from the top bar or source controls. The shell posts to `/api/v1/notebooks/:notebookId/sources`. SSE events update source status and graph freshness. Once sources become `tutoring_ready`, tutor/curriculum actions become meaningful.
 

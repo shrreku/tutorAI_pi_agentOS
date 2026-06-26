@@ -50,6 +50,7 @@ export async function bootstrapTutorTurn(
   ctx: AppContext,
   input: {
     notebookId: string;
+    contentNotebookId?: string;
     userId: string;
     notebookTitle: string;
     message: string;
@@ -60,30 +61,37 @@ export async function bootstrapTutorTurn(
     correlationContext?: Pick<TraceContext, "traceId" | "requestId" | "traceparent">;
   },
 ): Promise<PreparedTutorTurn> {
-  const selectedNodeRefs = await filterSelectedNodeRefsForNotebook(ctx, input.notebookId, input.selectedNodeRefs);
+  const learnerNotebookId = input.notebookId;
+  const contentNotebookId = input.contentNotebookId ?? learnerNotebookId;
+  const federatedNotebookIds =
+    contentNotebookId !== learnerNotebookId ? [learnerNotebookId, contentNotebookId] : [learnerNotebookId];
+
+  const selectedNodeRefs = await filterSelectedNodeRefsForNotebook(ctx, federatedNotebookIds, input.selectedNodeRefs);
   const { session, created } = await getOrCreateTutorSession(ctx.db, {
-    notebookId: input.notebookId,
+    notebookId: learnerNotebookId,
     userId: input.userId,
     activeMode: input.activeMode,
     selectedNodeRefs,
     ...(input.requestedSessionId ? { requestedSessionId: input.requestedSessionId } : {}),
   });
   const sessionId = session.id;
-  const studyState = await loadNotebookStudyState(ctx.db, input.notebookId, input.userId);
-  const openArtifact = await loadSelectedArtifactContext(ctx, input.notebookId, selectedNodeRefs);
+  const studyState = await loadNotebookStudyState(ctx.db, learnerNotebookId, input.userId, {
+    contentNotebookId,
+  });
+  const openArtifact = await loadSelectedArtifactContext(ctx, federatedNotebookIds, selectedNodeRefs);
   const personalizationRecommendations = await loadPersonalizationRecommendationsForTutorContext(ctx.db, {
-    notebookId: input.notebookId,
+    notebookId: learnerNotebookId,
     userId: input.userId,
   });
   const previousRuntimeContext = isJsonRecord(session.runtimeContextJson) ? session.runtimeContextJson : null;
   const promptContext = buildThinPromptContext({
-    notebookId: input.notebookId,
+    notebookId: learnerNotebookId,
     notebookTitle: input.notebookTitle || "Untitled",
     activeMode: input.activeMode,
     selectedNodeRefs,
     openArtifact,
   });
-  promptContext.notebookId = input.notebookId;
+  promptContext.notebookId = learnerNotebookId;
   promptContext.userId = input.userId;
   promptContext.sessionId = sessionId;
   promptContext.sourceScopePolicy = input.sourceScopePolicy;
@@ -118,7 +126,7 @@ export async function bootstrapTutorTurn(
     ];
   }
   const interactiveLearningLines = await loadInteractiveLearningTutorContext(ctx, {
-    notebookId: input.notebookId,
+    notebookId: learnerNotebookId,
     sessionId,
     limit: 6,
   });
@@ -131,7 +139,8 @@ export async function bootstrapTutorTurn(
     ];
   }
   const run = createRuntimeRun({
-    notebookId: input.notebookId,
+    notebookId: learnerNotebookId,
+    ...(contentNotebookId !== learnerNotebookId ? { contentNotebookId } : {}),
     sessionId,
     userId: input.userId,
     selectedNodeRefs,
@@ -229,13 +238,17 @@ export function mergeSelectedNodeRefs(
   return merged;
 }
 
-async function filterSelectedNodeRefsForNotebook(ctx: AppContext, notebookId: string, refs: NodeRef[]): Promise<NodeRef[]> {
+async function filterSelectedNodeRefsForNotebook(
+  ctx: AppContext,
+  notebookIds: string[],
+  refs: NodeRef[],
+): Promise<NodeRef[]> {
   const out: NodeRef[] = [];
   const seen = new Set<string>();
   for (const ref of refs) {
     const key = `${ref.refType}:${ref.refId}`;
     if (seen.has(key)) continue;
-    if (await selectedNodeRefBelongsToNotebook(ctx, notebookId, ref)) {
+    if (await selectedNodeRefBelongsToNotebook(ctx, notebookIds, ref)) {
       out.push(ref);
       seen.add(key);
     }
@@ -243,10 +256,14 @@ async function filterSelectedNodeRefsForNotebook(ctx: AppContext, notebookId: st
   return out;
 }
 
-async function selectedNodeRefBelongsToNotebook(ctx: AppContext, notebookId: string, ref: NodeRef): Promise<boolean> {
+async function selectedNodeRefBelongsToNotebook(
+  ctx: AppContext,
+  notebookIds: string[],
+  ref: NodeRef,
+): Promise<boolean> {
   const row = await findSelectedNodeRefRow(ctx, ref);
   if (!row) return false;
-  return row.notebookId === notebookId;
+  return notebookIds.includes(row.notebookId);
 }
 
 async function findSelectedNodeRefRow(ctx: AppContext, ref: NodeRef): Promise<{ id: string; notebookId: string } | null> {
@@ -276,17 +293,20 @@ async function findSelectedNodeRefRow(ctx: AppContext, ref: NodeRef): Promise<{ 
 
 async function loadSelectedArtifactContext(
   ctx: AppContext,
-  notebookId: string,
+  notebookIds: string[],
   selectedNodeRefs: Array<{ refType: string; refId: string }>,
 ): Promise<{ id: string; artifactType: string; title: string; status: string } | null> {
   const artifactRef = selectedNodeRefs.find((ref) => ref.refType === "artifact");
   if (!artifactRef) return null;
-  const [artifact] = await ctx.db.db
-    .select({ id: artifacts.id, artifactType: artifacts.artifactType, title: artifacts.title, status: artifacts.status })
-    .from(artifacts)
-    .where(and(eq(artifacts.id, artifactRef.refId), eq(artifacts.notebookId, notebookId)))
-    .limit(1);
-  return artifact ?? null;
+  for (const notebookId of notebookIds) {
+    const [artifact] = await ctx.db.db
+      .select({ id: artifacts.id, artifactType: artifacts.artifactType, title: artifacts.title, status: artifacts.status })
+      .from(artifacts)
+      .where(and(eq(artifacts.id, artifactRef.refId), eq(artifacts.notebookId, notebookId)))
+      .limit(1);
+    if (artifact) return artifact;
+  }
+  return null;
 }
 
 export function extractLatestUserMessage(messages: unknown[]): string {

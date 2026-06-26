@@ -22,10 +22,15 @@ export const users = pgTable(
     id: text("id").primaryKey(),
     email: text("email").notNull(),
     displayName: text("display_name"),
+    workosUserId: text("workos_user_id"),
+    disabledAt: timestamp("disabled_at", { withTimezone: true }),
     settingsJson: jsonb("settings_json").$type<Record<string, unknown>>().notNull().default({}),
     ...timestamps,
   },
-  (t) => [uniqueIndex("users_email_unique").on(t.email)],
+  (t) => [
+    uniqueIndex("users_email_unique").on(t.email),
+    uniqueIndex("users_workos_user_id_unique").on(t.workosUserId),
+  ],
 );
 
 export const notebooks = pgTable(
@@ -39,10 +44,16 @@ export const notebooks = pgTable(
     description: text("description"),
     goal: text("goal"),
     defaultMode: text("default_mode").notNull().default("explore"),
+    workspaceType: text("workspace_type").notNull().default("personal_learner"),
+    studyTemplateId: text("study_template_id"),
+    disabledAt: timestamp("disabled_at", { withTimezone: true }),
     settingsJson: jsonb("settings_json").$type<Record<string, unknown>>().notNull().default({}),
     ...timestamps,
   },
-  (t) => [index("notebooks_owner_idx").on(t.ownerId)],
+  (t) => [
+    index("notebooks_owner_idx").on(t.ownerId),
+    index("notebooks_study_template_idx").on(t.studyTemplateId),
+  ],
 );
 
 export const sources = pgTable(
@@ -877,6 +888,224 @@ export const neo4jProjectionState = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("neo4j_projection_state_notebook_unique").on(t.notebookId)],
+);
+
+export const userProductState = pgTable("user_product_state", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  studyAccess: integer("study_access").notNull().default(1),
+  ingestionAccess: integer("ingestion_access").notNull().default(0),
+  adminAccess: integer("admin_access").notNull().default(0),
+  pilotTagsJson: jsonb("pilot_tags_json").$type<string[]>().notNull().default([]),
+  onboardingJson: jsonb("onboarding_json").$type<Record<string, unknown>>().notNull().default({}),
+  trialBudgetGrantedAt: timestamp("trial_budget_granted_at", { withTimezone: true }),
+  ...timestamps,
+});
+
+export const betaConsents = pgTable(
+  "beta_consents",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    consentVersion: text("consent_version").notNull(),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("beta_consents_user_idx").on(t.userId),
+    uniqueIndex("beta_consents_user_version_unique").on(t.userId, t.consentVersion),
+  ],
+);
+
+export const creditLedgerEntries = pgTable(
+  "credit_ledger_entries",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    creditType: text("credit_type").notNull(),
+    entryType: text("entry_type").notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    reservationId: text("reservation_id"),
+    referenceType: text("reference_type"),
+    referenceId: text("reference_id"),
+    reason: text("reason"),
+    metadataJson: jsonb("metadata_json").$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("credit_ledger_user_idx").on(t.userId, t.createdAt),
+    index("credit_ledger_reservation_idx").on(t.reservationId),
+  ],
+);
+
+export const creditReservations = pgTable(
+  "credit_reservations",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    creditType: text("credit_type").notNull(),
+    reservedCents: integer("reserved_cents").notNull(),
+    settledCents: integer("settled_cents").notNull().default(0),
+    status: text("status").notNull().default("active"),
+    referenceType: text("reference_type"),
+    referenceId: text("reference_id"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [
+    index("credit_reservations_user_idx").on(t.userId, t.status),
+    index("credit_reservations_reference_idx").on(t.referenceType, t.referenceId),
+  ],
+);
+
+export const studyTemplates = pgTable(
+  "study_templates",
+  {
+    id: text("id").primaryKey(),
+    slug: text("slug").notNull(),
+    title: text("title").notNull(),
+    topic: text("topic").notNull(),
+    sourceLevel: text("source_level").notNull(),
+    estimatedMinutes: integer("estimated_minutes").notNull(),
+    studyMode: text("study_mode").notNull(),
+    expectedOutcome: text("expected_outcome").notNull(),
+    status: text("status").notNull().default("draft"),
+    notebookId: text("notebook_id")
+      .notNull()
+      .references(() => notebooks.id, { onDelete: "restrict" }),
+    readinessJson: jsonb("readiness_json").$type<Record<string, unknown>>().notNull().default({}),
+    sourceRightsJson: jsonb("source_rights_json").$type<Record<string, unknown>>().notNull().default({}),
+    sortOrder: integer("sort_order").notNull().default(0),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("study_templates_slug_unique").on(t.slug),
+    index("study_templates_status_idx").on(t.status, t.sortOrder),
+  ],
+);
+
+export const accessCodes = pgTable(
+  "access_codes",
+  {
+    id: text("id").primaryKey(),
+    code: text("code").notNull(),
+    codeType: text("code_type").notNull().default("single_use"),
+    grantsJson: jsonb("grants_json").$type<Record<string, unknown>>().notNull().default({}),
+    maxRedemptions: integer("max_redemptions"),
+    redemptionCount: integer("redemption_count").notNull().default(0),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    createdByUserId: text("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("access_codes_code_unique").on(t.code)],
+);
+
+export const accessCodeRedemptions = pgTable(
+  "access_code_redemptions",
+  {
+    id: text("id").primaryKey(),
+    accessCodeId: text("access_code_id")
+      .notNull()
+      .references(() => accessCodes.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    redeemedAt: timestamp("redeemed_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("access_code_redemptions_code_idx").on(t.accessCodeId),
+    uniqueIndex("access_code_redemptions_code_user_unique").on(t.accessCodeId, t.userId),
+  ],
+);
+
+export const productAnalyticsEvents = pgTable(
+  "product_analytics_events",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").references(() => users.id, { onDelete: "set null" }),
+    eventName: text("event_name").notNull(),
+    propertiesJson: jsonb("properties_json").$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("product_analytics_events_name_idx").on(t.eventName, t.createdAt),
+    index("product_analytics_events_user_idx").on(t.userId, t.createdAt),
+  ],
+);
+
+export const learningFeedback = pgTable(
+  "learning_feedback",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    notebookId: text("notebook_id").references(() => notebooks.id, { onDelete: "set null" }),
+    studyGoal: text("study_goal").notNull(),
+    helped: integer("helped").notNull(),
+    confusionText: text("confusion_text"),
+    alternativeWorkflow: text("alternative_workflow"),
+    contactPermission: integer("contact_permission").notNull().default(0),
+    status: text("status").notNull().default("submitted"),
+    ...timestamps,
+  },
+  (t) => [index("learning_feedback_user_idx").on(t.userId, t.createdAt)],
+);
+
+export const supportReports = pgTable(
+  "support_reports",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    category: text("category").notNull(),
+    message: text("message").notNull(),
+    contextJson: jsonb("context_json").$type<Record<string, unknown>>().notNull().default({}),
+    status: text("status").notNull().default("submitted"),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [index("support_reports_status_idx").on(t.status, t.createdAt)],
+);
+
+export const accountDeletionRequests = pgTable(
+  "account_deletion_requests",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    status: text("status").notNull().default("requested"),
+    notes: text("notes"),
+    requestedAt: timestamp("requested_at", { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (t) => [index("account_deletion_requests_status_idx").on(t.status)],
+);
+
+export const ingestionTriggerRuns = pgTable(
+  "ingestion_trigger_runs",
+  {
+    id: text("id").primaryKey(),
+    triggeredBy: text("triggered_by").notNull(),
+    triggeredByUserId: text("triggered_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    status: text("status").notNull().default("started"),
+    jobsClaimed: integer("jobs_claimed").notNull().default(0),
+    jobsCompleted: integer("jobs_completed").notNull().default(0),
+    jobsFailed: integer("jobs_failed").notNull().default(0),
+    error: text("error"),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (t) => [index("ingestion_trigger_runs_started_idx").on(t.startedAt)],
 );
 
 export const neo4jSourceProjectionState = pgTable(

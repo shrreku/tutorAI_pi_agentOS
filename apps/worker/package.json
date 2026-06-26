@@ -5,6 +5,10 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./one-shot-drain.js": "./dist/one-shot-drain.js"
+  },
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "synthetic-learner-evals": "tsx src/synthetic-learner-evals.ts",

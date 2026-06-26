@@ -1,5 +1,5 @@
 import { and, eq, max } from "drizzle-orm";
-import { appendEvent, agentRuns, claims, objectiveLists, objectives, studyPlans, toolCalls, tutorSessions, tutorTurns } from "@studyagent/db";
+import { appendEvent, agentRuns, claims, grantTrialBudgetIfNeeded, objectiveLists, objectives, studyPlans, toolCalls, tutorSessions, tutorTurns } from "@studyagent/db";
 import {
   classifyRuntimeError,
   compactStudyAgentContext,
@@ -40,6 +40,16 @@ import {
 import { loadNotebookStudyState } from "./study-state.js";
 import { applyMasteryEvidenceObjectiveProgression } from "./objective-progression.js";
 import { loadRehydrationTranscript } from "./pi-session-rehydration.js";
+import {
+  costCentsFromRuntimeUsage,
+  createReservation,
+  InsufficientCreditsError,
+  isCreditExhausted,
+  releaseReservation,
+  settleReservation,
+  TUTOR_TURN_ESTIMATE_CENTS,
+} from "./hosted-beta/credit-reservation.js";
+import { recordProductAnalytics } from "./hosted-beta/product-analytics.js";
 
 type TutorLogger = {
   info: (data: Record<string, unknown>, message: string) => void;
@@ -234,6 +244,112 @@ export async function executeTutorTurn(input: TutorTurnExecutionInput): Promise<
         input.ctx.env.TUTOR_REHYDRATE_TURN_LIMIT ?? 5,
       );
   let sessionRetried = false;
+  let creditReservationId: string | null = null;
+  let runtimeUsage: unknown;
+
+  await grantTrialBudgetIfNeeded(input.ctx.db, input.userId, input.ctx.env);
+
+  if (await isCreditExhausted(input.ctx.db, input.userId, "tutor")) {
+    const exhaustionMessage =
+      "Your tutor credits are used up. You can still review your workspace, but new tutor turns are paused until more credits are available.";
+    input.logger.warn(
+      {
+        notebookId: input.notebookId,
+        sessionId: input.sessionId,
+        runId: runtimeRun.runId,
+        turnId,
+        ...correlationFields,
+      },
+      "tutor run blocked by credit exhaustion",
+    );
+    await recordProductAnalytics(input.ctx, {
+      userId: input.userId,
+      eventName: "credit_exhausted",
+      properties: { creditType: "tutor", action: "tutor_turn", notebookId: input.notebookId },
+    }).catch(() => undefined);
+    await input.ctx.db.db
+      .update(agentRuns)
+      .set({ status: "failed", completedAt: new Date() })
+      .where(eq(agentRuns.id, runtimeRun.runId));
+    await input.ctx.db.db
+      .update(tutorTurns)
+      .set({ assistantMessage: exhaustionMessage, toolSummaryJson: { tools: [] } })
+      .where(eq(tutorTurns.id, turnId));
+    await input.emitStreamEvent({
+      type: "RUN_ERROR",
+      runId: runtimeRun.runId,
+      model: runtimeRun.modelConfig.model,
+      timestamp: Date.now(),
+      error: { message: exhaustionMessage, code: "credit_exhausted" },
+    });
+    return {
+      sessionId: input.sessionId,
+      runId: runtimeRun.runId,
+      turnId,
+      status: "failed",
+      assistantMessage: exhaustionMessage,
+      toolSummary: [],
+      artifactProposalIds: [],
+      failure: { code: "credit_exhausted", error: exhaustionMessage },
+    };
+  }
+
+  try {
+    const reservation = await createReservation(
+      input.ctx.db,
+      input.userId,
+      "tutor",
+      TUTOR_TURN_ESTIMATE_CENTS,
+      "tutor_turn",
+      turnId,
+      input.ctx.env.CREDIT_RESERVATION_TTL_SECONDS,
+    );
+    creditReservationId = reservation.id;
+  } catch (error) {
+    if (error instanceof InsufficientCreditsError) {
+      input.logger.warn(
+        {
+          notebookId: input.notebookId,
+          sessionId: input.sessionId,
+          runId: runtimeRun.runId,
+          turnId,
+          ...correlationFields,
+        },
+        "tutor run blocked while reserving credits",
+      );
+      await recordProductAnalytics(input.ctx, {
+        userId: input.userId,
+        eventName: "credit_exhausted",
+        properties: { creditType: "tutor", action: "tutor_turn", notebookId: input.notebookId },
+      }).catch(() => undefined);
+      await input.ctx.db.db
+        .update(agentRuns)
+        .set({ status: "failed", completedAt: new Date() })
+        .where(eq(agentRuns.id, runtimeRun.runId));
+      await input.ctx.db.db
+        .update(tutorTurns)
+        .set({ assistantMessage: error.message, toolSummaryJson: { tools: [] } })
+        .where(eq(tutorTurns.id, turnId));
+      await input.emitStreamEvent({
+        type: "RUN_ERROR",
+        runId: runtimeRun.runId,
+        model: runtimeRun.modelConfig.model,
+        timestamp: Date.now(),
+        error: { message: error.message, code: error.code },
+      });
+      return {
+        sessionId: input.sessionId,
+        runId: runtimeRun.runId,
+        turnId,
+        status: "failed",
+        assistantMessage: error.message,
+        toolSummary: [],
+        artifactProposalIds: [],
+        failure: { code: error.code, error: error.message },
+      };
+    }
+    throw error;
+  }
 
   try {
     await observeAgenticSpan(
@@ -407,6 +523,7 @@ export async function executeTutorTurn(input: TutorTurnExecutionInput): Promise<
             modelObservation.update({ output: { text: sessionEvent.data.text, stopReason: sessionEvent.data.stopReason } });
           }
           if (sessionEvent.type === "run_complete") {
+            runtimeUsage = sessionEvent.data.usage;
             modelObservation.update({
               usageDetails: usageDetailsFromRuntimeUsage(sessionEvent.data.usage),
               output: { status: "completed", runId: sessionEvent.data.runId },
@@ -505,6 +622,13 @@ export async function executeTutorTurn(input: TutorTurnExecutionInput): Promise<
         runId: runtimeRun.runId,
         metadata: { notebookId: input.notebookId, turnId },
       });
+      await finalizeTutorTurnCreditReservation(input.ctx, creditReservationId, runtimeUsage, {
+        notebookId: input.notebookId,
+        sessionId: input.sessionId,
+        runId: runtimeRun.runId,
+        turnId,
+        outcome: "failed",
+      });
       return {
         sessionId: input.sessionId,
         runId: runtimeRun.runId,
@@ -557,6 +681,13 @@ export async function executeTutorTurn(input: TutorTurnExecutionInput): Promise<
       runId: runtimeRun.runId,
       metadata: { notebookId: input.notebookId, turnId },
     });
+    await finalizeTutorTurnCreditReservation(input.ctx, creditReservationId, runtimeUsage, {
+      notebookId: input.notebookId,
+      sessionId: input.sessionId,
+      runId: runtimeRun.runId,
+      turnId,
+      outcome: "completed",
+    });
     return {
       sessionId: input.sessionId,
       runId: runtimeRun.runId,
@@ -591,6 +722,13 @@ export async function executeTutorTurn(input: TutorTurnExecutionInput): Promise<
       runId: runtimeRun.runId,
       metadata: { notebookId: input.notebookId, turnId },
     });
+    await finalizeTutorTurnCreditReservation(input.ctx, creditReservationId, runtimeUsage, {
+      notebookId: input.notebookId,
+      sessionId: input.sessionId,
+      runId: runtimeRun.runId,
+      turnId,
+      outcome: "failed",
+    });
     return {
       sessionId: input.sessionId,
       runId: runtimeRun.runId,
@@ -602,6 +740,41 @@ export async function executeTutorTurn(input: TutorTurnExecutionInput): Promise<
       failure: { code: failure.code, error: failure.safeMessage },
     };
   }
+}
+
+async function finalizeTutorTurnCreditReservation(
+  ctx: AppContext,
+  reservationId: string | null,
+  runtimeUsage: unknown,
+  refs: {
+    notebookId: string;
+    sessionId: string;
+    runId: string;
+    turnId: string;
+    outcome: "completed" | "failed";
+  },
+): Promise<void> {
+  if (!reservationId) return;
+
+  const metadata = {
+    notebookId: refs.notebookId,
+    sessionId: refs.sessionId,
+    runId: refs.runId,
+    turnId: refs.turnId,
+    outcome: refs.outcome,
+  };
+
+  if (refs.outcome === "completed" || runtimeUsage) {
+    await settleReservation(
+      ctx.db,
+      reservationId,
+      costCentsFromRuntimeUsage(runtimeUsage),
+      metadata,
+    );
+    return;
+  }
+
+  await releaseReservation(ctx.db, reservationId, metadata);
 }
 
 async function reinforceCitedClaims(ctx: AppContext, notebookId: string, texts: string[]): Promise<void> {

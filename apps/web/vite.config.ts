@@ -7,18 +7,24 @@ const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)),
 const apiProxyTarget = process.env.VITE_API_PROXY_TARGET ?? "http://127.0.0.1:4000";
 
 export default defineConfig({
+  envPrefix: ["VITE_"],
   plugins: [react()],
   resolve: {
     alias: {
       "@studyagent/schemas": path.join(workspaceRoot, "packages/schemas/src/index.ts"),
       "@studyagent/eval-runner": path.join(workspaceRoot, "packages/eval-runner/src/index.ts"),
       "@studyagent/ui": path.join(workspaceRoot, "packages/ui/src/index.ts"),
+      "@studyagent/observability": path.join(workspaceRoot, "packages/observability/src/index.ts"),
     },
   },
   server: {
     port: 5173,
     proxy: {
       "/api": {
+        target: apiProxyTarget,
+        changeOrigin: true,
+      },
+      "/auth": {
         target: apiProxyTarget,
         changeOrigin: true,
       },

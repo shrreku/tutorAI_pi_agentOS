@@ -333,7 +333,7 @@ describe("reference surface module", () => {
     expect(surface.blocks.some((block) => block.id === "session_objectives")).toBe(true);
   });
 
-  it("builds a tutor session surface with insights", async () => {
+  it("builds a tutor session surface without heuristic chat insights", async () => {
     const surface = await buildReferenceSurface(
       ctxFor(
         {
@@ -383,8 +383,11 @@ describe("reference surface module", () => {
     );
     expect(surface.surfaceType).toBe("session");
     expect(surface.blocks.some((block) => block.id === "session_overview")).toBe(true);
-    expect(JSON.stringify(surface.blocks)).toContain("Conduction moves heat by direct contact.");
-    expect(JSON.stringify(surface.blocks)).toContain("What is the formula?");
+    expect(surface.blocks.some((block) => block.id === "taught")).toBe(false);
+    expect(surface.blocks.some((block) => block.id === "doubts")).toBe(false);
+    expect(surface.blocks.some((block) => block.id === "next_steps")).toBe(false);
+    expect(JSON.stringify(surface.blocks)).not.toContain("Conduction moves heat by direct contact.");
+    expect(JSON.stringify(surface.blocks)).not.toContain("What is the formula?");
     expect(surface.sourceRefs).toEqual([{ refType: "source", refId: "src_1" }]);
   });
 

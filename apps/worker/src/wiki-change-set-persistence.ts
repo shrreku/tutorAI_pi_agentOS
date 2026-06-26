@@ -172,6 +172,11 @@ export async function applyWikiChangeSet(dbClient: DbClient, input: ApplyWikiCha
           conceptId: link.conceptId,
           role: link.role,
           confidence: link.confidence,
+        }).onConflictDoUpdate({
+          target: [claimConceptLinks.claimId, claimConceptLinks.conceptId, claimConceptLinks.role],
+          set: {
+            confidence: link.confidence,
+          },
         });
         counts.claimLinks += 1;
       }

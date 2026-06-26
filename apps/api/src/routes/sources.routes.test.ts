@@ -4,6 +4,13 @@ import { notebooks, sources } from "@studyagent/db";
 import type { AppContext } from "../context.js";
 import { registerSourceRoutes } from "./sources.js";
 
+vi.mock("../hosted-beta/learner-gate.js", () => ({
+  requireLearner: vi.fn(async () => ({
+    actor: { id: "user_1", email: "learner@studyagent.local" },
+    productState: { studyAccess: 1, ingestionAccess: 0, adminAccess: 0 },
+  })),
+}));
+
 vi.mock("../auth.js", () => ({
   resolveActor: vi.fn(async () => ({ id: "user_1" })),
 }));
@@ -36,7 +43,16 @@ function createFakeDb() {
                 },
                 limit(limitCount: number) {
                   if (table === notebooks) {
-                    return Promise.resolve([{ id: "nb_1", ownerId: "user_1", title: "Notebook" }].slice(0, limitCount));
+                    return Promise.resolve([
+                      {
+                        id: "nb_1",
+                        ownerId: "user_1",
+                        title: "Notebook",
+                        disabledAt: null,
+                        settingsJson: {},
+                        workspaceType: "personal_learner",
+                      },
+                    ].slice(0, limitCount));
                   }
                   return Promise.resolve([]);
                 },
@@ -44,7 +60,16 @@ function createFakeDb() {
             },
             limit(limitCount: number) {
               if (table === notebooks) {
-                return Promise.resolve([{ id: "nb_1", ownerId: "user_1", title: "Notebook" }].slice(0, limitCount));
+                return Promise.resolve([
+                  {
+                    id: "nb_1",
+                    ownerId: "user_1",
+                    title: "Notebook",
+                    disabledAt: null,
+                    settingsJson: {},
+                    workspaceType: "personal_learner",
+                  },
+                ].slice(0, limitCount));
               }
               return Promise.resolve([]);
             },
@@ -62,7 +87,7 @@ describe("source routes", () => {
     app = Fastify();
     await registerSourceRoutes(app, {
       db: { db: createFakeDb() },
-      env: {},
+      env: { DISABLE_AUTH: true },
       s3: null,
       ingestionQueue: null,
     } as unknown as AppContext);
@@ -129,7 +154,16 @@ describe("source routes", () => {
                       },
                       limit(limitCount: number) {
                         if (table === notebooks) {
-                          return Promise.resolve([{ id: "nb_1", ownerId: "user_1", title: "Notebook" }].slice(0, limitCount));
+                          return Promise.resolve([
+                  {
+                    id: "nb_1",
+                    ownerId: "user_1",
+                    title: "Notebook",
+                    disabledAt: null,
+                    settingsJson: {},
+                    workspaceType: "personal_learner",
+                  },
+                ].slice(0, limitCount));
                         }
                         return Promise.resolve([]);
                       },
@@ -137,7 +171,16 @@ describe("source routes", () => {
                   },
                   limit(limitCount: number) {
                     if (table === notebooks) {
-                      return Promise.resolve([{ id: "nb_1", ownerId: "user_1", title: "Notebook" }].slice(0, limitCount));
+                      return Promise.resolve([
+                  {
+                    id: "nb_1",
+                    ownerId: "user_1",
+                    title: "Notebook",
+                    disabledAt: null,
+                    settingsJson: {},
+                    workspaceType: "personal_learner",
+                  },
+                ].slice(0, limitCount));
                     }
                     return Promise.resolve([]);
                   },
@@ -147,7 +190,7 @@ describe("source routes", () => {
           },
         },
       },
-      env: {},
+      env: { DISABLE_AUTH: true },
       s3: null,
       ingestionQueue: null,
     } as unknown as AppContext);

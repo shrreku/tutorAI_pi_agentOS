@@ -32,6 +32,7 @@ import {
   type UnifiedSearchResult,
 } from "@studyagent/search";
 import { ToolError, type GraphPayloadToolOutput, type RuntimeReadToolProvider } from "@studyagent/tools";
+import type { ToolContext } from "@studyagent/schemas";
 import { recordAgenticCacheMetric, recordSearchRetrievalFallbackMetric, startMetricTimer } from "@studyagent/observability";
 import type { AppContext } from "./context.js";
 import { loadNotebookStudyState } from "./study-state.js";
@@ -104,6 +105,10 @@ const HYBRID_SEARCH_FALLBACK_TIMEOUT_MS = 4500;
 type RetrievalMode = TutorContextSelection["retrievalMode"];
 type RetrievalFallbackReason = "timeout" | "http_error" | "missing_api_key" | "dimension_mismatch" | "unknown";
 
+function readNotebookId(toolCtx: ToolContext): string {
+  return toolCtx.contentNotebookId ?? toolCtx.notebookId;
+}
+
 function refHandle(refType: EntityRefType, refId: string, title?: string | null) {
   const label = title?.trim() || refId;
   return {
@@ -163,11 +168,11 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
           settings: notebooks.settingsJson,
         })
         .from(notebooks)
-        .where(eq(notebooks.id, toolCtx.notebookId))
+        .where(eq(notebooks.id, readNotebookId(toolCtx)))
         .limit(1);
 
       if (!notebook) {
-        throw new ToolError("notebook_not_found", `Notebook not found: ${toolCtx.notebookId}`);
+        throw new ToolError("notebook_not_found", `Notebook not found: ${readNotebookId(toolCtx)}`);
       }
 
       const recentEvents = input.includeRecentActivity
@@ -180,7 +185,7 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
                 createdAt: events.createdAt,
               })
               .from(events)
-              .where(eq(events.notebookId, toolCtx.notebookId))
+              .where(eq(events.notebookId, readNotebookId(toolCtx)))
               .orderBy(desc(events.sequenceNo))
               .limit(10)
           )
@@ -210,7 +215,7 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
     },
 
     async wikiSearch(input, toolCtx) {
-      const notebookId = toolCtx.notebookId;
+      const notebookId = readNotebookId(toolCtx);
       const limit = input.maxResults;
       const selectedNodeRefs = dedupeRefs([...toolCtx.selectedNodeRefs, ...input.selectedNodeRefs]);
       const retrieval = await loadTutorRetrievalRows(appCtx, {
@@ -270,7 +275,7 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
           sourceChunkIds: wikiPages.sourceChunkIds,
         })
         .from(wikiPages)
-        .where(and(eq(wikiPages.id, input.pageId), eq(wikiPages.notebookId, toolCtx.notebookId)))
+        .where(and(eq(wikiPages.id, input.pageId), eq(wikiPages.notebookId, readNotebookId(toolCtx))))
         .limit(1);
 
       return {
@@ -300,11 +305,11 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
         ...(input.pageEnd !== undefined ? { pageEnd: input.pageEnd } : {}),
       };
       const row = input.chunkId
-        ? await getChunkSpanById(appCtx.db, toolCtx.notebookId, input.chunkId)
-        : await getChunkSpanBySource(appCtx.db, toolCtx.notebookId, sourceLookupInput);
+        ? await getChunkSpanById(appCtx.db, readNotebookId(toolCtx), input.chunkId)
+        : await getChunkSpanBySource(appCtx.db, readNotebookId(toolCtx), sourceLookupInput);
 
       if (!row) {
-        const fallback = await getSourceCitationFallback(appCtx.db, toolCtx.notebookId, {
+        const fallback = await getSourceCitationFallback(appCtx.db, readNotebookId(toolCtx), {
           ...(input.sourceId ? { sourceId: input.sourceId } : {}),
           ...(input.sourceVersionId ? { sourceVersionId: input.sourceVersionId } : {}),
         });
@@ -350,14 +355,14 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
 
         for (const ref of input.nodeRefs) {
           if (ref.refType === "concept") {
-            const neighborhood = await queryConceptNeighborhood(session, toolCtx.notebookId, ref.refId, input.maxNodes);
-            payloads.push(conceptNeighborhoodToPayload(toolCtx.notebookId, neighborhood));
+            const neighborhood = await queryConceptNeighborhood(session, readNotebookId(toolCtx), ref.refId, input.maxNodes);
+            payloads.push(conceptNeighborhoodToPayload(readNotebookId(toolCtx), neighborhood));
             continue;
           }
 
           if (ref.refType === "source") {
-            const map = await querySourceWikiMapSimple(session, toolCtx.notebookId, ref.refId, input.maxNodes);
-            payloads.push(simpleGraphToPayload(toolCtx.notebookId, map));
+            const map = await querySourceWikiMapSimple(session, readNotebookId(toolCtx), ref.refId, input.maxNodes);
+            payloads.push(simpleGraphToPayload(readNotebookId(toolCtx), map));
             continue;
           }
 
@@ -371,8 +376,8 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
 
     async graphGetStudyMap(_input, toolCtx) {
       return withNeo4jGraph(appCtx, async (session) => {
-        const map = await queryStudyMapSimple(session, toolCtx.notebookId, 120);
-        return simpleGraphToPayload(toolCtx.notebookId, map);
+        const map = await queryStudyMapSimple(session, readNotebookId(toolCtx), 120);
+        return simpleGraphToPayload(readNotebookId(toolCtx), map);
       });
     },
 
@@ -385,7 +390,7 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
                 await appCtx.db.db
                   .select({ id: sources.id })
                   .from(sources)
-                  .where(eq(sources.notebookId, toolCtx.notebookId))
+                  .where(eq(sources.notebookId, readNotebookId(toolCtx)))
                   .orderBy(desc(sources.updatedAt))
                   .limit(3)
               ).map((row) => row.id);
@@ -395,11 +400,11 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
         }
 
         const maps = await Promise.all(
-          sourceIds.map((sourceId: string) => querySourceWikiMapSimple(session, toolCtx.notebookId, sourceId, 80)),
+          sourceIds.map((sourceId: string) => querySourceWikiMapSimple(session, readNotebookId(toolCtx), sourceId, 80)),
         );
 
         return mergeGraphPayloads(
-          maps.map((map: Awaited<ReturnType<typeof querySourceWikiMapSimple>>) => simpleGraphToPayload(toolCtx.notebookId, map)),
+          maps.map((map: Awaited<ReturnType<typeof querySourceWikiMapSimple>>) => simpleGraphToPayload(readNotebookId(toolCtx), map)),
         );
       });
     },
@@ -417,7 +422,7 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
         .from(curricula)
         .where(
           and(
-            eq(curricula.notebookId, toolCtx.notebookId),
+            eq(curricula.notebookId, readNotebookId(toolCtx)),
             input.curriculumId ? eq(curricula.id, input.curriculumId) : sql`true`,
           ),
         )
@@ -438,7 +443,7 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
           prerequisiteConceptIds: objectives.prerequisiteConceptIds,
         })
         .from(objectives)
-        .where(and(eq(objectives.notebookId, toolCtx.notebookId), eq(objectives.curriculumId, curriculum.id)))
+        .where(and(eq(objectives.notebookId, readNotebookId(toolCtx)), eq(objectives.curriculumId, curriculum.id)))
         .orderBy(asc(objectives.orderIndex));
 
       return {
@@ -482,7 +487,7 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
           updatedAt: studentProfiles.updatedAt,
         })
         .from(studentProfiles)
-        .where(and(eq(studentProfiles.notebookId, toolCtx.notebookId), eq(studentProfiles.userId, userId)))
+        .where(and(eq(studentProfiles.notebookId, readNotebookId(toolCtx)), eq(studentProfiles.userId, userId)))
         .limit(1);
 
       return {
@@ -506,10 +511,10 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
     },
 
     async studyPlanGetCurrent(input, toolCtx) {
-      const studyState = await loadNotebookStudyState(appCtx.db, toolCtx.notebookId, input.userId ?? toolCtx.userId);
+      const studyState = await loadNotebookStudyState(appCtx.db, readNotebookId(toolCtx), input.userId ?? toolCtx.userId);
       const boundarySignals = [
         ...buildStandingBoundarySignals(studyState),
-        ...(await buildModuleMilestoneSignals(appCtx.db, { notebookId: toolCtx.notebookId, state: studyState })),
+        ...(await buildModuleMilestoneSignals(appCtx.db, { notebookId: readNotebookId(toolCtx), state: studyState })),
       ];
       const studyPlan = studyState.studyPlan;
       const [curriculumRow] =
@@ -517,7 +522,7 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
           ? await appCtx.db.db
               .select()
               .from(curricula)
-              .where(and(eq(curricula.id, studyState.curriculum.id), eq(curricula.notebookId, toolCtx.notebookId)))
+              .where(and(eq(curricula.id, studyState.curriculum.id), eq(curricula.notebookId, readNotebookId(toolCtx))))
               .limit(1)
           : [null];
       const [moduleRow] =
@@ -525,7 +530,7 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
           ? await appCtx.db.db
               .select()
               .from(curriculumModules)
-              .where(and(eq(curriculumModules.id, studyState.module.id), eq(curriculumModules.notebookId, toolCtx.notebookId)))
+              .where(and(eq(curriculumModules.id, studyState.module.id), eq(curriculumModules.notebookId, readNotebookId(toolCtx))))
               .limit(1)
           : [null];
       const [objectiveListRow] =
@@ -533,7 +538,7 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
           ? await appCtx.db.db
               .select()
               .from(objectiveLists)
-              .where(and(eq(objectiveLists.id, studyState.objectiveList.id), eq(objectiveLists.notebookId, toolCtx.notebookId)))
+              .where(and(eq(objectiveLists.id, studyState.objectiveList.id), eq(objectiveLists.notebookId, readNotebookId(toolCtx))))
               .limit(1)
           : [null];
       const [sessionPlanRow] =
@@ -541,7 +546,7 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
           ? await appCtx.db.db
               .select()
               .from(sessionPlans)
-              .where(and(eq(sessionPlans.id, studyState.sessionPlan.id), eq(sessionPlans.notebookId, toolCtx.notebookId)))
+              .where(and(eq(sessionPlans.id, studyState.sessionPlan.id), eq(sessionPlans.notebookId, readNotebookId(toolCtx))))
               .limit(1)
           : [null];
       return {
@@ -550,7 +555,7 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
               id: studyState.studentProfile.id,
               ref: { refType: "user", refId: input.userId ?? toolCtx.userId, handle: "learner_profile", label: "Learner profile" },
               handle: "learner_profile",
-              notebookId: toolCtx.notebookId,
+              notebookId: readNotebookId(toolCtx),
               userId: input.userId ?? toolCtx.userId,
               goalSummary: studyState.studentProfile.goalSummary,
               backgroundSummary: studyState.studentProfile.backgroundSummary,
@@ -568,7 +573,7 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
               id: studyState.curriculum.id,
               ref: { refType: "curriculum", refId: studyState.curriculum.id, handle: studyState.curriculum.title, title: studyState.curriculum.title },
               handle: studyState.curriculum.title,
-              notebookId: toolCtx.notebookId,
+              notebookId: readNotebookId(toolCtx),
               title: studyState.curriculum.title,
               curriculumType: curriculumRow?.curriculumType ?? "structured",
               status: studyState.curriculum.status,
@@ -582,7 +587,7 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
               id: studyState.module.id,
               ref: { refType: "curriculum_module", refId: studyState.module.id, handle: studyState.module.title, title: studyState.module.title },
               handle: studyState.module.title,
-              notebookId: toolCtx.notebookId,
+              notebookId: readNotebookId(toolCtx),
               curriculumId: studyState.curriculum?.id ?? "",
               title: studyState.module.title,
               summary: studyState.module.summary,
@@ -603,7 +608,7 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
               id: studyState.objectiveList.id,
               ref: { refType: "objective_list", refId: studyState.objectiveList.id, handle: studyState.objectiveList.title, title: studyState.objectiveList.title },
               handle: studyState.objectiveList.title,
-              notebookId: toolCtx.notebookId,
+              notebookId: readNotebookId(toolCtx),
               curriculumId: studyState.curriculum?.id ?? "",
               moduleId: studyState.module?.id ?? "",
               title: studyState.objectiveList.title,
@@ -629,7 +634,7 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
               id: studyState.sessionPlan.id,
               ref: { refType: "session_plan", refId: studyState.sessionPlan.id, handle: studyState.sessionPlan.title, title: studyState.sessionPlan.title },
               handle: studyState.sessionPlan.title,
-              notebookId: toolCtx.notebookId,
+              notebookId: readNotebookId(toolCtx),
               curriculumId: studyState.curriculum?.id ?? "",
               moduleId: studyState.module?.id ?? "",
               objectiveListId: studyState.objectiveList?.id ?? "",
@@ -661,7 +666,7 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
               id: studyPlan.id,
               ref: { refType: "study_plan", refId: studyPlan.id, handle: studyPlan.title, title: studyPlan.title },
               handle: studyPlan.title,
-              notebookId: toolCtx.notebookId,
+              notebookId: readNotebookId(toolCtx),
               userId: input.userId ?? toolCtx.userId,
               title: studyPlan.title,
               status: studyPlan.status,
@@ -681,7 +686,7 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
 
     async learningGetState(input, toolCtx) {
       const userId = input.userId ?? toolCtx.userId;
-      const conditions = [eq(learningState.notebookId, toolCtx.notebookId), eq(learningState.userId, userId)];
+      const conditions = [eq(learningState.notebookId, readNotebookId(toolCtx)), eq(learningState.userId, userId)];
       if (input.conceptIds.length > 0) {
         conditions.push(inArray(learningState.conceptId, input.conceptIds));
       }
@@ -704,7 +709,7 @@ export function createTutorReadToolProvider(appCtx: AppContext): RuntimeReadTool
               title: concepts.canonicalName,
             })
             .from(concepts)
-            .where(and(eq(concepts.notebookId, toolCtx.notebookId), inArray(concepts.id, conceptIds)))
+            .where(and(eq(concepts.notebookId, readNotebookId(toolCtx)), inArray(concepts.id, conceptIds)))
         : [];
       const conceptTitleById = new Map(conceptRows.map((row) => [row.id, row.title]));
 

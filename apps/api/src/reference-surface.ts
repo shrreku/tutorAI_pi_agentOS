@@ -551,8 +551,6 @@ export async function buildReferenceSurface(
       .select({
         id: tutorTurns.id,
         turnIndex: tutorTurns.turnIndex,
-        userMessage: tutorTurns.userMessage,
-        assistantMessage: tutorTurns.assistantMessage,
       })
       .from(tutorTurns)
       .where(eq(tutorTurns.sessionId, tutorSession.id))
@@ -562,14 +560,6 @@ export async function buildReferenceSurface(
     const runtimeGoal = sessionGoalFromRuntimeContext(tutorSession.runtimeContextJson);
     const sessionRefs = parseNodeRefs(tutorSession.selectedNodeRefsJson);
     const sourceRefs = sessionRefs.filter((ref) => ref.refType === "source" || ref.refType === "chunk");
-    const taughtItems = buildSessionInsightItems(orderedTurns, "assistant", {
-      emptyTitle: "No teaching notes yet",
-      emptyBody: "Start a tutoring turn to capture what was explained in this session.",
-    });
-    const doubtItems = buildSessionInsightItems(orderedTurns, "user", {
-      emptyTitle: "No explicit doubts captured",
-      emptyBody: "User questions and uncertainty will surface here as the session grows.",
-    });
     return toLearnerFacingReferenceSurface(
       base({
         nodeRef: semanticRef("session", tutorSession.id, "Tutor session"),
@@ -589,20 +579,6 @@ export async function buildReferenceSurface(
               startedAt: tutorSession.startedAt,
               endedAt: tutorSession.endedAt,
             },
-            evidenceRefs: [],
-          },
-          { id: "taught", kind: "step_list", title: "What was taught", content: taughtItems, evidenceRefs: [] },
-          { id: "doubts", kind: "step_list", title: "Doubts and friction", content: doubtItems, evidenceRefs: [] },
-          {
-            id: "next_steps",
-            kind: "step_list",
-            title: "Next steps",
-            content: [
-              {
-                title: runtimeGoal ? "Session goal" : "Continue in tutor chat",
-                body: runtimeGoal ?? "Ask for the next explanation, practice problem, or source-backed review.",
-              },
-            ],
             evidenceRefs: [],
           },
         ],
@@ -911,36 +887,6 @@ function sectionToReferenceBlock(section: ReturnType<typeof buildLearningArtifac
     return { id: section.id, kind: "summary", title: section.title, content: section.emptyMessage ?? "No content recorded yet.", evidenceRefs: [] };
   }
   return { id: section.id, kind: "summary", title: section.title, content: section.content, evidenceRefs: [] };
-}
-
-function buildSessionInsightItems(
-  turnRows: Array<{ turnIndex: number; userMessage: string | null; assistantMessage: string | null }>,
-  role: "user" | "assistant",
-  empty: { emptyTitle: string; emptyBody: string },
-): Array<{ title: string; body: string }> {
-  const items: Array<{ title: string; body: string }> = [];
-  for (const turn of turnRows) {
-    const message = role === "assistant" ? turn.assistantMessage : turn.userMessage;
-    if (!message || !message.trim()) continue;
-    if (role === "user" && !isSessionDoubt(message)) continue;
-    const summary = summarizeSessionMessage(message, 150);
-    if (!summary) continue;
-    items.push({ title: `Turn ${turn.turnIndex + 1}`, body: summary });
-    if (items.length >= 4) break;
-  }
-  return items.length > 0 ? items : [{ title: empty.emptyTitle, body: empty.emptyBody }];
-}
-
-function summarizeSessionMessage(text: string, maxLength: number): string {
-  const normalized = text.trim().replace(/\s+/g, " ");
-  if (normalized.length <= maxLength) return normalized;
-  return `${normalized.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
-}
-
-function isSessionDoubt(text: string): boolean {
-  const normalized = text.trim().toLowerCase();
-  if (!normalized) return false;
-  return /\?|confus|stuck|unclear|don't understand|do not understand|why|how/.test(normalized);
 }
 
 function sessionGoalFromRuntimeContext(runtimeContextJson: unknown): string | null {

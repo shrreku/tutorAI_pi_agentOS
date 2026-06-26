@@ -55,7 +55,7 @@ export async function maybeRunRuntimeMasteryEvaluation(
     ...(pending.contextRefs ?? input.contextRefs
       ? { contextRefs: (pending.contextRefs ?? input.contextRefs) as MasteryEvidenceInput["contextRefs"] }
       : {}),
-  }, judge ? { judge } : {});
+  }, judge ? { judge, analyticsContext: ctx } : { analyticsContext: ctx });
   const lastRuntimeMasteryEvidence = result?.evidence
     ? summarizeRuntimeMasteryEvidenceForContext(result.evidence)
     : null;

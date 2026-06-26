@@ -21,6 +21,7 @@ export type { InteractiveLearningActionError } from "./interactive-learning-acti
 type DispatchInput = {
   ctx: AppContext;
   notebookId: string;
+  contentNotebookId?: string;
   userId: string;
   envelope: unknown;
 };
@@ -106,7 +107,8 @@ export async function dispatchInteractiveLearningAction(input: DispatchInput): P
     }
 
     const nodeId = envelope.nodeRef.refId;
-    const surface = await buildReferenceSurface(input.ctx, input.notebookId, nodeId, { userId: input.userId });
+    const readNotebookId = input.contentNotebookId ?? input.notebookId;
+    const surface = await buildReferenceSurface(input.ctx, readNotebookId, nodeId, { userId: input.userId });
     const block = findInteractiveBlock(surface.interactiveBlocks ?? [], envelope.blockId);
     if (!block) {
       recordMetric("not_found");
@@ -160,7 +162,7 @@ export async function dispatchInteractiveLearningAction(input: DispatchInput): P
     }
 
     const emitsMasteryEvidence = !PASSIVE_INTERACTIVE_ACTIONS.has(envelope.actionName);
-    const updatedBlock = await rebuildBlockState(input.ctx, input.notebookId, nodeId, envelope.blockId, input.userId);
+    const updatedBlock = await rebuildBlockState(input.ctx, readNotebookId, nodeId, envelope.blockId, input.userId);
     if (!updatedBlock) {
       recordMetric("not_found", emitsMasteryEvidence);
       return { ok: false, error: { code: "not_found", message: "Updated block state could not be rebuilt." } };

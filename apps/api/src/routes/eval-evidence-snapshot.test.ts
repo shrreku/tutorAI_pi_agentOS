@@ -12,6 +12,30 @@ vi.mock("../auth.js", () => ({
   resolveActor: async () => ({ id: "user_eval_snapshot" }),
 }));
 
+vi.mock("../hosted-beta/entitlements.js", async () => {
+  const actual = await vi.importActual<typeof import("../hosted-beta/entitlements.js")>(
+    "../hosted-beta/entitlements.js",
+  );
+  const now = new Date();
+  return {
+    ...actual,
+    requireAdminAccess: vi.fn(async () => ({
+      actor: { id: "user_eval_snapshot", email: "eval@test.local" },
+      productState: {
+        userId: "user_eval_snapshot",
+        studyAccess: 1,
+        ingestionAccess: 0,
+        adminAccess: 1,
+        pilotTagsJson: [],
+        onboardingJson: {},
+        trialBudgetGrantedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      },
+    })),
+  };
+});
+
 describe("eval evidence snapshot routes", () => {
   beforeEach(() => {
     captureNotebookEvalEvidenceSnapshot.mockReset();

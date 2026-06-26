@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Source Wiki — Folio</title>
+<link rel="stylesheet" href="../styles.css" />
+<link rel="stylesheet" href="folio.css" />
+</head>
+<body data-theme="folio">
+<div class="app">
+  <div data-include="topbar"></div>
+
+  <div class="workspace" data-evidence>
+    <div class="workspace-main">
+      <div class="workspace-canvas" style="padding:0">
+        <div style="padding:24px 24px 0">
+          <div class="surface-switch" data-surface>
+            <a href="study-map.html">Study Map</a>
+            <a href="curriculum.html">Curriculum</a>
+            <a href="source-wiki.html" class="active">Library</a>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:220px 1fr;gap:18px;padding:18px 24px 24px;flex:1">
+          <div>
+            <div class="card tight" style="margin-bottom:14px">
+              <h4 style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);margin:0 0 8px;font-family:var(--font-ui)">Source</h4>
+              <div class="obj-item active" style="background:var(--accent-soft);margin:0;padding:8px 10px;font-family:var(--font-ui)"><div>📄 Ch. 7 PDF</div></div>
+            </div>
+            <div class="card tight">
+              <h4 style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);margin:0 0 8px;font-family:var(--font-ui)">Topics</h4>
+              <div class="history-item folio-history" style="color:var(--accent-deep);font-weight:600;background:var(--accent-soft);border-radius:5px">Substitution reactions</div>
+              <div class="history-item folio-history" style="color:var(--text-muted)">Stereochemistry</div>
+              <div class="history-item folio-history" style="color:var(--text-muted)">Elimination</div>
+            </div>
+          </div>
+
+          <div class="card" style="padding:28px">
+            <div style="display:flex;gap:8px;margin-bottom:10px"><span class="badge green">WIKI TOPIC</span><span class="badge" style="background:var(--green-soft)">Ready</span></div>
+            <h1 style="margin:0 0 10px">Nucleophilic substitution</h1>
+            <p style="font-family:var(--font-head);color:#2a3a31">Nucleophilic substitution is a fundamental class of reactions in organic chemistry in which an electron-rich nucleophile selectively bonds with the positive charge of an electrophilic carbon atom, displacing a leaving group.</p>
+
+            <div class="section">
+              <h4>Definition</h4>
+              <p>The two main mechanisms are SN1 (unimolecular, via carbocation) and SN2 (bimolecular, concerted backside attack).</p>
+            </div>
+            <div class="callout">
+              <div class="label">Intuition</div>
+              <p style="margin:6px 0 0">Think of an umbrella flipping inside-out in a gust of wind — that's the stereochemical inversion during an SN2 backside attack.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-include="statusbar"></div>
+    </div>
+
+    <div data-include="tutor" data-context="SN2 Mechanism"></div>
+  </div>
+</div>
+
+<script src="../app.js"></script>
+<script src="../partials.js"></script>
+</body>
+</html>

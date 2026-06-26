@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Evidence Drawer · Study Map — TutorBook</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body data-theme="mist">
+<div class="app">
+  <div data-include="topbar"></div>
+
+  <div class="workspace" data-evidence>
+    <div class="workspace-main">
+      <div class="workspace-canvas">
+        <div class="surface-switch" data-surface>
+          <a href="study-map.html" class="active">Study Map</a>
+          <a href="curriculum.html">Curriculum</a>
+          <a href="source-wiki.html">Source Wiki</a>
+        </div>
+
+        <div class="card" style="max-width:760px;margin:0 auto;padding:28px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+            <a class="back-link" href="study-map.html">← Back to Study Map</a>
+            <div class="ref-actions">
+              <button class="btn" data-ask-tutor>💬 Ask tutor</button>
+              <button class="btn" data-evidence-open>🛡 Evidence · Open</button>
+            </div>
+          </div>
+          <span class="kicker" style="color:var(--purple);font-weight:700;font-size:11px;letter-spacing:0.1em">CONCEPT</span>
+          <h1 style="margin:8px 0 4px">SN2 mechanism</h1>
+          <p style="color:#313543">The SN2 reaction is a one-step, bimolecular nucleophilic substitution in which the nucleophile attacks from the side opposite the leaving group. <span class="badge" style="cursor:pointer">📖 Ch. 7 · p. 142</span></p>
+          <p style="color:var(--text-muted);font-size:13px">Click <strong>Evidence · Open</strong> (top right) or any citation chip to open the evidence drawer with a frosted workspace scrim.</p>
+        </div>
+      </div>
+      <div data-include="statusbar"></div>
+    </div>
+
+    <div data-include="tutor" data-context="SN2 mechanism"></div>
+  </div>
+</div>
+
+<div data-include="drawer"></div>
+<div class="scrim" data-scrim></div>
+
+<script src="app.js"></script>
+<script src="partials.js"></script>
+<script>
+  // Auto-open the drawer on this page to showcase the overlay.
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      const scrim = document.querySelector('[data-scrim]');
+      const drawer = document.querySelector('[data-drawer]');
+      if (scrim) scrim.classList.add('open');
+      if (drawer) drawer.classList.add('open');
+    }, 350);
+  });
+</script>
+</body>
+</html>

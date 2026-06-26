@@ -1,41 +1,15 @@
 import { describe, expect, it } from "vitest";
+import { loadEnv } from "@studyagent/config";
 import {
   resolveStudyAgentTutorSystemPrompt,
   studyAgentTutorSystemPromptDefinition,
 } from "./langfuse-prompts.js";
 import type { AppContext } from "./context.js";
 
-const env = {
+const env = loadEnv({
   DATABASE_URL: "postgres://studyagent:studyagent@127.0.0.1:5433/studyagent",
-  API_PORT: 4000,
-  DEV_USER_EMAIL: "dev@studyagent.local",
-  OBJECT_STORAGE_BUCKET: "studyagent-local",
-  OBJECT_STORAGE_REGION: "us-east-1",
-  NEO4J_URI: "neo4j://localhost:7687",
-  NEO4J_USERNAME: "neo4j",
-  NEO4J_PASSWORD: "studyagent-local",
-  OPENROUTER_BASE_URL: "https://openrouter.ai/api/v1",
-  LANGFUSE_BASE_URL: "https://cloud.langfuse.com",
-  LANGFUSE_TUTOR_PROMPT_NAME: "studyagent-tutor-system",
-  LANGFUSE_PROMPT_LABEL: "production",
-  LANGFUSE_PROMPT_CACHE_TTL_SECONDS: 300,
-  LANGFUSE_PROMPT_FETCH_TIMEOUT_MS: 3000,
-  DEFAULT_TUTOR_MODEL: "openrouter/auto",
-  DEFAULT_EXTRACTION_MODEL: "openrouter/auto",
-  EMBEDDING_MODEL: "gemini-embedding-2",
-  EMBEDDING_DIMENSIONS: 1536,
-  LLAMAPARSE_API_BASE_URL: "https://api.cloud.llamaindex.ai",
-  LLAMAPARSE_TIER: "cost_effective",
-  SESSION_SECRET: "studyagent-local-session-secret",
-  PUBLIC_API_BASE_URL: "http://localhost:4000",
-  LOG_LEVEL: "info",
-  ENABLE_DEV_TOOLS: true,
-  ENABLE_LIVE_LLM_TESTS: false,
-  DISABLE_AUTH: true,
-  LLM_REQUEST_TIMEOUT_MS: 120_000,
-  TUTOR_MAX_TOOL_CALLS: 16,
-  TUTOR_REHYDRATE_TURN_LIMIT: 5,
-} satisfies AppContext["env"];
+  DISABLE_AUTH: "true",
+}) satisfies AppContext["env"];
 
 describe("Langfuse prompt management", () => {
   it("defines the StudyAgent tutor system prompt for explicit Langfuse sync", () => {

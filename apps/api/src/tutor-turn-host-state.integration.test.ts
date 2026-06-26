@@ -27,8 +27,21 @@ vi.mock("@studyagent/db", async () => {
   return {
     ...actual,
     appendEvent: appendEventMock,
+    grantTrialBudgetIfNeeded: vi.fn(async () => ({ granted: false, amountCents: 0 })),
   };
 });
+
+vi.mock("./hosted-beta/credit-reservation.js", () => ({
+  TUTOR_TURN_ESTIMATE_CENTS: 10,
+  InsufficientCreditsError: class InsufficientCreditsError extends Error {
+    code = "credit_exhausted";
+  },
+  isCreditExhausted: vi.fn(async () => false),
+  createReservation: vi.fn(async () => ({ id: "cres_test", status: "active" })),
+  settleReservation: vi.fn(async () => ({ id: "cres_test", status: "settled" })),
+  releaseReservation: vi.fn(async () => ({ id: "cres_test", status: "released" })),
+  costCentsFromRuntimeUsage: vi.fn(() => 10),
+}));
 
 vi.mock("./study-state.js", () => ({
   loadNotebookStudyState: vi.fn(async () => ({

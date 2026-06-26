@@ -13,32 +13,74 @@ import {
 } from "../artifact-lifecycle.js";
 import { mergeNoteArtifactPayload } from "@studyagent/schemas";
 import { buildLearningArtifactView } from "../artifact-view.js";
-import { resolveActor } from "../auth.js";
+import { sendAuthOrEntitlementError } from "../hosted-beta/entitlements.js";
+import { requireOwnedNotebook, requirePersonalWorkspaceCapacity } from "../hosted-beta/notebook-context.js";
+import { requireLearner } from "../hosted-beta/learner-gate.js";
+import { withLearner, withOwnedNotebook } from "../hosted-beta/route-guards.js";
 import { recordFlashcardReview } from "../assessment-artifacts.js";
 import { loadNotebookStudyState } from "../study-state.js";
 
 export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
-  app.get("/notebooks", async (request, reply) => {
-    const actor = await resolveActor(ctx, request);
-    const rows = await ctx.db.db
-      .select()
-      .from(notebooks)
-      .where(eq(notebooks.ownerId, actor.id))
-      .orderBy(desc(notebooks.updatedAt));
+  async function requireRouteActor(request: import("fastify").FastifyRequest, reply: import("fastify").FastifyReply) {
+    try {
+      const { actor } = await requireLearner(ctx, request);
+      return actor;
+    } catch (error) {
+      sendAuthOrEntitlementError(reply, error);
+      return null;
+    }
+  }
 
-    return reply.send({ notebooks: rows });
+  async function requireRouteOwnedNotebook(
+    request: import("fastify").FastifyRequest,
+    reply: import("fastify").FastifyReply,
+    notebookId: string,
+  ) {
+    const actor = await requireRouteActor(request, reply);
+    if (!actor) return null;
+    try {
+      return await requireOwnedNotebook(ctx, actor.id, notebookId);
+    } catch (error) {
+      sendAuthOrEntitlementError(reply, error);
+      return null;
+    }
+  }
+
+  app.get("/notebooks", async (request, reply) => {
+    const actor = await requireRouteActor(request, reply);
+    if (!actor) return;
+    try {
+      const { actor } = await requireLearner(ctx, request);
+      const rows = await ctx.db.db
+        .select()
+        .from(notebooks)
+        .where(eq(notebooks.ownerId, actor.id))
+        .orderBy(desc(notebooks.updatedAt));
+
+      return reply.send({ notebooks: rows });
+    } catch (error) {
+      return sendAuthOrEntitlementError(reply, error);
+    }
   });
 
-  app.post<{ Body: { title: string; description?: string; goal?: string } }>(
+  app.post<{ Body: { title: string; description?: string; goal?: string; studyTemplateId?: string } }>(
     "/notebooks",
     async (request, reply) => {
-      const actor = await resolveActor(ctx, request);
-      const body = request.body;
+      return withLearner(ctx, request, reply, async (actor) => {
+        const body = request.body;
       if (!body?.title || typeof body.title !== "string") {
-        return reply.status(400).send({ code: "bad_request", message: "title is required" });
-      }
+          return reply.status(400).send({ code: "bad_request", message: "title is required" });
+        }
 
-      const id = `nb_${crypto.randomUUID().replaceAll("-", "")}`;
+        if (body.studyTemplateId) {
+          return reply.status(400).send({
+            code: "use_workspace_from_template",
+            message: "Create template workspaces via POST /api/v1/workspaces/from-template instead.",
+          });
+        }
+        await requirePersonalWorkspaceCapacity(ctx, actor.id);
+
+        const id = `nb_${crypto.randomUUID().replaceAll("-", "")}`;
       const now = new Date();
       await ctx.db.db.insert(notebooks).values({
         id,
@@ -47,6 +89,8 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
         description: body.description ?? null,
         goal: body.goal ?? null,
         defaultMode: "explore",
+        workspaceType: "personal_learner",
+        studyTemplateId: null,
         settingsJson: {},
         createdAt: now,
         updatedAt: now,
@@ -58,30 +102,25 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
         payload: { kind: "notebook", notebookId: id },
       });
 
+
       const [created] = await ctx.db.db.select().from(notebooks).where(eq(notebooks.id, id)).limit(1);
-      return reply.status(201).send({ notebook: created });
+        return reply.status(201).send({ notebook: created });
+      });
     },
   );
 
   app.get<{ Params: { notebookId: string } }>("/notebooks/:notebookId", async (request, reply) => {
-    const actor = await resolveActor(ctx, request);
     const { notebookId } = request.params;
-    const [row] = await ctx.db.db
-      .select()
-      .from(notebooks)
-      .where(and(eq(notebooks.id, notebookId), eq(notebooks.ownerId, actor.id)))
-      .limit(1);
-
-    if (!row) {
-      return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
-    }
-
-    return reply.send({ notebook: row });
+    return withOwnedNotebook(ctx, request, reply, notebookId, async (_actor, owned) => {
+      return reply.send({ notebook: owned.notebook });
+    });
   });
 
   app.get<{ Params: { notebookId: string } }>("/notebooks/:notebookId/settings", async (request, reply) => {
-    const actor = await resolveActor(ctx, request);
     const { notebookId } = request.params;
+    const owned = await requireRouteOwnedNotebook(request, reply, notebookId);
+    if (!owned) return;
+    const actor = { id: owned.notebook.ownerId };
     const [row] = await ctx.db.db
       .select({ settingsJson: notebooks.settingsJson })
       .from(notebooks)
@@ -104,8 +143,10 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
       }>;
     }>;
   }>("/notebooks/:notebookId/settings", async (request, reply) => {
-    const actor = await resolveActor(ctx, request);
     const { notebookId } = request.params;
+    const owned = await requireRouteOwnedNotebook(request, reply, notebookId);
+    if (!owned) return;
+    const actor = { id: owned.notebook.ownerId };
     const [row] = await ctx.db.db
       .select({ settingsJson: notebooks.settingsJson })
       .from(notebooks)
@@ -139,8 +180,10 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
   });
 
   app.get<{ Params: { notebookId: string } }>("/notebooks/:notebookId/study-state", async (request, reply) => {
-    const actor = await resolveActor(ctx, request);
     const { notebookId } = request.params;
+    const owned = await requireRouteOwnedNotebook(request, reply, notebookId);
+    if (!owned) return;
+    const actor = { id: owned.notebook.ownerId };
     const [row] = await ctx.db.db
       .select()
       .from(notebooks)
@@ -151,13 +194,17 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
       return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
     }
 
-    const studyState = await loadNotebookStudyState(ctx.db, notebookId, actor.id);
+    const studyState = await loadNotebookStudyState(ctx.db, notebookId, actor.id, {
+      contentNotebookId: owned.contentNotebookId,
+    });
     return reply.send(studyState);
   });
 
   app.get<{ Params: { notebookId: string } }>("/notebooks/:notebookId/artifacts", async (request, reply) => {
-    const actor = await resolveActor(ctx, request);
     const { notebookId } = request.params;
+    const owned = await requireRouteOwnedNotebook(request, reply, notebookId);
+    if (!owned) return;
+    const actor = { id: owned.notebook.ownerId };
     const [row] = await ctx.db.db
       .select()
       .from(notebooks)
@@ -212,17 +259,9 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
   app.get<{ Params: { notebookId: string; artifactId: string } }>(
     "/notebooks/:notebookId/artifacts/:artifactId",
     async (request, reply) => {
-      const actor = await resolveActor(ctx, request);
       const { notebookId, artifactId } = request.params;
-      const [row] = await ctx.db.db
-        .select()
-        .from(notebooks)
-        .where(and(eq(notebooks.id, notebookId), eq(notebooks.ownerId, actor.id)))
-        .limit(1);
-
-      if (!row) {
-        return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
-      }
+      const owned = await requireRouteOwnedNotebook(request, reply, notebookId);
+      if (!owned) return;
 
       const [artifact] = await ctx.db.db
         .select()
@@ -241,17 +280,10 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
   app.get<{
     Params: { notebookId: string; artifactId: string };
   }>("/notebooks/:notebookId/artifacts/:artifactId/quiz-attempts", async (request, reply) => {
-    const actor = await resolveActor(ctx, request);
     const { notebookId, artifactId } = request.params;
-    const [row] = await ctx.db.db
-      .select()
-      .from(notebooks)
-      .where(and(eq(notebooks.id, notebookId), eq(notebooks.ownerId, actor.id)))
-      .limit(1);
-
-    if (!row) {
-      return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
-    }
+    const owned = await requireRouteOwnedNotebook(request, reply, notebookId);
+    if (!owned) return;
+    const actor = { id: owned.notebook.ownerId };
 
     const [artifact] = await ctx.db.db
       .select()
@@ -295,8 +327,10 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
     Params: { notebookId: string; artifactId: string };
     Body: { note?: string };
   }>("/notebooks/:notebookId/artifacts/:artifactId/approve", async (request, reply) => {
-    const actor = await resolveActor(ctx, request);
     const { notebookId, artifactId } = request.params;
+    const owned = await requireRouteOwnedNotebook(request, reply, notebookId);
+    if (!owned) return;
+    const actor = { id: owned.notebook.ownerId };
     const artifact = await loadOwnedArtifact(ctx, actor.id, notebookId, artifactId);
     if (artifact === "notebook_missing") {
       return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
@@ -364,8 +398,10 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
     Params: { notebookId: string; artifactId: string };
     Body: { reason?: string };
   }>("/notebooks/:notebookId/artifacts/:artifactId/reject", async (request, reply) => {
-    const actor = await resolveActor(ctx, request);
     const { notebookId, artifactId } = request.params;
+    const owned = await requireRouteOwnedNotebook(request, reply, notebookId);
+    if (!owned) return;
+    const actor = { id: owned.notebook.ownerId };
     const artifact = await loadOwnedArtifact(ctx, actor.id, notebookId, artifactId);
     if (artifact === "notebook_missing") {
       return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
@@ -447,8 +483,10 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
       conceptIds?: string[];
     };
   }>("/notebooks/:notebookId/artifacts/:artifactId/flashcard-reviews", async (request, reply) => {
-    const actor = await resolveActor(ctx, request);
     const { notebookId, artifactId } = request.params;
+    const owned = await requireRouteOwnedNotebook(request, reply, notebookId);
+    if (!owned) return;
+    const actor = { id: owned.notebook.ownerId };
     const [row] = await ctx.db.db
       .select()
       .from(notebooks)
@@ -501,8 +539,10 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
     Params: { notebookId: string; artifactId: string };
     Body: Partial<{ title: string; noteMarkdown: string; status: string; clearPersonalization?: boolean }>;
   }>("/notebooks/:notebookId/artifacts/:artifactId", async (request, reply) => {
-    const actor = await resolveActor(ctx, request);
     const { notebookId, artifactId } = request.params;
+    const owned = await requireRouteOwnedNotebook(request, reply, notebookId);
+    if (!owned) return;
+    const actor = { id: owned.notebook.ownerId };
     const [row] = await ctx.db.db
       .select()
       .from(notebooks)
@@ -622,8 +662,10 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
     Params: { notebookId: string };
     Body: Partial<{ title: string; description: string | null; goal: string | null }>;
   }>("/notebooks/:notebookId", async (request, reply) => {
-    const actor = await resolveActor(ctx, request);
     const { notebookId } = request.params;
+    const owned = await requireRouteOwnedNotebook(request, reply, notebookId);
+    if (!owned) return;
+    const actor = { id: owned.notebook.ownerId };
     const [existing] = await ctx.db.db
       .select()
       .from(notebooks)
@@ -658,8 +700,10 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
   });
 
   app.delete<{ Params: { notebookId: string } }>("/notebooks/:notebookId", async (request, reply) => {
-    const actor = await resolveActor(ctx, request);
     const { notebookId } = request.params;
+    const owned = await requireRouteOwnedNotebook(request, reply, notebookId);
+    if (!owned) return;
+    const actor = { id: owned.notebook.ownerId };
     const deleted = await ctx.db.db
       .delete(notebooks)
       .where(and(eq(notebooks.id, notebookId), eq(notebooks.ownerId, actor.id)))
@@ -673,8 +717,10 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
   });
 
   app.get<{ Params: { notebookId: string } }>("/notebooks/:notebookId/wiki/lint", async (request, reply) => {
-    const actor = await resolveActor(ctx, request);
     const { notebookId } = request.params;
+    const owned = await requireRouteOwnedNotebook(request, reply, notebookId);
+    if (!owned) return;
+    const actor = { id: owned.notebook.ownerId };
     const [nb] = await ctx.db.db
       .select()
       .from(notebooks)
@@ -684,10 +730,12 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
       return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
     }
 
-    const pages = await ctx.db.db.select().from(wikiPages).where(eq(wikiPages.notebookId, notebookId));
-    const conceptRows = await ctx.db.db.select().from(concepts).where(eq(concepts.notebookId, notebookId));
-    const claimRows = await ctx.db.db.select().from(claims).where(eq(claims.notebookId, notebookId));
-    const relRows = await ctx.db.db.select().from(graphRelations).where(eq(graphRelations.notebookId, notebookId));
+    const contentNotebookId = owned.contentNotebookId;
+
+    const pages = await ctx.db.db.select().from(wikiPages).where(eq(wikiPages.notebookId, contentNotebookId));
+    const conceptRows = await ctx.db.db.select().from(concepts).where(eq(concepts.notebookId, contentNotebookId));
+    const claimRows = await ctx.db.db.select().from(claims).where(eq(claims.notebookId, contentNotebookId));
+    const relRows = await ctx.db.db.select().from(graphRelations).where(eq(graphRelations.notebookId, contentNotebookId));
 
     const issues = lintNotebookWiki({
       pages: pages.map((p) => ({
@@ -721,8 +769,10 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
   });
 
   app.post<{ Params: { notebookId: string } }>("/notebooks/:notebookId/wiki/lint", async (request, reply) => {
-    const actor = await resolveActor(ctx, request);
     const { notebookId } = request.params;
+    const owned = await requireRouteOwnedNotebook(request, reply, notebookId);
+    if (!owned) return;
+    const actor = { id: owned.notebook.ownerId };
     const [nb] = await ctx.db.db
       .select()
       .from(notebooks)
@@ -732,10 +782,12 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
       return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
     }
 
-    const pages = await ctx.db.db.select().from(wikiPages).where(eq(wikiPages.notebookId, notebookId));
-    const conceptRows = await ctx.db.db.select().from(concepts).where(eq(concepts.notebookId, notebookId));
-    const claimRows = await ctx.db.db.select().from(claims).where(eq(claims.notebookId, notebookId));
-    const relRows = await ctx.db.db.select().from(graphRelations).where(eq(graphRelations.notebookId, notebookId));
+    const contentNotebookId = owned.contentNotebookId;
+
+    const pages = await ctx.db.db.select().from(wikiPages).where(eq(wikiPages.notebookId, contentNotebookId));
+    const conceptRows = await ctx.db.db.select().from(concepts).where(eq(concepts.notebookId, contentNotebookId));
+    const claimRows = await ctx.db.db.select().from(claims).where(eq(claims.notebookId, contentNotebookId));
+    const relRows = await ctx.db.db.select().from(graphRelations).where(eq(graphRelations.notebookId, contentNotebookId));
 
     const issues = lintNotebookWiki({
       pages: pages.map((p) => ({

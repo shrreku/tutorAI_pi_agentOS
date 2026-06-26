@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Study Map — TutorBook</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body data-theme="mist">
+<div class="app">
+  <div data-include="topbar"></div>
+
+  <div class="workspace" data-evidence>
+    <div class="workspace-main">
+      <div class="workspace-canvas">
+        <div class="surface-switch" data-surface>
+          <a href="study-map.html" class="active">Study Map</a>
+          <a href="curriculum.html">Curriculum</a>
+          <a href="source-wiki.html">Source Wiki</a>
+        </div>
+
+        <div class="map-canvas" style="height:560px;position:relative">
+          <!-- edges (decorative) -->
+          <div class="edge" style="left:220px;top:120px;width:120px;transform:rotate(20deg)"></div>
+          <div class="edge" style="left:340px;top:160px;width:140px;transform:rotate(-10deg)"></div>
+          <div class="edge" style="left:220px;top:240px;width:120px;transform:rotate(60deg)"></div>
+
+          <div class="node xl" style="left:30px;top:40px">
+            <div class="type curriculum">CURRICULUM</div>
+            <div class="title">Ch. 7 · Substitution</div>
+            <div class="progress" style="margin:8px 0"><span style="width:38%"></span></div>
+            <div class="meta">3/8 · Next: SN1 elimination</div>
+          </div>
+
+          <div class="node xl" style="left:30px;top:230px">
+            <div class="type plan">LIVE PLAN</div>
+            <div class="title">Substitution Plan</div>
+            <ul style="margin:6px 0;padding-left:16px;font-size:12px">
+              <li>Obj 1 · Proton transfer ✓</li>
+              <li style="color:var(--accent-deep);font-weight:600">Obj 2 · Backside attack →</li>
+              <li>Obj 3 · Product separation</li>
+            </ul>
+          </div>
+
+          <a class="node selected" href="page-concept.html" style="left:360px;top:60px">
+            <div class="type concept">CONCEPT</div>
+            <div class="title">SN2 Mechanism</div>
+            <div class="pill-row">
+              <span class="badge red">Needs practice</span>
+              <span class="badge green">Ready</span>
+            </div>
+          </a>
+
+          <div class="node" style="left:360px;top:230px">
+            <div class="type objective">OBJECTIVE</div>
+            <div class="title">Backside Attack stereochem</div>
+            <div class="meta">Obj 5.2</div>
+          </div>
+
+          <div class="node s" style="left:610px;top:90px">
+            <div class="title">SN2 rate</div>
+            <div class="meta">☑ checkpoint</div>
+          </div>
+
+          <div class="node xs" style="left:610px;top:200px">
+            <div class="title">Leaving groups</div>
+          </div>
+
+          <div class="node xs" style="left:610px;top:280px">
+            <div class="title">Solvent effects</div>
+          </div>
+
+          <div class="zoom">
+            <button>+</button>
+            <button>−</button>
+            <button title="Fit">⤢</button>
+          </div>
+        </div>
+      </div>
+      <div data-include="statusbar"></div>
+    </div>
+
+    <div data-include="tutor" data-context="SN2 mechanism"></div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script src="partials.js"></script>
+</body>
+</html>

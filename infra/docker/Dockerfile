@@ -15,6 +15,17 @@ COPY apps apps
 COPY infra infra
 COPY greenfield-studyagent greenfield-studyagent
 
+ARG VITE_POSTHOG_API_KEY
+ARG VITE_POSTHOG_HOST=https://us.i.posthog.com
+ARG VITE_SENTRY_DSN
+ARG VITE_SENTRY_ENVIRONMENT=production
+ARG VITE_SENTRY_RELEASE
+ENV VITE_POSTHOG_API_KEY=$VITE_POSTHOG_API_KEY
+ENV VITE_POSTHOG_HOST=$VITE_POSTHOG_HOST
+ENV VITE_SENTRY_DSN=$VITE_SENTRY_DSN
+ENV VITE_SENTRY_ENVIRONMENT=$VITE_SENTRY_ENVIRONMENT
+ENV VITE_SENTRY_RELEASE=$VITE_SENTRY_RELEASE
+
 RUN pnpm install --frozen-lockfile
 RUN find . -name "*.tsbuildinfo" -type f -delete \
   && rm -rf packages/*/dist apps/*/dist \

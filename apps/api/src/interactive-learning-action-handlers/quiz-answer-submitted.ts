@@ -3,6 +3,7 @@ import { artifacts, concepts, curriculumModules, type DbClient } from "@studyage
 import type { quizAnswerSubmittedPayloadSchema } from "@studyagent/schemas";
 import type { z } from "zod";
 import { recordQuizAttempt } from "../assessment-artifacts.js";
+import { recordProductAnalytics } from "../hosted-beta/product-analytics.js";
 import { evaluateLearnerResponse } from "../mastery-evaluator.js";
 import { createOpenRouterMasteryEvaluatorJudge } from "../mastery-llm-judge.js";
 import type { ActionContext, ActionHandlerOutcome } from "./types.js";
@@ -207,6 +208,17 @@ export async function handleQuizAnswerSubmitted(
     ...(envelope.turnId ? { turnId: envelope.turnId } : {}),
     ...(envelope.runId ? { runId: envelope.runId } : {}),
   });
+  await recordProductAnalytics(ctx, {
+    userId,
+    eventName: "quiz_interaction",
+    properties: {
+      notebookId,
+      artifactId,
+      questionId: quizPayload.questionId,
+      attemptId: result.attemptId,
+      sessionId: envelope.sessionId ?? null,
+    },
+  }).catch(() => undefined);
 
   return {
     ok: true,

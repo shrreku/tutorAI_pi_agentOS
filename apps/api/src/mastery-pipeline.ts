@@ -1,5 +1,7 @@
 import type { DbClient } from "@studyagent/db";
 import type { MasteryEvidence, MasteryEvidenceInput } from "@studyagent/schemas";
+import type { AppContext } from "./context.js";
+import { recordProductAnalytics } from "./hosted-beta/product-analytics.js";
 import { evaluateLearnerResponse, type EvaluateLearnerResponseInput, type MasteryEvaluatorJudge } from "./mastery-evaluator.js";
 import { persistMasteryEvidence } from "./mastery-evidence-store.js";
 import { applyAdaptiveSessionPlanFromMasteryEvidence } from "./mastery-curriculum-adaptation.js";
@@ -8,6 +10,7 @@ import type { PendingMasteryEvaluation } from "./mastery-runtime.js";
 
 export type MasteryEvidencePipelineOptions = {
   applyAdaptivePlan?: boolean;
+  analyticsContext?: AppContext;
 };
 
 export async function recordAndApplyMasteryEvidence(
@@ -31,13 +34,24 @@ export async function recordAndApplyMasteryEvidence(
       sourceCoverageGap: evidence.contextRefs.some((ref) => ref.refType === "source" && ref.refId.startsWith("gap_")),
     });
   }
+  if (options.analyticsContext && evidence.evidenceType === "mastery_check" && evidence.userId) {
+    await recordProductAnalytics(options.analyticsContext, {
+      userId: evidence.userId,
+      eventName: "mastery_check",
+      properties: {
+        notebookId: evidence.notebookId,
+        sessionId: evidence.sessionId ?? null,
+        evidenceId: persisted.evidenceId,
+      },
+    }).catch(() => undefined);
+  }
   return { evidenceId: persisted.evidenceId, eventId: persisted.eventId, ...applied };
 }
 
 export async function evaluatePersistAndApply(
   dbClient: DbClient,
   input: EvaluateLearnerResponseInput,
-  options: { judge?: MasteryEvaluatorJudge; applyAdaptivePlan?: boolean } = {},
+  options: { judge?: MasteryEvaluatorJudge; applyAdaptivePlan?: boolean; analyticsContext?: AppContext } = {},
 ): Promise<{
   evidence: MasteryEvidence;
   evidenceId: string;
@@ -49,7 +63,10 @@ export async function evaluatePersistAndApply(
   const applied = await recordAndApplyMasteryEvidence(
     dbClient,
     evidence,
-    options.applyAdaptivePlan !== undefined ? { applyAdaptivePlan: options.applyAdaptivePlan } : {},
+    {
+      ...(options.applyAdaptivePlan !== undefined ? { applyAdaptivePlan: options.applyAdaptivePlan } : {}),
+      ...(options.analyticsContext ? { analyticsContext: options.analyticsContext } : {}),
+    },
   );
   return { evidence, ...applied };
 }
@@ -68,7 +85,7 @@ export async function runRuntimeMasteryEvaluation(
     sourceRefs: MasteryEvidenceInput["sourceRefs"];
     contextRefs?: MasteryEvidenceInput["contextRefs"];
   },
-  options: { judge?: MasteryEvaluatorJudge } = {},
+  options: { judge?: MasteryEvaluatorJudge; analyticsContext?: AppContext } = {},
 ): Promise<{ evidence: MasteryEvidence; applied: boolean } | null> {
   const result = await evaluatePersistAndApply(dbClient, {
     notebookId: input.notebookId,
@@ -86,6 +103,9 @@ export async function runRuntimeMasteryEvaluation(
     ...(input.pending.referenceAnswer ? { referenceAnswer: input.pending.referenceAnswer } : {}),
     evidenceType: "mastery_check",
     triggerSource: "runtime_auto",
-  }, options);
+  }, {
+    ...(options.judge ? { judge: options.judge } : {}),
+    ...(options.analyticsContext ? { analyticsContext: options.analyticsContext } : {}),
+  });
   return { evidence: result.evidence, applied: true };
 }

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Evidence Drawer — Folio</title>
+<link rel="stylesheet" href="../styles.css" />
+<link rel="stylesheet" href="folio.css" />
+</head>
+<body data-theme="folio">
+<div class="app">
+  <div data-include="topbar"></div>
+
+  <div class="workspace" data-evidence>
+    <div class="workspace-main">
+      <div class="workspace-canvas">
+        <div class="surface-switch" data-surface>
+          <a href="study-map.html" class="active">Study Map</a>
+          <a href="curriculum.html">Curriculum</a>
+          <a href="source-wiki.html">Library</a>
+        </div>
+
+        <div class="card" style="max-width:760px;margin:0 auto;padding:32px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+            <a class="back-link" href="study-map.html">← Back to Study Map</a>
+            <div class="ref-actions">
+              <button class="btn" data-ask-tutor>💬 Ask tutor</button>
+              <button class="btn" data-evidence-open>🛡 Evidence · Open</button>
+            </div>
+          </div>
+          <div class="ref-header" style="border:none;padding:0">
+            <div class="badges"><span class="kicker">CONCEPT</span><span class="badge green">Ready to study</span></div>
+            <h1 style="margin:8px 0 4px">SN2 mechanism</h1>
+          </div>
+          <p class="folio-prose" style="font-size:15px">The SN2 reaction is a one-step, bimolecular nucleophilic substitution in which the nucleophile attacks from the side opposite the leaving group. <span class="badge" style="cursor:pointer">📖 Ch. 7, p. 142</span></p>
+          <p class="muted" style="color:var(--text-muted);font-family:var(--font-ui);font-size:13px">Click <strong>Evidence · Open</strong> to view the cited sources drawer with a frosted warm ivory scrim.</p>
+        </div>
+      </div>
+      <div data-include="statusbar"></div>
+    </div>
+
+    <div data-include="tutor" data-context="SN2 Mechanism"></div>
+  </div>
+</div>
+
+<div data-include="drawer"></div>
+<div class="scrim" data-scrim></div>
+
+<script src="../app.js"></script>
+<script src="../partials.js"></script>
+<script>
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      document.querySelector('[data-scrim]')?.classList.add('open');
+      document.querySelector('[data-drawer]')?.classList.add('open');
+    }, 350);
+  });
+</script>
+</body>
+</html>

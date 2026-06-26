@@ -131,6 +131,7 @@ export type StudyAgentManagedPromptMetadata = {
 
 export type CreateRuntimeRunInput = {
   notebookId: string;
+  contentNotebookId?: string;
   sessionId?: string;
   userId: string;
   traceId?: string;
@@ -151,6 +152,7 @@ export type StudyAgentRuntimeRun = {
   traceparent?: string;
   managedPrompt?: StudyAgentManagedPromptMetadata;
   notebookId: string;
+  contentNotebookId?: string;
   sessionId?: string;
   userId: string;
   selectedNodeRefs: NodeRef[];
@@ -180,6 +182,7 @@ export function createRuntimeRun(input: CreateRuntimeRunInput): StudyAgentRuntim
     ...(input.traceparent ? { traceparent: input.traceparent } : {}),
     ...(input.managedPrompt ? { managedPrompt: input.managedPrompt } : {}),
     notebookId: input.notebookId,
+    ...(input.contentNotebookId ? { contentNotebookId: input.contentNotebookId } : {}),
     ...(input.sessionId ? { sessionId: input.sessionId } : {}),
     userId: input.userId,
     selectedNodeRefs: input.selectedNodeRefs ?? [],

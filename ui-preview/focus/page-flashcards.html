@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Flashcards · SN2 — Focus</title>
+<link rel="stylesheet" href="../styles.css" />
+<link rel="stylesheet" href="focus.css" />
+</head>
+<body data-theme="focus">
+<div class="app">
+  <div data-include="topbar"></div>
+  <div class="ref-page">
+    <div class="ref-container">
+      <div class="ref-top">
+        <a class="back-link" href="study-map.html">← Back to Study Map</a>
+        <div class="ref-actions"><button class="btn" data-ask-tutor>💬 Ask tutor</button><button class="btn" data-evidence-open>🛡 Evidence</button></div>
+      </div>
+      <div class="ref-header">
+        <div class="badges"><span class="badge yellow">FLASHCARDS</span><span class="badge green">Ready to study</span></div>
+        <h1>SN2 flashcards</h1>
+        <div class="summary">24 cards · spaced recall deck</div>
+      </div>
+      <div class="muted" style="text-align:center;color:var(--text-muted);font-family:var(--font-ui);margin-top:14px">Card 8 of 24</div>
+      <div class="flashcard" data-flashcard>
+        <div class="face-label">FRONT</div>
+        <div class="q">What stereochemical change occurs in SN2?</div>
+        <div class="face-label back">BACK</div>
+        <div class="a">Inversion of configuration (Walden inversion) at the carbon center.</div>
+        <div class="muted" style="color:var(--text-muted);font-family:var(--font-ui);font-size:12px">Tap to reveal answer</div>
+      </div>
+      <div class="ratings">
+        <button class="rating-btn again" data-rating>Again</button>
+        <button class="rating-btn hard" data-rating>Hard</button>
+        <button class="rating-btn good" data-rating>Good</button>
+        <button class="rating-btn easy" data-rating>Easy</button>
+      </div>
+    </div>
+  </div>
+  <div data-include="statusbar"></div>
+</div>
+<div data-include="drawer"></div><div class="scrim" data-scrim></div>
+<script src="../app.js"></script><script src="../partials.js"></script>
+</body>
+</html>

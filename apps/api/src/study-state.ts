@@ -158,7 +158,14 @@ export async function loadNotebookStudyState(
   dbClient: DbClient,
   notebookId: string,
   userId: string,
+  options?: { contentNotebookId?: string },
 ): Promise<NotebookStudyState> {
+  const learnerNotebookId = notebookId;
+  const contentNotebookId =
+    options?.contentNotebookId && options.contentNotebookId !== notebookId
+      ? options.contentNotebookId
+      : notebookId;
+
   const [studentProfile] = await dbClient.db
     .select({
       id: studentProfiles.id,
@@ -173,7 +180,7 @@ export async function loadNotebookStudyState(
       updatedAt: studentProfiles.updatedAt,
     })
     .from(studentProfiles)
-    .where(and(eq(studentProfiles.notebookId, notebookId), eq(studentProfiles.userId, userId)))
+    .where(and(eq(studentProfiles.notebookId, learnerNotebookId), eq(studentProfiles.userId, userId)))
     .limit(1);
 
   const curriculumRows = await dbClient.db
@@ -185,7 +192,7 @@ export async function loadNotebookStudyState(
       updatedAt: curricula.updatedAt,
     })
     .from(curricula)
-    .where(eq(curricula.notebookId, notebookId))
+    .where(eq(curricula.notebookId, contentNotebookId))
     .orderBy(desc(curricula.updatedAt))
     .limit(10);
   const curriculum = pickPreferredPlanningRow(curriculumRows);
@@ -199,7 +206,7 @@ export async function loadNotebookStudyState(
       updatedAt: curriculumModules.updatedAt,
     })
     .from(curriculumModules)
-    .where(eq(curriculumModules.notebookId, notebookId))
+    .where(eq(curriculumModules.notebookId, contentNotebookId))
     .orderBy(desc(curriculumModules.updatedAt))
     .limit(10);
 
@@ -216,7 +223,7 @@ export async function loadNotebookStudyState(
           updatedAt: objectiveLists.updatedAt,
         })
         .from(objectiveLists)
-        .where(and(eq(objectiveLists.notebookId, notebookId), eq(objectiveLists.moduleId, moduleRow.id)))
+        .where(and(eq(objectiveLists.notebookId, contentNotebookId), eq(objectiveLists.moduleId, moduleRow.id)))
         .orderBy(desc(objectiveLists.updatedAt))
         .limit(10)
     : [];
@@ -235,7 +242,7 @@ export async function loadNotebookStudyState(
           updatedAt: sessionPlans.updatedAt,
         })
         .from(sessionPlans)
-        .where(and(eq(sessionPlans.notebookId, notebookId), eq(sessionPlans.objectiveListId, objectiveListRow.id)))
+        .where(and(eq(sessionPlans.notebookId, contentNotebookId), eq(sessionPlans.objectiveListId, objectiveListRow.id)))
         .orderBy(desc(sessionPlans.updatedAt))
         .limit(10)
     : [];
@@ -246,7 +253,7 @@ export async function loadNotebookStudyState(
       ? await dbClient.db
           .select({ id: artifacts.id, title: artifacts.title, payloadJson: artifacts.payloadJson })
           .from(artifacts)
-          .where(and(eq(artifacts.notebookId, notebookId), inArray(artifacts.id, sessionPlanRow.teachingArcIds ?? [])))
+          .where(and(eq(artifacts.notebookId, contentNotebookId), inArray(artifacts.id, sessionPlanRow.teachingArcIds ?? [])))
       : [];
   const teachingArcTitleById = new Map(teachingArcRows.map((row) => [row.id, row.title]));
   const teachingArcBlockTypes = [
@@ -273,11 +280,11 @@ export async function loadNotebookStudyState(
       activeSessionId: studyPlans.activeSessionId,
     })
     .from(studyPlans)
-    .where(and(eq(studyPlans.notebookId, notebookId), eq(studyPlans.userId, userId)))
+    .where(and(eq(studyPlans.notebookId, learnerNotebookId), eq(studyPlans.userId, userId)))
     .orderBy(desc(studyPlans.updatedAt))
     .limit(1);
 
-  const coverage = await loadCoverageSummary(dbClient, notebookId, {
+  const coverage = await loadCoverageSummary(dbClient, contentNotebookId, {
     curriculumId: curriculum?.id ?? null,
     moduleId: moduleRow?.id ?? null,
     objectiveListId: objectiveListRow?.id ?? null,
@@ -286,7 +293,8 @@ export async function loadNotebookStudyState(
 
   const levelSignals = await loadLevelSignals(
     dbClient,
-    notebookId,
+    contentNotebookId,
+    learnerNotebookId,
     userId,
     studentProfile,
     studyPlan?.weakConceptIds ?? [],
@@ -348,7 +356,7 @@ export async function loadNotebookStudyState(
           }
         : null,
       studyPlan: null,
-      tutorSession: await loadTutorSessionSummary(dbClient, notebookId, userId, null, Boolean(curriculum)),
+      tutorSession: await loadTutorSessionSummary(dbClient, learnerNotebookId, userId, null, Boolean(curriculum)),
       coverage,
       ...levelSignals,
     });
@@ -368,7 +376,7 @@ export async function loadNotebookStudyState(
           status: objectives.status,
         })
         .from(objectives)
-        .where(and(eq(objectives.notebookId, notebookId), inArray(objectives.id, objectiveIds)))
+        .where(and(eq(objectives.notebookId, contentNotebookId), inArray(objectives.id, objectiveIds)))
     : [];
 
   const objectiveById = new Map(
@@ -390,7 +398,7 @@ export async function loadNotebookStudyState(
           name: concepts.canonicalName,
         })
         .from(concepts)
-        .where(and(eq(concepts.notebookId, notebookId), inArray(concepts.id, weakConceptIds)))
+        .where(and(eq(concepts.notebookId, contentNotebookId), inArray(concepts.id, weakConceptIds)))
     : [];
 
   const weakConceptById = new Map(weakConceptRows.map((row) => [row.id, { id: row.id, name: row.name }]));
@@ -465,7 +473,13 @@ export async function loadNotebookStudyState(
         .map((id) => weakConceptById.get(id))
         .filter((value): value is WeakConceptSummary => Boolean(value)),
     },
-    tutorSession: await loadTutorSessionSummary(dbClient, notebookId, userId, studyPlan.activeSessionId ?? null, Boolean(curriculum)),
+    tutorSession: await loadTutorSessionSummary(
+      dbClient,
+      learnerNotebookId,
+      userId,
+      studyPlan.activeSessionId ?? null,
+      Boolean(curriculum),
+    ),
     coverage,
     ...levelSignals,
   });
@@ -482,7 +496,8 @@ function withLearnerProgressSummary(
 
 async function loadLevelSignals(
   dbClient: DbClient,
-  notebookId: string,
+  contentNotebookId: string,
+  learnerNotebookId: string,
   userId: string,
   studentProfile:
     | {
@@ -499,7 +514,7 @@ async function loadLevelSignals(
       metadataJson: sources.metadataJson,
     })
     .from(sources)
-    .where(eq(sources.notebookId, notebookId));
+    .where(eq(sources.notebookId, contentNotebookId));
 
   const sourceLevels: SourceLevelRecord[] = sourceRows.map((row) => {
     const inferred = inferSourceLevelFromSignals({
@@ -522,7 +537,7 @@ async function loadLevelSignals(
       confidence: learningState.confidence,
     })
     .from(learningState)
-    .where(and(eq(learningState.notebookId, notebookId), eq(learningState.userId, userId)));
+    .where(and(eq(learningState.notebookId, learnerNotebookId), eq(learningState.userId, userId)));
 
   const readinessByConcept = new Map(
     learningRows.map((row) => [

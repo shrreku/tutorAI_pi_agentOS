@@ -10,6 +10,7 @@ export type IngestionJobPayload = {
   notebookId: string;
   sourceId: string;
   sourceVersionId: string;
+  ingestionReservationId?: string | null;
 };
 
 export type ClaimedIngestionJob = IngestionJobPayload & {
@@ -43,6 +44,7 @@ export async function enqueueIngestionJob(
       notebookId: input.notebookId,
       sourceId: input.sourceId,
       sourceVersionId: input.sourceVersionId,
+      ...(input.ingestionReservationId ? { ingestionReservationId: input.ingestionReservationId } : {}),
     },
   });
   await notifyIngestionJobs(dbClient, jobId);
@@ -52,6 +54,7 @@ export async function enqueueIngestionJob(
     notebookId: input.notebookId,
     sourceId: input.sourceId,
     sourceVersionId: input.sourceVersionId,
+    ingestionReservationId: input.ingestionReservationId ?? null,
     attemptsStarted: 0,
     maxAttempts,
   };
@@ -95,6 +98,7 @@ export async function claimNextIngestionJob(
       ingestion_jobs.notebook_id,
       ingestion_jobs.source_id,
       ingestion_jobs.source_version_id,
+      ingestion_jobs.payload_json,
       ingestion_jobs.attempts_started,
       ingestion_jobs.max_attempts
   `);
@@ -106,6 +110,7 @@ export async function claimNextIngestionJob(
         notebook_id: string;
         source_id: string;
         source_version_id: string;
+        payload_json: Record<string, unknown>;
         attempts_started: number;
         max_attempts: number;
       }
@@ -117,6 +122,10 @@ export async function claimNextIngestionJob(
     notebookId: row.notebook_id,
     sourceId: row.source_id,
     sourceVersionId: row.source_version_id,
+    ingestionReservationId:
+      typeof row.payload_json?.ingestionReservationId === "string"
+        ? row.payload_json.ingestionReservationId
+        : null,
     attemptsStarted: row.attempts_started,
     maxAttempts: row.max_attempts,
   };

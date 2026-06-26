@@ -1,12 +1,11 @@
 import type { FastifyInstance } from "fastify";
 import { and, desc, eq } from "drizzle-orm";
 import type { AppContext } from "../context.js";
-import { notebooks, tutorSessions } from "@studyagent/db";
+import { tutorSessions } from "@studyagent/db";
 import { serializeAgUiEventToSse } from "@studyagent/agent-runtime";
 import { nodeRefSchema, sourceScopePolicySchema } from "@studyagent/schemas";
 import { observeAgenticSpan } from "@studyagent/observability";
 import { z } from "zod";
-import { resolveActor } from "../auth.js";
 import {
   completeTutorSessionLifecycleForRequest,
   pauseTutorSessionLifecycleForRequest,
@@ -19,6 +18,11 @@ import { resolveStudyAgentTutorSystemPrompt } from "../langfuse-prompts.js";
 import { getOrCreateRequestCorrelationContext } from "../request-correlation.js";
 import { executeTutorTurn } from "../tutor-turn.js";
 import { bootstrapTutorTurn, extractLatestUserMessage, mergeSelectedNodeRefs } from "../tutor-turn-preparation.js";
+import { requireLearner } from "../hosted-beta/learner-gate.js";
+import { requireOwnedNotebook } from "../hosted-beta/notebook-context.js";
+import { recordProductAnalytics } from "../hosted-beta/product-analytics.js";
+import { sendAuthOrEntitlementError } from "../hosted-beta/entitlements.js";
+import { withLearner } from "../hosted-beta/route-guards.js";
 
 const tutorChatRequestSchema = z.object({
   messages: z.array(z.unknown()).default([]),
@@ -50,38 +54,32 @@ export async function registerTutorRoutes(app: FastifyInstance, ctx: AppContext)
   }>(
     "/notebooks/:notebookId/tutor/chat",
     async (request, reply) => {
-      const actor = await resolveActor(ctx, request);
-      const { notebookId } = request.params;
+      try {
+        const { actor } = await requireLearner(ctx, request);
+        const { notebookId } = request.params;
+        const owned = await requireOwnedNotebook(ctx, actor.id, notebookId);
+        const notebook = owned.notebook;
 
-      const [notebook] = await ctx.db.db
-        .select()
-        .from(notebooks)
-        .where(and(eq(notebooks.id, notebookId), eq(notebooks.ownerId, actor.id)))
-        .limit(1);
+        if (!ctx.env.OPENROUTER_API_KEY) {
+          return reply.status(503).send({ code: "pi_unavailable", message: "OPENROUTER_API_KEY is required for Pi tutor sessions" });
+        }
 
-      if (!notebook) {
-        return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
-      }
-      if (!ctx.env.OPENROUTER_API_KEY) {
-        return reply.status(503).send({ code: "pi_unavailable", message: "OPENROUTER_API_KEY is required for Pi tutor sessions" });
-      }
+        const parsed = tutorChatRequestSchema.safeParse(request.body);
+        if (!parsed.success) {
+          return reply.status(400).send({ code: "bad_request", message: parsed.error.flatten() });
+        }
 
-      const parsed = tutorChatRequestSchema.safeParse(request.body);
-      if (!parsed.success) {
-        return reply.status(400).send({ code: "bad_request", message: parsed.error.flatten() });
-      }
+        const { messages, data } = parsed.data;
+        const message = extractLatestUserMessage(messages);
+        if (!message) {
+          return reply.status(400).send({ code: "bad_request", message: "A user message is required" });
+        }
 
-      const { messages, data } = parsed.data;
-      const message = extractLatestUserMessage(messages);
-      if (!message) {
-        return reply.status(400).send({ code: "bad_request", message: "A user message is required" });
-      }
-
-      const activeMode = data.activeMode;
-      const sourceScopePolicy = data.sourceScopePolicy;
-      const action = data.action;
-      const correlationContext = getOrCreateRequestCorrelationContext(request);
-      return await observeAgenticSpan(
+        const activeMode = data.activeMode;
+        const sourceScopePolicy = data.sourceScopePolicy;
+        const action = data.action;
+        const correlationContext = getOrCreateRequestCorrelationContext(request);
+        return await observeAgenticSpan(
         "tutor.turn",
         {
           input: {
@@ -108,6 +106,7 @@ export async function registerTutorRoutes(app: FastifyInstance, ctx: AppContext)
             async (prepareObservation) => {
               const preparedTurn = await bootstrapTutorTurn(ctx, {
                 notebookId,
+                contentNotebookId: owned.contentNotebookId,
                 userId: actor.id,
                 notebookTitle: notebook.title || "Untitled",
                 message,
@@ -128,6 +127,16 @@ export async function registerTutorRoutes(app: FastifyInstance, ctx: AppContext)
               return preparedTurn;
             },
           );
+          if (prepared.isNewSession) {
+            await recordProductAnalytics(ctx, {
+              userId: actor.id,
+              eventName: "tutor_session",
+              properties: {
+                notebookId,
+                sessionId: prepared.sessionId,
+              },
+            });
+          }
           const sessionId = prepared.sessionId;
           const resolvedPrompt = await resolveStudyAgentTutorSystemPrompt(ctx.env, prepared.promptContext);
           const run = { ...prepared.run, managedPrompt: resolvedPrompt.metadata };
@@ -195,6 +204,9 @@ export async function registerTutorRoutes(app: FastifyInstance, ctx: AppContext)
           }
         },
       );
+      } catch (error) {
+        return sendAuthOrEntitlementError(reply, error);
+      }
     },
   );
 
@@ -204,23 +216,24 @@ export async function registerTutorRoutes(app: FastifyInstance, ctx: AppContext)
   }>(
     "/notebooks/:notebookId/tutor/session/pause",
     async (request, reply) => {
-      const actor = await resolveActor(ctx, request);
       const { notebookId } = request.params;
-      const parsed = tutorSessionLifecycleSchema.safeParse(request.body ?? {});
-      if (!parsed.success) {
-        return reply.status(400).send({ code: "bad_request", message: parsed.error.flatten() });
-      }
+      return withLearner(ctx, request, reply, async (actor) => {
+        const parsed = tutorSessionLifecycleSchema.safeParse(request.body ?? {});
+        if (!parsed.success) {
+          return reply.status(400).send({ code: "bad_request", message: parsed.error.flatten() });
+        }
 
-      const result = await pauseTutorSessionLifecycleForRequest(ctx.db, {
-        notebookId,
-        userId: actor.id,
-        ...(parsed.data.sessionId ? { requestedSessionId: parsed.data.sessionId } : {}),
+        const result = await pauseTutorSessionLifecycleForRequest(ctx.db, {
+          notebookId,
+          userId: actor.id,
+          ...(parsed.data.sessionId ? { requestedSessionId: parsed.data.sessionId } : {}),
+        });
+        if (!result) {
+          return reply.status(404).send({ code: "not_found", message: "Active tutor session not found" });
+        }
+
+        return reply.send(result);
       });
-      if (!result) {
-        return reply.status(404).send({ code: "not_found", message: "Active tutor session not found" });
-      }
-
-      return reply.send(result);
     },
   );
 
@@ -230,24 +243,25 @@ export async function registerTutorRoutes(app: FastifyInstance, ctx: AppContext)
   }>(
     "/notebooks/:notebookId/tutor/session/resume",
     async (request, reply) => {
-      const actor = await resolveActor(ctx, request);
       const { notebookId } = request.params;
-      const parsed = tutorSessionLifecycleSchema.safeParse(request.body ?? {});
-      if (!parsed.success) {
-        return reply.status(400).send({ code: "bad_request", message: parsed.error.flatten() });
-      }
+      return withLearner(ctx, request, reply, async (actor) => {
+        const parsed = tutorSessionLifecycleSchema.safeParse(request.body ?? {});
+        if (!parsed.success) {
+          return reply.status(400).send({ code: "bad_request", message: parsed.error.flatten() });
+        }
 
-      const result = await resumeTutorSessionLifecycleForRequest(ctx.db, {
-        notebookId,
-        userId: actor.id,
-        ...(parsed.data.sessionId ? { requestedSessionId: parsed.data.sessionId } : {}),
-        model: ctx.env.DEFAULT_TUTOR_MODEL,
+        const result = await resumeTutorSessionLifecycleForRequest(ctx.db, {
+          notebookId,
+          userId: actor.id,
+          ...(parsed.data.sessionId ? { requestedSessionId: parsed.data.sessionId } : {}),
+          model: ctx.env.DEFAULT_TUTOR_MODEL,
+        });
+        if (!result) {
+          return reply.status(404).send({ code: "not_found", message: "Tutor session not found" });
+        }
+
+        return reply.send(result);
       });
-      if (!result) {
-        return reply.status(404).send({ code: "not_found", message: "Tutor session not found" });
-      }
-
-      return reply.send(result);
     },
   );
 
@@ -257,37 +271,38 @@ export async function registerTutorRoutes(app: FastifyInstance, ctx: AppContext)
   }>(
     "/notebooks/:notebookId/tutor/session/end",
     async (request, reply) => {
-      const actor = await resolveActor(ctx, request);
       const { notebookId } = request.params;
-      const parsed = tutorSessionLifecycleSchema.safeParse(request.body ?? {});
-      if (!parsed.success) {
-        return reply.status(400).send({ code: "bad_request", message: parsed.error.flatten() });
-      }
+      return withLearner(ctx, request, reply, async (actor) => {
+        const parsed = tutorSessionLifecycleSchema.safeParse(request.body ?? {});
+        if (!parsed.success) {
+          return reply.status(400).send({ code: "bad_request", message: parsed.error.flatten() });
+        }
 
-      const result = await completeTutorSessionLifecycleForRequest(ctx.db, {
-        notebookId,
-        userId: actor.id,
-        ...(parsed.data.sessionId ? { requestedSessionId: parsed.data.sessionId } : {}),
-        ...(parsed.data.phase ? { phase: parsed.data.phase } : {}),
-        ...(ctx.env.OPENROUTER_API_KEY
-          ? {
-              estimator: createOpenRouterLearnerTraitEstimatorClient({
-                apiKey: ctx.env.OPENROUTER_API_KEY,
-                baseUrl: ctx.env.OPENROUTER_BASE_URL,
-                model: ctx.env.DEFAULT_EXTRACTION_MODEL,
-                temperature: 0.1,
-              }),
-            }
-          : {}),
-      });
-      if (!result) {
-        return reply.status(404).send({ code: "not_found", message: "Tutor session not found" });
-      }
-      return reply.send({
-        sessionId: result.sessionId,
-        status: result.status,
-        reason: result.reason,
-        artifactId: result.artifactId,
+        const result = await completeTutorSessionLifecycleForRequest(ctx.db, {
+          notebookId,
+          userId: actor.id,
+          ...(parsed.data.sessionId ? { requestedSessionId: parsed.data.sessionId } : {}),
+          ...(parsed.data.phase ? { phase: parsed.data.phase } : {}),
+          ...(ctx.env.OPENROUTER_API_KEY
+            ? {
+                estimator: createOpenRouterLearnerTraitEstimatorClient({
+                  apiKey: ctx.env.OPENROUTER_API_KEY,
+                  baseUrl: ctx.env.OPENROUTER_BASE_URL,
+                  model: ctx.env.DEFAULT_EXTRACTION_MODEL,
+                  temperature: 0.1,
+                }),
+              }
+            : {}),
+        });
+        if (!result) {
+          return reply.status(404).send({ code: "not_found", message: "Tutor session not found" });
+        }
+        return reply.send({
+          sessionId: result.sessionId,
+          status: result.status,
+          reason: result.reason,
+          artifactId: result.artifactId,
+        });
       });
     },
   );
@@ -296,27 +311,19 @@ export async function registerTutorRoutes(app: FastifyInstance, ctx: AppContext)
   app.get<{ Params: { notebookId: string } }>(
     "/notebooks/:notebookId/tutor/sessions",
     async (request, reply) => {
-      const actor = await resolveActor(ctx, request);
       const { notebookId } = request.params;
+      return withLearner(ctx, request, reply, async (actor) => {
+        await requireOwnedNotebook(ctx, actor.id, notebookId);
 
-      const [notebook] = await ctx.db.db
-        .select()
-        .from(notebooks)
-        .where(and(eq(notebooks.id, notebookId), eq(notebooks.ownerId, actor.id)))
-        .limit(1);
+        const recentSessions = await ctx.db.db
+          .select()
+          .from(tutorSessions)
+          .where(and(eq(tutorSessions.notebookId, notebookId), eq(tutorSessions.userId, actor.id)))
+          .orderBy(desc(tutorSessions.startedAt))
+          .limit(10);
 
-      if (!notebook) {
-        return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
-      }
-
-      const recentSessions = await ctx.db.db
-        .select()
-        .from(tutorSessions)
-        .where(and(eq(tutorSessions.notebookId, notebookId), eq(tutorSessions.userId, actor.id)))
-        .orderBy(desc(tutorSessions.startedAt))
-        .limit(10);
-
-      return reply.send({ sessions: recentSessions });
+        return reply.send({ sessions: recentSessions });
+      });
     },
   );
 }

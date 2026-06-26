@@ -6,7 +6,6 @@ import {
   claims,
   events,
   masteryEvidence,
-  notebooks,
   sources,
   toolCalls,
   tutorSessions,
@@ -27,7 +26,9 @@ import {
 } from "@studyagent/schemas";
 import { formatTraceUsage, normalizeTraceUsage } from "@studyagent/observability";
 import type { AppContext } from "../context.js";
-import { resolveActor } from "../auth.js";
+import { requireLearner } from "../hosted-beta/learner-gate.js";
+import { requireOwnedNotebook } from "../hosted-beta/notebook-context.js";
+import { sendAuthOrEntitlementError } from "../hosted-beta/entitlements.js";
 
 type EventLookup = Map<string, TraceUsage | undefined>;
 type TimelineNodeRef = DeveloperTimelineItem["nodeRefs"][number];
@@ -36,19 +37,12 @@ export async function registerDeveloperTimelineRoutes(app: FastifyInstance, ctx:
   app.get<{ Params: { notebookId: string }; Querystring: { limit?: string } }>(
     "/notebooks/:notebookId/developer/timeline",
     async (request, reply) => {
-      const actor = await resolveActor(ctx, request);
-      const { notebookId } = request.params;
-      const limit = clampLimit(request.query.limit ?? "120");
-
-      const [owned] = await ctx.db.db
-        .select()
-        .from(notebooks)
-        .where(and(eq(notebooks.id, notebookId), eq(notebooks.ownerId, actor.id)))
-        .limit(1);
-
-      if (!owned) {
-        return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
-      }
+      try {
+        const { actor } = await requireLearner(ctx, request);
+        const { notebookId } = request.params;
+        const owned = await requireOwnedNotebook(ctx, actor.id, notebookId);
+        void owned;
+        const limit = clampLimit(request.query.limit ?? "120");
 
       const [runRows, toolRows, eventRows, wikiRows, artifactRows, claimRows, sourceRows, turnRows, masteryEvidenceRows] =
         await Promise.all([
@@ -158,25 +152,20 @@ export async function registerDeveloperTimelineRoutes(app: FastifyInstance, ctx:
       };
 
       return reply.send(developerTimelineResponseSchema.parse(response));
+      } catch (error) {
+        return sendAuthOrEntitlementError(reply, error);
+      }
     },
   );
 
   app.get<{ Params: { notebookId: string }; Querystring: { limit?: string; sessionId?: string } }>(
     "/notebooks/:notebookId/tutor/trace",
     async (request, reply) => {
-      const actor = await resolveActor(ctx, request);
-      const { notebookId } = request.params;
-      const limit = clampLimit(request.query.limit ?? "80");
-
-      const [owned] = await ctx.db.db
-        .select()
-        .from(notebooks)
-        .where(and(eq(notebooks.id, notebookId), eq(notebooks.ownerId, actor.id)))
-        .limit(1);
-
-      if (!owned) {
-        return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
-      }
+      try {
+        const { actor } = await requireLearner(ctx, request);
+        const { notebookId } = request.params;
+        await requireOwnedNotebook(ctx, actor.id, notebookId);
+        const limit = clampLimit(request.query.limit ?? "80");
 
       const turnQuery = ctx.db.db
         .select({
@@ -361,6 +350,9 @@ export async function registerDeveloperTimelineRoutes(app: FastifyInstance, ctx:
       };
 
       return reply.send(chatTraceResponseSchema.parse(response));
+      } catch (error) {
+        return sendAuthOrEntitlementError(reply, error);
+      }
     },
   );
 }

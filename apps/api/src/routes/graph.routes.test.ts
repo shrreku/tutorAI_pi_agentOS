@@ -4,6 +4,13 @@ import { notebooks } from "@studyagent/db";
 import type { AppContext } from "../context.js";
 import { registerGraphRoutes } from "./graph.js";
 
+vi.mock("../hosted-beta/learner-gate.js", () => ({
+  requireLearner: vi.fn(async () => ({
+    actor: { id: "user_1", email: "learner@studyagent.local" },
+    productState: { studyAccess: 1, ingestionAccess: 0, adminAccess: 0 },
+  })),
+}));
+
 const { querySourceWikiMapSimpleMock } = vi.hoisted(() => ({
   querySourceWikiMapSimpleMock: vi.fn(),
 }));
@@ -56,7 +63,16 @@ class FakeDb {
           },
           limit(limitCount: number) {
             if (table === notebooks) {
-              return Promise.resolve([{ id: "nb_1", ownerId: "user_1", title: "Notebook" }].slice(0, limitCount));
+              return Promise.resolve([
+                {
+                  id: "nb_1",
+                  ownerId: "user_1",
+                  title: "Notebook",
+                  disabledAt: null,
+                  settingsJson: {},
+                  workspaceType: "personal_learner",
+                },
+              ].slice(0, limitCount));
             }
             return Promise.resolve([]);
           },
@@ -91,6 +107,7 @@ describe("graph routes", () => {
         NEO4J_URI: "bolt://neo4j",
         NEO4J_USERNAME: "neo4j",
         NEO4J_PASSWORD: "pass",
+        DISABLE_AUTH: true,
       },
     } as unknown as AppContext;
 

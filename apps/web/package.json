@@ -10,8 +10,10 @@
   },
   "dependencies": {
     "@studyagent/eval-runner": "workspace:*",
+    "@studyagent/observability": "workspace:*",
     "@studyagent/schemas": "workspace:*",
     "@studyagent/ui": "workspace:*",
+    "@sentry/react": "^9.47.1",
     "@tanstack/ai-client": "^0.8.0",
     "@tanstack/ai-react": "^0.8.0",
     "@tanstack/react-query": "^5.100.9",
@@ -20,6 +22,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-markdown": "^10.1.0",
+    "posthog-js": "^1.261.0",
     "rehype-katex": "^7.0.1",
     "remark-gfm": "^4.0.1",
     "remark-math": "^6.0.0"

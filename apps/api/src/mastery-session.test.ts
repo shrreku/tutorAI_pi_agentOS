@@ -48,7 +48,7 @@ describe("maybeRunRuntimeMasteryEvaluation", () => {
     expect(runRuntimeMasteryEvaluation).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ turnId: "turn_existing_prompt", runId: "run_1" }),
-      {},
+      expect.objectContaining({ analyticsContext: ctx }),
     );
     expect(update).toHaveBeenCalled();
   });
@@ -95,7 +95,7 @@ describe("maybeRunRuntimeMasteryEvaluation", () => {
         sourceRefs: [{ refType: "source", refId: "src_original" }],
         contextRefs: [{ refType: "chunk", refId: "chunk_original" }],
       }),
-      {},
+      expect.objectContaining({ analyticsContext: ctx }),
     );
   });
 
@@ -140,7 +140,7 @@ describe("maybeRunRuntimeMasteryEvaluation", () => {
         sourceRefs: [{ refType: "source", refId: "src_a" }],
         contextRefs: [{ refType: "chunk", refId: "chunk_a" }],
       }),
-      {},
+      expect.objectContaining({ analyticsContext: ctx }),
     );
   });
 

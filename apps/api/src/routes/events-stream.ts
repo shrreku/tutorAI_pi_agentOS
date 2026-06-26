@@ -1,9 +1,9 @@
 import { and, asc, eq, gt } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
-import { events, notebooks, NOTEBOOK_EVENT_CHANNEL } from "@studyagent/db";
+import { events, NOTEBOOK_EVENT_CHANNEL } from "@studyagent/db";
 import { workspaceRefreshHintForEvent, type EventEnvelope } from "@studyagent/schemas";
 import type { AppContext } from "../context.js";
-import { resolveActor } from "../auth.js";
+import { withOwnedNotebook } from "../hosted-beta/route-guards.js";
 import {
   mapEventEnvelopeToRuntimeStreamChunks,
   serializeStreamChunkToSse,
@@ -21,20 +21,12 @@ export async function registerEventStreamRoutes(
   app.get<{ Params: { notebookId: string }; Querystring: { after?: string } }>(
     "/notebooks/:notebookId/events/stream",
     async (request, reply) => {
-      const actor = await resolveActor(ctx, request);
       const { notebookId } = request.params;
       const after = Number(request.query.after ?? "0");
       const afterSeq = Number.isFinite(after) ? after : 0;
 
-      const [owned] = await ctx.db.db
-        .select()
-        .from(notebooks)
-        .where(and(eq(notebooks.id, notebookId), eq(notebooks.ownerId, actor.id)))
-        .limit(1);
-
-      if (!owned) {
-        return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
-      }
+      const gate = await withOwnedNotebook(ctx, request, reply, notebookId, async () => true);
+      if (gate !== true) return;
 
       await notifier.ready();
 
@@ -92,20 +84,12 @@ export async function registerEventStreamRoutes(
   app.get<{ Params: { notebookId: string; sessionId: string }; Querystring: { after?: string } }>(
     "/notebooks/:notebookId/sessions/:sessionId/events/stream",
     async (request, reply) => {
-      const actor = await resolveActor(ctx, request);
       const { notebookId, sessionId } = request.params;
       const after = Number(request.query.after ?? "0");
       const afterSeq = Number.isFinite(after) ? after : 0;
 
-      const [owned] = await ctx.db.db
-        .select()
-        .from(notebooks)
-        .where(and(eq(notebooks.id, notebookId), eq(notebooks.ownerId, actor.id)))
-        .limit(1);
-
-      if (!owned) {
-        return reply.status(404).send({ code: "not_found", message: "Notebook not found" });
-      }
+      const gate = await withOwnedNotebook(ctx, request, reply, notebookId, async () => true);
+      if (gate !== true) return;
 
       await notifier.ready();
 
