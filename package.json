@@ -13,17 +13,23 @@
     "e2e:hosted-beta": "playwright test -c playwright.hosted-beta.config.ts",
     "test:postgres": "RUN_POSTGRES_INTEGRATION=1 pnpm --filter @studyagent/wiki-generation test:postgres && RUN_POSTGRES_INTEGRATION=1 pnpm --filter @studyagent/db exec vitest run src/generation-jobs.test.ts",
     "format": "prettier --check .",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "db:generate": "pnpm --filter @studyagent/db generate",
     "db:migrate": "pnpm --filter @studyagent/db migrate",
     "db:seed": "pnpm --filter @studyagent/db seed",
     "dev:openrouter-proxy": "node scripts/openrouter-host-proxy.mjs"
   },
   "devDependencies": {
+    "@eslint/js": "^9.18.0",
     "@playwright/test": "^1.61.0",
     "@rolldown/binding-darwin-arm64": "1.0.0-rc.18",
     "@types/node": "^26.0.0",
+    "eslint": "^9.18.0",
+    "eslint-plugin-react-hooks": "^5.1.0",
     "prettier": "^3.8.4",
     "typescript": "^6.0.3",
+    "typescript-eslint": "^8.20.0",
     "vitest": "^4.1.9"
   }
 }
