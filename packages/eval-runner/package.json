@@ -11,10 +11,10 @@
   },
   "dependencies": {
     "@studyagent/schemas": "workspace:*",
-    "zod": "latest"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
-    "typescript": "latest",
-    "vitest": "latest"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
   }
 }

@@ -25,9 +25,9 @@
     "@studyagent/schemas": "workspace:*",
     "@studyagent/wiki-core": "workspace:*",
     "drizzle-orm": "^0.44.2",
-    "zod": "latest"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
-    "vitest": "latest"
+    "vitest": "^4.1.9"
   }
 }

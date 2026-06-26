@@ -19,7 +19,7 @@
   },
   "devDependencies": {
     "drizzle-kit": "^0.31.4",
-    "tsx": "latest",
-    "typescript": "latest"
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3"
   }
 }

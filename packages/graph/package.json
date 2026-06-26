@@ -5,7 +5,10 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "scripts": { "build": "tsc -b", "check": "tsc -b --pretty false" },
+  "scripts": {
+    "build": "tsc -b",
+    "check": "tsc -b --pretty false"
+  },
   "dependencies": {
     "@studyagent/db": "workspace:*",
     "@studyagent/schemas": "workspace:*",
@@ -13,6 +16,6 @@
     "neo4j-driver": "^5.28.0"
   },
   "devDependencies": {
-    "vitest": "latest"
+    "vitest": "^4.1.9"
   }
 }

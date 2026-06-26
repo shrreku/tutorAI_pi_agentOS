@@ -15,16 +15,16 @@ importers:
         specifier: 1.0.0-rc.18
         version: 1.0.0-rc.18
       '@types/node':
-        specifier: latest
+        specifier: ^26.0.0
         version: 26.0.0
       prettier:
-        specifier: latest
+        specifier: ^3.8.4
         version: 3.8.4
       typescript:
-        specifier: latest
+        specifier: ^6.0.3
         version: 6.0.3
       vitest:
-        specifier: latest
+        specifier: ^4.1.9
         version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@26.0.0)(vite@8.0.10(@types/node@26.0.0)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.8.4))
 
   apps/api:
@@ -90,14 +90,14 @@ importers:
         specifier: ^5.5.0
         version: 5.10.1
       zod:
-        specifier: latest
+        specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
       '@studyagent/eval-runner':
         specifier: workspace:*
         version: link:../../packages/eval-runner
       tsx:
-        specifier: latest
+        specifier: ^4.22.4
         version: 4.22.4
 
   apps/web:
@@ -209,7 +209,7 @@ importers:
         specifier: ^4.0.0
         version: 4.3.1
       typescript:
-        specifier: latest
+        specifier: ^6.0.3
         version: 6.0.3
       vite:
         specifier: ^6.2.0
@@ -263,11 +263,11 @@ importers:
         specifier: ^3.4.5
         version: 3.4.9
       zod:
-        specifier: latest
+        specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
       tsx:
-        specifier: latest
+        specifier: ^4.22.4
         version: 4.22.4
 
   packages/agent-runtime:
@@ -285,13 +285,13 @@ importers:
         specifier: workspace:*
         version: link:../tools
       zod:
-        specifier: latest
+        specifier: ^4.4.3
         version: 4.4.3
 
   packages/config:
     dependencies:
       zod:
-        specifier: latest
+        specifier: ^4.4.3
         version: 4.4.3
 
   packages/db:
@@ -310,10 +310,10 @@ importers:
         specifier: ^0.31.4
         version: 0.31.10
       tsx:
-        specifier: latest
+        specifier: ^4.22.4
         version: 4.22.4
       typescript:
-        specifier: latest
+        specifier: ^6.0.3
         version: 6.0.3
 
   packages/eval-runner:
@@ -322,14 +322,14 @@ importers:
         specifier: workspace:*
         version: link:../schemas
       zod:
-        specifier: latest
+        specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
       typescript:
-        specifier: latest
+        specifier: ^6.0.3
         version: 6.0.3
       vitest:
-        specifier: latest
+        specifier: ^4.1.9
         version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@26.0.0)(vite@8.0.10(@types/node@26.0.0)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.8.4))
 
   packages/graph:
@@ -348,7 +348,7 @@ importers:
         version: 5.28.3
     devDependencies:
       vitest:
-        specifier: latest
+        specifier: ^4.1.9
         version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@26.0.0)(vite@8.0.10(@types/node@26.0.0)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.8.4))
 
   packages/ingestion:
@@ -386,17 +386,17 @@ importers:
   packages/schemas:
     dependencies:
       zod:
-        specifier: latest
+        specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
       '@studyagent/eval-runner':
         specifier: workspace:*
         version: link:../eval-runner
       typescript:
-        specifier: latest
+        specifier: ^6.0.3
         version: 6.0.3
       vitest:
-        specifier: latest
+        specifier: ^4.1.9
         version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@26.0.0)(vite@8.0.10(@types/node@26.0.0)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.8.4))
 
   packages/search:
@@ -420,7 +420,7 @@ importers:
         specifier: workspace:*
         version: link:../schemas
       zod:
-        specifier: latest
+        specifier: ^4.4.3
         version: 4.4.3
 
   packages/ui:
@@ -436,7 +436,7 @@ importers:
         version: link:../schemas
     devDependencies:
       vitest:
-        specifier: latest
+        specifier: ^4.1.9
         version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@26.0.0)(vite@8.0.10(@types/node@26.0.0)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.8.4))
 
   packages/wiki-generation:
@@ -463,11 +463,11 @@ importers:
         specifier: ^0.44.2
         version: 0.44.7(@opentelemetry/api@1.9.1)(@types/pg@8.6.1)(postgres@3.4.9)
       zod:
-        specifier: latest
+        specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
       vitest:
-        specifier: latest
+        specifier: ^4.1.9
         version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@26.0.0)(vite@8.0.10(@types/node@26.0.0)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.8.4))
 
 packages:

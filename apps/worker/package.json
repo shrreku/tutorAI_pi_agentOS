@@ -31,7 +31,9 @@
     "drizzle-orm": "^0.44.2",
     "ioredis": "^5.5.0",
     "postgres": "^3.4.5",
-    "zod": "latest"
+    "zod": "^4.4.3"
   },
-  "devDependencies": { "tsx": "latest" }
+  "devDependencies": {
+    "tsx": "^4.22.4"
+  }
 }

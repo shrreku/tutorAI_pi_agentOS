@@ -11,11 +11,11 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "zod": "latest"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@studyagent/eval-runner": "workspace:*",
-    "typescript": "latest",
-    "vitest": "latest"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
   }
 }

@@ -5,6 +5,12 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "scripts": { "build": "tsc -b", "check": "tsc -b --pretty false" },
-  "dependencies": { "@studyagent/schemas": "workspace:*", "zod": "latest" }
+  "scripts": {
+    "build": "tsc -b",
+    "check": "tsc -b --pretty false"
+  },
+  "dependencies": {
+    "@studyagent/schemas": "workspace:*",
+    "zod": "^4.4.3"
+  }
 }

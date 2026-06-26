@@ -11,7 +11,9 @@
     "test": "vitest run"
   },
   "devDependencies": {
-    "vitest": "latest"
+    "vitest": "^4.1.9"
   },
-  "dependencies": { "@studyagent/schemas": "workspace:*" }
+  "dependencies": {
+    "@studyagent/schemas": "workspace:*"
+  }
 }

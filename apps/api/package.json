@@ -34,10 +34,10 @@
     "drizzle-orm": "^0.44.2",
     "fastify": "^5.2.1",
     "ioredis": "^5.5.0",
-    "zod": "latest"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@studyagent/eval-runner": "workspace:*",
-    "tsx": "latest"
+    "tsx": "^4.22.4"
   }
 }
