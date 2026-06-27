@@ -22,7 +22,7 @@ export async function clearSourceProjectionScope(
      WHERE s.notebookId = $notebookId AND cur.notebookId = $notebookId
      OPTIONAL MATCH (cur)-[:CONTAINS|PLANS*0..4]->(owned)
      WHERE owned.notebookId = $notebookId
-       AND (owned:curriculum_module OR owned:objective_list OR owned:session_plan OR owned:Objective OR owned:CoverageItem OR owned:CoverageRecord)
+       AND (owned:curriculum_module OR owned:objective_list OR owned:session_plan OR owned:Objective OR owned:coverage_item OR owned:coverage_record)
      DETACH DELETE owned, cur`,
     { sourceId, notebookId },
   );

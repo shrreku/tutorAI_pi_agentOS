@@ -229,13 +229,15 @@ async function readProviderHealth(ctx: AppContext): Promise<{
 function registerSentryErrorHook(app: FastifyInstance): void {
   app.addHook("onError", async (request, _reply, error) => {
     const correlation = getRequestCorrelationContext(request);
+    // Never forward credential-bearing headers (Authorization, Cookie/session token)
+    // to the error monitor. Record only their presence for debugging.
     captureException(error, {
       method: request.method,
-      route: request.routeOptions?.url ?? request.url.split("?", 1)[0],
+      route: request.routeOptions?.url ?? "unmatched",
       requestId: correlation?.requestId,
       traceId: correlation?.traceId,
-      authorization: request.headers.authorization,
-      cookie: request.headers.cookie,
+      hasAuthorizationHeader: Boolean(request.headers.authorization),
+      hasSessionCookie: Boolean(request.headers.cookie),
     });
   });
 }
@@ -248,7 +250,10 @@ function registerHttpMetricsHooks(app: FastifyInstance): void {
   app.addHook("onResponse", async (request: FastifyRequest, reply: FastifyReply) => {
     const started = requestStartTimes.get(request) ?? Date.now();
     requestStartTimes.delete(request);
-    const route = request.routeOptions?.url ?? request.url.split("?", 1)[0] ?? "unknown";
+    // Only the matched route template (e.g. /notebooks/:notebookId) is a bounded label.
+    // For unmatched requests (404s) the raw URL contains arbitrary, attacker-controllable
+    // segments, so collapse them into a single constant to keep metric cardinality bounded.
+    const route = request.routeOptions?.url ?? "unmatched";
     recordHttpRequestMetric({
       method: request.method,
       route,

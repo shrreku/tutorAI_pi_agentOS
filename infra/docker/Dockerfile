@@ -13,7 +13,6 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json tsconfig
 COPY packages packages
 COPY apps apps
 COPY infra infra
-COPY greenfield-studyagent greenfield-studyagent
 
 ARG VITE_POSTHOG_API_KEY
 ARG VITE_POSTHOG_HOST=https://us.i.posthog.com

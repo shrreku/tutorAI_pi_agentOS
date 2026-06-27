@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { matchRoute } from "./routes.js";
 import { RouteGuard, SessionProvider } from "./RouteGuards.js";
+import { ErrorBoundary } from "./ErrorBoundary.js";
 import { LandingPage } from "../pages/public/LandingPage.js";
 import { DemoPage } from "../pages/public/DemoPage.js";
 import { ContactPage } from "../pages/public/ContactPage.js";
@@ -214,7 +215,10 @@ export function AppRouter() {
   return (
     <SessionProvider>
       <RouteGuard routePath={routePath} navigate={navigate}>
-        {content}
+        {/* Keyed by route so navigating away clears a tripped boundary. */}
+        <ErrorBoundary key={routePath} area={routePath}>
+          {content}
+        </ErrorBoundary>
       </RouteGuard>
     </SessionProvider>
   );

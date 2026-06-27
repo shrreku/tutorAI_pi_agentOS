@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.0.0",
+  "engines": {
+    "node": ">=22",
+    "pnpm": ">=10"
+  },
   "scripts": {
     "dev": "pnpm --parallel --filter './apps/*' dev",
     "build": "tsc -b tsconfig.build.json && pnpm --filter @studyagent/web build",

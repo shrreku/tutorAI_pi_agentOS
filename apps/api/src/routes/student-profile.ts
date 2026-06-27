@@ -34,14 +34,16 @@ export async function registerStudentProfileRoutes(
           return reply.status(400).send({ code: "bad_request", message: parsed.error.flatten() });
         }
 
+        // Never trust a client-supplied userId in the body (IDOR): the profile and its
+        // trait signals are always written for the authenticated owner of this notebook.
         const result = await upsertStudentProfile(ctx.db, {
           notebookId,
-          userId: parsed.data.userId ?? actor.id,
+          userId: actor.id,
           patch: parsed.data,
         });
         await recordPreferenceSignals(ctx, {
           notebookId,
-          userId: parsed.data.userId ?? actor.id,
+          userId: actor.id,
           studentProfileId: result.profile.id,
           patch: parsed.data,
         });

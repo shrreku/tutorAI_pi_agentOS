@@ -8,6 +8,11 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(here, "../..");
 const apiProxyTarget = process.env.VITE_API_PROXY_TARGET ?? "http://127.0.0.1:4000";
 
+// `design-lab` is a scratch/exploration surface. It stays available in the dev server
+// (its HTML entry is served directly by Vite) but is excluded from the production bundle
+// unless explicitly opted in, so it never ships to the hosted beta web image.
+const includeDesignLab = process.env.ENABLE_DESIGN_LAB === "true";
+
 export default defineConfig({
   envPrefix: ["VITE_"],
   // Tailwind is scoped to the standalone design-lab entry; the main app keeps its
@@ -17,7 +22,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: path.join(here, "index.html"),
-        "design-lab": path.join(here, "design-lab.html"),
+        ...(includeDesignLab ? { "design-lab": path.join(here, "design-lab.html") } : {}),
       },
     },
   },
