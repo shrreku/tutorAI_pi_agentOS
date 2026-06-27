@@ -12,9 +12,39 @@ concurrency:
 
 jobs:
   verify:
-    name: Format, typecheck, lint, test
+    name: Format, typecheck, lint, build, test
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: studyagent
+          POSTGRES_PASSWORD: studyagent
+          POSTGRES_DB: studyagent
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U studyagent -d studyagent"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      neo4j:
+        image: neo4j:5
+        env:
+          NEO4J_AUTH: neo4j/studyagent-local
+        ports:
+          - 7687:7687
+        options: >-
+          --health-cmd "wget -q --spider http://localhost:7474 || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      DATABASE_URL: postgres://studyagent:studyagent@127.0.0.1:5432/studyagent
+      NEO4J_URI: bolt://127.0.0.1:7687
+      NEO4J_USERNAME: neo4j
+      NEO4J_PASSWORD: studyagent-local
     steps:
       - uses: actions/checkout@v4
 
@@ -38,5 +68,30 @@ jobs:
       - name: Lint
         run: pnpm lint
 
-      - name: Unit + integration (non-DB) tests
+      - name: Production build
+        run: pnpm build
+
+      - name: Apply database migrations
+        run: pnpm db:migrate
+
+      - name: Unit + Postgres + Neo4j integration tests
         run: pnpm test
+        env:
+          RUN_POSTGRES_INTEGRATION: "1"
+          RUN_NEO4J_INTEGRATION: "1"
+
+      - name: Build production web image
+        run: docker build -f infra/docker/Dockerfile -t studyagent-web:ci .
+
+      - name: Smoke production web image and SPA fallback
+        run: |
+          docker run --rm -d --name studyagent-web-ci -p 18080:80 studyagent-web:ci
+          trap 'docker rm -f studyagent-web-ci >/dev/null 2>&1 || true' EXIT
+          for attempt in {1..20}; do
+            if curl --fail --silent http://127.0.0.1:18080/ >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:18080/ >/dev/null
+          curl --fail --silent http://127.0.0.1:18080/notebooks/ci-deep-link >/dev/null

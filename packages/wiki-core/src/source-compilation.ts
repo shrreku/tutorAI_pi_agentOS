@@ -169,6 +169,9 @@ function inferConceptRelationsFromClaims(
   const inferred: ConceptRelationCandidate[] = [];
 
   for (const claim of claimsMeta) {
+    // A relation inferred from claim prose inherits that claim's evidence. Do
+    // not turn an unprovenanced LLM claim into an apparently grounded graph edge.
+    if (claim.chunkIds.length === 0) continue;
     if (claim.conceptIds.length < 2) continue;
     const text = normalizeTextForMatch(claim.text);
 
@@ -523,22 +526,51 @@ export function compileSourceToWikiChangeSet(input: CompileSourceWikiInput): Wik
     confidenceComponents: c.confidenceComponents,
   }));
 
-  const relationCandidates = new Map<string, ConceptRelationCandidate>();
-  for (const rel of normalizedRelations) {
+  const supportedExplicitRelations = normalizedRelations.flatMap((rel) => {
     const fromId =
       resolveConceptId(conceptLookup, rel.fromConcept.trim()) ??
       conceptIdByName.get(rel.fromConcept.trim());
     const toId =
       resolveConceptId(conceptLookup, rel.toConcept.trim()) ??
       conceptIdByName.get(rel.toConcept.trim());
-    if (!fromId || !toId || fromId === toId) continue;
+    if (!fromId || !toId || fromId === toId) return [];
+
+    const supportingClaims = insertedClaimMeta.filter(
+      (claim) =>
+        claim.chunkIds.length > 0 &&
+        claim.conceptIds.includes(fromId) &&
+        claim.conceptIds.includes(toId),
+    );
+    if (supportingClaims.length === 0) return [];
+
+    return [
+      {
+        ...rel,
+        fromId,
+        toId,
+        sourceClaimIds: supportingClaims.map((claim) => claim.id),
+        sourceChunkIds: uniqueChunkIds(supportingClaims.flatMap((claim) => claim.chunkIds)),
+      },
+    ];
+  });
+
+  if (supportedExplicitRelations.length < normalizedRelations.length) {
+    warnings.push({
+      code: "relation.missing_evidence",
+      message: `${normalizedRelations.length - supportedExplicitRelations.length} extracted relation(s) were omitted because no source-backed claim connected both concepts.`,
+      severity: "warn",
+    });
+  }
+
+  const relationCandidates = new Map<string, ConceptRelationCandidate>();
+  for (const rel of supportedExplicitRelations) {
     upsertConceptRelationCandidate(relationCandidates, {
-      fromId,
-      toId,
+      fromId: rel.fromId,
+      toId: rel.toId,
       relationType: rel.relationType,
       confidence: rel.confidence ?? 0.72,
-      sourceClaimIds: [],
-      sourceChunkIds: [],
+      sourceClaimIds: rel.sourceClaimIds,
+      sourceChunkIds: rel.sourceChunkIds,
     });
   }
 
@@ -561,19 +593,14 @@ export function compileSourceToWikiChangeSet(input: CompileSourceWikiInput): Wik
     }),
   );
 
-  const contradictionEdges = normalizedRelations
+  const contradictionEdges = supportedExplicitRelations
     .filter((r) => r.relationType === "contradicts")
-    .map((r) => {
-      const fromConceptId =
-        resolveConceptId(conceptLookup, r.fromConcept.trim()) ??
-        conceptIdByName.get(r.fromConcept.trim());
-      const toConceptId =
-        resolveConceptId(conceptLookup, r.toConcept.trim()) ??
-        conceptIdByName.get(r.toConcept.trim());
-      if (!fromConceptId || !toConceptId) return null;
-      return { fromConceptId, toConceptId };
-    })
-    .filter(Boolean) as Array<{ fromConceptId: string; toConceptId: string }>;
+    .map((r) => ({
+      fromConceptId: r.fromId,
+      toConceptId: r.toId,
+      sourceClaimIds: r.sourceClaimIds,
+      sourceChunkIds: r.sourceChunkIds,
+    }));
 
   const resolved = resolveClaimGraph({
     notebookId: input.notebookId,

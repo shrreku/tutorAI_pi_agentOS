@@ -10,7 +10,6 @@ import {
   objectiveLists,
   objectives,
   sessionPlans,
-  notebooks,
   sourceVersions,
   sources,
   studyTemplates,

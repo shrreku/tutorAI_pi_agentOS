@@ -6,3 +6,10 @@ pnpm-lock.yaml
 *.min.js
 *.min.css
 **/*.snap
+
+# Frozen Folio Design Lab reference. Hashes are recorded in the Folio port audit.
+apps/web/src/design-lab/directions/folio.tsx
+apps/web/src/design-lab/lib/data.ts
+apps/web/src/design-lab/ui/surfaces.tsx
+apps/web/src/design-lab/ui/folio-nodes.tsx
+apps/web/src/design-lab/ui/layouts/folio-margin.tsx

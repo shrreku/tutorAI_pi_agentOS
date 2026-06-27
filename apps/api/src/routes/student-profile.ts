@@ -6,6 +6,10 @@ import { withOwnedNotebook } from "../hosted-beta/route-guards.js";
 import { readStudentProfile, upsertStudentProfile } from "../student-profile.js";
 import { recordLearnerTraitSignal } from "../learner-trait-store.js";
 
+export const studentProfileHttpPatchSchema = studentProfileUpdatePreferencesInputSchema.omit({
+  userId: true,
+});
+
 export async function registerStudentProfileRoutes(
   app: FastifyInstance,
   ctx: AppContext,
@@ -26,7 +30,7 @@ export async function registerStudentProfileRoutes(
     async (request, reply) => {
       const { notebookId } = request.params;
       return withOwnedNotebook(ctx, request, reply, notebookId, async (actor) => {
-        const parsed = studentProfileUpdatePreferencesInputSchema.safeParse(
+        const parsed = studentProfileHttpPatchSchema.safeParse(
           normalizeStudentProfilePatch(request.body ?? {}),
         );
 
@@ -34,8 +38,8 @@ export async function registerStudentProfileRoutes(
           return reply.status(400).send({ code: "bad_request", message: parsed.error.flatten() });
         }
 
-        // Never trust a client-supplied userId in the body (IDOR): the profile and its
-        // trait signals are always written for the authenticated owner of this notebook.
+        // The HTTP schema strips the tool-only userId field. The profile and its
+        // trait signals are always written for the authenticated notebook owner.
         const result = await upsertStudentProfile(ctx.db, {
           notebookId,
           userId: actor.id,

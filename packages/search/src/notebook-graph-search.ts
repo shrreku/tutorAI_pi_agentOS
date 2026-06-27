@@ -1,7 +1,7 @@
 import type { DbClient } from "@studyagent/db";
 import { claims, concepts, graphRelations } from "@studyagent/db";
 import { graphRelationSemantics } from "@studyagent/schemas";
-import { and, eq, ilike, inArray, notInArray, or } from "drizzle-orm";
+import { and, eq, ilike, inArray, notInArray, or, sql } from "drizzle-orm";
 import type { UnifiedSearchResult } from "./rrf.js";
 
 export async function graphKeywordSearchNotebook(
@@ -30,6 +30,7 @@ export async function graphKeywordSearchNotebook(
         eq(claims.notebookId, notebookId),
         ilike(claims.claimText, q),
         notInArray(claims.status, ["superseded", "deprecated", "archived"]),
+        sql`jsonb_array_length(${claims.sourceChunkIds}) > 0`,
       ),
     )
     .limit(half);
@@ -98,6 +99,7 @@ export async function graphKeywordSearchNotebook(
           eq(graphRelations.notebookId, notebookId),
           eq(graphRelations.sourceNodeType, "concept"),
           eq(graphRelations.targetNodeType, "concept"),
+          sql`jsonb_array_length(${graphRelations.sourceChunkIds}) > 0`,
           or(
             inArray(graphRelations.sourceNodeId, seedIds),
             inArray(graphRelations.targetNodeId, seedIds),

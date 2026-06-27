@@ -4,9 +4,9 @@
 - **Migration policy:** replace the Legacy/Mist frontend completely; do not retain a runtime generation or theme switcher.
 - **Workspace layout:** classic split with a 35% Tutor / 65% Workspace default, draggable persisted divider, and independent pane scrolling.
 - **Historical anatomy reference:** Mist Glass — use [`NODES_PEN.md`](../../NODES_PEN.md) and [`ui-example/mist-glass/`](../../ui-example/mist-glass/README.md) to identify missing component states, not as a production theme.
-**Screenshots:** [`ui-example/folio/`](../../ui-example/folio/README.md) — 34 PNG exports (2026-06-25).  
-**Pencil sources:** [`untitled.pen`](../../untitled.pen), [`gemini.pen`](../../gemini.pen) (Screen 5 · Editorial Ivory).  
-**Behavior specs:** numbered docs `04`–`08` in this folder remain authoritative; the Folio Design Lab is the visual and interaction target, not a replacement behavioral implementation.
+- **Screenshots:** [`ui-example/folio/`](../../ui-example/folio/README.md) — 34 PNG exports (2026-06-25).
+- **Pencil sources:** [`untitled.pen`](../../untitled.pen), [`gemini.pen`](../../gemini.pen) (Screen 5 · Editorial Ivory).
+- **Behavior specs:** numbered docs `04`–`08` in this folder remain authoritative; the Folio Design Lab is the visual and interaction target, not a replacement behavioral implementation.
 
 ## Port target scope
 
@@ -53,12 +53,12 @@ Use [`ui-example/mist-glass/`](../../ui-example/mist-glass/README.md) as the ana
 
 Canonical Folio type system, matching the approved live baseline:
 
-| Role | Typeface | Folio usage |
-|------|----------|-------------|
-| Display / titles | Newsreader | Workspace titles, reference H1s, drawer headings, node XL titles |
-| Long-form reading | Newsreader | Tutor prose, wiki body, worked-example steps |
-| UI / labels / body | Inter | Controls, meta, chips, status bars, graph labels |
-| Eyebrows / locators | JetBrains Mono | Type badges, locators, compact meta |
+| Role                | Typeface       | Folio usage                                                      |
+| ------------------- | -------------- | ---------------------------------------------------------------- |
+| Display / titles    | Newsreader     | Workspace titles, reference H1s, drawer headings, node XL titles |
+| Long-form reading   | Newsreader     | Tutor prose, wiki body, worked-example steps                     |
+| UI / labels / body  | Inter          | Controls, meta, chips, status bars, graph labels                 |
+| Eyebrows / locators | JetBrains Mono | Type badges, locators, compact meta                              |
 
 Self-host all three families through `@fontsource`; do not depend on the Google Fonts CDN. Mist Glass uses Inter throughout; Folio's differentiation is Newsreader-led editorial and reading surfaces with sans UI chrome.
 

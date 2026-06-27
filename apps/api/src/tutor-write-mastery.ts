@@ -40,6 +40,10 @@ export function createMasteryWriteHandlers(
             referenceAnswer: input.referenceAnswer,
             evidenceType: normalizeMasteryEvidenceType(input.evidenceType),
             triggerSource: normalizeMasteryTriggerSource(input.triggerSource),
+            idempotencyKey: `tutor_tool:${ctx.runId}:${ctx.turnId}:${input.objectiveId ?? "none"}:${input.conceptRoles
+              .map((role) => role.conceptId)
+              .sort()
+              .join(",")}`,
           },
           judge ? { judge, analyticsContext: appCtx } : { analyticsContext: appCtx },
         );

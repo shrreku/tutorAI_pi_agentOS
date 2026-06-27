@@ -55,15 +55,21 @@ describe("persistMasteryEvidence", () => {
     const dbClient = {
       db: {
         insert: () => ({
-          values: async (row: Record<string, unknown>) => {
-            insertedRows.push(row);
-          },
+          values: (row: Record<string, unknown>) => ({
+            onConflictDoNothing: () => ({
+              returning: async () => {
+                insertedRows.push(row);
+                return [{ id: evidence.id }];
+              },
+            }),
+          }),
         }),
       },
     } as never;
 
     const result = await persistMasteryEvidence(dbClient, evidence);
     expect(result.evidenceId).toBe(evidence.id);
+    expect(result.inserted).toBe(true);
     expect(insertedRows[0]).toMatchObject({
       turnId: "turn_pi_eval",
       runId: "run_1",

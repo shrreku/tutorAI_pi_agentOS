@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { matchRoute } from "./routes.js";
+import { matchRoute, routeTelemetryName } from "./routes.js";
 import { RouteGuard, SessionProvider } from "./RouteGuards.js";
 import { ErrorBoundary } from "./ErrorBoundary.js";
 import { LandingPage } from "../pages/public/LandingPage.js";
@@ -216,7 +216,7 @@ export function AppRouter() {
     <SessionProvider>
       <RouteGuard routePath={routePath} navigate={navigate}>
         {/* Keyed by route so navigating away clears a tripped boundary. */}
-        <ErrorBoundary key={routePath} area={routePath}>
+        <ErrorBoundary key={routePath} area={routeTelemetryName(match)}>
           {content}
         </ErrorBoundary>
       </RouteGuard>

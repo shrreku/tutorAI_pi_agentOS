@@ -45,6 +45,10 @@ describe("projection rebuild scopes", () => {
     await clearSourceProjectionScope(session, "nb_rebuild", "src_1");
     expect(run).toHaveBeenCalledTimes(6);
     expect(run.mock.calls[0]?.[0]).toContain("DETACH DELETE owned, cur");
+    expect(run.mock.calls[0]?.[0]).toContain("owned:coverage_item");
+    expect(run.mock.calls[0]?.[0]).toContain("owned:coverage_record");
+    expect(run.mock.calls[0]?.[0]).not.toContain("owned:CoverageItem");
+    expect(run.mock.calls[0]?.[0]).not.toContain("owned:CoverageRecord");
     expect(run.mock.calls[1]?.[0]).toContain("DELETE r");
     expect(run.mock.calls[5]?.[0]).toContain("NOT n:Concept");
   });

@@ -100,6 +100,60 @@ describe("Source-to-LLM-Wiki compilation (ticket 9)", () => {
     expect(changeSet.warnings.some((w) => w.code === "claim.missing_evidence")).toBe(true);
   });
 
+  it("does not infer concept relations from an evidence-less claim", () => {
+    const result = compileSourceToWikiChangeSet(
+      baseFixture({
+        extraction: {
+          concepts: [{ name: "Voltage" }, { name: "Current" }],
+          claims: [
+            {
+              claimText: "Voltage depends on Current.",
+              conceptNames: ["Voltage", "Current"],
+            },
+          ],
+          relations: [],
+          sourceSummaryMarkdown: "Circuit quantities.",
+        },
+      }),
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(
+      result.changeSet.graphRelations.some((relation) => relation.relationType === "depends_on"),
+    ).toBe(false);
+  });
+
+  it("only admits explicit concept relations backed by a shared evidenced claim", () => {
+    const result = compileSourceToWikiChangeSet(
+      baseFixture({
+        extraction: {
+          concepts: [{ name: "Voltage" }, { name: "Current" }],
+          claims: [
+            {
+              claimText: "Voltage depends on Current.",
+              conceptNames: ["Voltage", "Current"],
+              evidenceChunkId: "chk_1",
+            },
+          ],
+          relations: [{ fromConcept: "Voltage", toConcept: "Current", relationType: "depends_on" }],
+          sourceSummaryMarkdown: "Circuit quantities.",
+        },
+      }),
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.changeSet.graphRelations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          relationType: "depends_on",
+          sourceChunkIds: ["chk_1"],
+        }),
+      ]),
+    );
+  });
+
   it("returns structured reasons when compilation cannot proceed", () => {
     const noChunks = compileSourceToWikiChangeSet(baseFixture({ chunkIds: [] }));
     expect(noChunks.ok).toBe(false);
@@ -247,8 +301,21 @@ describe("claim conflict and supersession (ticket 11)", () => {
         extraction: {
           concepts: [{ name: "Heat" }, { name: "Cold" }],
           claims: [
-            { claimText: "Heat always flows to cold regions.", conceptNames: ["Heat"] },
-            { claimText: "Cold regions never receive heat.", conceptNames: ["Cold"] },
+            {
+              claimText: "Heat always flows to cold regions.",
+              conceptNames: ["Heat"],
+              evidenceChunkId: "chk_1",
+            },
+            {
+              claimText: "Cold regions never receive heat.",
+              conceptNames: ["Cold"],
+              evidenceChunkId: "chk_2",
+            },
+            {
+              claimText: "The source contrasts Heat with Cold.",
+              conceptNames: ["Heat", "Cold"],
+              evidenceChunkId: "chk_2",
+            },
           ],
           relations: [{ fromConcept: "Heat", toConcept: "Cold", relationType: "contradicts" }],
           sourceSummaryMarkdown: "Summary",
@@ -261,6 +328,11 @@ describe("claim conflict and supersession (ticket 11)", () => {
     expect(result.changeSet.graphRelations.some((r) => r.relationType === "contradicts")).toBe(
       true,
     );
+    expect(
+      result.changeSet.graphRelations
+        .filter((relation) => relation.relationType === "contradicts")
+        .every((relation) => relation.sourceChunkIds.length > 0),
+    ).toBe(true);
     expect(result.changeSet.warnings.some((w) => w.code === "claim.contradiction_resolved")).toBe(
       true,
     );

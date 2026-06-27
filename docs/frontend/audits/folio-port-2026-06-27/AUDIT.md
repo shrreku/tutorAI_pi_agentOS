@@ -22,12 +22,12 @@ Branch and parent commit:
 
 Freeze set:
 
-| File | State | SHA-256 |
-| --- | --- | --- |
-| `apps/web/src/design-lab/directions/folio.tsx` | modified | `9cfa94e4c91b8a88b50b0655d18d144db4477e54ccc2a4005c8e769b4c0a612f` |
-| `apps/web/src/design-lab/lib/data.ts` | modified | `0ee6ab088b667c2f054c502c44379873a58083be5ce33bef6d6f0fe35b4c91e2` |
-| `apps/web/src/design-lab/ui/surfaces.tsx` | modified | `25966995b9e24c3e80ec8bcfb217697c4cfa9e91780bc825de61904b0888fb6b` |
-| `apps/web/src/design-lab/ui/folio-nodes.tsx` | untracked | `3141e705ed6403c0929b68638d958691555e47d9ff895fcf7634f09c70ca2473` |
+| File                                                  | State     | SHA-256                                                            |
+| ----------------------------------------------------- | --------- | ------------------------------------------------------------------ |
+| `apps/web/src/design-lab/directions/folio.tsx`        | modified  | `9cfa94e4c91b8a88b50b0655d18d144db4477e54ccc2a4005c8e769b4c0a612f` |
+| `apps/web/src/design-lab/lib/data.ts`                 | modified  | `0ee6ab088b667c2f054c502c44379873a58083be5ce33bef6d6f0fe35b4c91e2` |
+| `apps/web/src/design-lab/ui/surfaces.tsx`             | modified  | `25966995b9e24c3e80ec8bcfb217697c4cfa9e91780bc825de61904b0888fb6b` |
+| `apps/web/src/design-lab/ui/folio-nodes.tsx`          | untracked | `3141e705ed6403c0929b68638d958691555e47d9ff895fcf7634f09c70ca2473` |
 | `apps/web/src/design-lab/ui/layouts/folio-margin.tsx` | untracked | `6ee8e10a7d9b9e436160c75b31863fa0258e304a5fa4435c9c15b64f7c586d0b` |
 
 These hashes identify the approved live visual target until the TutorBook checkout is committed or tagged. Any later source changes require an explicit baseline refresh rather than silently changing the port target.
@@ -40,20 +40,20 @@ Goal: replace the current working StudyAgent frontend with a complete Folio impl
 
 ## Captured Steps
 
-| Step | Capture | Health | What was verified |
-| --- | --- | --- | --- |
-| 1 | `01-folio-dashboard.png` | Partial | Live notebook names, editorial dashboard hierarchy, notebook expansion, week/month activity switcher |
-| 2 | `02-folio-workspace.png` | At risk at 1280px | Default viewport clips the Design Lab navigation and workspace horizontally |
-| 3 | `03-folio-workspace-1440x900.png` | Visually strong, behavior mocked | Intended desktop tutor + Study Map composition |
-| 4 | `04-folio-workspace-reading.png` | Visually strong, static | Worked-example Reference Surface treatment |
-| 5 | `05-folio-workspace-interactive.png` | Prototype only | Simulator controls update local values; Run produces no new state or durable action |
-| 6 | `06-folio-workspace-app.png` | Misleading prototype | “MCP app” is native local markup with zero iframes; Predict reaction is a no-op |
-| 7 | `07-folio-workspace-practice.png` | Prototype only | Local quiz selection and disabled submit state |
-| 8 | `08-folio-workspace-practice-feedback.png` | Visually clear, not durable | Correct/incorrect feedback appears locally; no API action, mastery evidence, or next-question flow |
-| 9 | `09-folio-nodepack-top.png` | Partial capture | Folio node-pack heading and scale ramp |
-| 10 | `10-folio-nodepack-bottom.png` | Partial capture | Scale ramp and node type families |
-| 11 | `11-folio-nodepack-states.png` | Partial capture | Node types and beginning of state variants |
-| 12 | `12-folio-nodepack-final.png` | Partial capture | Default, selected, active, and additional state treatment at the bottom of the page |
+| Step | Capture                                    | Health                           | What was verified                                                                                    |
+| ---- | ------------------------------------------ | -------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| 1    | `01-folio-dashboard.png`                   | Partial                          | Live notebook names, editorial dashboard hierarchy, notebook expansion, week/month activity switcher |
+| 2    | `02-folio-workspace.png`                   | At risk at 1280px                | Default viewport clips the Design Lab navigation and workspace horizontally                          |
+| 3    | `03-folio-workspace-1440x900.png`          | Visually strong, behavior mocked | Intended desktop tutor + Study Map composition                                                       |
+| 4    | `04-folio-workspace-reading.png`           | Visually strong, static          | Worked-example Reference Surface treatment                                                           |
+| 5    | `05-folio-workspace-interactive.png`       | Prototype only                   | Simulator controls update local values; Run produces no new state or durable action                  |
+| 6    | `06-folio-workspace-app.png`               | Misleading prototype             | “MCP app” is native local markup with zero iframes; Predict reaction is a no-op                      |
+| 7    | `07-folio-workspace-practice.png`          | Prototype only                   | Local quiz selection and disabled submit state                                                       |
+| 8    | `08-folio-workspace-practice-feedback.png` | Visually clear, not durable      | Correct/incorrect feedback appears locally; no API action, mastery evidence, or next-question flow   |
+| 9    | `09-folio-nodepack-top.png`                | Partial capture                  | Folio node-pack heading and scale ramp                                                               |
+| 10   | `10-folio-nodepack-bottom.png`             | Partial capture                  | Scale ramp and node type families                                                                    |
+| 11   | `11-folio-nodepack-states.png`             | Partial capture                  | Node types and beginning of state variants                                                           |
+| 12   | `12-folio-nodepack-final.png`              | Partial capture                  | Default, selected, active, and additional state treatment at the bottom of the page                  |
 
 User-supplied 2880px reference captures were added after the browser pass:
 
@@ -101,18 +101,18 @@ User-supplied 2880px reference captures were added after the browser pass:
 
 ## Current Implementation Reuse And Missing Work
 
-| Folio surface | Current prototype behavior | Existing capability/contract to preserve | Work required before cutover |
-| --- | --- | --- | --- |
-| Dashboard | Real identity/notebook names/credits plus sample progress and activity | `/me`, `/notebooks`, `/study-templates`, `/credits`, auth and entitlement guards | Add `GET /api/v1/dashboard` as an API-owned projection of persisted notebook progress, practice, recommendations, recent activity, and study-time summaries; every approved section remains in scope and sample values are prohibited |
-| Tutor | Static transcript and static Runtime Work View | AG-UI/SSE tutor chat, session lifecycle, trace replay, Artifact consent, current settings | Build a typed tutor client/controller and Folio renderers; add a learner-safe paginated history contract. Reusing `TutorPanel` is optional |
-| Study Map | Hand-positioned sample nodes | Graph query, Workspace read model, layout persistence, selection, React Flow interaction outcomes | Build a Folio semantic node renderer over the real graph; do not port the sample canvas. `Whiteboard` and `GraphCanvas` are not preservation units |
-| Reference/Reading | Static worked example | `/nodes/:nodeId/reference-surface`, Artifact views, regeneration, primary actions | Build Folio renderers for every surface/block type plus loading, empty, failed, proposed, and quality states; `FullPanelViewer` may be replaced |
-| Evidence | Citation chips only | Evidence read model and learner-safe source-opening behavior | Build grouped learner-safe Evidence, source locators/open targets, drawer states, and Folio presentation; `ProvenanceDrawer` may be replaced |
-| Interactive | Local simulator state | Interactive Learning Block contracts and action dispatcher | Bind trusted Simulation Templates and validated Interactive Learning Actions; define pending/error/completed states |
-| MCP app | Fake local component | Sandboxed MCP App Bridge, registry, action envelope | Render the real iframe bundle, host context, fallback, action dispatch, and sandbox errors in Folio chrome |
-| Practice | Local one-question quiz | Quiz normalization, Reference Surface quiz blocks, action client, persisted attempts/Mastery Evidence | Connect selection/submission/result/next-question state to the canonical API pipeline |
-| Node Pack | Seven sample families and six states | Workspace visibility/emphasis, learner labels, page readiness, graph node types | Complete mapping for real node families and independent progress/readiness/learning states; retain hidden/dev-only policy |
-| Hosted-beta routes | Not represented in Design Lab | Public, login, consent, templates, workspace creation, credits, support, account, admin routes | Design and implement Folio parity across the complete route inventory before replacing the working frontend |
+| Folio surface      | Current prototype behavior                                             | Existing capability/contract to preserve                                                              | Work required before cutover                                                                                                                                                                                                          |
+| ------------------ | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Dashboard          | Real identity/notebook names/credits plus sample progress and activity | `/me`, `/notebooks`, `/study-templates`, `/credits`, auth and entitlement guards                      | Add `GET /api/v1/dashboard` as an API-owned projection of persisted notebook progress, practice, recommendations, recent activity, and study-time summaries; every approved section remains in scope and sample values are prohibited |
+| Tutor              | Static transcript and static Runtime Work View                         | AG-UI/SSE tutor chat, session lifecycle, trace replay, Artifact consent, current settings             | Build a typed tutor client/controller and Folio renderers; add a learner-safe paginated history contract. Reusing `TutorPanel` is optional                                                                                            |
+| Study Map          | Hand-positioned sample nodes                                           | Graph query, Workspace read model, layout persistence, selection, React Flow interaction outcomes     | Build a Folio semantic node renderer over the real graph; do not port the sample canvas. `Whiteboard` and `GraphCanvas` are not preservation units                                                                                    |
+| Reference/Reading  | Static worked example                                                  | `/nodes/:nodeId/reference-surface`, Artifact views, regeneration, primary actions                     | Build Folio renderers for every surface/block type plus loading, empty, failed, proposed, and quality states; `FullPanelViewer` may be replaced                                                                                       |
+| Evidence           | Citation chips only                                                    | Evidence read model and learner-safe source-opening behavior                                          | Build grouped learner-safe Evidence, source locators/open targets, drawer states, and Folio presentation; `ProvenanceDrawer` may be replaced                                                                                          |
+| Interactive        | Local simulator state                                                  | Interactive Learning Block contracts and action dispatcher                                            | Bind trusted Simulation Templates and validated Interactive Learning Actions; define pending/error/completed states                                                                                                                   |
+| MCP app            | Fake local component                                                   | Sandboxed MCP App Bridge, registry, action envelope                                                   | Render the real iframe bundle, host context, fallback, action dispatch, and sandbox errors in Folio chrome                                                                                                                            |
+| Practice           | Local one-question quiz                                                | Quiz normalization, Reference Surface quiz blocks, action client, persisted attempts/Mastery Evidence | Connect selection/submission/result/next-question state to the canonical API pipeline                                                                                                                                                 |
+| Node Pack          | Seven sample families and six states                                   | Workspace visibility/emphasis, learner labels, page readiness, graph node types                       | Complete mapping for real node families and independent progress/readiness/learning states; retain hidden/dev-only policy                                                                                                             |
+| Hosted-beta routes | Not represented in Design Lab                                          | Public, login, consent, templates, workspace creation, credits, support, account, admin routes        | Design and implement Folio parity across the complete route inventory before replacing the working frontend                                                                                                                           |
 
 ## Technical Conflicts To Resolve
 

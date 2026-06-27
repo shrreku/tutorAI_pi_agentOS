@@ -63,8 +63,9 @@ describe("Neo4j projection rebuild integration", () => {
       ]);
       session = driver.session();
       connected = true;
-    } catch {
+    } catch (error) {
       connected = false;
+      if (shouldAttempt) throw error;
     }
   }, 10_000);
 

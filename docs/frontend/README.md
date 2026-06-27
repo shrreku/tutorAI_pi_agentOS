@@ -118,11 +118,11 @@ The production foundation is fixed by [ADR-0029](../adr/0029-react-vite-tanstack
 
 Behavior and anatomy live in the numbered docs below. **Pixel-level visuals** live in [`ui-example/`](../../ui-example/README.md) — PNG exports from Pencil design files, grouped by theme:
 
-| Theme | Role | Folder | Notes |
-|-------|------|--------|-------|
-| **Mist Glass** | Historical anatomy reference | [`ui-example/mist-glass/`](../../ui-example/mist-glass/README.md) | Complete component inventory used to identify Folio coverage gaps; not a production theme |
-| **Folio** | Sole implementation baseline | [`ui-example/folio/`](../../ui-example/folio/README.md) | Canonical editorial-ivory product design. Improvement order: completeness → behavioral parity → polish |
-| **Focus** | Exploration archive | [`ui-example/focus/`](../../ui-example/focus/README.md) | Minimalist slate variant — 17 PNGs |
+| Theme          | Role                         | Folder                                                            | Notes                                                                                                  |
+| -------------- | ---------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| **Mist Glass** | Historical anatomy reference | [`ui-example/mist-glass/`](../../ui-example/mist-glass/README.md) | Complete component inventory used to identify Folio coverage gaps; not a production theme              |
+| **Folio**      | Sole implementation baseline | [`ui-example/folio/`](../../ui-example/folio/README.md)           | Canonical editorial-ivory product design. Improvement order: completeness → behavioral parity → polish |
+| **Focus**      | Exploration archive          | [`ui-example/focus/`](../../ui-example/focus/README.md)           | Minimalist slate variant — 17 PNGs                                                                     |
 
 Detailed Mist Glass inventory and Pencil IDs: [`NODES_PEN.md`](../../NODES_PEN.md). Canonical Folio target: [13-folio-design-kit](./13-folio-design-kit.md) + [`ui-example/folio/`](../../ui-example/folio/README.md) + the frozen live-baseline manifest in the [Folio port audit](./audits/folio-port-2026-06-27/AUDIT.md).
 

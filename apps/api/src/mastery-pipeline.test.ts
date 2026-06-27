@@ -2,15 +2,25 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildMasteryEvidenceId } from "@studyagent/schemas";
 import type { MasteryEvidence } from "@studyagent/schemas";
 
-const { persistMasteryEvidence, applyMasteryEvidence } = vi.hoisted(() => ({
-  persistMasteryEvidence: vi.fn(),
-  applyMasteryEvidence: vi.fn(),
-}));
+const { persistMasteryEvidence, readMasteryEvidenceById, applyMasteryEvidence } = vi.hoisted(
+  () => ({
+    persistMasteryEvidence: vi.fn(),
+    readMasteryEvidenceById: vi.fn(),
+    applyMasteryEvidence: vi.fn(),
+  }),
+);
 
-vi.mock("./mastery-evidence-store.js", () => ({ persistMasteryEvidence }));
+vi.mock("./mastery-evidence-store.js", () => ({
+  persistMasteryEvidence,
+  readMasteryEvidenceById,
+}));
 vi.mock("./mastery-learning.js", () => ({ applyMasteryEvidence }));
 
-import { recordAndApplyMasteryEvidence } from "./mastery-pipeline.js";
+import {
+  buildMasteryEvaluationEvidenceId,
+  evaluatePersistAndApply,
+  recordAndApplyMasteryEvidence,
+} from "./mastery-pipeline.js";
 
 const evidence: MasteryEvidence = {
   id: buildMasteryEvidenceId(),
@@ -39,7 +49,13 @@ function makeTxDbClient(): { client: never; transactionCalls: () => number } {
     db: {
       transaction: async (fn: (tx: unknown) => Promise<unknown>) => {
         transactionCalls += 1;
-        return fn({});
+        return fn({
+          select: () => ({
+            from: () => ({
+              where: async () => [],
+            }),
+          }),
+        });
       },
     },
   } as never;
@@ -49,8 +65,14 @@ function makeTxDbClient(): { client: never; transactionCalls: () => number } {
 describe("recordAndApplyMasteryEvidence", () => {
   beforeEach(() => {
     persistMasteryEvidence.mockReset();
+    readMasteryEvidenceById.mockReset();
     applyMasteryEvidence.mockReset();
-    persistMasteryEvidence.mockResolvedValue({ evidenceId: evidence.id, eventId: "evt_1" });
+    persistMasteryEvidence.mockResolvedValue({
+      evidenceId: evidence.id,
+      eventId: "evt_1",
+      inserted: true,
+    });
+    readMasteryEvidenceById.mockResolvedValue(null);
     applyMasteryEvidence.mockResolvedValue({
       updatedConceptStates: [
         { conceptId: "concept_1", masteryScore: 0.8, nextReviewAt: new Date().toISOString() },
@@ -63,7 +85,7 @@ describe("recordAndApplyMasteryEvidence", () => {
     const calls: string[] = [];
     persistMasteryEvidence.mockImplementation(async () => {
       calls.push("persist");
-      return { evidenceId: evidence.id, eventId: "evt_1" };
+      return { evidenceId: evidence.id, eventId: "evt_1", inserted: true };
     });
     applyMasteryEvidence.mockImplementation(async () => {
       calls.push("apply");
@@ -81,7 +103,7 @@ describe("recordAndApplyMasteryEvidence", () => {
     const calls: string[] = [];
     persistMasteryEvidence.mockImplementation(async () => {
       calls.push("persist");
-      return { evidenceId: evidence.id, eventId: "evt_1" };
+      return { evidenceId: evidence.id, eventId: "evt_1", inserted: true };
     });
     applyMasteryEvidence.mockImplementation(async () => {
       calls.push("apply");
@@ -95,5 +117,57 @@ describe("recordAndApplyMasteryEvidence", () => {
     // Both ran inside the one transaction, so a real DB discards the persisted audit row too.
     expect(transactionCalls()).toBe(1);
     expect(calls).toEqual(["persist", "apply"]);
+  });
+});
+
+describe("evaluatePersistAndApply idempotency", () => {
+  beforeEach(() => {
+    persistMasteryEvidence.mockReset();
+    readMasteryEvidenceById.mockReset();
+    applyMasteryEvidence.mockReset();
+  });
+
+  it("derives the same evidence id from the same scoped idempotency key", () => {
+    const input = {
+      notebookId: "nb_1",
+      userId: "user_1",
+      idempotencyKey: "runtime_auto:sess_1:turn_1",
+    };
+    expect(buildMasteryEvaluationEvidenceId(input)).toBe(buildMasteryEvaluationEvidenceId(input));
+    expect(buildMasteryEvaluationEvidenceId(input)).toMatch(/^mev_[a-f0-9]{64}$/);
+  });
+
+  it("replays existing evidence without evaluating or applying mastery again", async () => {
+    const existing = {
+      ...evidence,
+      id: buildMasteryEvaluationEvidenceId({
+        notebookId: "nb_1",
+        userId: "user_1",
+        idempotencyKey: "runtime_auto:sess_1:turn_1",
+      }),
+    };
+    readMasteryEvidenceById.mockResolvedValue(existing);
+    persistMasteryEvidence.mockResolvedValue({
+      evidenceId: existing.id,
+      eventId: "evt_existing",
+      inserted: false,
+    });
+
+    const { client } = makeTxDbClient();
+    const result = await evaluatePersistAndApply(client, {
+      notebookId: "nb_1",
+      userId: "user_1",
+      tutorQuestion: "Explain force.",
+      learnerAnswer: "Force is mass times acceleration.",
+      conceptRoles: [{ conceptId: "concept_1", role: "primary" }],
+      masterySnapshot: {},
+      sourceRefs: [],
+      contextRefs: [],
+      idempotencyKey: "runtime_auto:sess_1:turn_1",
+    });
+
+    expect(result.evidence).toEqual(existing);
+    expect(result.replayed).toBe(true);
+    expect(applyMasteryEvidence).not.toHaveBeenCalled();
   });
 });

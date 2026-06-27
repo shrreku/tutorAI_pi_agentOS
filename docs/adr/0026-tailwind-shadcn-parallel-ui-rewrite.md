@@ -25,11 +25,11 @@ Run the rewrite as a **parallel UI generation** alongside Provisional UI:
 
 **Themes (dev switcher only):**
 
-| Theme | Role | Typography (via `@fontsource`) |
-| --- | --- | --- |
-| **mist** | Implementation baseline; production default | Inter UI; Source Serif 4 reading |
-| **folio** | Design north star | Inter UI; Newsreader display and reading; JetBrains Mono locators |
-| **atlas** | Distinct experimental third theme | Inter UI; IBM Plex Sans display; denser chrome |
+| Theme     | Role                                        | Typography (via `@fontsource`)                                    |
+| --------- | ------------------------------------------- | ----------------------------------------------------------------- |
+| **mist**  | Implementation baseline; production default | Inter UI; Source Serif 4 reading                                  |
+| **folio** | Design north star                           | Inter UI; Newsreader display and reading; JetBrains Mono locators |
+| **atlas** | Distinct experimental third theme           | Inter UI; IBM Plex Sans display; denser chrome                    |
 
 Folio gaps with no PNG export are **designed in implementation** using Mist Glass anatomy as skeleton, not blocked on new `ui-example/` assets.
 

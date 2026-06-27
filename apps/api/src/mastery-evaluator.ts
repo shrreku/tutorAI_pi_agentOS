@@ -49,6 +49,7 @@ export type MasteryEvaluatorJudge = (
 export type EvaluateLearnerResponseInput = MasteryEvidenceInput & {
   notebookId: string;
   userId: string;
+  evidenceId?: string | undefined;
   sessionId?: string | undefined;
   turnId?: string | undefined;
   runId?: string | undefined;
@@ -364,7 +365,7 @@ export async function evaluateLearnerResponse(
       : judgment.overallScore;
 
   const evidence = {
-    id: buildMasteryEvidenceId(),
+    id: input.evidenceId ?? buildMasteryEvidenceId(),
     notebookId: input.notebookId,
     userId: input.userId,
     correctnessLabel: judgment.correctnessLabel,

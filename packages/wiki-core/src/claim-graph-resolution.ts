@@ -36,6 +36,8 @@ export type ExistingNotebookClaim = {
 export type ConceptContradictionEdge = {
   fromConceptId: string;
   toConceptId: string;
+  sourceClaimIds: string[];
+  sourceChunkIds: string[];
 };
 
 export type ResolvedClaimGraph = {
@@ -208,6 +210,17 @@ export function resolveClaimGraph(input: ResolveClaimGraphInput): ResolvedClaimG
   });
 
   for (const pair of contradictionPairs) {
+    const claimA = input.newClaims.find((claim) => claim.id === pair.a);
+    const claimB = input.newClaims.find((claim) => claim.id === pair.b);
+    const supportingEdge = input.contradictionEdges.find(
+      (edge) =>
+        claimA &&
+        claimB &&
+        ((claimA.conceptIds.includes(edge.fromConceptId) &&
+          claimB.conceptIds.includes(edge.toConceptId)) ||
+          (claimA.conceptIds.includes(edge.toConceptId) &&
+            claimB.conceptIds.includes(edge.fromConceptId))),
+    );
     graphRelations.push({
       id: input.nextRelationId(),
       sourceNodeType: "claim",
@@ -216,8 +229,8 @@ export function resolveClaimGraph(input: ResolveClaimGraphInput): ResolvedClaimG
       targetNodeId: pair.b,
       relationType: "contradicts",
       confidence: 0.65,
-      sourceClaimIds: [pair.a, pair.b],
-      sourceChunkIds: [],
+      sourceClaimIds: [...new Set([pair.a, pair.b, ...(supportingEdge?.sourceClaimIds ?? [])])],
+      sourceChunkIds: supportingEdge?.sourceChunkIds ?? [],
       metadataJson: {
         wikiLifecycle: "claim_contradiction",
         ingestionSourceId: input.ingestionSourceId,
