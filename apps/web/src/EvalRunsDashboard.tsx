@@ -97,7 +97,7 @@ export default function EvalRunsDashboard({
   const evalPlans = run?.evalPlans ?? [];
 
   return (
-    <div className="app">
+    <div className="study-shell" data-theme="mist">
       <main className="study-main">
         <header className="study-topbar">
           <div className="study-topbar-heading">

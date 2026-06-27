@@ -15,8 +15,8 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import type { GraphCanvasNode, GraphQueryResponse } from "@studyagent/schemas";
+import { learnerFacingNodeTypeLabel, learnerFacingPipelineStatus } from "@studyagent/schemas";
 import { buildIntentAwareLayout, getLearnerNodeTitle, learnerMasteryMetaFromNode, learnerPageReadinessFromNode } from "./whiteboard-utils.js";
-import { StudyNode, studyNodeSize } from "./kit/components/StudyNode.js";
 
 interface GraphCanvasProps {
   graphData: GraphQueryResponse | null;
@@ -28,16 +28,34 @@ interface GraphCanvasProps {
 }
 
 const NODE_COLORS: Record<string, string> = {
-  concept: "#6366f1",
-  source: "#16a34a",
-  curriculum: "#ea580c",
-  study_plan: "#2563eb",
-  objective: "#7c3aed",
-  artifact: "#d97706",
-  claim: "#6b7280",
+  concept: "#3b82f6",
+  source: "#10b981",
+  source_section: "#34d399",
+  topic: "#0ea5e9",
+  artifact: "#f59e0b",
+  claim: "#8b5cf6",
+  sub_concept: "#06b6d4",
+  cross_domain_connection: "#ec4899",
+  curriculum: "#f97316",
+  curriculum_module: "#ea580c",
+  objective: "#fb923c",
+  objective_list: "#c2410c",
+  study_plan: "#a78bfa",
+  session_plan: "#7c3aed",
+  wiki_page: "#0ea5e9",
+  tutor_session: "#2563eb",
+  weak_concept: "#ef4444",
+  coverage_item: "#14b8a6",
+  coverage_record: "#0f766e",
 };
 
-const NODE_COLOR_DEFAULT = "#94a3b8";
+const NODE_COLOR_DEFAULT = "#6b7280";
+
+const LEARNER_NODE_TYPE_LABELS: Record<string, string> = {
+  study_plan: "Live Plan",
+  session_plan: "Lesson plan",
+  tutor_session: "Session",
+};
 
 interface CustomNodeData {
   title: string;
@@ -53,24 +71,112 @@ interface CustomNodeData {
 }
 
 const StudyAgentNode: React.FC<{ data: CustomNodeData }> = ({ data }) => {
-  const opacity = data.isConnected || data.isSelected ? 1 : 0.72;
+  const bgColor = NODE_COLORS[data.nodeType] ?? NODE_COLOR_DEFAULT;
+  const opacity = data.isConnected || data.isSelected ? 1 : 0.75;
 
   return (
     <>
       <Handle type="target" position={Position.Top} style={{ opacity: 0 }} />
-      <StudyNode
-        as="button"
-        nodeType={data.nodeType}
-        title={data.title}
-        summary={data.summary}
-        meta={data.meta}
-        status={data.status}
-        pageReadiness={data.pageReadiness}
-        selected={data.isSelected}
-        size={studyNodeSize(data.nodeType)}
+      <div
         onClick={data.onSelect}
-        style={{ opacity, textAlign: "left", cursor: "pointer" }}
-      />
+        title={data.title}
+        className="graph-study-node"
+        data-selected={data.isSelected}
+        style={{
+          ["--node-color" as string]: bgColor,
+          borderColor: data.isSelected ? bgColor : undefined,
+          opacity,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, marginBottom: 8 }}>
+          <span
+            style={{
+              maxWidth: 92,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              color: bgColor,
+              fontSize: 10,
+              fontWeight: 800,
+              textTransform: "uppercase",
+            }}
+          >
+            {LEARNER_NODE_TYPE_LABELS[data.nodeType] ?? learnerFacingNodeTypeLabel(data.nodeType)}
+          </span>
+          {data.pageReadiness ? (
+            <span
+              title="Page readiness"
+              style={{
+                maxWidth: 88,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                borderRadius: 999,
+                background: "#eef2ff",
+                color: "#4338ca",
+                border: "1px solid #c7d2fe",
+                padding: "1px 6px",
+                fontSize: 9,
+                fontWeight: 800,
+              }}
+            >
+              {data.pageReadiness}
+            </span>
+          ) : data.status ? (
+            <span
+              style={{
+                maxWidth: 52,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                borderRadius: 999,
+                background: "var(--panel-muted)",
+                color: "var(--text-muted)",
+                padding: "1px 6px",
+                fontSize: 9,
+                fontWeight: 700,
+              }}
+            >
+              {learnerFacingPipelineStatus(data.status)}
+            </span>
+          ) : null}
+        </div>
+        <div
+          style={{
+            color: "var(--text-strong)",
+            fontSize: 13,
+            lineHeight: 1.2,
+            fontWeight: data.isSelected ? 800 : 750,
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+          }}
+        >
+          {data.title}
+        </div>
+        {data.summary && (
+          <div
+            style={{
+              color: "var(--text-muted)",
+              fontSize: 10,
+              lineHeight: 1.25,
+              marginTop: 6,
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+            }}
+          >
+            {data.summary}
+          </div>
+        )}
+        {data.meta && (
+          <div style={{ color: "var(--text)", fontSize: 10, fontWeight: 700, marginTop: 8 }}>
+            {data.meta}
+          </div>
+        )}
+      </div>
       <Handle type="source" position={Position.Bottom} style={{ opacity: 0 }} />
     </>
   );
@@ -228,7 +334,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   }
 
   return (
-    <div className="map-canvas graph-canvas-surface" style={{ width: "100%", height: "100%", minHeight: "100%" }}>
+    <div className="graph-canvas-surface" style={{ width: "100%", height: "100%", background: "var(--panel-strong)" }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -245,7 +351,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         minZoom={0.1}
         maxZoom={3}
         defaultEdgeOptions={{ type: "smoothstep" }}
-        style={{ background: "transparent" }}
+        style={{ background: "var(--panel-strong)" }}
       >
         <Background color="oklch(88% 0.018 255)" gap={22} />
         <Controls />
