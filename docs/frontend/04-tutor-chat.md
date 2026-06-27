@@ -146,6 +146,20 @@ Design guidance:
 - history is a drawer or inline panel inside Tutor, not a global route;
 - the learner must understand when they are viewing a previous session.
 
+Tutor History is required for the hosted beta MVP. It must cover the learner's retained session history through pagination rather than only the recent developer trace window.
+
+Backend contract:
+
+- paginated learner-safe session summaries;
+- server-side search across learner questions and tutor answers;
+- all, questions, and answers filters;
+- session title, start and end time, mode, status, turn count, and latest answer snippet;
+- explicit current-session marker;
+- learner-safe transcript retrieval for one selected session;
+- stable ordering and pagination cursor.
+
+Runtime traces, tool arguments, model metadata, raw IDs, and developer events are not Tutor History. They remain Dev Mode diagnostics and must not be required to render or search learner history.
+
 ## Composer
 
 Required behavior:

@@ -2,7 +2,7 @@
 
 ## Theme
 
-Default to a light, tinted-neutral product theme. The **hosted-beta implementation baseline** is Mist Glass — see [`ui-example/mist-glass/`](../../ui-example/mist-glass/README.md) and [`NODES_PEN.md`](../../NODES_PEN.md). The **design north star** is Folio — see [13-folio-design-kit](./13-folio-design-kit.md) and [`ui-example/folio/`](../../ui-example/folio/README.md).
+Default to the light, warm-neutral **Folio** product theme. Folio is the sole implementation baseline; see [13-folio-design-kit](./13-folio-design-kit.md), [`ui-example/folio/`](../../ui-example/folio/README.md), and the frozen live-baseline manifest in the [Folio port audit](./audits/folio-port-2026-06-27/AUDIT.md). Mist Glass remains an anatomy-completeness reference only.
 
 Reason: students use the workspace for long study sessions with source documents, formulas, and dense notes. A light surface keeps source reading, graph scanning, and writing comfortable while allowing focused accents for active state and Evidence.
 

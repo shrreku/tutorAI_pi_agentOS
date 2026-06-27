@@ -1,12 +1,28 @@
 # Folio Design Kit
 
-**Role:** Design north star — the preferred long-term visual theme for TutorBook.  
-**Beta policy:** not shipped in production until kit parity; hosted beta stays **100% Mist Glass** on **classic split layout** until a coordinated theme + layout migration.  
-**Layout paradigms:** still under evaluation in [`design-variations/`](../../design-variations/README.md) — orthogonal to Folio completeness work. **First Folio prototype:** v1 Focus Map · dock (canvas-primary, floating tutor dock). Contenders v3 and v4 follow.  
-**Implementation baseline (hosted beta):** Mist Glass — see [`NODES_PEN.md`](../../NODES_PEN.md) and [`ui-example/mist-glass/`](../../ui-example/mist-glass/README.md).  
+- **Role:** Sole production design and implementation baseline for TutorBook.
+- **Migration policy:** replace the Legacy/Mist frontend completely; do not retain a runtime generation or theme switcher.
+- **Workspace layout:** classic split with a 35% Tutor / 65% Workspace default, draggable persisted divider, and independent pane scrolling.
+- **Historical anatomy reference:** Mist Glass — use [`NODES_PEN.md`](../../NODES_PEN.md) and [`ui-example/mist-glass/`](../../ui-example/mist-glass/README.md) to identify missing component states, not as a production theme.
 **Screenshots:** [`ui-example/folio/`](../../ui-example/folio/README.md) — 34 PNG exports (2026-06-25).  
 **Pencil sources:** [`untitled.pen`](../../untitled.pen), [`gemini.pen`](../../gemini.pen) (Screen 5 · Editorial Ivory).  
-**Behavior specs:** numbered docs `04`–`08` in this folder — Folio is skin + chrome only until kit parity is reached.
+**Behavior specs:** numbered docs `04`–`08` in this folder remain authoritative; the Folio Design Lab is the visual and interaction target, not a replacement behavioral implementation.
+
+## Port target scope
+
+The coordinated Folio cutover covers every public route and authenticated learner route, including the hosted-beta app shell and notebook Workspace. These surfaces receive the complete Folio visual and interaction treatment while preserving the security rules, API/domain semantics, tutor-runtime outcomes, Workspace behavior, and learner-state invariants that make the product work.
+
+Routes without an existing Folio reference are designed and implemented during the port from the canonical Folio tokens, typography, spacing, primitives, and interaction language. Separate Design Lab frames are not a prerequisite, but no public, learner, empty, loading, error, or responsive state may retain generic, Legacy, or Mist presentation.
+
+Legacy removal is a clean frontend replacement. No existing component, hook, context, router, fetch wrapper, CSS file, or frontend dependency is protected. Reuse one only when it is the safest path to a verified capability. Preserve behavior at the contract and outcome boundary: API/auth rules, streaming semantics, graph/read models, Reference Surfaces, Evidence, Artifacts, ingestion state, entitlements, and the MCP bridge must remain working or be deliberately superseded before their old consumers are removed. Do not reproduce domain behavior from Design Lab mock state.
+
+Admin remains an operator-first surface: dense tables, compact controls, and its existing information architecture. It adopts the same Folio tokens, shared primitives, accessibility rules, and state language, but it does not inherit the editorial learner-page composition. Eval and other development-only routes follow the same operator-surface policy.
+
+The implementation remains on the repository's Tailwind 3.4 + shared shadcn/Radix foundation. Port visual values from the approved Tailwind 4 Design Lab baseline into shared CSS custom properties and Tailwind 3 configuration; do not copy `@theme` syntax or upgrade Tailwind as part of the Folio migration.
+
+All dashboard sections in the approved Folio baseline are production scope and consume the API-owned Learner Dashboard Summary. Do not retain the Design Lab's sample progress, practice, recommendations, activity, or study-time values.
+
+The dashboard Study time chart is blocked on ADR-0028's persisted Study Activity Intervals. Do not substitute Tutor Session elapsed time, browser-open time, or generic analytics.
 
 ---
 
@@ -35,16 +51,16 @@ Use [`ui-example/mist-glass/`](../../ui-example/mist-glass/README.md) as the ana
 
 ### Typography roles
 
-Shared type system across design explorations (`design-variations/README.md`):
+Canonical Folio type system, matching the approved live baseline:
 
-| Role                | Typeface                             | Folio usage                                                      |
-| ------------------- | ------------------------------------ | ---------------------------------------------------------------- |
-| Display / titles    | Fraunces (Instrument Serif fallback) | Workspace titles, reference H1s, drawer headings, node XL titles |
-| Long-form reading   | Instrument Serif                     | Tutor prose, wiki body, worked-example steps                     |
-| UI / labels / body  | Inter                                | Controls, meta, chips, status bars, graph labels                 |
-| Eyebrows / locators | JetBrains Mono                       | Type badges, locators, compact meta                              |
+| Role | Typeface | Folio usage |
+|------|----------|-------------|
+| Display / titles | Newsreader | Workspace titles, reference H1s, drawer headings, node XL titles |
+| Long-form reading | Newsreader | Tutor prose, wiki body, worked-example steps |
+| UI / labels / body | Inter | Controls, meta, chips, status bars, graph labels |
+| Eyebrows / locators | JetBrains Mono | Type badges, locators, compact meta |
 
-Mist Glass uses Inter throughout; Folio's differentiation is serif-forward reading surfaces with sans UI chrome.
+Self-host all three families through `@fontsource`; do not depend on the Google Fonts CDN. Mist Glass uses Inter throughout; Folio's differentiation is Newsreader-led editorial and reading surfaces with sans UI chrome.
 
 ### Node states (Folio)
 

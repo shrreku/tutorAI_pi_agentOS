@@ -27,6 +27,22 @@ Base dimensions should remain stable:
 - summary: max two lines;
 - no layout shift on hover or selection.
 
+## Data And Presentation Ownership
+
+The Workspace Read Model must provide the learner meaning required by each node:
+
+- learner-safe type label;
+- independent progress, readiness, and learning states;
+- learner-safe status label derived from those states;
+- relative importance;
+- Evidence count;
+- available primary actions;
+- disabled or locked reason when applicable.
+
+The frontend maps those semantics to node size, color, icon, badge, border, and layout. API responses must not contain CSS classes, theme tokens, pixel dimensions, or renderer-specific component names.
+
+State dimensions may coexist. For example, an Objective can be `current` and `needs_practice`, while its Reference Surface is `ready_to_study`.
+
 ## Node Type Families
 
 ### Source Node

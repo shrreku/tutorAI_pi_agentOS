@@ -4,6 +4,15 @@
 
 This file gives designers enough technical contract detail to design complete frontend surfaces without coupling the design to raw backend internals.
 
+Production architecture and delivery are defined in:
+
+- [ADR-0029](../adr/0029-react-vite-tanstack-fastify-folio-foundation.md);
+- [Folio production architecture](./14-folio-production-architecture.md);
+- [Folio end-to-end implementation plan](./15-folio-end-to-end-implementation-plan.md);
+- [Folio ticket drafts](./16-folio-ticket-drafts.md).
+
+The current frontend component tree is disposable. This handoff preserves product behavior, schemas, authorization, persistence, and runtime outcomes; it does not require reuse of the existing router, fetch helpers, contexts, hooks, components, or dependencies.
+
 ## Key Route Contracts
 
 API base:
@@ -19,10 +28,71 @@ Auth base (outside `/api/v1`):
 
 Web dev server and nginx must proxy both `/api` and `/auth` to the API process.
 
+Folio route coverage is complete-product scope. Design and implement every public, learner, Workspace, and required state directly from the canonical Folio system, including routes that lack Design Lab frames. Admin and development-only routes retain operator-first composition but use the same tokens and primitives. A route is not complete while it falls back to Legacy, Mist, generic shadcn defaults, or unstyled provisional presentation.
+
 Session and entitlements:
 
 - `GET /api/v1/me` — user, entitlements, Beta Consent state, credits (`percentRemaining`, `exhausted` only; no cents)
 - `POST /api/v1/me/consent` — accept Beta Consent
+
+## Learner Dashboard Read Model
+
+The Folio dashboard is a real product surface, not seeded demonstration content. Add one learner-scoped API projection:
+
+- `GET /api/v1/dashboard` returns the complete Learner Dashboard Summary for the authenticated learner.
+
+The response must include:
+
+- owned notebook summaries with current curriculum/module, persisted progress, last activity, and a typed resume action;
+- a due-practice queue backed by persisted Artifacts, quiz attempts, learning state, and `nextReviewAt`;
+- recommended plan items backed by the learner's persisted Study Plan and learner state;
+- learner-safe recent activity backed by durable notebook events, sessions, attempts, and Artifact lifecycle changes;
+- weekly and monthly active tutor-session activity derived from persisted lifecycle intervals;
+- explicit `empty`, `not_ready`, or unavailable values when source state does not exist.
+
+The API owns joins, ordering, learner-safe labels, duration derivation, recommendation reasons, and action targets. The frontend owns presentation, loading/error/empty states, week/month selection, and navigation. It must not join per-notebook endpoints, inspect raw event payloads, fabricate percentages or durations, or substitute sample rows.
+
+Existing durable sources are `notebooks`, Study State/Study Plans, `tutor_sessions`/`tutor_turns`, `artifacts`, `quiz_attempts`, `learning_state`, `mastery_evidence`, Study Activity Intervals, and notebook `events`. Product analytics is not the canonical source for learning progress or Study time.
+
+### Study Activity Interval prerequisite
+
+The Folio dashboard's Study time chart requires ADR-0028 before release.
+
+- Persist intervals with learner, notebook, optional Tutor Session, surface, optional target `NodeRef`, start, last activity, end, and end reason.
+- Accept coalesced, idempotent pulses through a learner-owned notebook route such as `POST /api/v1/notebooks/:notebookId/study-activity/pulse`.
+- Emit semantic pulses for Tutor sends/completions, surface changes, node/reference/Evidence opens, practice actions, and Interactive Learning Actions.
+- A visible surface may send a sparse heartbeat only after recent meaningful activity; hidden tabs, browser-open time, and raw mouse movement do not extend an interval.
+- The API starts, merges, and caps intervals at the inactivity boundary. Expiry is enforced on the next pulse/read/lifecycle request so no continuous sweeper is required.
+- `GET /api/v1/dashboard` aggregates these persisted intervals for weekly/monthly Study time.
+- Pulse payloads contain no source text, transcript text, learner answer, pointer coordinates, or private mastery detail.
+
+Session Liveness is separate:
+
+- persist a Tutor Turn Disposition such as `informational`, `awaiting_learner`, or `interactive_task`;
+- the existing `pendingMasteryEvaluation` maps to `awaiting_learner`; Interactive Learning launches map to `interactive_task`; otherwise default to `informational`;
+- prompt `Continue studying?` after 15 inactive minutes for informational turns and 30 inactive minutes for `awaiting_learner` or `interactive_task`;
+- `Continue` renews activity and liveness; `Pause` or no response pauses the session and emits the normal lifecycle event;
+- fix the existing implicit paused-to-active path in `getOrCreateTutorSession` so every transition emits a resume event.
+
+Recommendation policy:
+
+- `GET /api/v1/dashboard` is a pure read and never invokes an LLM;
+- eligibility, due state, and ordering are deterministic from persisted Study Plans, Mastery Evidence, learning state, and review dates;
+- tutor/planning flows may generate explanation copy or richer plan content with an LLM, but must persist the result, generation metadata, and source state before the dashboard can display it;
+- deterministic fallback labels and reasons are always available when no generated enrichment exists;
+- an explicit `POST /api/v1/dashboard/recommendations/refresh` may enqueue asynchronous LLM enrichment, return `202`, and leave the current persisted recommendations usable while generation runs;
+- refresh success or failure is persisted and exposed by the Dashboard Summary so the UI can invalidate and render honest pending/error/freshness states.
+
+Dashboard action policy:
+
+- Continue, review, practice, and resume rows return a typed Dashboard Action Target and deep-link into `/notebooks/:notebookId`;
+- each target carries a Workspace surface, optional `NodeRef`/Artifact/Session reference, and explicit intent;
+- the router serializes targets through one shared URL helper, and the Workspace bootstraps selection/view state from that URL so reload, back/forward navigation, and links remain deterministic;
+- opening a card or recommendation never mutates learner state;
+- week/month selection, row expansion, and filtering remain dashboard-local state;
+- only explicit commands such as recommendation refresh call mutating APIs and expose pending/success/failure state.
+
+The current Workspace keeps selected node, Artifact, Session, and view state in component/context state and has no URL bootstrap path. Adding the shared Dashboard Action Target schema, URL codec, and Workspace initialization is required before dashboard CTAs are functional.
 
 - `GET /api/v1/credits` — `{ percentRemaining, exhausted }`
 
@@ -142,6 +212,43 @@ Designer implication:
 - design retry and partial failure;
 - design tool-only turns with no final tutor message.
 
+## Tutor History Read Model — Hosted Beta MVP
+
+Complete Tutor History is a hosted-beta MVP requirement. The existing recent-session response and developer trace endpoint are not sufficient contracts for the learner surface.
+
+Required API surfaces:
+
+- `GET /api/v1/notebooks/:notebookId/tutor/sessions?cursor=&limit=&query=&filter=` returns paginated learner-safe summaries;
+- `GET /api/v1/notebooks/:notebookId/tutor/sessions/:sessionId` returns the learner-safe transcript for a selected session.
+
+Session summary:
+
+```ts
+{
+  sessionId: string;
+  title: string;
+  mode: "learn" | "practice" | "revise" | "explore" | "wiki_maintenance";
+  status: "active" | "paused" | "completed";
+  startedAt: string;
+  endedAt?: string;
+  turnCount: number;
+  firstQuestionSnippet?: string;
+  latestAnswerSnippet?: string;
+  current: boolean;
+}
+```
+
+List response:
+
+```ts
+{
+  sessions: TutorHistorySessionSummary[];
+  nextCursor?: string;
+}
+```
+
+The API owns pagination, search, filtering, title/snippet derivation, and learner-safe transcript projection. The frontend owns the history panel, selection state, loading and empty states, and the clear `Viewing previous session` treatment. `/tutor/trace` remains a Dev Mode replay and diagnostics surface, not a dependency of Tutor History.
+
 ## NodeRef
 
 Canonical reference shape:
@@ -177,6 +284,8 @@ Reference surface includes:
 - quality;
 - generation metadata.
 
+`surfaceType` includes `live_plan`. A study-plan node must return `surfaceType: "live_plan"`; it must not masquerade as `objective`. The embedded interactive block remains kind `live_plan`.
+
 Primary actions:
 
 - ask tutor;
@@ -191,6 +300,44 @@ Designer implication:
 - header action bar must support variable action sets;
 - body must support static and interactive blocks;
 - quality and status must be learner-safe.
+
+## Evidence Read Model — Hosted Beta MVP
+
+Rich Evidence is a hosted-beta MVP requirement because it is the learner-facing trust layer, not optional presentation polish.
+
+The API contract must provide enough learner-safe data to render the Mist Glass Evidence examples without exposing raw claim, chunk, or entity internals:
+
+- total Evidence count;
+- Evidence grouped by contributing source;
+- source title and source type;
+- source-appropriate locator such as page, slide, section, or timestamp;
+- excerpt or supporting note;
+- stable target for opening the original source at the locator when supported;
+- optional preview asset;
+- empty, unavailable, and hidden-debug-item states.
+
+The beta baseline remains useful without generated previews: source title, locator, excerpt, and open-source target are required. The frontend owns drawer layout, tabs, loading states, responsive presentation, and optional client-rendered previews; the API owns source grouping, learner-safe labels, locators, and open-source targets.
+
+Server-generated page or slide thumbnails are out of scope for hosted beta. `previewAsset` may be absent. Adding a thumbnail-generation worker, derived-image storage, or ingestion gate is not required for the frontend to ship.
+
+Source Open Target:
+
+```ts
+type SourceOpenTarget = {
+  sourceId: string;
+  sourceTitle: string;
+  sourceType: "pdf" | "slides" | "document" | "audio" | "video" | "web" | "other";
+  href: string; // authenticated app-relative destination; treat as opaque
+  locator:
+    | { kind: "page"; start: number; end?: number; label: string }
+    | { kind: "slide"; start: number; end?: number; label: string }
+    | { kind: "section"; section: string; label: string }
+    | { kind: "timestamp"; startSeconds: number; endSeconds?: number; label: string }
+    | { kind: "none"; label: null };
+};
+```
+
+The API derives this target from source and Evidence metadata. The frontend may pass the typed locator to its source viewer, but it must not construct source URLs from object keys, signed storage URLs, or raw chunk metadata.
 
 ## Static Block Kinds
 
@@ -274,13 +421,42 @@ Node catalog includes:
 - visibility: learner, dev-only, hidden;
 - Reference surface target;
 - emphasis: current objective, current module, current path, none;
-- Evidence availability.
+- learner-safe type label;
+- independent progress, readiness, and learning states;
+- learner-safe status label;
+- relative importance: primary, secondary, supporting;
+- Evidence count;
+- available primary actions;
+- disabled or locked reason when applicable.
 
 Designer implication:
 
 - node visibility and emphasis should be first-class visual states;
 - hidden and dev-only nodes must not leak into learner mode;
-- current path treatment should not require custom backend rules in the UI.
+- current path treatment should not require custom backend rules in the UI;
+- frontend themes map semantic fields to size, color, icon, badge, and layout;
+- the API must not return CSS classes, theme tokens, pixel dimensions, or component names.
+
+Semantic state contract:
+
+```ts
+{
+  progressState: "current" | "upcoming" | "completed" | "locked" | "none";
+  readinessState:
+    | "processing"
+    | "still_improving"
+    | "ready_to_study"
+    | "needs_more_source_support"
+    | "needs_refresh"
+    | "needs_review"
+    | "unavailable"
+    | "none";
+  learningState: "not_started" | "in_progress" | "needs_practice" | "proficient" | "none";
+  statusLabel: string | null;
+}
+```
+
+These dimensions are independent. A node may simultaneously be the current Objective, need practice, and have a Reference Surface that is ready to study. The frontend must not collapse raw graph, ingestion, mastery, or artifact statuses into this contract itself.
 
 ## Artifact View Shape
 

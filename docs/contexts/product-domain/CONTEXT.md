@@ -189,6 +189,12 @@ Session Node: learner-facing Study Map representation of a real tutor session, d
 
 Tutor Activity: learner-facing summary of what the tutor is doing during a live response or completed turn; raw traces remain Dev Mode/debug language.
 
+Session Liveness: whether a Tutor Session remains active and ready to continue without an explicit resume. Session Liveness protects conversation continuity; it is not evidence that the learner was studying for the entire elapsed period.
+
+Tutor Turn Disposition: structured description of what the learner is expected to do after a Tutor Turn, such as read an informational response, answer a question, or complete an Interactive Learning task. It determines the Session Liveness wait policy without treating punctuation or free-form prose as canonical state.
+
+Study Activity Interval: bounded period of learner engagement in a Personal Learner Workspace, attributed to a surface such as Tutor, Study Map, Reference, Evidence, Practice, or Interactive. Study time is the sum of these intervals; hidden-tab time, inactivity beyond the allowed grace period, and raw session elapsed time are excluded.
+
 Teaching Arc: internal pedagogical execution plan for an objective: orient, intuition, formalism, examples, misconception, checkpoint, summary, branch.
 
 Mastery Check: lightweight in-session question, quiz prompt, or checkpoint used by the tutor to assess learner understanding during live tutoring.
@@ -235,7 +241,7 @@ Mastery Evidence: structured judgment from learner performance that separates co
 
 Tutoring Intervention: evaluator-recommended next teaching move: clarify, reteach, worked example, guided practice, quick check, or advance.
 
-Live Plan: learner-facing adaptive plan backed by study plan state. Shows current objective, next objectives, progress, weak concepts, and next actions. It is not an artifact.
+Live Plan: learner-facing adaptive plan backed by study plan state. Shows current objective, next objectives, progress, weak concepts, and next actions. It is a distinct Reference Surface, not an Objective or an Artifact.
 
 Live Plan Action: learner interaction with the Live Plan. Safe actions may open, start, resume, or review existing learning surfaces; plan-changing actions should express learner intent for tutor or reducer-governed handling rather than directly marking mastery, completing objectives, or rewriting curriculum.
 
@@ -249,7 +255,7 @@ Personalized Note: a note artifact tailored with learner-specific points based o
 
 Exam Preparation: future learner goal and tutoring mode focused on preparing for a specific exam through exam-aware pacing, revision planning, drills, mock exams, scoring rubrics, and weak-concept prioritization while staying grounded in notebook sources and learner mastery.
 
-Reference Surface: anything the learner can open in the Workspace to read, review, or act on: source, curriculum, module, objective, session, concept, wiki page, or artifact.
+Reference Surface: anything the learner can open in the Workspace to read, review, or act on: source, curriculum, module, objective, Live Plan, session, concept, wiki page, or artifact.
 
 Interactive Learning Surface: a learner-facing Reference Surface with interactive controls for practice, exploration, review, or Evidence inspection. It is not a separate durable object by default; durable learner outputs remain Artifacts, Mastery Evidence, or learning state. The tutor may launch, steer, and discuss it, but the tutor chat remains the teaching spine.
 
@@ -258,6 +264,14 @@ Interactive Learning Signal: a learner action inside an Interactive Learning Sur
 Simulation Template: a trusted reusable Interactive Learning Surface pattern for visualizing or manipulating a concept, such as a function plotter, physics model, algorithm animation, probability sampler, or graph traversal. Learner-facing simulations should use Simulation Templates with tutor-generated parameters and prompts rather than arbitrary generated code.
 
 Simulation Draft: an experimental generated simulation used to explore or test a future Simulation Template. It is not learner-facing product state until it is reviewed and promoted into a trusted Simulation Template.
+
+Trusted Template Mode: the default learner runtime for hosted beta and production. Reference Surfaces may render only promoted Simulation Templates, allowlisted Interactive Learning Block kinds, and globally versioned MCP App Bundles. Block content and parameters may vary per notebook; renderer code and action contracts may not.
+
+Generative Interactive Mode: an environment-gated runtime and authoring lane where unreviewed Simulation Drafts and Interactive Block Kind Drafts may be generated, regenerated, added, or removed for iteration. It is not the same as Workspace Dev Mode. Generative Interactive Mode must remain off in hosted learner environments unless explicitly enabled by deployment configuration and operator entitlements.
+
+Interactive Block Kind Draft: an experimental generated Interactive Learning Block kind that may introduce a new learning-purpose block type, new Interactive Learning Actions, a new MCP App Bundle, and new durable outcome routing. It is not learner-facing product state in Trusted Template Mode until it passes the Template Promotion Lab and is promoted into the global allowlist.
+
+Template Promotion Lab: operator-facing pipeline and UI for proposing, sandbox-testing, evaluating, and promoting Simulation Drafts and Interactive Block Kind Drafts. It collects promotion data such as checklist results, synthetic learner runs, human review decisions, and the artifacts required to register a trusted template or block kind. It is not part of the ordinary learner study loop.
 
 Interactive Learning Block: a model-facing declarative unit inside an Interactive Learning Surface, named for a learning purpose such as a Mastery Check, Quiz, Flashcard Deck, Worked Example, Evidence Map, Simulation, Live Plan, Comparison, or Concept Timeline. Generic UI primitives remain renderer-owned implementation details.
 
@@ -275,7 +289,17 @@ Portable Evidence Document: bounded source excerpt or citation record inside a P
 
 Interactive Evidence: progressively disclosed Evidence inside an Interactive Learning Surface. Source-grounded blocks should carry Evidence refs, show compact citation affordances, and reveal relevant excerpts when feedback, worked steps, or source-specific claims are shown.
 
+Source Open Target: learner-safe navigation target from Evidence or another Reference Surface into the original source. It combines source identity, a source-appropriate locator, and an authenticated destination without exposing object-storage details.
+
 Workspace: learner-facing right-side product area containing Curriculum, Study Map, Source Wiki, and full-panel reference/artifact viewers.
+
+Workspace Read Model: learner-facing interpretation of Workspace objects and relationships. It owns learner visibility, semantic state, relative importance, Evidence availability, learner-safe labels, and available actions without prescribing visual layout or styling.
+
+Progress State: a Workspace object's position in the active learning path: current, upcoming, completed, locked, or not applicable.
+
+Readiness State: whether a Workspace object's content is available and suitable for study: processing, still improving, ready to study, needs more source support, needs refresh, needs review, unavailable, or not applicable.
+
+Learning State: the learner's relationship to material represented by a Workspace object: not started, in progress, needs practice, proficient, or not applicable.
 
 Source Wiki: Workspace view organized by source-grounded knowledge structure, including source topics, topic pages, concept pages, wiki pages, citations, and evidence.
 

@@ -78,6 +78,18 @@ Auth routes (`/auth/dev-login`, `/auth/callback`, `/auth/logout`, `/auth/session
 | `/app/support`               | `SupportPage`         | Learning Feedback + Support Report forms                                             |
 | `/app/account`               | `AccountPage`         | Workspace/source deletion + account deletion request                                 |
 
+### Dashboard data
+
+`/app` renders the Folio Learner Dashboard Summary from `GET /api/v1/dashboard`. Notebook progress, practice, recommendations, recent activity, and study-time charts must all be backed by persisted learner state. Missing state renders an honest empty or not-ready treatment; production must not ship the Design Lab's sample percentages, activity rows, durations, or recommendations.
+
+The Study time series aggregates persisted Study Activity Intervals across Tutor, Study Map, Reference, Evidence, Practice, and Interactive surfaces. Semantic activity and sparse visible heartbeats may extend an interval; hidden tabs, browser-open time, raw pointer movement, and generic analytics events do not count.
+
+Tutor Session liveness is separate from counted time. Informational turns prompt after 15 inactive minutes; turns awaiting a learner answer or Interactive task prompt after 30 minutes. Continuing renews the lease, while Pause or no response records a normal paused lifecycle transition.
+
+Dashboard reads never invoke an LLM. Recommendation eligibility and order are deterministic; previously persisted LLM-generated plan content or explanations may enrich them. An explicit refresh action may start asynchronous generation, but the existing recommendations remain usable and the UI exposes pending, failed, and freshness states.
+
+Continue, review, practice, and resume actions deep-link into the relevant notebook Workspace with a typed surface, reference, and intent. Opening a dashboard row is non-mutating. Dashboard-local display controls remain local; explicit commands such as recommendation refresh may mutate through their dedicated APIs.
+
 ## Admin Console Pages
 
 | Route                                  | Component                               | Status                                                       |
@@ -93,7 +105,7 @@ Auth routes (`/auth/dev-login`, `/auth/callback`, `/auth/logout`, `/auth/session
 | `/admin/analytics`                     | `AdminAnalyticsPage`                    | Live                                                         |
 | `/admin/account-deletion`              | `AdminAccountDeletionPage`              | Live                                                         |
 
-Admin UX is utilitarian: dense tables, minimal chrome.
+Admin UX is utilitarian: dense tables, compact controls, and minimal chrome. During the coordinated Folio cutover, all public and learner routes receive the complete Folio treatment. Admin keeps its operator-first information architecture while adopting Folio tokens, shared primitives, accessibility rules, and state treatments.
 
 ## Notebook Workspace (unchanged shape)
 
@@ -139,8 +151,10 @@ PostHog initializes after authenticated consent on protected routes (`apps/web/s
 
 ## Styling
 
-- Global TutorBook styles: `apps/web/src/tutorbook.css`
-- Study Workspace styles: `apps/web/src/study-shell.css`
+- Folio tokens and shared primitives live in `@studyagent/ui` and the final Folio web modules.
+- Every public, learner, Workspace, loading, empty, error, and responsive state is designed in Folio, even where no Design Lab frame exists.
+- Admin and development-only surfaces use Folio tokens/primitives with their dense operator-first composition.
+- `tutorbook.css`, `study-shell.css`, Legacy/Mist styles, theme switching, and generic unthemed fallbacks are not retained.
 
 ## Verification
 

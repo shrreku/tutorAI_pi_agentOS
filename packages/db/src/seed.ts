@@ -1,11 +1,21 @@
+import { eq } from "drizzle-orm";
 import { createDb } from "./client.js";
 import {
   chunks,
+  claims,
+  concepts,
+  curricula,
+  curriculumModules,
+  notebooks,
+  objectiveLists,
+  objectives,
+  sessionPlans,
   notebooks,
   sourceVersions,
   sources,
   studyTemplates,
   users,
+  wikiPages,
 } from "./schema/index.js";
 
 const hostedBetaTemplates = [
@@ -80,6 +90,15 @@ async function main() {
     .onConflictDoNothing({ target: users.id });
 
   for (const template of hostedBetaTemplates) {
+    const conceptId = `con_${template.slug}`;
+    const claimId = `clm_${template.slug}`;
+    const wikiPageId = `wiki_${template.slug}`;
+    const curriculumId = `cur_${template.slug}`;
+    const moduleId = `mod_${template.slug}`;
+    const objectiveId = `obj_${template.slug}`;
+    const objectiveListId = `ol_${template.slug}`;
+    const sessionPlanId = `sp_${template.slug}`;
+
     await db
       .insert(notebooks)
       .values({
@@ -142,6 +161,151 @@ async function main() {
         metadataJson: { seededFor: "hosted_beta_local" },
       })
       .onConflictDoNothing({ target: chunks.id });
+
+    await db
+      .insert(concepts)
+      .values({
+        id: conceptId,
+        notebookId: template.notebookId,
+        canonicalName: template.topic,
+        aliases: [],
+        conceptType: "seed_topic",
+        description: template.expectedOutcome,
+        confidence: 1,
+        metadataJson: { seededFor: "hosted_beta_local" },
+      })
+      .onConflictDoNothing({ target: concepts.id });
+
+    await db
+      .insert(claims)
+      .values({
+        id: claimId,
+        notebookId: template.notebookId,
+        sourceId: template.sourceId,
+        sourceVersionId: template.sourceVersionId,
+        claimType: "source_summary",
+        claimText: template.text,
+        status: "verified",
+        confidence: 1,
+        qualityScore: 1,
+        supportScore: 1,
+        sourceSpanJson: { chunkId: template.chunkId },
+        sourceChunkIds: [template.chunkId],
+        metadataJson: { seededFor: "hosted_beta_local" },
+      })
+      .onConflictDoNothing({ target: claims.id });
+
+    await db
+      .insert(wikiPages)
+      .values({
+        id: wikiPageId,
+        notebookId: template.notebookId,
+        pageType: "topic",
+        pageKey: template.slug,
+        title: template.title,
+        version: 1,
+        status: "published",
+        structuredJson: {
+          summary: template.text,
+          seededFor: "hosted_beta_local",
+        },
+        markdown: template.text,
+        sourceClaimIds: [claimId],
+        sourceChunkIds: [template.chunkId],
+        confidenceSummaryJson: { confidence: 1 },
+        qualityScore: 1,
+      })
+      .onConflictDoNothing({ target: wikiPages.id });
+
+    await db
+      .insert(curricula)
+      .values({
+        id: curriculumId,
+        notebookId: template.notebookId,
+        title: `${template.title} Curriculum`,
+        curriculumType: "guided",
+        scopeJson: { topic: template.topic },
+        status: "active",
+        sourceIds: [template.sourceId],
+        coverageSummaryJson: { seededFor: "hosted_beta_local" },
+        confidence: 1,
+      })
+      .onConflictDoNothing({ target: curricula.id });
+
+    await db
+      .insert(curriculumModules)
+      .values({
+        id: moduleId,
+        notebookId: template.notebookId,
+        curriculumId,
+        title: template.title,
+        summary: template.expectedOutcome,
+        orderIndex: 0,
+        status: "active",
+        sourceRefsJson: [
+          { sourceId: template.sourceId, sourceVersionId: template.sourceVersionId },
+        ],
+        targetConceptIds: [conceptId],
+        estimatedSessionCount: 1,
+        coverageRequirementsJson: { seededFor: "hosted_beta_local" },
+        masteryGateJson: {},
+      })
+      .onConflictDoNothing({ target: curriculumModules.id });
+
+    await db
+      .update(curricula)
+      .set({ activeModuleId: moduleId })
+      .where(eq(curricula.id, curriculumId));
+
+    await db
+      .insert(objectives)
+      .values({
+        id: objectiveId,
+        notebookId: template.notebookId,
+        curriculumId,
+        title: template.expectedOutcome,
+        status: "active",
+        orderIndex: 0,
+        targetConceptIds: [conceptId],
+        successCriteriaJson: { explanationRequired: true },
+        sourceRefsJson: [{ sourceId: template.sourceId, chunkId: template.chunkId }],
+        suggestedMode: template.studyMode,
+        readinessScore: 1,
+      })
+      .onConflictDoNothing({ target: objectives.id });
+
+    await db
+      .insert(objectiveLists)
+      .values({
+        id: objectiveListId,
+        notebookId: template.notebookId,
+        curriculumId,
+        moduleId,
+        title: `${template.title} Objectives`,
+        status: "active",
+        currentObjectiveId: objectiveId,
+        objectiveIdsOrdered: [objectiveId],
+        coverageSnapshotJson: { seededFor: "hosted_beta_local" },
+      })
+      .onConflictDoNothing({ target: objectiveLists.id });
+
+    await db
+      .insert(sessionPlans)
+      .values({
+        id: sessionPlanId,
+        notebookId: template.notebookId,
+        curriculumId,
+        moduleId,
+        objectiveListId,
+        title: `${template.title} Study Session`,
+        status: "active",
+        sessionGoal: template.expectedOutcome,
+        plannedObjectiveIds: [objectiveId],
+        openerJson: { prompt: `Start ${template.title}` },
+        exitCriteriaJson: { objectiveId },
+        recommendationReasonJson: { seededFor: "hosted_beta_local" },
+      })
+      .onConflictDoNothing({ target: sessionPlans.id });
 
     await db
       .insert(studyTemplates)
