@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Map, Maximize2, X } from "lucide-react";
 import type { GraphEdgeSpec, GraphNodeSpec } from "../nodes.js";
 import { GraphCanvas } from "../nodes.js";
+import { SurfaceViewer } from "../surfaces.js";
 import { ChatPane, WorkspaceHeader } from "../workspace.js";
 import { Badge, Button } from "../primitives.js";
 
@@ -32,7 +33,7 @@ export function OverlayWorkspace({
         notebook={notebook}
         right={
           <Button size="sm" variant="outline" onClick={() => setMapOpen(true)}>
-            <Map className="h-3.5 w-3.5" /> Study map
+            <Map className="h-3.5 w-3.5" /> Surfaces
           </Button>
         }
       />
@@ -81,11 +82,13 @@ export function OverlayWorkspace({
               <span className="grid h-6 w-6 place-items-center rounded-[var(--radius-sm)] bg-accent/12 text-accent">
                 <Map className="h-3.5 w-3.5" />
               </span>
-              <span className="font-display text-[14px] font-semibold">Study Map</span>
+              <span className="font-display text-[14px] font-semibold">Learning surfaces</span>
               <Badge tone="neutral" className="ml-1">
                 {context}
               </Badge>
-              <span className="text-[11px] text-muted-foreground">· on-demand overview</span>
+              <span className="text-[11px] text-muted-foreground">
+                · map · reading · interactive · app · practice
+              </span>
               <button
                 onClick={() => setMapOpen(false)}
                 className="ml-auto grid h-8 w-8 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -93,8 +96,8 @@ export function OverlayWorkspace({
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <div className="dot-grid min-h-0 flex-1 overflow-auto p-2">
-              <GraphCanvas numbered nodes={nodes} edges={edges} height={560} />
+            <div className="min-h-0 flex-1 overflow-hidden">
+              <SurfaceViewer nodes={nodes} edges={edges} defaultType="map" className="h-full" />
             </div>
           </div>
         </div>

@@ -1,6 +1,6 @@
 import { BookOpen, Crosshair, Minus, Plus } from "lucide-react";
 import type { GraphEdgeSpec, GraphNodeSpec } from "../nodes.js";
-import { GraphCanvas } from "../nodes.js";
+import { SurfaceViewer } from "../surfaces.js";
 import { ChatPane } from "../workspace.js";
 import { Badge, Dot } from "../primitives.js";
 
@@ -37,19 +37,15 @@ export function CanvasWorkspace({
 }) {
   return (
     <div className="relative min-h-0 flex-1 overflow-hidden">
-      {/* Full-bleed map canvas (background) */}
-      <div className="atlas-grid absolute inset-0 bg-surface/40">
-        {/* The graph sits in the right portion so it reads beside/behind the
-            floating chat dock. Generous offset + height for a "panned" feel. */}
-        <div className="absolute inset-y-0 right-0 left-[48%]">
-          <GraphCanvas
-            numbered
-            nodes={nodes}
-            edges={edges}
-            height={760}
-            className="h-full w-full"
-          />
-        </div>
+      {/* Full-bleed learning-surface canvas — map by default; switch to reading,
+          interactive, MCP app, or practice via the surface switcher. */}
+      <div className="absolute inset-0">
+        <SurfaceViewer
+          nodes={nodes}
+          edges={edges}
+          defaultType="map"
+          className="atlas-grid h-full bg-transparent"
+        />
       </div>
 
       {/* Slim floating top bar */}

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ChevronUp, Map as MapIcon, Maximize2 } from "lucide-react";
 import { cn } from "../../lib/utils.js";
 import { ChatPane, WorkspaceHeader } from "../workspace.js";
-import { GraphCanvas } from "../nodes.js";
+import { SurfaceViewer } from "../surfaces.js";
 import type { GraphEdgeSpec, GraphNodeSpec } from "../nodes.js";
 
 /* ============================================================================
@@ -70,9 +70,9 @@ export function SheetWorkspace({
             <span className="grid h-6 w-6 place-items-center rounded-full bg-accent/12 text-accent">
               <MapIcon className="h-3.5 w-3.5" />
             </span>
-            <span className="font-display text-[13.5px] font-semibold">Study map</span>
+            <span className="font-display text-[13.5px] font-semibold">Learning surfaces</span>
             <span className="text-[12px] text-muted-foreground">
-              · {open ? `${nodes.length} nodes · ${edges.length} edges` : "peek"}
+              · {open ? `map · reading · interactive · app · practice` : "peek"}
             </span>
             <div className="ml-auto flex items-center gap-1">
               {open && (
@@ -93,10 +93,8 @@ export function SheetWorkspace({
 
           {/* Graph body — a thin sliver peeks when collapsed, full canvas when
               open. The canvas itself is generous; the sheet clips it. */}
-          <div className="dot-grid relative min-h-0 flex-1 overflow-hidden border-t border-border">
-            <div className="absolute inset-0">
-              <GraphCanvas numbered nodes={nodes} edges={edges} height={560} />
-            </div>
+          <div className="relative min-h-0 flex-1 overflow-hidden border-t border-border">
+            <SurfaceViewer nodes={nodes} edges={edges} defaultType="map" className="h-full" />
             {/* Fade hint at the sliver edge when collapsed, inviting a pull-up. */}
             {!open && (
               <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-card to-transparent" />

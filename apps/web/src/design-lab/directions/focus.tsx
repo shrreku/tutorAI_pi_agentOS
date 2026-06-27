@@ -1,7 +1,8 @@
 import { ArrowRight, Check } from "lucide-react";
 import { Badge, Button, Eyebrow, Meter } from "../ui/primitives.js";
-import { ChatPane, MapPane, SplitWorkspace, WorkspaceHeader } from "../ui/workspace.js";
-import { GraphCanvas, NodePack as NodePackShowcase } from "../ui/nodes.js";
+import { ChatPane, SplitWorkspace, WorkspaceHeader } from "../ui/workspace.js";
+import { NodePack as NodePackShowcase } from "../ui/nodes.js";
+import { SurfaceViewer } from "../ui/surfaces.js";
 import {
   sampleMastery,
   sampleNotebooks,
@@ -74,11 +75,7 @@ export function Workspace() {
         chatRatio={1.5}
         chat={<ChatPane context="SN2 mechanism" />}
         map={
-          <MapPane title="Study Map" meta="4 nodes in view">
-            <div className="absolute inset-0">
-              <GraphCanvas nodes={MAP_NODES} edges={MAP_EDGES} height={520} />
-            </div>
-          </MapPane>
+          <SurfaceViewer nodes={MAP_NODES} edges={MAP_EDGES} defaultType="map" className="h-full" />
         }
       />
     </>
