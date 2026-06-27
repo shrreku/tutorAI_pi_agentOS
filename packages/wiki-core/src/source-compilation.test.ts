@@ -63,6 +63,43 @@ describe("Source-to-LLM-Wiki compilation (ticket 9)", () => {
     expect(changeSet.fingerprint).toMatch(/^wcs_/);
   });
 
+  it("records claims without valid source evidence as unprovenanced instead of mis-citing the first chunk", () => {
+    const result = compileSourceToWikiChangeSet(
+      baseFixture({
+        extraction: {
+          concepts: [{ name: "Entropy", conceptType: "term" }],
+          claims: [
+            {
+              // evidenceChunkId omitted entirely -> no valid evidence
+              claimText: "Entropy increases in isolated systems.",
+              conceptNames: ["Entropy"],
+            },
+            {
+              // evidenceChunkId not in this source's chunk set -> no valid evidence
+              claimText: "Heat flows from hot to cold.",
+              conceptNames: ["Entropy"],
+              evidenceChunkId: "chk_not_in_source",
+            },
+          ],
+          relations: [],
+          sourceSummaryMarkdown: "## Overview\n\nEntropy and heat flow.",
+        },
+      }),
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const { changeSet } = result;
+    expect(changeSet.claims).toHaveLength(2);
+    for (const claim of changeSet.claims) {
+      expect(claim.evidenceChunkIds).toEqual([]);
+      expect(claim.evidenceRefs).toEqual([]);
+    }
+    // The document's first chunk (chk_1) must never be fabricated as evidence.
+    expect(changeSet.claims.some((claim) => claim.evidenceChunkIds.includes("chk_1"))).toBe(false);
+    expect(changeSet.warnings.some((w) => w.code === "claim.missing_evidence")).toBe(true);
+  });
+
   it("returns structured reasons when compilation cannot proceed", () => {
     const noChunks = compileSourceToWikiChangeSet(baseFixture({ chunkIds: [] }));
     expect(noChunks.ok).toBe(false);

@@ -462,17 +462,21 @@ export function compileSourceToWikiChangeSet(input: CompileSourceWikiInput): Wik
 
   const conceptNamesById = new Map([...conceptsById.values()].map((c) => [c.id, c.canonicalName]));
   const rawClaims: RawExtractedClaim[] = [];
+  let claimsMissingEvidence = 0;
 
   for (const claim of input.extraction.claims) {
     const claimId = nextId("clm_");
-    const ev =
-      claim.evidenceChunkId && chunkIdSet.has(claim.evidenceChunkId)
-        ? claim.evidenceChunkId
-        : input.chunkIds[0]!;
-    const chunkList = ev ? [ev] : [];
     const hadChunkEvidence = Boolean(
       claim.evidenceChunkId && chunkIdSet.has(claim.evidenceChunkId),
     );
+    // Do not fabricate provenance: when the extractor omits evidenceChunkId or cites a chunk
+    // that is not part of this source, record the claim with NO evidence chunk (and lower
+    // sourceSupport) instead of mis-citing the document's first chunk. Learner-facing
+    // surfaces treat a claim with empty sourceChunkIds as not source-backed (see
+    // isLearnerSafeClaim), so a fabricated citation would otherwise leak an unsupported
+    // claim onto the Evidence trust surface.
+    const chunkList = hadChunkEvidence ? [claim.evidenceChunkId!] : [];
+    if (!hadChunkEvidence) claimsMissingEvidence += 1;
     const confidenceComponents = {
       sourceSupport: hadChunkEvidence ? 0.76 : 0.58,
       extractionConfidence: 0.68,
@@ -495,6 +499,18 @@ export function compileSourceToWikiChangeSet(input: CompileSourceWikiInput): Wik
       conceptIds: linkedConceptIds,
       evidenceChunkIds: chunkList,
       confidenceComponents,
+    });
+  }
+
+  if (claimsMissingEvidence > 0) {
+    warnings.push({
+      code: "claim.missing_evidence",
+      message: `${claimsMissingEvidence} of ${input.extraction.claims.length} extracted claim(s) had no valid source evidence chunk and were recorded without provenance.`,
+      severity: "warn",
+      context: {
+        claimsMissingEvidence,
+        totalClaims: input.extraction.claims.length,
+      },
     });
   }
 

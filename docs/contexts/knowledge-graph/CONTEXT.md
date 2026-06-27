@@ -104,7 +104,7 @@ Neo4j is a derived projection/cache of notebook graph state. Canvas graph respon
 - Retrieval chunks should retain source provenance through `sourceSpanJson`, `headingPath`, source/sourceVersion provenance, and optional parent structure chunk.
 - Source-scoped enrichment is idempotent-ish by deleting old claims for the source and deleting graph relations tagged with `metadataJson.ingestionSourceId`. Recompilation with unchanged extraction and human blocks yields the same change-set `fingerprint`.
 - Concept dedupe is notebook-scoped and uses normalized canonical names plus aliases, including singularized variants.
-- Claims must not cite arbitrary chunk IDs; invalid or missing `evidenceChunkId` falls back to the first input chunk.
+- Claims must not cite arbitrary chunk IDs. A claim whose `evidenceChunkId` is missing or not in the source's chunk set is recorded with **no** evidence chunk (empty `sourceChunkIds`, empty `sourceSpanJson`, lower `sourceSupport`, and a `claim.missing_evidence` compilation warning) rather than mis-cited to the first input chunk. Learner-facing surfaces treat an evidence-less claim as not source-backed (`isLearnerSafeClaim`), so it stays out of the Evidence trust surface until real provenance exists.
 - Human wiki blocks must use `<!-- studyagent:owner=human id="..." -->` and `<!-- studyagent:end -->` markers to survive generated page rewrites.
 - Confidence is bounded to `[0, 1]` and composed from explainable components.
 - Supersession only crosses sources; same-source duplicate replacement is handled by deleting source claims before reinserting.
