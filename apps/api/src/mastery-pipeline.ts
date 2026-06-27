@@ -28,18 +28,37 @@ export async function recordAndApplyMasteryEvidence(
   weakConceptIds: string[];
 }> {
   const applyAdaptivePlan = options.applyAdaptivePlan ?? true;
-  const persisted = await persistMasteryEvidence(dbClient, evidence);
-  const applied = await applyMasteryEvidence(dbClient, evidence);
-  if (applyAdaptivePlan) {
-    await applyAdaptiveSessionPlanFromMasteryEvidence(dbClient, {
-      evidence,
-      updatedConceptStates: applied.updatedConceptStates,
-      weakConceptIds: applied.weakConceptIds,
-      sourceCoverageGap: evidence.contextRefs.some(
-        (ref) => ref.refType === "source" && ref.refId.startsWith("gap_"),
-      ),
-    });
-  }
+
+  // Persist the durable Mastery Evidence audit record and the reducer-governed
+  // learning/weak-concept/session-plan changes it causes in a SINGLE transaction, so the
+  // audit record can never desync from the applied state. Previously these ran as three
+  // independent transactions: a partial failure could leave the audit row written with no
+  // mastery update, or mastery applied with no session-plan adaptation.
+  //
+  // Within the transaction, persist runs first, so the per-notebook advisory lock taken by
+  // its durable event (pg_advisory_xact_lock(notebookId) in appendEvent) is held until
+  // commit. That serializes concurrent mastery applies on the same notebook and removes the
+  // read-modify-write lost-update race on learning_state.masteryScore and study-plan weak
+  // concepts. The mastery_evidence primary key also makes a same-id retry roll the whole
+  // transaction back instead of double-applying mastery.
+  const { persisted, applied } = await dbClient.db.transaction(async (tx) => {
+    const txDb = { db: tx } as unknown as DbClient;
+    const persisted = await persistMasteryEvidence(txDb, evidence);
+    const applied = await applyMasteryEvidence(txDb, evidence);
+    if (applyAdaptivePlan) {
+      await applyAdaptiveSessionPlanFromMasteryEvidence(txDb, {
+        evidence,
+        updatedConceptStates: applied.updatedConceptStates,
+        weakConceptIds: applied.weakConceptIds,
+        sourceCoverageGap: evidence.contextRefs.some(
+          (ref) => ref.refType === "source" && ref.refId.startsWith("gap_"),
+        ),
+      });
+    }
+    return { persisted, applied };
+  });
+
+  // Analytics is best-effort and external; keep it out of the durable transaction.
   if (options.analyticsContext && evidence.evidenceType === "mastery_check" && evidence.userId) {
     await recordProductAnalytics(options.analyticsContext, {
       userId: evidence.userId,
