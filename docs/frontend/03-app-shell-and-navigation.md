@@ -69,6 +69,8 @@ Default split:
 - Workspace: remaining width;
 - draggable divider;
 - persist split per notebook;
+- keep the notebook shell constrained to the available viewport height below the topbar;
+- scroll Tutor and Workspace independently so long chat history, Reference Surfaces, and graph content do not move the other pane or the notebook topbar;
 - stack vertically under tablet width.
 
 ## Topbar

@@ -2,7 +2,7 @@
 
 ## Reference Surface Role
 
-A Reference surface is the full-panel learner view for a source, curriculum, module, session, concept, wiki page, or artifact. It is the primary way to read, review, act, and inspect Evidence from a selected Workspace object.
+A Reference surface is the full-panel learner view for a source, curriculum, module, Live Plan, session, concept, wiki page, or artifact. It is the primary way to read, review, act, and inspect Evidence from a selected Workspace object.
 
 The lesson itself still happens in tutor chat.
 
@@ -12,6 +12,7 @@ The lesson itself still happens in tutor chat.
 - module;
 - objective;
 - objective list, internal or embedded only;
+- Live Plan;
 - session;
 - concept;
 - wiki page;
@@ -138,6 +139,25 @@ Primary content:
 - related concepts;
 - Evidence when source-backed.
 
+### Live Plan Surface
+
+Live Plan is a first-class Reference Surface, not an Objective surface with a different title.
+
+Primary content:
+
+- current objective;
+- upcoming and completed objectives;
+- progress;
+- weak concepts;
+- next actions;
+- personalization controls when available.
+
+Design guidance:
+
+- use a `Live Plan` surface badge;
+- keep objective rows actionable without presenting the plan itself as an objective;
+- plan-changing actions express learner intent and remain subject to tutor or reducer-governed handling.
+
 ### Session Surface
 
 Primary content:
@@ -215,6 +235,8 @@ Instruction textarea placeholder can mention:
 
 Evidence is the learner-facing trust layer.
 
+Rich Evidence is required for the hosted beta MVP. It is not a post-beta visual enhancement: learners must be able to identify which source supports a statement, locate the supporting passage, and move from the Evidence drawer to the relevant source location.
+
 Drawer header:
 
 - node type badge;
@@ -224,6 +246,8 @@ Drawer header:
 
 Content:
 
+- Evidence count;
+- source tabs or an equivalent grouped-source selector when more than one source contributes;
 - source excerpts;
 - supporting notes;
 - empty evidence state;
@@ -232,8 +256,10 @@ Content:
 Source excerpt row:
 
 - source title;
-- page or locator;
+- page, slide, section, timestamp, or another source-appropriate locator;
 - excerpt text;
+- action to open the original source at that locator when the source format supports it;
+- optional page or slide preview when available;
 - chunk type only when useful.
 
 Supporting note row:
@@ -253,6 +279,10 @@ Dev Mode additions:
 ## Evidence Rules
 
 - Source-grounded claims should cite Evidence.
+- The API should return a learner-safe Evidence read model grouped by source, including stable locators and source-opening targets; the frontend should not reconstruct these relationships from raw claim or chunk records.
+- Each open-source action uses a structured Source Open Target with source identity, typed locator, display label, and an authenticated app-relative destination. The frontend treats the destination as opaque and does not build it from storage keys or chunk metadata.
+- Evidence must remain useful when a preview image is unavailable. Source title, locator, excerpt, and open-source action are the required beta contract.
+- Server-generated page or slide thumbnails are not required for hosted beta. The frontend may render a preview from an accessible source document, use an optional preview asset, or omit the preview without reducing Evidence functionality.
 - Interactive blocks should carry Evidence refs.
 - Quiz feedback and worked steps reveal Evidence after submit or reveal.
 - Simulations must say whether they are source-grounded or broader practice.

@@ -98,41 +98,22 @@ export const ProvenanceDrawer: React.FC<ProvenanceDrawerProps> = ({
   const learnerChunks = provenance?.learnerRefs.filter(isEvidenceChunk) ?? [];
   const reviewClaims = provenance?.developerRefs.filter(isDeveloperClaim) ?? [];
 
-  return (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        right: 0,
-        bottom: 0,
-        width: 420,
-        backgroundColor: "white",
-        borderLeft: "1px solid #e5e7eb",
-        boxShadow: "-4px 0 16px rgba(0,0,0,0.08)",
-        display: "flex",
-        flexDirection: "column",
-        zIndex: 1000,
-        animation: "slideIn 180ms ease-out",
-      }}
-    >
-      <style>{`@keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }`}</style>
+  if (!isOpen) return null;
 
-      {/* Header */}
-      <div style={{ padding: "14px 16px", borderBottom: "1px solid #e5e7eb", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-            <span style={{ background: badge.bg, color: badge.text, padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700, textTransform: "capitalize" }}>
-              {learnerFacingNodeTypeLabel(nodeType ?? "node", { devMode: isDeveloperMode })}
-            </span>
-            <h2 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "#111827" }}>Evidence</h2>
-          </div>
-          {nodeTitle && <div style={{ fontSize: 13, color: "#6b7280" }}>{nodeTitle}</div>}
+  return (
+    <aside className="evidence-panel" data-evidence-panel style={{ position: "fixed", top: 0, right: 0, bottom: 0, zIndex: 1000 }}>
+      <div className="evidence-panel-head">
+        <div className="h-title">
+          <strong>Evidence</strong>
+          {nodeTitle ? <span style={{ fontWeight: 400, color: "var(--text-muted)", marginLeft: 8 }}>{nodeTitle}</span> : null}
         </div>
-        <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#9ca3af", padding: "0 4px", lineHeight: 1 }}>×</button>
+        <div className="spacer" />
+        <button type="button" className="icon-btn light" onClick={onClose}>
+          Close
+        </button>
       </div>
 
-      {/* Content */}
-      <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
+      <div className="evidence-panel-body">
 
         {/* Confidence (from node properties) */}
         {confidence !== undefined && (
@@ -264,15 +245,11 @@ export const ProvenanceDrawer: React.FC<ProvenanceDrawerProps> = ({
         )}
       </div>
 
-      {/* Footer */}
-      <div style={{ padding: "10px 16px", borderTop: "1px solid #e5e7eb" }}>
-        <button
-          onClick={onClose}
-          style={{ width: "100%", padding: "7px 12px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: "pointer", color: "#1f2937" }}
-        >
+      <div className="evidence-panel-foot">
+        <button type="button" className="btn primary" style={{ width: "100%", justifyContent: "center" }} onClick={onClose}>
           Close
         </button>
       </div>
-    </div>
+    </aside>
   );
 };

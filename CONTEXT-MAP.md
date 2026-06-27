@@ -44,6 +44,19 @@ The MCP Apps, declarative UI, and generative UI adoption plan is tracked in:
 
 Read these when working on Interactive Learning Surfaces, Interactive Learning Blocks, Internal MCP App Bridge, MCP App Bundles, Interactive Learning Actions, Simulation Templates, or Simulation Drafts.
 
+## Folio Production Frontend
+
+The complete Folio replacement architecture and delivery program are tracked in:
+
+- `docs/adr/0027-folio-replaces-legacy-frontend.md`
+- `docs/adr/0028-study-activity-intervals-separate-time-from-session-liveness.md`
+- `docs/adr/0029-react-vite-tanstack-fastify-folio-foundation.md`
+- `docs/frontend/14-folio-production-architecture.md`
+- `docs/frontend/15-folio-end-to-end-implementation-plan.md`
+- `docs/frontend/16-folio-ticket-drafts.md`
+
+Read these before changing the production router, browser API client, Dashboard Summary, Notebook Workspace shell, Folio route coverage, Study Activity, or frontend cutover boundaries.
+
 ## Source Documents
 
 The `greenfield-studyagent/` folder is the design record behind these contexts. Treat the context files as the short operational map, and use the greenfield docs for deeper product intent.

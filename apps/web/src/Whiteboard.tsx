@@ -3,6 +3,8 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import type { GraphCanvasNode, GraphQueryResponse } from "@studyagent/schemas";
 import { GraphCanvas } from "./GraphCanvas.js";
 import { ProvenanceDrawer } from "./ProvenanceDrawer.js";
+import { SurfaceSwitcher, type SurfaceMode } from "./kit/components/SurfaceSwitcher.js";
+import { WorkspaceStatusBar } from "./kit/components/WorkspaceStatusBar.js";
 import { NodeDetailPanel } from "./NodeDetailPanel.js";
 import FullPanelViewer from "./FullPanelViewer.js";
 import { DeveloperTimelinePanel } from "./DeveloperTimelinePanel.js";
@@ -323,43 +325,21 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, externalRefr
   };
 
   return (
-    <div className="whiteboard-shell" style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
-      {/* Header toolbar */}
-      <div
-        className="whiteboard-toolbar"
-        style={{
-          padding: "12px 14px",
-          borderBottom: "1px solid var(--line)",
-          backgroundColor: "var(--panel-strong)",
-          display: "flex",
-          gap: 8,
-          alignItems: "center",
-          flexWrap: "wrap",
-        }}
-      >
-        {/* GF-0608: View mode toggles */}
-        <div className="whiteboard-mode-group">
-          <span className="whiteboard-toolbar-label">Mode</span>
-          {(["curriculum", "study_map", "source_wiki_map"] as const).map((mode) => (
-            <button
-              key={mode}
-              onClick={() => dispatchShell({ type: "setViewMode", viewMode: mode })}
-              className="study-chip-button"
-              data-active={viewMode === mode}
-              style={{ padding: "6px 10px", fontSize: 11 }}
-            >
-              {mode === "curriculum" ? "Curriculum" : mode === "study_map" ? "Study Map" : "Source Wiki"}
-            </button>
-          ))}
-        </div>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+      <div className="whiteboard-shell" style={{ flex: 1, display: "flex", flexDirection: "column", padding: "16px 20px", minHeight: 0 }}>
+        <div className="whiteboard-toolbar" style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+          <SurfaceSwitcher
+            value={viewMode as SurfaceMode}
+            onChange={(mode) => dispatchShell({ type: "setViewMode", viewMode: mode })}
+          />
 
-        {/* GF-0608: Source picker for source_wiki_map */}
         {viewMode === "source_wiki_map" && sources.length > 0 && (
           <select
             value={selectedSourceId ?? ""}
             onChange={(e) => dispatchShell({ type: "setSelectedSource", sourceId: e.target.value })}
             aria-label="Source Wiki source"
-            style={{ fontSize: 11, padding: "6px 8px", border: "1px solid var(--line)", borderRadius: 8, background: "var(--panel)", color: "var(--text)" }}
+            className="icon-btn light"
+            style={{ fontSize: 12, padding: "6px 10px" }}
           >
             {sources.map((s) => (
               <option key={s.id} value={s.id}>
@@ -383,12 +363,13 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, externalRefr
           </div>
         )}
 
-        <div className="whiteboard-filter-menu">
+        <div className="whiteboard-filter-menu" style={{ marginLeft: "auto" }}>
           <button
             onClick={() => dispatchShell({ type: "setShowFilters", show: !showFilters })}
-            className="study-chip-button"
+            className="icon-btn light"
             data-active={showFilters || (activeTypeFilterSet.size + activeStatusFilterSet.size) > 0}
             aria-expanded={showFilters}
+            type="button"
           >
             Filters{(activeTypeFilterSet.size + activeStatusFilterSet.size) > 0 ? ` (${activeTypeFilterSet.size + activeStatusFilterSet.size})` : ""}
           </button>
@@ -433,95 +414,62 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, externalRefr
           )}
         </div>
 
-        {/* GF-0607: Refresh graph */}
-        <button
-          onClick={() => void refetchGraph()}
-          title="Reload graph data"
-          className="study-icon-button"
-          style={{
-            width: 32,
-            height: 32,
-            fontSize: 11,
-          }}
-        >
+        <button type="button" onClick={() => void refetchGraph()} title="Reload graph data" className="icon-btn light">
           ↺
         </button>
-
-        {/* GF-0607: Clear saved layout positions */}
-        <button
-          onClick={() => void handleClearLayout()}
-          title="Clear all saved positions and reset to auto-layout"
-          className="study-secondary-button"
-          style={{
-            padding: "6px 10px",
-            fontSize: 11,
-          }}
-        >
+        <button type="button" onClick={() => void handleClearLayout()} title="Clear saved layout" className="icon-btn light">
           Auto-layout
         </button>
-
-        {/* Evidence toggle */}
-        {selectedNode && (
+        {selectedNode ? (
           <button
+            type="button"
             onClick={() => dispatchShell({ type: "toggleEvidence" })}
-            className="study-chip-button"
-            data-active={showProvenance}
-            style={{
-              padding: "6px 10px",
-              fontSize: 11,
-            }}
+            className={`btn${showProvenance ? " primary" : ""}`}
+            style={{ padding: "6px 12px", fontSize: 12 }}
           >
             Evidence
           </button>
-        )}
-
-        {/* Dev mode */}
+        ) : null}
         <button
+          type="button"
           onClick={() => dispatchShell({ type: "setDeveloperMode", enabled: !isDeveloperMode })}
-          className="study-chip-button"
+          className="icon-btn light"
           data-active={isDeveloperMode}
-          style={{
-            padding: "6px 10px",
-            backgroundColor: isDeveloperMode ? "var(--text-strong)" : undefined,
-            color: isDeveloperMode ? "var(--panel)" : undefined,
-            fontSize: 11,
-          }}
         >
           Dev
         </button>
-      </div>
-
-      {/* Graph stats bar */}
-      {filteredGraphData && !isLoading && (
-        <div className="whiteboard-statusbar">
-          <strong>
-            {viewMode === "source_wiki_map" ? "Source Wiki" : viewMode === "study_map" ? "Study Map" : "Curriculum"}
-          </strong>
-          <span>{filteredGraphData.nodes.length} nodes</span>
-          <span>{filteredGraphData.edges.length} edges</span>
-          {(activeTypeFilterSet.size + activeStatusFilterSet.size) > 0 && (
-            <span style={{ color: "var(--accent)" }}>
-              {graphData!.nodes.length - filteredGraphData.nodes.length} filtered
-            </span>
-          )}
-          {selectedNode && (
-            <span style={{ color: "var(--accent)" }}>
-              Selected: {(selectedNode.properties.title as string) ?? selectedNode.id.slice(0, 12)}
-            </span>
-          )}
-          {studyState?.studyPlan?.currentObjective && !selectedNode && (
-            <span style={{ color: "var(--text)" }}>
-              Current: {studyState.studyPlan.currentObjective.title}
-            </span>
-          )}
-          {graphData?.readModel?.projectionWarning && (
-            <span style={{ color: "var(--warn, #9a6700)" }}>{graphData.readModel.projectionWarning}</span>
-          )}
         </div>
-      )}
 
-      {/* Main Canvas + Right Panel Mode */}
-      <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
+      {filteredGraphData && !isLoading ? (
+        <WorkspaceStatusBar
+          left={
+            <>
+              {viewMode === "source_wiki_map" ? "Source Wiki" : viewMode === "study_map" ? "Study Map" : "Curriculum"}
+              {" · "}
+              {filteredGraphData.nodes.length} nodes · {filteredGraphData.edges.length} edges
+              {(activeTypeFilterSet.size + activeStatusFilterSet.size) > 0
+                ? ` · ${graphData!.nodes.length - filteredGraphData.nodes.length} filtered`
+                : ""}
+            </>
+          }
+          center={
+            selectedNode
+              ? `Selected: ${(selectedNode.properties.title as string) ?? selectedNode.id.slice(0, 12)}`
+              : studyState?.studyPlan?.currentObjective
+                ? `Current: ${studyState.studyPlan.currentObjective.title}`
+                : "Whole notebook"
+          }
+          right={
+            graphData?.readModel?.projectionWarning
+              ? graphData.readModel.projectionWarning
+              : studyState?.studyPlan?.currentObjective
+                ? `Objective: ${studyState.studyPlan.currentObjective.title}`
+                : "TutorBook workspace"
+          }
+        />
+      ) : null}
+
+      <div className="whiteboard-stage" style={{ flex: 1, overflow: "hidden", position: "relative", minHeight: 0 }}>
         {isLoading && (
           <div
             style={{
@@ -655,6 +603,7 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({ notebookId, externalRefr
             onDraftTutorPrompt={handleDraftTutorPrompt}
           />
         )}
+      </div>
       </div>
 
       {/* Evidence drawer - overlays both workspace and viewer modes */}

@@ -141,6 +141,10 @@ MasteryEvaluator: governed read/judgment service that evaluates learner response
 
 TutorSession, TutorTurn, AgentRun, ToolCall: runtime persistence model for conversational sessions, turns, model runs, and tool execution.
 
+Study Activity Pulse: bounded, content-free signal that a visible learner surface had meaningful activity. The API coalesces pulses into Study Activity Intervals; raw pointer movement and browser-open time are not activity truth.
+
+Activity Lease: server-owned inactivity boundary for an open Study Activity Interval or live Tutor Session. Expiry caps counted time and may pause the session lazily; it does not require continuous polling or an always-on sweeper.
+
 EventEnvelope: append-only notebook event with monotonically increasing `sequenceNo`.
 
 RuntimeStreamChunk and AG-UI event: two SSE-facing projections of runtime activity.

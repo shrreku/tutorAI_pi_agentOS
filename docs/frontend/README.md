@@ -21,7 +21,10 @@ StudyAgent is not generic chat over files. It is a notebook-scoped learning work
 11. [Responsive, accessibility, and states](./10-responsive-accessibility-states.md)
 12. [Implementation handoff contracts](./11-implementation-handoff.md)
 13. [TutorBook hosted beta shell](./12-tutorbook-hosted-beta.md)
-14. [Folio design kit](./13-folio-design-kit.md) — design north star; completeness backlog
+14. [Folio design kit](./13-folio-design-kit.md) — sole visual baseline and completeness backlog
+15. [Folio production architecture](./14-folio-production-architecture.md) — router, API client, read models, dependencies, performance, testing, and cutover boundaries
+16. [Folio end-to-end implementation plan](./15-folio-end-to-end-implementation-plan.md) — delivery waves, route ownership, dependencies, and release gates
+17. [Folio ticket drafts](./16-folio-ticket-drafts.md) — issue-ready tracer-bullet acceptance criteria pending publication approval
 
 ## Designer Goal
 
@@ -75,9 +78,9 @@ Avoid these terms outside Dev Mode:
 - Coverage records
 - Raw node IDs
 
-## Current Implementation Anchors
+## Current Implementation Evidence
 
-The web app has two learner-facing shells:
+The pre-Folio web app has two learner-facing shells. They are capability evidence for the migration, not implementation structures the Folio frontend must retain:
 
 1. **TutorBook app shell** (`apps/web/src/pages/app/`, `apps/web/src/routing/`) — hosted beta dashboard, consent, credits, support, account, template gallery.
 2. **Notebook Workspace** (`NotebookWorkspacePage.tsx`, `TutorPanel.tsx`, `Whiteboard.tsx`, …) — the core study loop at `/notebooks/:notebookId`.
@@ -107,7 +110,9 @@ Notebook Workspace (study loop):
 
 See [TutorBook hosted beta shell](./12-tutorbook-hosted-beta.md) for routes, guards, auth proxy, and verification.
 
-The docs in this folder describe the target product and design direction while preserving those behaviors.
+The docs in this folder describe the target product and design direction. ADR-0027 allows the complete current frontend implementation to be replaced; verified behavior, production contracts, security rules, and durable learner state are the preservation boundary.
+
+The production foundation is fixed by [ADR-0029](../adr/0029-react-vite-tanstack-fastify-folio-foundation.md): React/Vite, file-based TanStack Router, TanStack Query, a shared Zod-validated `@studyagent/api-client`, existing Fastify REST/SSE, Tailwind 3.4, shared Radix/shadcn-style primitives, and route-split heavy features. GraphQL, tRPC, Next.js, TanStack Start, and a general-purpose client state library are not part of this revamp.
 
 ## Visual Reference (screenshots)
 
@@ -115,15 +120,15 @@ Behavior and anatomy live in the numbered docs below. **Pixel-level visuals** li
 
 | Theme | Role | Folder | Notes |
 |-------|------|--------|-------|
-| **Mist Glass** | Implementation baseline (hosted beta) | [`ui-example/mist-glass/`](../../ui-example/mist-glass/README.md) | Most complete kit — 84 PNGs from `nodes.pen` |
-| **Folio** | Design north star (needs iteration) | [`ui-example/folio/`](../../ui-example/folio/README.md) | Preferred aesthetic — editorial ivory, serif — 34 PNGs. Improvement order: completeness → polish → structural change |
+| **Mist Glass** | Historical anatomy reference | [`ui-example/mist-glass/`](../../ui-example/mist-glass/README.md) | Complete component inventory used to identify Folio coverage gaps; not a production theme |
+| **Folio** | Sole implementation baseline | [`ui-example/folio/`](../../ui-example/folio/README.md) | Canonical editorial-ivory product design. Improvement order: completeness → behavioral parity → polish |
 | **Focus** | Exploration archive | [`ui-example/focus/`](../../ui-example/focus/README.md) | Minimalist slate variant — 17 PNGs |
 
-Detailed Mist Glass inventory and Pencil IDs: [`NODES_PEN.md`](../../NODES_PEN.md). Folio north star: [13-folio-design-kit](./13-folio-design-kit.md) + [`ui-example/folio/`](../../ui-example/folio/README.md).
+Detailed Mist Glass inventory and Pencil IDs: [`NODES_PEN.md`](../../NODES_PEN.md). Canonical Folio target: [13-folio-design-kit](./13-folio-design-kit.md) + [`ui-example/folio/`](../../ui-example/folio/README.md) + the frozen live-baseline manifest in the [Folio port audit](./audits/folio-port-2026-06-27/AUDIT.md).
 
 **Screenshot linking policy:** index only — numbered spec docs (`04`–`08`) stay behavior-focused; visuals are discovered via this README and `ui-example/` READMEs, not inline images in spec files.
 
-**Beta theme policy:** production UI stays **100% Mist Glass** until Folio reaches kit parity ([13-folio-design-kit](./13-folio-design-kit.md)); no incremental mixed-theme rollout.
+**Theme policy:** Folio is the sole production frontend generation. Do not retain a Legacy/Mist runtime fallback or ship mixed themes; Folio must reach route and behavior parity before release.
 
 Interactive layout paradigms (not theme swaps): [`design-variations/`](../../design-variations/README.md) — five structural approaches in one HTML page. **Contenders for evaluation:** v1 Focus Map · dock, v3 Chat-primary, v4 Bento Home. Beta ships classic split until a paradigm wins.
 

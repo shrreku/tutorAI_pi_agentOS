@@ -18,6 +18,7 @@ import {
 import { fetchNotebookArtifacts, fetchNotebookStudyState } from "./notebook-queries.js";
 import { submitQuizAnswerAction } from "./interactive-learning/action-client.js";
 import { normalizeQuizQuestions, type QuizQuestion } from "./quiz-utils.js";
+import { IconCap, IconChev, IconSend } from "./kit/components/KitIcons.js";
 
 const QUIZ_SELF_ASSESSMENT_LABELS = artifactQuizSelfAssessmentLabels();
 
@@ -136,9 +137,10 @@ type NotebookSettings = {
 interface TutorPanelProps {
   notebookId: string;
   selectedNodeRefs?: SelectedNodeRef[];
+  onCollapse?: () => void;
 }
 
-export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorPanelProps) {
+export default function TutorPanel({ notebookId, selectedNodeRefs = [], onCollapse }: TutorPanelProps) {
   const { draftTutorPrompt, setDraftTutorPrompt, setTutorRuntime, tutorRuntime } = useWorkspaceShell();
   const [input, setInput] = useState("");
   const [mode, setMode] = useState<"learn" | "practice" | "revise" | "explore" | "wiki_maintenance">("learn");
@@ -149,7 +151,7 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
   const [studyState, setStudyState] = useState<StudyState | null>(null);
   const [artifacts, setArtifacts] = useState<ArtifactSummary[]>([]);
   const [settings, setSettings] = useState<NotebookSettings>({});
-  const [showHistory, setShowHistory] = useState(false);
+  const [tutorTab, setTutorTab] = useState<"tutor" | "history" | "settings">("tutor");
   const [historySearch, setHistorySearch] = useState("");
   const [historyFilter, setHistoryFilter] = useState<"all" | "questions" | "answers">("all");
   const [selectedHistorySessionId, setSelectedHistorySessionId] = useState<string | null>(null);
@@ -784,53 +786,39 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
   };
 
   return (
-    <div className="tutor-shell" style={{ display: "flex", flexDirection: "column", height: "100%", minWidth: 300, position: "relative", color: "var(--text)" }}>
+    <>
       <div className="tutor-header">
-        <div className="tutor-compact-row">
-          <div style={{ minWidth: 0 }}>
-            <strong className="tutor-title">Tutor</strong>
-            <span className="tutor-subtitle">
-              {currentObjectiveTitle ?? planStatusLabel}
-            </span>
-          </div>
-          <div className="tutor-header-actions">
-            <button type="button" className="study-chip-button" onClick={() => void handleNewChat()} disabled={isSessionLifecycleLoading || isLoading}>
-              New chat
-            </button>
-            <button type="button" className="study-chip-button" data-active={showHistory} onClick={() => setShowHistory((value) => !value)}>
-              History
-            </button>
-            {sessionId && (
-              <div className="tutor-session-controls" aria-label={`Session ${sessionStatus ?? "idle"}`}>
-                <span className="tutor-session-dot" data-status={sessionStatus ?? "idle"} />
-                {sessionStatus === "active" && (
-                  <>
-                    <button type="button" onClick={() => void handlePauseSession()} disabled={isSessionLifecycleLoading} className="study-chip-button">
-                      Pause
-                    </button>
-                    <button type="button" onClick={() => void handleEndSession()} disabled={isSessionLifecycleLoading} className="study-chip-button" data-variant="danger">
-                      End
-                    </button>
-                  </>
-                )}
-                {sessionStatus === "paused" && (
-                  <>
-                    <button type="button" onClick={() => void handleResumeSession()} disabled={isSessionLifecycleLoading} className="study-chip-button">
-                      Resume
-                    </button>
-                    <button type="button" onClick={() => void handleEndSession()} disabled={isSessionLifecycleLoading} className="study-chip-button" data-variant="danger">
-                      End
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
+        <div className="h-title">
+          <IconCap /> Tutor
         </div>
-        <div className="tutor-control-row">
-          <label className="tutor-mode-select">
+        <div className="spacer" />
+        <button type="button" className="icon-btn" onClick={() => void handleNewChat()} disabled={isSessionLifecycleLoading || isLoading}>
+          + New
+        </button>
+        {onCollapse ? (
+          <button type="button" className="icon-btn chat-collapse-btn" data-tutor-collapse title="Collapse chat" onClick={onCollapse}>
+            <IconChev />
+          </button>
+        ) : null}
+      </div>
+
+      <div className="tutor-tabs" data-tutor-tabs>
+        <button type="button" className={tutorTab === "tutor" ? "active" : undefined} onClick={() => setTutorTab("tutor")}>
+          Tutor
+        </button>
+        <button type="button" className={tutorTab === "history" ? "active" : undefined} onClick={() => setTutorTab("history")}>
+          History
+        </button>
+        <button type="button" className={tutorTab === "settings" ? "active" : undefined} onClick={() => setTutorTab("settings")}>
+          Settings
+        </button>
+      </div>
+
+      {tutorTab === "tutor" ? (
+        <div className="tutor-control-row" style={{ padding: "8px 14px", display: "flex", gap: 8, flexWrap: "wrap", borderBottom: "1px solid #2a2e3d" }}>
+          <label className="tutor-mode-select" style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12 }}>
             <span>Mode</span>
-            <select value={mode} onChange={(event) => setMode(event.target.value as typeof mode)}>
+            <select value={mode} onChange={(event) => setMode(event.target.value as typeof mode)} style={{ fontSize: 12 }}>
               <option value="learn">Learn</option>
               <option value="practice">Practice</option>
               <option value="revise">Revise</option>
@@ -838,120 +826,53 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
               <option value="wiki_maintenance">Source Wiki</option>
             </select>
           </label>
-          {studyState && (
-            <button
-              type="button"
-              onClick={() => handleSessionPrompt(sessionPrompt)}
-              className="study-primary-button tutor-start-button"
-            >
+          {studyState ? (
+            <button type="button" onClick={() => handleSessionPrompt(sessionPrompt)} className="btn primary" style={{ padding: "6px 12px", fontSize: 12 }}>
               {sessionActionLabel}
             </button>
-          )}
-          <button type="button" onClick={openStudyPlanModal} className="study-chip-button">
+          ) : null}
+          <button type="button" onClick={openStudyPlanModal} className="icon-btn">
             Plan
           </button>
-          {studyState?.tutorSession?.suggestedAction === "review_completed" && (
-            <button type="button" onClick={() => handleSessionPrompt(reviewLastSessionPrompt)} className="study-chip-button">
-              Review
-            </button>
-          )}
-        </div>
-        {showHistory && (
-          <div className="tutor-history-panel">
-            <div className="tutor-history-tools">
-              <input
-                value={historySearch}
-                onChange={(event) => setHistorySearch(event.target.value)}
-                placeholder="Search previous chats"
-                aria-label="Search previous chats"
-              />
-              <select value={historyFilter} onChange={(event) => setHistoryFilter(event.target.value as typeof historyFilter)} aria-label="Filter chat history">
-                <option value="all">All</option>
-                <option value="questions">Questions</option>
-                <option value="answers">Answers</option>
-              </select>
-            </div>
-            <div className="tutor-history-list">
-              {historySessions.length > 0 ? (
-                historySessions.map((session) => (
-                  <button
-                    key={session.sessionId}
-                    type="button"
-                    className="tutor-history-item"
-                    data-active={selectedHistorySessionId === session.sessionId}
-                    onClick={() => {
-                      setSelectedHistorySessionId(session.sessionId);
-                      setShowHistory(false);
-                      setInput("");
-                    }}
-                  >
-                    <span>
-                      {new Date(session.startedAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
-                      {" · "}
-                      {session.turnCount} {session.turnCount === 1 ? "turn" : "turns"}
-                    </span>
-                    <strong>{session.title}</strong>
-                    {session.latestAssistantMessage && <em>{session.latestAssistantMessage}</em>}
+          {sessionId ? (
+            <div className="tutor-session-controls" aria-label={`Session ${sessionStatus ?? "idle"}`} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <span className="tutor-session-dot" data-status={sessionStatus ?? "idle"} />
+              {sessionStatus === "active" ? (
+                <>
+                  <button type="button" onClick={() => void handlePauseSession()} disabled={isSessionLifecycleLoading} className="icon-btn">
+                    Pause
                   </button>
-                ))
-              ) : (
-                <div className="tutor-history-empty">{traceData ? "No matching sessions." : "No previous sessions loaded yet."}</div>
-              )}
+                  <button type="button" onClick={() => void handleEndSession()} disabled={isSessionLifecycleLoading} className="icon-btn">
+                    End
+                  </button>
+                </>
+              ) : null}
+              {sessionStatus === "paused" ? (
+                <>
+                  <button type="button" onClick={() => void handleResumeSession()} disabled={isSessionLifecycleLoading} className="icon-btn">
+                    Resume
+                  </button>
+                  <button type="button" onClick={() => void handleEndSession()} disabled={isSessionLifecycleLoading} className="icon-btn">
+                    End
+                  </button>
+                </>
+              ) : null}
             </div>
-          </div>
-        )}
-        {selectedNodeRefs.length > 0 && (
-          <div className="tutor-selected-context">
-            Using selected {selectedNodeRefs.map((r) => learnerFacingNodeTypeLabel(r.refType)).join(", ")}
-          </div>
-        )}
-        <details className="tutor-reference-options">
-          <summary>Reference options</summary>
-          <div style={{ marginTop: 8 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#374151", marginBottom: 6 }}>ARTIFACT CONSENT</div>
-          <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 11, color: "#4b5563", marginBottom: 4 }}>
-            <input
-              type="checkbox"
-              checked={settings.artifactConsent?.autoCreateLearnerArtifacts === true}
-              onChange={(e) => void updateArtifactConsentSetting("autoCreateLearnerArtifacts", e.target.checked)}
-            />
-            Auto-create learner study aids
-          </label>
-          <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 11, color: "#4b5563" }}>
-            <input
-              type="checkbox"
-              checked={settings.artifactConsent?.autoCreateNotes === true}
-              onChange={(e) => void updateArtifactConsentSetting("autoCreateNotes", e.target.checked)}
-            />
-            Auto-promote generated notes
-          </label>
-          <div style={{ marginTop: 4, fontSize: 10, color: "#6b7280", lineHeight: 1.35 }}>
-            When disabled, tutor-created learner aids stay proposed/draft until approved.
-          </div>
-          <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 11, color: "#4b5563", marginTop: 10 }}>
-            <input
-              type="checkbox"
-              checked={showTutorDiagnostics}
-              onChange={(e) => setShowTutorDiagnostics(e.target.checked)}
-            />
-            Dev Mode tutor activity details
-          </label>
-          </div>
-        </details>
+          ) : null}
+        </div>
+      ) : null}
 
-      </div>
-
-      <div
-        style={{
-          flex: 1,
-          overflow: "auto",
-          padding: 12,
-          display: "flex",
-          flexDirection: "column",
-          gap: 8,
-          background: "var(--panel)",
-        }}
-      >
+      <div className="tutor-body" data-tutor-body>
+        {tutorTab === "tutor" ? (
+          <>
+            <div className="focus-row">
+              Focusing: <span className="badge purple">{currentObjectiveTitle ?? planStatusLabel}</span>
+            </div>
+            {selectedNodeRefs.length > 0 ? (
+              <div className="tutor-selected-context" style={{ marginBottom: 8, fontSize: 12 }}>
+                Using selected {selectedNodeRefs.map((r) => learnerFacingNodeTypeLabel(r.refType)).join(", ")}
+              </div>
+            ) : null}
         {displayMessages.length === 0 && (
           <div className="tutor-empty-thread">
             <strong>Start from the material, not a blank chat</strong>
@@ -992,8 +913,7 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
           return (
             <div
               key={msg.id}
-              className="tutor-message"
-              data-role={msg.role === "user" ? "user" : "assistant"}
+              className={msg.role === "user" ? "msg-user" : "msg-agent"}
             >
               {msg.role === "user" ? renderMessage(msg) : null}
               {showInlineWorkView && (
@@ -1045,23 +965,106 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
           </div>
         )}
         <div ref={messagesEndRef} />
+          </>
+        ) : null}
+
+        {tutorTab === "history" ? (
+          <>
+            <div className="tutor-history-tools" style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+              <input
+                value={historySearch}
+                onChange={(event) => setHistorySearch(event.target.value)}
+                placeholder="Search previous chats"
+                aria-label="Search previous chats"
+                style={{ flex: 1, fontSize: 12, padding: "8px 10px", borderRadius: 8, border: "1px solid #34384a", background: "#252937", color: "#e7e9f3" }}
+              />
+              <select
+                value={historyFilter}
+                onChange={(event) => setHistoryFilter(event.target.value as typeof historyFilter)}
+                aria-label="Filter chat history"
+                style={{ fontSize: 12, padding: "8px", borderRadius: 8, border: "1px solid #34384a", background: "#252937", color: "#e7e9f3" }}
+              >
+                <option value="all">All</option>
+                <option value="questions">Questions</option>
+                <option value="answers">Answers</option>
+              </select>
+            </div>
+            {historySessions.length > 0 ? (
+              historySessions.map((session) => (
+                <button
+                  key={session.sessionId}
+                  type="button"
+                  className="history-item"
+                  data-active={selectedHistorySessionId === session.sessionId}
+                  onClick={() => {
+                    setSelectedHistorySessionId(session.sessionId);
+                    setTutorTab("tutor");
+                    setInput("");
+                  }}
+                >
+                  <div className="t">{session.title}</div>
+                  <div className="s">
+                    {new Date(session.startedAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                    {" · "}
+                    {session.turnCount} {session.turnCount === 1 ? "turn" : "turns"}
+                  </div>
+                </button>
+              ))
+            ) : (
+              <div className="tutor-history-empty">{traceData ? "No matching sessions." : "No previous sessions loaded yet."}</div>
+            )}
+          </>
+        ) : null}
+
+        {tutorTab === "settings" ? (
+          <>
+            <div className="setting-row">
+              Auto-create learner study aids
+              <input
+                type="checkbox"
+                checked={settings.artifactConsent?.autoCreateLearnerArtifacts === true}
+                onChange={(e) => void updateArtifactConsentSetting("autoCreateLearnerArtifacts", e.target.checked)}
+              />
+            </div>
+            <div className="setting-row">
+              Auto-promote generated notes
+              <input
+                type="checkbox"
+                checked={settings.artifactConsent?.autoCreateNotes === true}
+                onChange={(e) => void updateArtifactConsentSetting("autoCreateNotes", e.target.checked)}
+              />
+            </div>
+            <div className="setting-row">
+              Dev Mode tutor activity details
+              <input type="checkbox" checked={showTutorDiagnostics} onChange={(e) => setShowTutorDiagnostics(e.target.checked)} />
+            </div>
+          </>
+        ) : null}
       </div>
 
-      <div className="tutor-composer">
-        <textarea
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Ask the tutor..."
-        />
-        <button
-          onClick={() => void handleSend()}
-          disabled={!input.trim()}
-          className="study-primary-button"
-          style={{ opacity: !input.trim() ? 0.55 : 1, cursor: !input.trim() ? "not-allowed" : "pointer" }}
-        >
-          {isLoading ? "Steer current response" : "Send"}
-        </button>
+      <div className="tutor-input">
+        <div className="context-chip">Context: {currentObjectiveTitle ?? planStatusLabel}</div>
+        <div className="composer" data-composer>
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask a follow-up or steer..."
+          />
+          <button
+            type="button"
+            className="send"
+            title="Send"
+            onClick={() => void handleSend()}
+            disabled={!input.trim()}
+          >
+            <IconSend />
+          </button>
+        </div>
+        <div className="composer-hint">
+          <span>↵ send · ⇧↵ steer</span>
+          <span>{isLoading ? "Steering…" : "TutorBook"}</span>
+        </div>
       </div>
 
       {selectedArtifact && (
@@ -1516,7 +1519,7 @@ export default function TutorPanel({ notebookId, selectedNodeRefs = [] }: TutorP
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 

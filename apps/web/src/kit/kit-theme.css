@@ -1,0 +1,341 @@
+/* Kit theme tokens — mirrors ui-preview mist / folio / focus palettes */
+
+[data-theme="mist"],
+:root {
+  --bg: #f4f5fb;
+  --bg-soft: #eef0f7;
+  --surface: #ffffff;
+  --sidebar: #1c1f2a;
+  --sidebar-soft: #252937;
+  --text: #1f2330;
+  --text-muted: #6b7180;
+  --text-faint: #9aa0b0;
+  --border: #e6e7ee;
+  --border-soft: #eeeff4;
+  --accent: #6366f1;
+  --accent-soft: #eef0ff;
+  --accent-soft-2: #f5f3ff;
+  --accent-deep: #4f46e5;
+  --purple: #7c3aed;
+  --purple-soft: #f3eeff;
+  --green: #16a34a;
+  --green-soft: #e8f7ee;
+  --green-deep: #15803d;
+  --orange: #ea580c;
+  --orange-soft: #fff1e8;
+  --red: #dc2626;
+  --red-soft: #fdeced;
+  --yellow: #d97706;
+  --yellow-soft: #fff4e0;
+  --blue: #2563eb;
+  --blue-soft: #e8efff;
+  --shadow-sm: 0 1px 2px rgba(20, 23, 40, 0.06);
+  --shadow: 0 6px 24px rgba(20, 23, 40, 0.08);
+  --shadow-lg: 0 20px 60px rgba(20, 23, 40, 0.16);
+  --radius: 14px;
+  --radius-sm: 10px;
+  --radius-pill: 999px;
+  --font: "Inter", system-ui, sans-serif;
+  --font-head: "Inter", system-ui, sans-serif;
+  --font-ui: "Inter", system-ui, sans-serif;
+  --font-reading: "Source Serif 4", Georgia, serif;
+  --font-display: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* bridge for components still using study-shell variable names */
+  --app-bg: var(--bg);
+  --panel: var(--surface);
+  --panel-muted: var(--bg-soft);
+  --panel-strong: var(--surface);
+  --line: var(--border);
+  --line-strong: var(--border);
+  --text-strong: var(--text);
+  --accent-2: var(--purple);
+}
+
+[data-theme="folio"] {
+  --bg: #fdfcf8;
+  --bg-soft: #f4f1e8;
+  --surface: #fffefb;
+  --sidebar: #f9f6ee;
+  --sidebar-soft: #f1ecdf;
+  --text: #23372c;
+  --text-muted: #6b7a70;
+  --text-faint: #9aa89e;
+  --border: #e6dfce;
+  --border-soft: #efe9da;
+  --accent: #2d5a47;
+  --accent-soft: #e8f3ee;
+  --accent-soft-2: #eef6f0;
+  --accent-deep: #234638;
+  --purple: #7a6cab;
+  --purple-soft: #ece9f6;
+  --green: #2d5a47;
+  --green-soft: #e8f3ee;
+  --green-deep: #234638;
+  --orange: #b9763a;
+  --orange-soft: #f6e7d4;
+  --red: #b0413e;
+  --red-soft: #f4e1e0;
+  --yellow: #b9923a;
+  --yellow-soft: #f4ecd4;
+  --blue: #4a6a8c;
+  --blue-soft: #e6edf4;
+  --shadow-sm: 0 1px 2px rgba(60, 50, 30, 0.05);
+  --shadow: 0 6px 24px rgba(60, 50, 30, 0.08);
+  --shadow-lg: 0 20px 60px rgba(60, 50, 30, 0.14);
+  --radius: 6px;
+  --radius-sm: 5px;
+  --font-head: "Fraunces", "Source Serif 4", Georgia, serif;
+  --font-display: "Fraunces", "Source Serif 4", Georgia, serif;
+  --font-reading: "Source Serif 4", Georgia, serif;
+}
+
+[data-theme="focus"] {
+  --bg: #f9f7f2;
+  --bg-soft: #f1eee6;
+  --surface: #ffffff;
+  --sidebar: #ffffff;
+  --sidebar-soft: #f5f3ec;
+  --text: #1f2530;
+  --text-muted: #6a7384;
+  --text-faint: #a3aaba;
+  --border: #e4e2da;
+  --border-soft: #eceae2;
+  --accent: #2d5bff;
+  --accent-soft: #e8eefc;
+  --accent-soft-2: #eef3ff;
+  --accent-deep: #1f47e0;
+  --purple: #6b7280;
+  --purple-soft: #eef0f4;
+  --green: #1a8a4f;
+  --green-soft: #e6f4ec;
+  --green-deep: #146b3c;
+  --orange: #c2682a;
+  --orange-soft: #f7ebdd;
+  --red: #d93025;
+  --red-soft: #fbe9e7;
+  --yellow: #b08600;
+  --yellow-soft: #f6efd8;
+  --blue: #2d5bff;
+  --blue-soft: #e8eefc;
+  --shadow-sm: 0 1px 2px rgba(31, 37, 48, 0.05);
+  --shadow: 0 6px 22px rgba(31, 37, 48, 0.08);
+  --shadow-lg: 0 18px 50px rgba(31, 37, 48, 0.14);
+  --radius: 10px;
+  --radius-sm: 8px;
+  --font: "Inter", system-ui, sans-serif;
+  --font-display: "Lora", Georgia, serif;
+  --font-head: "Lora", Georgia, serif;
+  --font-ui: "Inter", system-ui, sans-serif;
+}
+
+[data-theme="atlas"] {
+  --bg: #f6f4ef;
+  --bg-soft: #ebe7df;
+  --surface: #fffefa;
+  --sidebar: #f8f7f4;
+  --sidebar-soft: #eeebe4;
+  --text: #242321;
+  --text-muted: #706c64;
+  --text-faint: #aaa49a;
+  --border: #ded8cd;
+  --border-soft: #ece6dc;
+  --accent: #2563eb;
+  --accent-soft: #e9efff;
+  --accent-soft-2: #f2f5ff;
+  --accent-deep: #1d4ed8;
+  --purple: #2563eb;
+  --purple-soft: #e9efff;
+  --green: #2f6f55;
+  --green-soft: #e6f1ec;
+  --green-deep: #245844;
+  --orange: #b86318;
+  --orange-soft: #f7e7d6;
+  --red: #c4272d;
+  --red-soft: #f8e1e2;
+  --yellow: #a87914;
+  --yellow-soft: #f4ebd4;
+  --blue: #2563eb;
+  --blue-soft: #e9efff;
+  --shadow-sm: 0 1px 2px rgba(44, 39, 32, 0.05);
+  --shadow: 0 10px 28px rgba(44, 39, 32, 0.08);
+  --shadow-lg: 0 24px 60px rgba(44, 39, 32, 0.14);
+  --radius: 8px;
+  --radius-sm: 6px;
+  --font: "IBM Plex Sans", "Inter", system-ui, sans-serif;
+  --font-display: "IBM Plex Sans", "Inter", system-ui, sans-serif;
+  --font-head: "IBM Plex Sans", "Inter", system-ui, sans-serif;
+  --font-ui: "IBM Plex Sans", "Inter", system-ui, sans-serif;
+}
+
+/* Legacy study-shell control aliases → kit */
+.study-chip-button {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 9px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.study-chip-button[data-active="true"],
+.study-chip-button:hover {
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  color: var(--accent-deep);
+}
+.study-chip-button[data-variant="danger"] {
+  color: var(--red);
+  border-color: color-mix(in srgb, var(--red) 30%, var(--border));
+}
+.study-primary-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  font-size: 13px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}
+.study-secondary-button,
+.study-icon-button {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Tutorbook shell aliases */
+.tb-page {
+  min-height: 100vh;
+  padding: 24px;
+  background: var(--bg);
+}
+.tb-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  box-shadow: var(--shadow-sm);
+}
+.tb-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+.tb-button-primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.tb-lead {
+  color: var(--text-muted);
+}
+.tb-error {
+  color: var(--red);
+  font-size: 13px;
+  white-space: pre-wrap;
+}
+.tb-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+.tb-form {
+  display: grid;
+  gap: 12px;
+}
+.tb-input,
+.tb-field input,
+.tb-field textarea,
+.tb-field select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font: inherit;
+}
+.tb-field {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+}
+.tb-template-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+.tb-template-card {
+  text-align: left;
+  cursor: pointer;
+}
+.tb-template-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+.tb-app-shell {
+  display: flex;
+  min-height: 100vh;
+  background: var(--bg);
+}
+.tb-app-nav {
+  width: 240px;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  padding: 20px 16px;
+}
+.tb-app-main {
+  flex: 1;
+  padding: 24px;
+}
+.tb-app-nav ul {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+  display: grid;
+  gap: 4px;
+}
+.tb-app-nav button {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+}
+.tb-app-nav button[data-active="true"] {
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+  font-weight: 600;
+}
+.tutorbook-shell {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+}
