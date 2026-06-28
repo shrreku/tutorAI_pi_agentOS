@@ -15,14 +15,44 @@ const includeDesignLab = process.env.ENABLE_DESIGN_LAB === "true";
 
 export default defineConfig({
   envPrefix: ["VITE_"],
-  // Tailwind is scoped to the standalone design-lab entry; the main app keeps its
-  // own hand-written CSS untouched.
+  // Tailwind v4 (CSS-first) powers the app-wide Folio design system (src/ui/theme.css).
   plugins: [react(), tailwindcss()],
   build: {
+    chunkSizeWarningLimit: 900,
     rollupOptions: {
       input: {
         main: path.join(here, "index.html"),
         ...(includeDesignLab ? { "design-lab": path.join(here, "design-lab.html") } : {}),
+      },
+      output: {
+        // Split large/independent vendors into their own cacheable chunks. The
+        // heaviest libs (React Flow, KaTeX) are only pulled in by the lazily
+        // loaded notebook workspace, so they never weigh down the first paint.
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return undefined;
+          if (id.includes("react-dom") || /[\\/]react[\\/]/.test(id) || id.includes("react/jsx"))
+            return "react";
+          if (id.includes("@xyflow") || id.includes("d3-")) return "reactflow";
+          if (id.includes("katex")) return "katex";
+          if (
+            id.includes("framer-motion") ||
+            id.includes("motion-dom") ||
+            id.includes("motion-utils")
+          )
+            return "motion";
+          if (
+            id.includes("react-markdown") ||
+            id.includes("remark") ||
+            id.includes("rehype") ||
+            id.includes("micromark") ||
+            id.includes("mdast") ||
+            id.includes("hast")
+          )
+            return "markdown";
+          if (id.includes("@tanstack")) return "tanstack";
+          if (id.includes("@sentry")) return "sentry";
+          return "vendor";
+        },
       },
     },
   },

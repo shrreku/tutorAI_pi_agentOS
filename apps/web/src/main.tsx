@@ -6,8 +6,10 @@ import { initSentry } from "@studyagent/observability";
 import { App } from "./App.js";
 import "katex/dist/katex.min.css";
 import "./ui/theme.css";
+// study-shell.css themes the live TutorPanel + Whiteboard graph panes (reused
+// wiring). The old tutorbook.css has been fully retired — Folio (theme.css) now
+// drives every shipped surface.
 import "./study-shell.css";
-import "./tutorbook.css";
 
 initSentry(
   import.meta.env.VITE_SENTRY_DSN,

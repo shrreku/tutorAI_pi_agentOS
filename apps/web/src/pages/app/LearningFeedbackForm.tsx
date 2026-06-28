@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
+import { Sparkles } from "lucide-react";
 import { api } from "../../routing/api.js";
+import { Button, Field, Textarea } from "../../ui/primitives.js";
 
 function notebookIdFromPath(): string | undefined {
   const match = window.location.pathname.match(/^\/notebooks\/([^/]+)/);
@@ -53,91 +55,104 @@ export function LearningFeedbackForm({ onSubmitted }: { onSubmitted?: () => void
 
   if (success) {
     return (
-      <div className="tb-card">
-        <h2>Thanks for the feedback</h2>
-        <p>Your response helps us improve TutorBook and prioritize beta access.</p>
+      <div className="rounded-xl border border-success/30 bg-success/10 p-6 shadow-soft">
+        <p className="flex items-center gap-2 font-display text-[18px] font-semibold text-success">
+          <Sparkles className="h-4 w-4" /> Thanks for the feedback
+        </p>
+        <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted-foreground">
+          Your response helps us improve TutorBook and prioritize beta access.
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="tb-card">
-      <h2>Learning feedback</h2>
-      <p className="tb-lead">Tell us what you were trying to learn and whether TutorBook helped.</p>
+    <div className="rounded-xl border border-border bg-card p-6 shadow-soft">
+      <h3 className="font-display text-[18px] font-semibold">Learning feedback</h3>
+      <p className="mt-1 text-[13.5px] leading-relaxed text-muted-foreground">
+        Tell us what you were trying to learn and whether TutorBook helped.
+      </p>
       {detectedNotebookId ? (
-        <p className="tb-muted">Linked to workspace {detectedNotebookId}</p>
+        <p className="mt-1 text-[12px] text-muted-foreground">
+          Linked to workspace {detectedNotebookId}
+        </p>
       ) : null}
 
-      <label className="tb-field">
-        <span>What were you trying to learn?</span>
-        <textarea
-          value={studyGoal}
-          onChange={(event) => setStudyGoal(event.target.value)}
-          rows={3}
-        />
-      </label>
-
-      <fieldset className="tb-field">
-        <legend>Did TutorBook help?</legend>
-        <label>
-          <input
-            type="radio"
-            name="helped"
-            checked={helped === true}
-            onChange={() => setHelped(true)}
+      <div className="mt-5 space-y-4">
+        <Field label="What were you trying to learn?">
+          <Textarea
+            value={studyGoal}
+            onChange={(event) => setStudyGoal(event.target.value)}
+            rows={3}
           />
-          Yes, it helped
-        </label>
-        <label>
-          <input
-            type="radio"
-            name="helped"
-            checked={helped === false}
-            onChange={() => setHelped(false)}
+        </Field>
+
+        <fieldset>
+          <legend className="mb-1.5 block text-[13px] font-medium text-foreground">
+            Did TutorBook help?
+          </legend>
+          <div className="flex flex-col gap-2">
+            <label className="flex items-center gap-2.5 text-[14px] text-foreground">
+              <input
+                type="radio"
+                name="helped"
+                checked={helped === true}
+                onChange={() => setHelped(true)}
+                className="h-4 w-4 accent-accent"
+              />
+              Yes, it helped
+            </label>
+            <label className="flex items-center gap-2.5 text-[14px] text-foreground">
+              <input
+                type="radio"
+                name="helped"
+                checked={helped === false}
+                onChange={() => setHelped(false)}
+                className="h-4 w-4 accent-accent"
+              />
+              Not really
+            </label>
+          </div>
+        </fieldset>
+
+        <Field label="Where did it break down or confuse you?">
+          <Textarea
+            value={confusionText}
+            onChange={(event) => setConfusionText(event.target.value)}
+            rows={3}
           />
-          Not really
+        </Field>
+
+        <Field label="What workflow would have worked better?">
+          <Textarea
+            value={alternativeWorkflow}
+            onChange={(event) => setAlternativeWorkflow(event.target.value)}
+            rows={3}
+          />
+        </Field>
+
+        <label className="flex items-start gap-2.5 text-[14px] text-foreground">
+          <input
+            type="checkbox"
+            checked={contactPermission}
+            onChange={(event) => setContactPermission(event.target.checked)}
+            className="mt-0.5 h-4 w-4 accent-accent"
+          />
+          <span>You may contact me about this feedback.</span>
         </label>
-      </fieldset>
 
-      <label className="tb-field">
-        <span>Where did it break down or confuse you?</span>
-        <textarea
-          value={confusionText}
-          onChange={(event) => setConfusionText(event.target.value)}
-          rows={3}
-        />
-      </label>
+        {error && (
+          <p className="rounded-lg bg-destructive/10 px-3 py-2 text-[13px] text-destructive">
+            {error}
+          </p>
+        )}
 
-      <label className="tb-field">
-        <span>What workflow would have worked better?</span>
-        <textarea
-          value={alternativeWorkflow}
-          onChange={(event) => setAlternativeWorkflow(event.target.value)}
-          rows={3}
-        />
-      </label>
-
-      <label style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-        <input
-          type="checkbox"
-          checked={contactPermission}
-          onChange={(event) => setContactPermission(event.target.checked)}
-        />
-        <span>You may contact me about this feedback.</span>
-      </label>
-
-      <div className="tb-actions">
-        <button
-          type="button"
-          className="tb-button tb-button-primary"
-          disabled={isSubmitting}
-          onClick={() => void handleSubmit()}
-        >
-          {isSubmitting ? "Submitting…" : "Submit learning feedback"}
-        </button>
+        <div className="flex justify-end">
+          <Button variant="primary" disabled={isSubmitting} onClick={() => void handleSubmit()}>
+            {isSubmitting ? "Submitting…" : "Submit learning feedback"}
+          </Button>
+        </div>
       </div>
-
-      {error && <pre className="tb-error">{error}</pre>}
     </div>
   );
 }

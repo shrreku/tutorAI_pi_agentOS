@@ -63,9 +63,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
 function GuardLoading() {
   return (
-    <div className="tb-page">
-      <div className="tb-card">
-        <p>Loading session…</p>
+    <div className="grid min-h-dvh place-items-center bg-background text-foreground">
+      <div className="flex flex-col items-center gap-3">
+        <span className="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-accent" />
+        <p className="text-[13px] text-muted-foreground">Loading session…</p>
       </div>
     </div>
   );
@@ -73,10 +74,10 @@ function GuardLoading() {
 
 function GuardMessage({ title, message }: { title: string; message: string }) {
   return (
-    <div className="tb-page">
-      <div className="tb-card">
-        <h1>{title}</h1>
-        <p>{message}</p>
+    <div className="grid min-h-dvh place-items-center bg-background px-6 text-foreground">
+      <div className="w-full max-w-md rounded-2xl border border-border bg-card p-8 text-center shadow-soft">
+        <h1 className="font-display text-[22px] font-semibold">{title}</h1>
+        <p className="mt-2 text-[14px] leading-relaxed text-muted-foreground">{message}</p>
       </div>
     </div>
   );

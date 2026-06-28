@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { matchRoute } from "./routes.js";
 import { RouteGuard, SessionProvider } from "./RouteGuards.js";
 import { ErrorBoundary } from "./ErrorBoundary.js";
@@ -22,21 +22,65 @@ import { AccessCodePage } from "../pages/app/AccessCodePage.js";
 import { SupportPage } from "../pages/app/SupportPage.js";
 import { CreditsPage } from "../pages/app/CreditsPage.js";
 import { AdminShell } from "../pages/admin/AdminShell.js";
-import { AdminOverviewPage } from "../pages/admin/AdminOverviewPage.js";
-import { AdminUsersPage } from "../pages/admin/AdminUsersPage.js";
-import { AdminWorkspacesPage } from "../pages/admin/AdminWorkspacesPage.js";
-import { AdminWorkspaceDetailPage } from "../pages/admin/AdminWorkspaceDetailPage.js";
-import { AdminTemplatesPage } from "../pages/admin/AdminTemplatesPage.js";
-import { AdminAccessCodesPage } from "../pages/admin/AdminAccessCodesPage.js";
-import { AdminCreditsPage } from "../pages/admin/AdminCreditsPage.js";
-import { AdminFeedbackPage } from "../pages/admin/AdminFeedbackPage.js";
-import { AdminIngestionPage } from "../pages/admin/AdminIngestionPage.js";
-import { AdminAnalyticsPage } from "../pages/admin/AdminAnalyticsPage.js";
-import { AdminAccountDeletionPage } from "../pages/admin/AdminAccountDeletionPage.js";
-import { AdminUserDetailPage } from "../pages/admin/AdminUserDetailPage.js";
-import { NotebookWorkspacePage } from "../NotebookWorkspacePage.js";
-import EvalRunsDashboard from "../EvalRunsDashboard.js";
 import { recordPublicAnalyticsEvent } from "./api.js";
+
+// Heavy / rarely-hit routes are code-split so the marketing + dashboard entry
+// stays lean — React Flow, KaTeX, the eval dashboard and the whole admin console
+// only download when their route is actually visited.
+const NotebookWorkspacePage = lazy(() =>
+  import("../NotebookWorkspacePage.js").then((m) => ({ default: m.NotebookWorkspacePage })),
+);
+const EvalRunsDashboard = lazy(() => import("../EvalRunsDashboard.js"));
+const AdminOverviewPage = lazy(() =>
+  import("../pages/admin/AdminOverviewPage.js").then((m) => ({ default: m.AdminOverviewPage })),
+);
+const AdminUsersPage = lazy(() =>
+  import("../pages/admin/AdminUsersPage.js").then((m) => ({ default: m.AdminUsersPage })),
+);
+const AdminUserDetailPage = lazy(() =>
+  import("../pages/admin/AdminUserDetailPage.js").then((m) => ({ default: m.AdminUserDetailPage })),
+);
+const AdminWorkspacesPage = lazy(() =>
+  import("../pages/admin/AdminWorkspacesPage.js").then((m) => ({ default: m.AdminWorkspacesPage })),
+);
+const AdminWorkspaceDetailPage = lazy(() =>
+  import("../pages/admin/AdminWorkspaceDetailPage.js").then((m) => ({
+    default: m.AdminWorkspaceDetailPage,
+  })),
+);
+const AdminTemplatesPage = lazy(() =>
+  import("../pages/admin/AdminTemplatesPage.js").then((m) => ({ default: m.AdminTemplatesPage })),
+);
+const AdminAccessCodesPage = lazy(() =>
+  import("../pages/admin/AdminAccessCodesPage.js").then((m) => ({
+    default: m.AdminAccessCodesPage,
+  })),
+);
+const AdminCreditsPage = lazy(() =>
+  import("../pages/admin/AdminCreditsPage.js").then((m) => ({ default: m.AdminCreditsPage })),
+);
+const AdminFeedbackPage = lazy(() =>
+  import("../pages/admin/AdminFeedbackPage.js").then((m) => ({ default: m.AdminFeedbackPage })),
+);
+const AdminIngestionPage = lazy(() =>
+  import("../pages/admin/AdminIngestionPage.js").then((m) => ({ default: m.AdminIngestionPage })),
+);
+const AdminAnalyticsPage = lazy(() =>
+  import("../pages/admin/AdminAnalyticsPage.js").then((m) => ({ default: m.AdminAnalyticsPage })),
+);
+const AdminAccountDeletionPage = lazy(() =>
+  import("../pages/admin/AdminAccountDeletionPage.js").then((m) => ({
+    default: m.AdminAccountDeletionPage,
+  })),
+);
+
+function RouteFallback() {
+  return (
+    <div className="grid min-h-dvh place-items-center bg-background text-foreground">
+      <span className="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-accent" />
+    </div>
+  );
+}
 
 export function AppRouter() {
   const [routePath, setRoutePath] = useState(() => window.location.pathname);
@@ -199,18 +243,22 @@ export function AppRouter() {
         );
       case "unknown":
         return (
-          <div className="tb-page">
-            <div className="tb-card">
-              <h1>Page not found</h1>
-              <p>
-                <button
-                  type="button"
-                  className="tb-button tb-button-primary"
-                  onClick={() => navigate("/")}
-                >
-                  Back to TutorBook
-                </button>
+          <div className="grid min-h-dvh place-items-center bg-background px-6 text-foreground">
+            <div className="w-full max-w-md rounded-2xl border border-border bg-card p-8 text-center shadow-soft">
+              <p className="font-mono text-[12px] uppercase tracking-[0.18em] text-muted-foreground">
+                404
               </p>
+              <h1 className="mt-2 font-display text-[26px] font-semibold">Page not found</h1>
+              <p className="mt-2 text-[14px] text-muted-foreground">
+                The page you’re looking for doesn’t exist or has moved.
+              </p>
+              <button
+                type="button"
+                onClick={() => navigate("/")}
+                className="mt-6 inline-flex h-10 items-center justify-center rounded-lg bg-primary px-5 text-[14px] font-medium text-primary-foreground transition-colors hover:bg-accent"
+              >
+                Back to TutorBook
+              </button>
             </div>
           </div>
         );
@@ -223,7 +271,7 @@ export function AppRouter() {
       <RouteGuard routePath={routePath} navigate={navigate}>
         {/* Keyed by route so navigating away clears a tripped boundary. */}
         <ErrorBoundary key={routePath} area={routePath}>
-          {content}
+          <Suspense fallback={<RouteFallback />}>{content}</Suspense>
         </ErrorBoundary>
       </RouteGuard>
     </SessionProvider>

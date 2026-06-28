@@ -1,3 +1,5 @@
+import { Badge, Dot } from "../ui/primitives.js";
+
 export type IngestionStatusView = {
   status: string;
   queued: boolean;
@@ -27,9 +29,9 @@ function resolveLabel(status: IngestionStatusView): string {
   return status.status;
 }
 
-function resolveTone(
-  status: IngestionStatusView,
-): "neutral" | "progress" | "ready" | "danger" | "warning" {
+type Tone = "neutral" | "progress" | "ready" | "danger" | "warning";
+
+function resolveTone(status: IngestionStatusView): Tone {
   if (status.reviewNeeded) return "warning";
   if (status.retryNeeded || status.failed) return "danger";
   if (status.ready) return "ready";
@@ -37,11 +39,28 @@ function resolveTone(
   return "neutral";
 }
 
+const BADGE_TONE: Record<Tone, "neutral" | "primary" | "success" | "warning" | "danger"> = {
+  neutral: "neutral",
+  progress: "primary",
+  ready: "success",
+  danger: "danger",
+  warning: "warning",
+};
+
+const DOT_TONE: Record<Tone, "neutral" | "accent" | "success" | "warning" | "danger"> = {
+  neutral: "neutral",
+  progress: "accent",
+  ready: "success",
+  danger: "danger",
+  warning: "warning",
+};
+
 export function IngestionStatusBadge({ status }: { status: IngestionStatusView }) {
   const tone = resolveTone(status);
   return (
-    <span className="tb-ingestion-badge" data-tone={tone} title={status.status}>
+    <Badge tone={BADGE_TONE[tone]} title={status.status}>
+      <Dot tone={DOT_TONE[tone]} pulse={tone === "progress"} />
       {resolveLabel(status)}
-    </span>
+    </Badge>
   );
 }
