@@ -1,267 +1,61 @@
 # Folio Design Kit
 
-- **Role:** Sole production design and implementation baseline for TutorBook.
-- **Migration policy:** replace the Legacy/Mist frontend completely; do not retain a runtime generation or theme switcher.
-- **Workspace layout:** classic split with a 35% Tutor / 65% Workspace default, draggable persisted divider, and independent pane scrolling.
-- **Historical anatomy reference:** Mist Glass — use [`NODES_PEN.md`](../../NODES_PEN.md) and [`ui-example/mist-glass/`](../../ui-example/mist-glass/README.md) to identify missing component states, not as a production theme.
-- **Screenshots:** [`frontend-examples/folio/screenshots/`](../../frontend-examples/folio/screenshots/README.md) — 34 PNG exports (2026-06-25).
-- **Pencil sources:** [`untitled.pen`](../../untitled.pen), [`gemini.pen`](../../gemini.pen) (Screen 5 · Editorial Ivory).
-- **Behavior specs:** numbered docs `04`–`08` in this folder remain authoritative; the Folio Design Lab is the visual and interaction target, not a replacement behavioral implementation.
+Folio is TutorBook's sole production visual direction. The runnable
+[`frontend-examples/folio/design-lab/`](../../frontend-examples/folio/design-lab/README.md)
+is the only visual reference retained on this branch.
 
-## Port target scope
+## Run the reference
 
-The coordinated Folio cutover covers every public route and authenticated learner route, including the hosted-beta app shell and notebook Workspace. These surfaces receive the complete Folio visual and interaction treatment while preserving the security rules, API/domain semantics, tutor-runtime outcomes, Workspace behavior, and learner-state invariants that make the product work.
+```bash
+pnpm install
+pnpm design-lab
+```
 
-Routes without an existing Folio reference are designed and implemented during the port from the canonical Folio tokens, typography, spacing, primitives, and interaction language. Separate Design Lab frames are not a prerequisite, but no public, learner, empty, loading, error, or responsive state may retain generic, Legacy, or Mist presentation.
+Open `http://127.0.0.1:4174/#folio/workspace`.
 
-Legacy removal is a clean frontend replacement. No existing component, hook, context, router, fetch wrapper, CSS file, or frontend dependency is protected. Reuse one only when it is the safest path to a verified capability. Preserve behavior at the contract and outcome boundary: API/auth rules, streaming semantics, graph/read models, Reference Surfaces, Evidence, Artifacts, ingestion state, entitlements, and the MCP bridge must remain working or be deliberately superseded before their old consumers are removed. Do not reproduce domain behavior from Design Lab mock state.
+The Design Lab contains three representative surfaces:
 
-Admin remains an operator-first surface: dense tables, compact controls, and its existing information architecture. It adopts the same Folio tokens, shared primitives, accessibility rules, and state language, but it does not inherit the editorial learner-page composition. Eval and other development-only routes follow the same operator-surface policy.
+- Dashboard
+- Notebook Workspace
+- Node Pack
 
-The implementation remains on the repository's Tailwind 3.4 + shared shadcn/Radix foundation. Port visual values from the approved Tailwind 4 Design Lab baseline into shared CSS custom properties and Tailwind 3 configuration; do not copy `@theme` syntax or upgrade Tailwind as part of the Folio migration.
-
-All dashboard sections in the approved Folio baseline are production scope and consume the API-owned Learner Dashboard Summary. Do not retain the Design Lab's sample progress, practice, recommendations, activity, or study-time values.
-
-The dashboard Study time chart is blocked on ADR-0028's persisted Study Activity Intervals. Do not substitute Tutor Session elapsed time, browser-open time, or generic analytics.
-
----
-
-## Improvement priority
-
-Agreed order for Folio work:
-
-1. **Completeness** — reach Mist Glass kit parity in Folio's editorial language
-2. **Aesthetic polish** — refine ivory/serif treatment on specific surfaces
-3. **Structural change** — layout paradigm shifts only after the full kit exists
-
-Use [`ui-example/mist-glass/`](../../ui-example/mist-glass/README.md) as the anatomy checklist. Interaction patterns (chat spine, evidence drawer, reference surfaces) follow the same product model as Mist Glass.
-
----
+It uses portable sample data so external implementers can run it without StudyAgent
+credentials or backend services. Sample values are illustrative only. Production data
+must come through `@studyagent/api-client` and shared schemas.
 
 ## Visual language
 
-### Folio (Editorial Ivory)
+- Warm editorial ivory backgrounds and opaque reading surfaces.
+- Forest and sage accents for actions, selected state, and progress.
+- Newsreader for display and long-form reading.
+- Inter for controls, labels, and general UI text.
+- JetBrains Mono for compact metadata and locators.
+- Warm hairline borders, restrained shadows, and six-pixel base radii.
+- Numbered figure-like Study Map nodes in the Folio Workspace.
 
-- **Panels:** warm ivory fills (`#faf8f5`, `#f5f0e8`, `#fffef9`) — opaque scrims, not indigo glass
-- **Strokes:** warm hairlines (`#e8e0d4`, `#d4c8b8`)
-- **Shadows:** soft warm lift — low chroma, no indigo glow
-- **Backgrounds:** sand/ivory gradients; curriculum watermark typography as faint canvas landmark
-- **Accent:** muted sage for primary actions and selected states; warm amber for artifacts
-- **Evidence overlay:** frosted warm ivory backdrop scrim (functional dim, not decorative glass blobs)
+The authoritative tokens and implementation examples live in:
 
-### Typography roles
+- [`styles.css`](../../frontend-examples/folio/design-lab/src/design-lab/styles.css)
+- [`folio.tsx`](../../frontend-examples/folio/design-lab/src/design-lab/directions/folio.tsx)
+- [`margin.tsx`](../../frontend-examples/folio/design-lab/src/design-lab/ui/layouts/margin.tsx)
+- [`nodes.tsx`](../../frontend-examples/folio/design-lab/src/design-lab/ui/nodes.tsx)
+- [`workspace.tsx`](../../frontend-examples/folio/design-lab/src/design-lab/ui/workspace.tsx)
+- [`surfaces.tsx`](../../frontend-examples/folio/design-lab/src/design-lab/ui/surfaces.tsx)
 
-Canonical Folio type system, matching the approved live baseline:
+## Production interpretation
 
-| Role                | Typeface       | Folio usage                                                      |
-| ------------------- | -------------- | ---------------------------------------------------------------- |
-| Display / titles    | Newsreader     | Workspace titles, reference H1s, drawer headings, node XL titles |
-| Long-form reading   | Newsreader     | Tutor prose, wiki body, worked-example steps                     |
-| UI / labels / body  | Inter          | Controls, meta, chips, status bars, graph labels                 |
-| Eyebrows / locators | JetBrains Mono | Type badges, locators, compact meta                              |
+The Design Lab defines visual and interaction intent, not application architecture.
+The production frontend must still implement every route, loading state, empty state,
+error state, responsive state, authorization rule, stream behavior, and durable learner
+outcome in the numbered frontend specifications.
 
-Self-host all three families through `@fontsource`; do not depend on the Google Fonts CDN. Mist Glass uses Inter throughout; Folio's differentiation is Newsreader-led editorial and reading surfaces with sans UI chrome.
+Do not:
 
-### Node states (Folio)
+- copy sample data into production;
+- add another theme or runtime theme switcher;
+- reintroduce deleted screenshot, Pencil, static-preview, or layout-variation archives;
+- bypass `@studyagent/api-client` with feature-local HTTP wrappers;
+- treat Design Lab component structure as a required production module structure.
 
-Folio adds **Completed** and **Locked** to the Mist Glass state set (Default · Selected · Current path). See `node-pack/08-states.png` in [`frontend-examples/folio/screenshots/`](../../frontend-examples/folio/screenshots/README.md).
-
----
-
-## Kit status
-
-| Area                | Folio status                             | Mist Glass reference                                    |
-| ------------------- | ---------------------------------------- | ------------------------------------------------------- |
-| Node pack (XL→XS)   | **Complete** — 12 showcase frames        | `ui-example/mist-glass/node-pack/`                      |
-| Node components     | **Complete** — 5 scales                  | `ui-example/mist-glass/node-components/`                |
-| Workspace screens   | **Complete** — 6 screens                 | `ui-example/mist-glass/workspace-screens/`              |
-| Reference surfaces  | **Complete** — 13 pages + widget library | `ui-example/mist-glass/reference-surfaces/`             |
-| Reference header    | **Complete**                             | `ui-example/mist-glass/reference-components/`           |
-| Evidence pages      | **Complete** — 5 format variants         | `ui-example/mist-glass/evidence-pages/`                 |
-| Evidence workspace  | **Complete** — 2 overlay screens         | `ui-example/mist-glass/evidence-workspace/`             |
-| Dashboard           | **Complete** — library index layout      | `ui-example/mist-glass/workspace-screens/dashboard.png` |
-| Tutor chat kit      | **Partial** — tabs + composer only       | `ui-example/mist-glass/chat-components/` (15 files)     |
-| Evidence components | **Partial** — dock shell only            | `ui-example/mist-glass/evidence-components/` (12 files) |
-| Workspace chrome    | **Missing**                              | `workspace-surface-switcher`, `workspace-status-bar`    |
-| Chat showcases      | **Missing**                              | `chat-showcases/`                                       |
-| Canvas indices      | **Missing**                              | `indices/`                                              |
-
----
-
-## Completeness backlog
-
-Design these in Folio editorial language before aesthetic polish passes.
-
-### Tutor chat (`chat-components/`)
-
-| Component                    | Mist Glass file               | Folio status                     |
-| ---------------------------- | ----------------------------- | -------------------------------- |
-| User message row             | `chat-user-row.png`           | Not designed                     |
-| Agent step (complete)        | `chat-agent-step.png`         | Not designed                     |
-| Agent step (running)         | `chat-agent-step-running.png` | Not designed                     |
-| Thinking block               | `chat-thinking.png`           | Not designed                     |
-| Tutor prose + citation       | `chat-tutor-prose.png`        | Not designed                     |
-| Activity block (collapsible) | `chat-activity-block.png`     | Not designed                     |
-| Header — Tutor tab           | `chat-header-tutor.png`       | Covered by `folio-chat-tabs.png` |
-| Header — History tab         | `chat-header-history.png`     | Partial (tabs frame)             |
-| Header — Settings tab        | `chat-header-settings.png`    | Partial (tabs frame)             |
-| History view                 | `chat-history-view.png`       | Not designed                     |
-| Settings view                | `chat-settings-view.png`      | Not designed                     |
-| Full tutor panel             | `chat-panel.png`              | Not designed                     |
-| History panel                | `chat-panel-history.png`      | Not designed                     |
-| Settings panel               | `chat-panel-settings.png`     | Not designed                     |
-| Collapsed rail + FAB         | `chat-collapsed-rail.png`     | Not designed                     |
-| Composer                     | `chat-composer.png`           | **Done** (`f64En`)               |
-
-### Evidence (`evidence-components/`)
-
-| Component              | Mist Glass file                       | Folio status                          |
-| ---------------------- | ------------------------------------- | ------------------------------------- |
-| Drawer dock shell      | `evidence-drawer-dock.png`            | **Done** (`Ki6X9`)                    |
-| PDF drawer body        | `evidence-drawer-pdf.png`             | Not designed (page variant exists)    |
-| PPT drawer body        | `evidence-drawer-ppt.png`             | Not designed                          |
-| Wiki drawer body       | `evidence-drawer-wiki.png`            | Not designed                          |
-| Word drawer body       | `evidence-drawer-word.png`            | Not designed                          |
-| Empty drawer           | `evidence-drawer-empty.png`           | Not designed (page variant exists)    |
-| Snippet thumb          | `evidence-snippet-thumb.png`          | Not designed                          |
-| Snippet thumb selected | `evidence-snippet-thumb-selected.png` | Not designed                          |
-| Citation chip          | `citation-chip.png`                   | Not designed                          |
-| Citation chip active   | `citation-chip-active.png`            | Not designed                          |
-| Evidence button active | `evidence-button-active.png`          | Not designed                          |
-| Glass/warm backdrop    | `evidence-glass-backdrop.png`         | Implied in evidence-workspace screens |
-
-### Workspace chrome (`workspace-components/`)
-
-| Component        | Mist Glass ID | Folio status                                |
-| ---------------- | ------------- | ------------------------------------------- |
-| Topbar           | `O4nHt`       | Not designed (infer from workspace screens) |
-| Surface switcher | `Bn5nK`       | Not designed                                |
-| Status bar       | `pDSTm`       | Not designed                                |
-
----
-
-## Designed catalog (Pencil IDs)
-
-Full screenshot filenames: [`frontend-examples/folio/screenshots/README.md`](../../frontend-examples/folio/screenshots/README.md).
-
-### Node pack
-
-| Section            | ID       |
-| ------------------ | -------- |
-| Header             | `znwGn`  |
-| Size legend        | `AQDmb`  |
-| Type legend        | `MAZrE`  |
-| XL Planning        | `RtOEi`  |
-| L Curriculum       | `AC1hs`  |
-| M Gateway          | `bMtX5`  |
-| S Compact          | `FE9Yr`  |
-| XS Pins            | `YgTiF`  |
-| States             | `t0vhl`  |
-| Sample canvas      | `U3WWBW` |
-| Mixed-scale canvas | `O4mkCa` |
-| Artifacts          | `m8Ddg`  |
-
-### Node components
-
-| Scale | ID       | Size    |
-| ----- | -------- | ------- |
-| XL    | `sNGOM`  | 200×220 |
-| L     | `Y2PGui` | 200×168 |
-| M     | `bHhyr`  | 184×112 |
-| S     | `Gplim`  | 148×80  |
-| XS    | `MAQ69`  | 112×44  |
-
-### Workspace screens (1440×900)
-
-| Screen           | ID      |
-| ---------------- | ------- |
-| Study Map        | `rh9El` |
-| Source Wiki      | `zn4aP` |
-| Curriculum       | `wvyLU` |
-| Evidence open    | `ulGd5` |
-| Interactive quiz | `IDi3o` |
-| Dashboard        | `btkBw` |
-
-### Chat
-
-| Component                         | ID      |
-| --------------------------------- | ------- |
-| Tabs (Tutor / History / Settings) | `k3B9t` |
-| Composer                          | `f64En` |
-
-### Reference
-
-| Item           | ID      |
-| -------------- | ------- |
-| Surface header | `PaWJ7` |
-| Concept        | `riwmQ` |
-| Wiki topic     | `hveFo` |
-| Curriculum     | `aothd` |
-| Module         | `DOr72` |
-| Quiz           | `qVm2J` |
-| Session        | `AzUDW` |
-| Source         | `aYn3j` |
-| Flashcards     | `C3Vbf` |
-| Worked example | `eiTY0` |
-| Formula sheet  | `aEzDV` |
-| Comparison     | `Gm1MV` |
-| Live plan      | `qovGy` |
-| Widget library | `iQ9DY` |
-
-### Evidence
-
-| Item               | ID       |
-| ------------------ | -------- |
-| Drawer dock        | `Ki6X9`  |
-| PDF page           | `qwLCV`  |
-| PPT page           | `CiGrK`  |
-| Wiki page          | `NY2a3`  |
-| Word page          | `kAQSd`  |
-| Empty page         | `G4T4NC` |
-| Study map + drawer | `FrNxk`  |
-| Concept + drawer   | `FgyIo`  |
-
----
-
-## Spec alignment
-
-Folio implements the same product anatomy as Mist Glass. Cross-reference:
-
-| Product area                  | Spec doc                                                                      |
-| ----------------------------- | ----------------------------------------------------------------------------- |
-| Workspace layout              | [03-app-shell-and-navigation](./03-app-shell-and-navigation.md)               |
-| Tutor chat                    | [04-tutor-chat](./04-tutor-chat.md)                                           |
-| Study Map / Wiki / Curriculum | [05-workspace-study-map-source-wiki](./05-workspace-study-map-source-wiki.md) |
-| Nodes                         | [06-node-design-system](./06-node-design-system.md)                           |
-| Reference + Evidence          | [07-reference-surfaces-evidence](./07-reference-surfaces-evidence.md)         |
-| Artifacts                     | [08-artifacts](./08-artifacts.md)                                             |
-
-When Folio chat and evidence kits are complete, update this doc's catalog tables and re-export PNGs to `frontend-examples/folio/screenshots/`.
-
----
-
-## Re-exporting screenshots
-
-```json
-{
-  "tool": "export_nodes",
-  "filePath": "untitled.pen",
-  "outputDir": "frontend-examples/folio/screenshots/<folder>",
-  "nodeIds": ["<id>"],
-  "format": "png",
-  "scale": 1
-}
-```
-
-- **Scale 2** — `node-components/`, `chat-components/`, `reference-components/`, `evidence-components/`
-- **Scale 1** — workspace screens, reference surfaces, evidence pages, evidence-workspace
-
-Edit Folio frames in Pencil only — do not read or edit `.pen` files with text editors.
-
----
-
-## Not yet decided
-
-- Exact OKLCH token sheet for Folio (derive from Pencil exports during polish phase)
-- Whether Folio topbar reuses TutorBook app shell chrome or defines notebook-local chrome
-- Folio-specific motion curves (default to [02-design-system](./02-design-system.md) until polish pass)
+Routes and states not shown in the Design Lab should extend the same Folio tokens,
+typography, spacing, and interaction language.

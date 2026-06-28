@@ -12,7 +12,9 @@ Ticket drafts: [16-folio-ticket-drafts](./16-folio-ticket-drafts.md)
 
 Replace the complete current frontend with one production Folio application. The program is complete only when every route and study surface uses real API-backed data, all existing required behavior is preserved or deliberately superseded, all Legacy/Mist/Next generation code is deleted, and the production verification gates pass.
 
-This is not a CSS reskin and not a prototype port. The TutorBook `feat/ui-preview-themes` Folio implementation is the visual and interaction reference. StudyAgent contracts, persisted state, authorization, and verified runtime outcomes define behavior.
+This is not a CSS reskin and not a prototype port. The runnable Folio Design Lab is
+the sole visual and interaction reference. StudyAgent contracts, persisted state,
+authorization, and verified runtime outcomes define behavior.
 
 ## 2. Release Contract
 

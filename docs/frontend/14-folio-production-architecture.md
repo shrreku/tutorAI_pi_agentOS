@@ -6,7 +6,7 @@ Date: 2026-06-27
 
 Decision record: [ADR-0029](../adr/0029-react-vite-tanstack-fastify-folio-foundation.md)
 
-Visual baseline: [Folio Design Kit](./13-folio-design-kit.md) and [Folio Port Audit](./audits/folio-port-2026-06-27/AUDIT.md)
+Visual baseline: [Folio Design Kit](./13-folio-design-kit.md) and the runnable [Folio Design Lab](../../frontend-examples/folio/design-lab/README.md)
 
 Behavioral contracts: numbered frontend docs `00` through `12`, ADR-0027, and ADR-0028
 

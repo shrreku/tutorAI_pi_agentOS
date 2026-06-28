@@ -70,27 +70,21 @@ Evidence: source excerpts and supporting notes shown in the drawer. Avoid learne
 
 Dev Mode: expands hidden graph detail and shows the harness/developer timeline.
 
-UI Example Set: exported PNG screenshots of designed components, screens, and packs under `ui-example/`. Organized by visual theme and component category (node-pack, workspace-screens, chat-components, reference-surfaces, evidence-components, etc.). Handoff visuals for designers and implementers; not runtime assets.
+Folio Design Lab: the sole visual frontend reference retained at `frontend-examples/folio/design-lab/`. It provides portable Dashboard, Notebook Workspace, and Node Pack examples without defining production data or module architecture.
 
-Layout Paradigm: the structural arrangement of tutor chat, workspace canvas, reference surfaces, and evidence within the Notebook Workspace shell — independent of visual theme. **Classic split** (`topbar / [chat rail | canvas]`) is the beta implementation default. Alternative paradigms remain under active evaluation in `design-variations/` in parallel with Folio theme work.
+Layout Paradigm: the structural arrangement of tutor chat, workspace canvas, reference surfaces, and Evidence within the Notebook Workspace shell. The retained Folio reference uses an editorial, chat-primary reading column with numbered figure-nodes in a margin rail.
 
-Layout Paradigm Contenders: the shortlist for serious evaluation — **v1 Focus Map · dock** (canvas-primary, floating tutor dock), **v3 Chat-primary** (tutor-dominant, map peek, inline evidence), **v4 Bento Home** (overview tiles expand to full stage). **v2 Narrative Doc** is archived as exploration only unless revived. **Improved Original** (classic split) remains the shipped beta default until a contender wins.
-
-Layout Prototype Priority: **v1 Focus Map · dock** is first to receive a Folio-language design pass — canvas-primary layout with floating tutor dock, node peek, and minimap (`design-variations/` v1). v3 and v4 remain contenders but are not first in the Folio prototype queue.
-
-Visual Theme: a coherent palette, typography, elevation, and chrome treatment applied across the Notebook Workspace and TutorBook shell. Explored themes include Mist Glass (frosted panels, indigo accents), Folio (editorial ivory, serif display), Focus (minimalist slate, floating dock), and Atlas (cool slate, denser chrome, distinct sans display — dev switcher only, not a Design Kit export). Layout paradigms are explored separately in `design-variations/`.
-
-Implementation Baseline Theme: the visual theme targeted by the production frontend. **Folio** is the sole implementation baseline: editorial ivory, Newsreader-led reading surfaces, Inter UI chrome, and restrained sage accents. Mist Glass remains a historical anatomy reference, not a production theme.
+Visual Theme: **Folio** is the sole implementation baseline: editorial ivory, Newsreader-led reading surfaces, Inter UI chrome, JetBrains Mono metadata, and restrained forest/sage accents. No runtime theme switcher or alternative visual direction is part of the frontend contract.
 
 Design North Star Theme: the preferred long-term product aesthetic. **Folio** originated as the design north star and is now also the production implementation baseline. It is documented in [`docs/frontend/13-folio-design-kit.md`](../frontend/13-folio-design-kit.md); completeness and behavioral parity take precedence over aesthetic polish.
 
-Design Kit: one theme's complete export from a Pencil file — reusable components plus full screens — cataloged in `ui-example/<theme>/README.md`. Mist Glass maps to `nodes.pen`; Folio and Focus map to `untitled.pen` / `gemini.pen`. Navigable HTML/CSS in `ui-preview/` is part of the kit reference. Design Kits are the visual authority for theming work.
+Design Kit: the runnable Folio Design Lab plus `docs/frontend/13-folio-design-kit.md`. It is the visual authority for theming work but does not replace behavioral specifications or StudyAgent contracts.
 
 Provisional UI: the pre-Folio frontend implementation, including its page composition, components, state wiring, handwritten routing, fetch wrappers, chrome, and CSS. It is disposable as code. Its verified product behavior and contract coverage are migration evidence for Folio, not a requirement to reuse its implementation.
 
 UI Generation: which frontend implementation serves a route. **Folio is the sole UI Generation.** Legacy and Next are historical migration labels, not selectable product modes. API behavior remains shared and authoritative during the replacement.
 
-Visual Reference Policy: frontend spec docs describe behavior and anatomy only. Screenshots are indexed in `docs/frontend/README.md` and `ui-example/` READMEs — not embedded inline in numbered spec files.
+Visual Reference Policy: the Folio Design Lab is the only visual reference. Frontend specification docs describe required behavior, anatomy, states, and contract integration.
 
 ## User Workflows
 
@@ -102,9 +96,16 @@ Source ingestion: user uploads a source from the top bar or source controls. The
 
 Tutor study loop: user selects `learn`, `practice`, `revise`, `explore`, or `wiki_maintenance`; starts, continues, resumes, pauses, or ends a session based on `/study-state`; then posts chat to `/api/v1/notebooks/:notebookId/tutor/chat` with `activeMode`, `selectedNodeRefs`, optional `sessionId`, and action `prompt`, `steer`, or `followUp`. During a live turn, tutor chat streams Runtime Work View events (thinking, narration, tool steps) before the Learner Response. Resume rehydrates up to 5 prior turns for the same session; new sessions start without prior-session transcript.
 
-Graph-to-tutor context: user selects a graph node. `Whiteboard` maps it to a `NodeRef` and passes selected refs upward. `TutorPanel` includes the refs in the tutor prompt; if an artifact is open, its artifact ref is included too.
+Graph-to-tutor context: user selects a graph node. The frontend maps it to a `NodeRef`
+and includes selected refs in the tutor prompt; if an Artifact is open, its Artifact ref
+is included too.
 
-Study map/reference workflow: `Whiteboard` loads graph data from `POST /graph/query` with optional `devMode`. Study Map and Source Wiki responses include `readModel` (emphasis, visibility catalog, topic groups, reference-surface targets, projection warnings). User toggles Curriculum, Study Map, or Source Wiki. Clicking a node opens `FullPanelViewer`, which fetches `/nodes/:nodeId/reference-surface` or source-extracted text. User can return to workspace, ask tutor to teach the node, or open Evidence.
+Study map/reference workflow: the Workspace loads graph data from `POST /graph/query` with
+optional `devMode`. Study Map and Source Wiki responses include `readModel` (emphasis,
+visibility catalog, topic groups, reference-surface targets, projection warnings). User
+toggles Curriculum, Study Map, or Source Wiki. Clicking a node opens its Reference Surface,
+which fetches `/nodes/:nodeId/reference-surface` or source-extracted text. User can return
+to the Workspace, ask the tutor to teach the node, or open Evidence.
 
 Artifact workflow: tutor may propose artifacts. Artifact lists should exclude internal teaching/planning artifacts. Learner can open, approve, reject, save editable notes, attempt quiz questions, or review flashcards. Quiz/flashcard interactions update learning state and reload study state.
 
@@ -174,10 +175,10 @@ Avoid learner-facing debug language:
 
 ## Tests That Reveal Behavior
 
-- `apps/web/src/app-event-contract.test.ts`
-- `apps/web/src/whiteboard-utils.test.ts`
-- `apps/web/src/whiteboard-node-ref.test.ts`
-- `apps/web/src/whiteboard-verification.test.ts`
-- `apps/web/src/AgentTrace.test.ts`
-- `apps/web/src/FullPanelViewer.test.tsx`
-- `apps/web/src/TutorPanel.test.ts`
+- `apps/api/src/routes/events-stream.test.ts`
+- `apps/api/src/routes/tutor-chat.routes.test.ts`
+- `apps/api/src/routes/graph.routes.test.ts`
+- `apps/api/src/reference-surface.test.ts`
+- `apps/api/src/interactive-learning.integration.test.ts`
+- `packages/schemas/src/workspace-refresh.test.ts`
+- `packages/schemas/src/interactive-learning.test.ts`

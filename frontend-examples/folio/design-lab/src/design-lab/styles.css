@@ -3,9 +3,8 @@
 /* ============================================================================
    TutorBook · Design Lab tokens
    ----------------------------------------------------------------------------
-   Isolated to the /design-lab entry. Five directions override the same token
-   set via [data-direction], so one set of primitives renders genuinely
-   different looks. shadcn-style variable names mapped into Tailwind utilities.
+   Isolated to the Folio Design Lab entry. shadcn-style variable names are
+   mapped into Tailwind utilities for the editorial ivory reference.
    ============================================================================ */
 
 @theme inline {
@@ -44,70 +43,7 @@
   --font-display: var(--font-sans);
 }
 
-/* ---- FOCUS (base) — clean, minimal, calm; cool neutral + a single blue ---- */
 :root,
-[data-direction="focus"] {
-  --background: #f7f8fa;
-  --foreground: #1a1f2b;
-  --surface: #eef1f5;
-  --elevated: #ffffff;
-  --card: #ffffff;
-  --card-foreground: #1a1f2b;
-  --popover: #ffffff;
-  --popover-foreground: #1a1f2b;
-  --primary: #1f2734;
-  --primary-foreground: #f7f8fa;
-  --secondary: #eaedf2;
-  --secondary-foreground: #353d4d;
-  --muted: #eef1f5;
-  --muted-foreground: #6b7280;
-  --accent: #3b6df5;
-  --accent-foreground: #ffffff;
-  --destructive: #d64545;
-  --destructive-foreground: #ffffff;
-  --success: #2f9e6f;
-  --warning: #c98a1a;
-  --border: #e4e7ee;
-  --input: #e4e7ee;
-  --ring: #3b6df5;
-  --radius: 12px;
-  --shadow-color: 24 30 45;
-  --font-display: var(--font-sans);
-  color-scheme: light;
-}
-
-/* ---- ATLAS — cartographic, spatial; deep teal + signal orange ---- */
-[data-direction="atlas"] {
-  --background: #eaf0f1;
-  --foreground: #122029;
-  --surface: #dfe8e9;
-  --elevated: #ffffff;
-  --card: #ffffff;
-  --card-foreground: #122029;
-  --popover: #ffffff;
-  --popover-foreground: #122029;
-  --primary: #0c6b62;
-  --primary-foreground: #ffffff;
-  --secondary: #d6e3e3;
-  --secondary-foreground: #1d3540;
-  --muted: #dde8e8;
-  --muted-foreground: #517081;
-  --accent: #e2553c;
-  --accent-foreground: #ffffff;
-  --destructive: #c43a2c;
-  --destructive-foreground: #ffffff;
-  --success: #0c8a6a;
-  --warning: #c08436;
-  --border: #cfdcdc;
-  --input: #cfdcdc;
-  --ring: #0c6b62;
-  --radius: 12px;
-  --shadow-color: 16 32 40;
-  --font-display: var(--font-sans);
-  color-scheme: light;
-}
-
-/* ---- FOLIO — editorial ivory, serif display, forest green ---- */
 [data-direction="folio"] {
   --background: #faf6ed;
   --foreground: #221f18;
@@ -135,68 +71,6 @@
   --radius: 6px;
   --shadow-color: 60 48 24;
   --font-display: "Newsreader", ui-serif, Georgia, serif;
-  color-scheme: light;
-}
-
-/* ---- HALO — modern glassmorphism; indigo + violet, soft and rounded ---- */
-[data-direction="halo"] {
-  --background: #f4f5fc;
-  --foreground: #191b2e;
-  --surface: #eceefb;
-  --elevated: #ffffff;
-  --card: #ffffff;
-  --card-foreground: #191b2e;
-  --popover: #ffffff;
-  --popover-foreground: #191b2e;
-  --primary: #4f46e5;
-  --primary-foreground: #ffffff;
-  --secondary: #e7e9fb;
-  --secondary-foreground: #312e6b;
-  --muted: #eceefb;
-  --muted-foreground: #6b6f8d;
-  --accent: #7c3aed;
-  --accent-foreground: #ffffff;
-  --destructive: #e11d48;
-  --destructive-foreground: #ffffff;
-  --success: #10b981;
-  --warning: #d97706;
-  --border: #e3e4f4;
-  --input: #e3e4f4;
-  --ring: #7c3aed;
-  --radius: 18px;
-  --shadow-color: 40 38 90;
-  --font-display: var(--font-sans);
-  color-scheme: light;
-}
-
-/* ---- SUNRISE — warm, friendly, very rounded; coral + amber ---- */
-[data-direction="sunrise"] {
-  --background: #fff6ef;
-  --foreground: #2c231e;
-  --surface: #ffece0;
-  --elevated: #fffdfb;
-  --card: #fffdfb;
-  --card-foreground: #2c231e;
-  --popover: #fffdfb;
-  --popover-foreground: #2c231e;
-  --primary: #e8643a;
-  --primary-foreground: #ffffff;
-  --secondary: #ffe2d2;
-  --secondary-foreground: #6b4a39;
-  --muted: #ffe9dc;
-  --muted-foreground: #927a6c;
-  --accent: #f59e0b;
-  --accent-foreground: #3a2600;
-  --destructive: #dc4a3d;
-  --destructive-foreground: #ffffff;
-  --success: #3f9e6a;
-  --warning: #d98324;
-  --border: #f6ddca;
-  --input: #f6ddca;
-  --ring: #e8643a;
-  --radius: 20px;
-  --shadow-color: 60 36 20;
-  --font-display: var(--font-sans);
   color-scheme: light;
 }
 
@@ -243,34 +117,4 @@
   box-shadow:
     0 2px 4px rgb(var(--shadow-color) / 0.08),
     0 24px 60px rgb(var(--shadow-color) / 0.2);
-}
-
-/* faint grid wash for spatial canvases (Atlas) */
-@utility atlas-grid {
-  background-image:
-    linear-gradient(
-      to right,
-      color-mix(in oklab, var(--primary) 7%, transparent) 1px,
-      transparent 1px
-    ),
-    linear-gradient(
-      to bottom,
-      color-mix(in oklab, var(--primary) 7%, transparent) 1px,
-      transparent 1px
-    );
-  background-size: 30px 30px;
-}
-/* soft dotted wash (Halo/Focus map backdrop) */
-@utility dot-grid {
-  background-image: radial-gradient(
-    color-mix(in oklab, var(--muted-foreground) 18%, transparent) 1px,
-    transparent 1px
-  );
-  background-size: 22px 22px;
-}
-/* glassmorphism panel (Halo) */
-@utility glass {
-  background: color-mix(in oklab, var(--elevated) 70%, transparent);
-  -webkit-backdrop-filter: saturate(160%) blur(14px);
-  backdrop-filter: saturate(160%) blur(14px);
 }

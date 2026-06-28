@@ -1,13 +1,11 @@
-# Archived Design Lab
+# Folio Design Lab
 
-This directory contains a portable version of the last Design Lab source from the
-former frontend, derived from commit `e1a5071` on `codex/folio-revamp-foundation`.
+This directory contains the branch's sole visual frontend reference: a portable
+Folio Design Lab derived from commit `e1a5071` on `codex/folio-revamp-foundation`.
 
-The Folio direction is implemented in
+Folio is implemented in
 [`src/design-lab/directions/folio.tsx`](./src/design-lab/directions/folio.tsx),
 with its shared layout, nodes, surfaces, primitives, workspace, and styles beside it.
-The other directions are retained because the original Design Lab shared those modules
-and used them for side-by-side comparison.
 
 Run it from the repository root:
 

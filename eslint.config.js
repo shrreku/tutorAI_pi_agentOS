@@ -12,7 +12,6 @@ export default tseslint.config(
       "**/node_modules/**",
       "**/coverage/**",
       "**/*.d.ts",
-      "ui-preview/**",
       "**/*.config.{js,ts,mjs,cjs}",
       "scripts/**",
     ],

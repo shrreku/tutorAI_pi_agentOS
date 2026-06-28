@@ -38,7 +38,8 @@ Landing secondary CTA `View demo` routes here. Primary CTA `Start studying` rout
 
 ## Route Guards
 
-Implemented in `apps/web/src/routing/RouteGuards.tsx` and `routes.ts`.
+The clean Folio frontend must implement these preconditions in its typed route boundaries;
+the API continues to enforce authorization independently.
 
 | Gate                 | Behavior                                                                     |
 | -------------------- | ---------------------------------------------------------------------------- |

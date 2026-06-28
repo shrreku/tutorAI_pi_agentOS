@@ -2,7 +2,9 @@
 
 ## Theme
 
-Default to the light, warm-neutral **Folio** product theme. Folio is the sole implementation baseline; see [13-folio-design-kit](./13-folio-design-kit.md), [`frontend-examples/folio/screenshots/`](../../frontend-examples/folio/screenshots/README.md), and the frozen live-baseline manifest in the [Folio port audit](./audits/folio-port-2026-06-27/AUDIT.md). Mist Glass remains an anatomy-completeness reference only.
+Default to the light, warm-neutral **Folio** product theme. Folio is the sole
+implementation baseline; see [13-folio-design-kit](./13-folio-design-kit.md) and the
+runnable [Folio Design Lab](../../frontend-examples/folio/design-lab/README.md).
 
 Reason: students use the workspace for long study sessions with source documents, formulas, and dense notes. A light surface keeps source reading, graph scanning, and writing comfortable while allowing focused accents for active state and Evidence.
 
