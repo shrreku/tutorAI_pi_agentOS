@@ -6,19 +6,13 @@ The web shell is not the teaching engine. Teaching happens through the tutor run
 
 ## Owned Code
 
-- `apps/web/src/App.tsx`: entry → `AppRouter`.
-- `apps/web/src/routing/`: TutorBook route map, guards, session provider, API helpers.
-- `apps/web/src/pages/public/`, `pages/app/`, `pages/admin/`: hosted-beta product shell pages.
-- `apps/web/src/NotebookWorkspacePage.tsx`: notebook Workspace at `/notebooks/:notebookId`.
-- `apps/web/src/TutorPanel.tsx`: chat UX, tutor mode, session controls, chat history, live trace display, study-plan modal, artifact modal, artifact consent settings, quiz/flashcard review interactions.
-- `apps/web/src/Whiteboard.tsx`: graph mode, filters, selected node, viewer/workspace state, Evidence drawer state, Dev Mode, graph refresh, source picker, curriculum browser.
-- `apps/web/src/GraphCanvas.tsx`: React Flow renderer, graph response mapping, selection, pane clearing, dragging, saved layout persistence.
-- `apps/web/src/FullPanelViewer.tsx`: full-panel reference/review surface for selected graph nodes.
-- `apps/web/src/NodeDetailPanel.tsx`: compact workspace-mode node metadata.
-- `apps/web/src/ProvenanceDrawer.tsx`: Evidence drawer for source excerpts, supporting notes, confidence, and developer metadata.
-- `apps/web/src/DeveloperTimelinePanel.tsx`: Dev Mode harness dashboard for agent runs, tools, state changes, raw events, usage, and node refs.
-- `apps/web/src/whiteboard-utils.ts`: layout/density helpers, `resolveWorkspaceGraph`, `topicsFromReadModel` (API `readModel` only for visibility and Source Wiki topics).
-- `apps/web/src/whiteboard-node-ref.ts`: graph-node-to-NodeRef mapping.
+- `apps/web/`: clean-room Folio React application; the outsourced team owns its routes, feature modules, presentation, responsive behavior, and accessibility.
+- `packages/api-client/`: StudyAgent-owned browser transport, runtime validation, error, query-key, and stream interface.
+- `packages/schemas/`: shared contracts consumed by the browser and Fastify routes.
+- `frontend-contract/`: routing index for product, architecture, behavior, and delivery requirements.
+- `frontend-examples/folio/`: visual and interaction references; never a production data path.
+
+Frontend Contract Kit: the StudyAgent-owned set of product language, shared schemas, browser client operations, route/state matrices, acceptance journeys, and visual references supplied to an external frontend implementer. It excludes the legacy frontend implementation.
 
 ## Key Concepts
 

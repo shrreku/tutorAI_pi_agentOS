@@ -4,10 +4,7 @@
     "jsx": "react-jsx",
     "noEmit": true,
     "composite": false,
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "paths": {
-      "@studyagent/observability": ["../../packages/observability/src/index.ts"]
-    }
+    "lib": ["ES2022", "DOM", "DOM.Iterable"]
   },
   "include": ["src", "vite.config.ts"]
 }

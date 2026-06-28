@@ -4,7 +4,7 @@
 - **Migration policy:** replace the Legacy/Mist frontend completely; do not retain a runtime generation or theme switcher.
 - **Workspace layout:** classic split with a 35% Tutor / 65% Workspace default, draggable persisted divider, and independent pane scrolling.
 - **Historical anatomy reference:** Mist Glass — use [`NODES_PEN.md`](../../NODES_PEN.md) and [`ui-example/mist-glass/`](../../ui-example/mist-glass/README.md) to identify missing component states, not as a production theme.
-- **Screenshots:** [`ui-example/folio/`](../../ui-example/folio/README.md) — 34 PNG exports (2026-06-25).
+- **Screenshots:** [`frontend-examples/folio/screenshots/`](../../frontend-examples/folio/screenshots/README.md) — 34 PNG exports (2026-06-25).
 - **Pencil sources:** [`untitled.pen`](../../untitled.pen), [`gemini.pen`](../../gemini.pen) (Screen 5 · Editorial Ivory).
 - **Behavior specs:** numbered docs `04`–`08` in this folder remain authoritative; the Folio Design Lab is the visual and interaction target, not a replacement behavioral implementation.
 
@@ -64,7 +64,7 @@ Self-host all three families through `@fontsource`; do not depend on the Google 
 
 ### Node states (Folio)
 
-Folio adds **Completed** and **Locked** to the Mist Glass state set (Default · Selected · Current path). See `node-pack/08-states.png` in [`ui-example/folio/`](../../ui-example/folio/README.md).
+Folio adds **Completed** and **Locked** to the Mist Glass state set (Default · Selected · Current path). See `node-pack/08-states.png` in [`frontend-examples/folio/screenshots/`](../../frontend-examples/folio/screenshots/README.md).
 
 ---
 
@@ -142,7 +142,7 @@ Design these in Folio editorial language before aesthetic polish passes.
 
 ## Designed catalog (Pencil IDs)
 
-Full screenshot filenames: [`ui-example/folio/README.md`](../../ui-example/folio/README.md).
+Full screenshot filenames: [`frontend-examples/folio/screenshots/README.md`](../../frontend-examples/folio/screenshots/README.md).
 
 ### Node pack
 
@@ -236,7 +236,7 @@ Folio implements the same product anatomy as Mist Glass. Cross-reference:
 | Reference + Evidence          | [07-reference-surfaces-evidence](./07-reference-surfaces-evidence.md)         |
 | Artifacts                     | [08-artifacts](./08-artifacts.md)                                             |
 
-When Folio chat and evidence kits are complete, update this doc's catalog tables and re-export PNGs to `ui-example/folio/`.
+When Folio chat and evidence kits are complete, update this doc's catalog tables and re-export PNGs to `frontend-examples/folio/screenshots/`.
 
 ---
 
@@ -246,7 +246,7 @@ When Folio chat and evidence kits are complete, update this doc's catalog tables
 {
   "tool": "export_nodes",
   "filePath": "untitled.pen",
-  "outputDir": "ui-example/folio/<folder>",
+  "outputDir": "frontend-examples/folio/screenshots/<folder>",
   "nodeIds": ["<id>"],
   "format": "png",
   "scale": 1
