@@ -14,6 +14,7 @@ import {
   fetchStudyTemplate,
   type StudyTemplateSummary,
 } from "../../routing/api.js";
+import { notebookWorkspacePath } from "../../routing/routes.js";
 import { Badge, Button, Eyebrow, Skeleton } from "../../ui/primitives.js";
 import { Reveal, Stagger, StaggerItem } from "../../ui/motion.js";
 import { HeroArt } from "../../ui/brand.js";
@@ -67,7 +68,7 @@ export function TemplateDetailPage({
   const startMutation = useMutation({
     mutationFn: () => createWorkspaceFromTemplate(templateId),
     onSuccess: (notebookId) => {
-      navigate(`/notebook/${encodeURIComponent(notebookId)}`);
+      navigate(notebookWorkspacePath(notebookId));
     },
   });
 

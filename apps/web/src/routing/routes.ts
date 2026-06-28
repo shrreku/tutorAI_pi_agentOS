@@ -49,6 +49,10 @@ function normalizePath(pathname: string): string {
   return pathname;
 }
 
+export function notebookWorkspacePath(notebookId: string): string {
+  return `/notebooks/${encodeURIComponent(notebookId)}`;
+}
+
 export function matchRoute(pathname: string): RouteMatch {
   const path = normalizePath(pathname);
 

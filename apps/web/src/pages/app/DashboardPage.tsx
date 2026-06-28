@@ -12,6 +12,7 @@ import { useSession } from "../../routing/RouteGuards.js";
 import { Badge, Button, Eyebrow, Meter, Skeleton } from "../../ui/primitives.js";
 import { Reveal, Stagger, StaggerItem, Lift, motion } from "../../ui/motion.js";
 import { cn } from "../../ui/cn.js";
+import { notebookWorkspacePath } from "../../routing/routes.js";
 
 const LEVELS = [
   { value: "beginner", label: "Beginner" },
@@ -195,7 +196,7 @@ export function DashboardPage({ navigate }: { navigate: (path: string) => void }
               <Eyebrow>Continue</Eyebrow>
               <Lift className="mt-3">
                 <button
-                  onClick={() => navigate(`/notebook/${encodeURIComponent(featured.id)}`)}
+                  onClick={() => navigate(notebookWorkspacePath(featured.id))}
                   className="block w-full rounded-xl border border-border border-l-[3px] border-l-accent bg-card p-6 text-left shadow-soft"
                 >
                   <div className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
@@ -253,7 +254,7 @@ export function DashboardPage({ navigate }: { navigate: (path: string) => void }
                 {notebooks.slice(0, 6).map((n, i) => (
                   <StaggerItem key={n.id}>
                     <button
-                      onClick={() => navigate(`/notebook/${encodeURIComponent(n.id)}`)}
+                      onClick={() => navigate(notebookWorkspacePath(n.id))}
                       className="group flex w-full items-center gap-4 py-3.5 text-left"
                     >
                       <span

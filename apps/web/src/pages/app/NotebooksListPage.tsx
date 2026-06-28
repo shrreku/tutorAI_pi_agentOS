@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { ArrowRight, BookText, Clock, Loader2, Plus, Search, Trash2, X } from "lucide-react";
 import { deleteWorkspace, fetchNotebooks, type NotebookSummary } from "../../routing/api.js";
+import { notebookWorkspacePath } from "../../routing/routes.js";
 import { Badge, Button, Eyebrow, Input, Skeleton } from "../../ui/primitives.js";
 import { Reveal, Stagger, StaggerItem, Lift, motion } from "../../ui/motion.js";
 import { cn } from "../../ui/cn.js";
@@ -255,7 +256,7 @@ export function NotebooksListPage({ navigate }: { navigate: (path: string) => vo
                       className={cn("block h-1.5 w-full", STRIP_ACCENT[i % STRIP_ACCENT.length])}
                     />
                     <button
-                      onClick={() => navigate(`/notebook/${encodeURIComponent(notebook.id)}`)}
+                      onClick={() => navigate(notebookWorkspacePath(notebook.id))}
                       className="flex flex-1 flex-col p-5 text-left"
                     >
                       <span className="grid h-9 w-9 place-items-center rounded-lg bg-accent/12 text-accent">

@@ -4,12 +4,15 @@ import {
   isEvalRunsRoute,
   isProtectedRoute,
   matchRoute,
+  notebookWorkspacePath,
   requiresConsent,
 } from "./routes.js";
 
 describe("matchRoute", () => {
   it("matches public landing and marketing routes", () => {
     expect(matchRoute("/")).toEqual({ kind: "public", page: "landing" });
+    expect(matchRoute("/flow")).toEqual({ kind: "public", page: "landing-flow" });
+    expect(matchRoute("/bold")).toEqual({ kind: "public", page: "landing-bold" });
     expect(matchRoute("/demo")).toEqual({ kind: "public", page: "demo" });
     expect(matchRoute("/login")).toEqual({ kind: "public", page: "login" });
     expect(matchRoute("/auth/callback")).toEqual({ kind: "public", page: "auth-callback" });
@@ -41,6 +44,13 @@ describe("matchRoute", () => {
     expect(matchRoute("/notebooks")).toEqual({ kind: "notebooks-list" });
     expect(matchRoute("/notebooks/nb_1")).toEqual({ kind: "notebook", notebookId: "nb_1" });
     expect(matchRoute("/eval-runs/run_1")).toEqual({ kind: "eval-runs", runId: "run_1" });
+  });
+
+  it("builds a route accepted by the notebook workspace matcher", () => {
+    const path = notebookWorkspacePath("nb/with spaces");
+
+    expect(path).toBe("/notebooks/nb%2Fwith%20spaces");
+    expect(matchRoute(path)).toEqual({ kind: "notebook", notebookId: "nb/with spaces" });
   });
 
   it("normalizes trailing slashes", () => {
