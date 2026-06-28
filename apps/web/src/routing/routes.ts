@@ -1,5 +1,7 @@
 export type PublicPage =
   | "landing"
+  | "landing-flow"
+  | "landing-bold"
   | "demo"
   | "contact"
   | "privacy"
@@ -51,6 +53,8 @@ export function matchRoute(pathname: string): RouteMatch {
   const path = normalizePath(pathname);
 
   if (path === "/") return { kind: "public", page: "landing" };
+  if (path === "/flow") return { kind: "public", page: "landing-flow" };
+  if (path === "/bold") return { kind: "public", page: "landing-bold" };
   if (path === "/demo") return { kind: "public", page: "demo" };
   if (path === "/contact") return { kind: "public", page: "contact" };
   if (path === "/privacy") return { kind: "public", page: "privacy" };
@@ -112,26 +116,6 @@ export function matchRoute(pathname: string): RouteMatch {
   }
 
   return { kind: "unknown" };
-}
-
-/**
- * Stable, low-cardinality route name for telemetry. Dynamic route identifiers
- * must never be copied into error tags or analytics dimensions.
- */
-export function routeTelemetryName(match: RouteMatch): string {
-  switch (match.kind) {
-    case "public":
-      return `public:${match.page}`;
-    case "app":
-      return `app:${match.page}`;
-    case "admin":
-      return `admin:${match.page}`;
-    case "notebooks-list":
-    case "notebook":
-    case "eval-runs":
-    case "unknown":
-      return match.kind;
-  }
 }
 
 export function isProtectedRoute(match: RouteMatch): boolean {

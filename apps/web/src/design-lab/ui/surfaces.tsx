@@ -439,14 +439,12 @@ export function SurfaceViewer({
   defaultType = "map",
   types = ["map", "reading", "interactive", "app", "practice"],
   className,
-  renderMap,
 }: {
   nodes: GraphNodeSpec[];
   edges: GraphEdgeSpec[];
   defaultType?: SurfaceType;
   types?: SurfaceType[];
   className?: string;
-  renderMap?: ReactNode;
 }) {
   const [active, setActive] = useState<SurfaceType>(defaultType);
   return (
@@ -477,7 +475,7 @@ export function SurfaceViewer({
       </div>
       <div className="relative min-h-0 flex-1 overflow-hidden pt-2">
         {active === "map" ? (
-          renderMap ?? <MapSurface nodes={nodes} edges={edges} />
+          <MapSurface nodes={nodes} edges={edges} />
         ) : active === "reading" ? (
           <TextSurface />
         ) : active === "interactive" ? (

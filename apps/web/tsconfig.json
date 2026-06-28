@@ -6,9 +6,7 @@
     "composite": false,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "paths": {
-      "@studyagent/api-client": ["../../packages/api-client/src/index.ts"],
-      "@studyagent/observability": ["../../packages/observability/src/index.ts"],
-      "@studyagent/schemas": ["../../packages/schemas/src/index.ts"]
+      "@studyagent/observability": ["../../packages/observability/src/index.ts"]
     }
   },
   "include": ["src", "vite.config.ts"]

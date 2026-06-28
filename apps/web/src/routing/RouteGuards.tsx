@@ -8,9 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useLocation, useNavigate } from "@tanstack/react-router";
 import { identifyPostHogUser, initPostHog } from "../analytics/posthog.js";
-import { recordPublicAnalyticsEvent } from "./api.js";
 import { api, fetchMe, fetchReplayPolicy, rootApi, type MeResponse } from "./api.js";
 import {
   isAdminRoute,
@@ -19,6 +17,8 @@ import {
   matchRoute,
   requiresConsent,
 } from "./routes.js";
+
+type NavigateFn = (path: string) => void;
 
 const SessionContext = createContext<{
   session: MeResponse | null;
@@ -63,9 +63,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
 function GuardLoading() {
   return (
-    <div className="tb-page">
-      <div className="tb-card">
-        <p>Loading session…</p>
+    <div className="grid min-h-dvh place-items-center bg-background text-foreground">
+      <div className="flex flex-col items-center gap-3">
+        <span className="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-accent" />
+        <p className="text-[13px] text-muted-foreground">Loading session…</p>
       </div>
     </div>
   );
@@ -73,36 +74,32 @@ function GuardLoading() {
 
 function GuardMessage({ title, message }: { title: string; message: string }) {
   return (
-    <div className="tb-page">
-      <div className="tb-card">
-        <h1>{title}</h1>
-        <p>{message}</p>
+    <div className="grid min-h-dvh place-items-center bg-background px-6 text-foreground">
+      <div className="w-full max-w-md rounded-2xl border border-border bg-card p-8 text-center shadow-soft">
+        <h1 className="font-display text-[22px] font-semibold">{title}</h1>
+        <p className="mt-2 text-[14px] leading-relaxed text-muted-foreground">{message}</p>
       </div>
     </div>
   );
 }
 
-export function RouteGuard({ children }: { children: ReactNode }) {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const routePath = location.pathname;
+export function RouteGuard({
+  routePath,
+  navigate,
+  children,
+}: {
+  routePath: string;
+  navigate: NavigateFn;
+  children: ReactNode;
+}) {
   const match = useMemo(() => matchRoute(routePath), [routePath]);
   const { session, isLoading, error } = useSession();
-
-  useEffect(() => {
-    if (match.kind === "public") {
-      recordPublicAnalyticsEvent("visitor_page_view", {
-        path: routePath,
-        page: match.page,
-      });
-    }
-  }, [match, routePath]);
 
   useEffect(() => {
     if (isLoading || !isProtectedRoute(match)) return;
 
     if (!session?.authenticated) {
-      void navigate({ to: "/login" });
+      navigate("/login");
       return;
     }
 
@@ -126,25 +123,25 @@ export function RouteGuard({ children }: { children: ReactNode }) {
 
     if (isEvalRunsRoute(match)) {
       if (!session.entitlements.adminAccess) {
-        void navigate({ to: "/app" });
+        navigate("/app");
       }
       return;
     }
 
     if (isAdminRoute(match)) {
       if (!session.entitlements.adminAccess) {
-        void navigate({ to: "/app" });
+        navigate("/app");
       }
       return;
     }
 
     if (!session.entitlements.studyAccess) {
-      void navigate({ to: "/login" });
+      navigate("/login");
       return;
     }
 
     if (requiresConsent(match) && !session.consentAccepted) {
-      void navigate({ to: "/app/consent" });
+      navigate("/app/consent");
     }
   }, [isLoading, match, navigate, session]);
 

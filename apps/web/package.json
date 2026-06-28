@@ -11,7 +11,6 @@
   "dependencies": {
     "@studyagent/eval-runner": "workspace:*",
     "@studyagent/observability": "workspace:*",
-    "@studyagent/api-client": "workspace:*",
     "@studyagent/schemas": "workspace:*",
     "@studyagent/ui": "workspace:*",
     "@radix-ui/react-dialog": "^1.1.6",
@@ -25,10 +24,10 @@
     "@tanstack/ai-client": "^0.8.0",
     "@tanstack/ai-react": "^0.8.0",
     "@tanstack/react-query": "^5.100.9",
-    "@tanstack/react-router": "^1.114.0",
     "@xyflow/react": "^12.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "framer-motion": "^11.15.0",
     "katex": "^0.16.47",
     "lucide-react": "^0.460.0",
     "react": "^19.0.0",
@@ -41,7 +40,6 @@
     "tailwind-merge": "^2.6.0"
   },
   "devDependencies": {
-    "@tanstack/router-plugin": "^1.114.0",
     "@tailwindcss/vite": "^4.0.0",
     "@testing-library/react": "^16.3.2",
     "@types/katex": "^0.16.8",

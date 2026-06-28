@@ -5,7 +5,6 @@ import {
   isProtectedRoute,
   matchRoute,
   requiresConsent,
-  routeTelemetryName,
 } from "./routes.js";
 
 describe("matchRoute", () => {
@@ -51,30 +50,6 @@ describe("matchRoute", () => {
 
   it("returns unknown for unsupported paths", () => {
     expect(matchRoute("/legacy")).toEqual({ kind: "unknown" });
-  });
-});
-
-describe("routeTelemetryName", () => {
-  it("uses stable names without dynamic route identifiers", () => {
-    const paths = [
-      "/app/templates/private-template-id",
-      "/admin/users/private-user-id",
-      "/admin/workspaces/private-workspace-id",
-      "/notebooks/private-notebook-id",
-      "/eval-runs/private-run-id",
-    ];
-
-    const names = paths.map((path) => routeTelemetryName(matchRoute(path)));
-    expect(names).toEqual([
-      "app:template-detail",
-      "admin:user-detail",
-      "admin:workspace-detail",
-      "notebook",
-      "eval-runs",
-    ]);
-    expect(names.join(" ")).not.toMatch(
-      /private-|template-id|user-id|workspace-id|notebook-id|run-id/,
-    );
   });
 });
 

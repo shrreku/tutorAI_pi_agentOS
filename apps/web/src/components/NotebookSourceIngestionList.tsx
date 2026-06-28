@@ -7,6 +7,7 @@ import {
   type IngestionStatusView,
 } from "../routing/api.js";
 import { notebookSourcesQueryKey } from "../notebook-queries.js";
+import { Badge, Button, Eyebrow } from "../ui/primitives.js";
 
 type SourceRow = {
   id: string;
@@ -52,42 +53,52 @@ export function NotebookSourceIngestionList({
   }
 
   return (
-    <div className="study-sources-panel">
-      <h2 className="study-sources-title">Sources</h2>
-      <ul className="study-sources-list">
+    <div className="rounded-xl border border-border bg-card p-5 shadow-soft">
+      <div className="border-b border-border pb-2">
+        <Eyebrow>Sources</Eyebrow>
+      </div>
+      <ul className="mt-3 divide-y divide-border">
         {sources.map((source, index) => {
           const status = statusQueries[index]?.data as IngestionStatusView | undefined;
           const statusLoading = statusQueries[index]?.isLoading;
           return (
-            <li key={source.id} className="study-source-item">
-              <span className="study-source-name">{source.title}</span>
-              <span className="study-source-status">
+            <li
+              key={source.id}
+              className="flex items-center justify-between gap-3 py-2.5 first:pt-0"
+            >
+              <span className="min-w-0 truncate font-display text-[14px] font-medium text-foreground">
+                {source.title}
+              </span>
+              <span className="flex shrink-0 items-center gap-2">
                 {statusLoading || !status ? (
-                  <span className="tb-ingestion-badge" data-tone="neutral">
-                    Checking…
-                  </span>
+                  <Badge tone="neutral">Checking…</Badge>
                 ) : (
                   <IngestionStatusBadge status={status} />
                 )}
+                {status?.retryNeeded ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={retryingId === source.id}
+                    onClick={() => {
+                      setRetryingId(source.id);
+                      retryMutation.mutate(source.id);
+                    }}
+                  >
+                    {retryingId === source.id ? "Retrying…" : "Retry"}
+                  </Button>
+                ) : null}
               </span>
-              {status?.retryNeeded ? (
-                <button
-                  type="button"
-                  className="study-secondary-button"
-                  disabled={retryingId === source.id}
-                  onClick={() => {
-                    setRetryingId(source.id);
-                    retryMutation.mutate(source.id);
-                  }}
-                >
-                  {retryingId === source.id ? "Retrying…" : "Retry"}
-                </button>
-              ) : null}
             </li>
           );
         })}
       </ul>
-      {error && <pre className="study-error">{error}</pre>}
+      {error && (
+        <p className="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-[13px] text-destructive">
+          {error}
+        </p>
+      )}
     </div>
   );
 }
