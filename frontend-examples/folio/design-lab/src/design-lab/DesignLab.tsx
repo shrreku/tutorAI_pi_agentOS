@@ -98,7 +98,7 @@ export function DesignLab() {
         />
         <span className="hidden text-[12px] text-white/45 lg:inline">{blurb}</span>
         <span className="ml-auto text-[11px] text-white/35">
-          chat-first · live /api/v1 · 5 directions
+          chat-first · portable sample data · 5 directions
         </span>
       </header>
 

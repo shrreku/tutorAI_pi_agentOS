@@ -10,6 +10,7 @@
   },
   "scripts": {
     "dev": "pnpm --parallel --filter './apps/*' dev",
+    "design-lab": "pnpm --filter @studyagent/folio-design-lab dev",
     "build": "tsc -b tsconfig.build.json && pnpm --filter @studyagent/web build",
     "check": "tsc -b tsconfig.build.json --pretty false && pnpm --filter @studyagent/web check",
     "check:web": "pnpm --filter @studyagent/web check",

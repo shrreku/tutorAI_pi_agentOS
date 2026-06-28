@@ -1,78 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
-import {
-  fetchCredits,
-  fetchMe,
-  fetchNotebooks,
-  fetchStudyTemplates,
-  type MeResponse,
-  type NotebookSummary,
-  type StudyTemplateSummary,
-} from "../../routing/api.js";
-import { fetchNotebookSources, notebookSourcesQueryKey } from "../../notebook-queries.js";
-import type { SourceLearnerView } from "@studyagent/schemas";
-
-/**
- * The design lab talks to the real /api/v1 backend through the app's existing
- * client functions, so every direction renders live data when the API is up and
- * graceful empty states when it is not.
- */
-
-export function useMe() {
-  return useQuery<MeResponse>({ queryKey: ["dl", "me"], queryFn: fetchMe, retry: false });
-}
-
-export function useNotebooks() {
-  return useQuery<NotebookSummary[]>({
-    queryKey: ["dl", "notebooks"],
-    queryFn: fetchNotebooks,
-    retry: false,
-  });
-}
-
-export function useCredits() {
-  return useQuery({ queryKey: ["dl", "credits"], queryFn: fetchCredits, retry: false });
-}
-
-export function useTemplates() {
-  return useQuery<StudyTemplateSummary[]>({
-    queryKey: ["dl", "templates"],
-    queryFn: fetchStudyTemplates,
-    retry: false,
-  });
-}
-
-export function useNotebookSources(notebookId: string | null) {
-  return useQuery<SourceLearnerView[]>({
-    queryKey: notebookSourcesQueryKey(notebookId),
-    enabled: Boolean(notebookId),
-    queryFn: () => fetchNotebookSources(notebookId as string) as Promise<SourceLearnerView[]>,
-    retry: false,
-  });
-}
-
-export type SourceReadiness = {
-  total: number;
-  ready: number;
-  processing: number;
-  failed: number;
+export type NotebookSummary = {
+  id: string;
+  title: string;
+  workspaceType: "personal_learner";
+  updatedAt: string;
 };
 
-export function summarizeSources(sources: SourceLearnerView[] | undefined): SourceReadiness {
-  const list = sources ?? [];
-  return {
-    total: list.length,
-    ready: list.filter((s) => s.tutoringReady).length,
-    processing: list.filter((s) => !s.tutoringReady && s.readiness?.tutoring?.status === "pending")
-      .length,
-    failed: list.filter((s) => s.readiness?.tutoring?.status === "failed").length,
-  };
-}
-
-/**
- * Sample fallbacks for surfaces whose live endpoints need an active study
- * session (graph projection, mastery, activity feed). Clearly labelled in the
- * UI as representative so nothing fakes real progress numbers.
- */
 export const sampleNotebooks: NotebookSummary[] = [
   {
     id: "demo-orgchem",
@@ -93,6 +25,19 @@ export const sampleNotebooks: NotebookSummary[] = [
     updatedAt: new Date(Date.now() - 3 * 86400_000).toISOString(),
   },
 ];
+
+/** Portable handoff data. Production code must use @studyagent/api-client. */
+export function useMe() {
+  return { data: { user: { displayName: "Reader" } } };
+}
+
+export function useNotebooks() {
+  return { data: sampleNotebooks };
+}
+
+export function useCredits() {
+  return { data: { percentRemaining: 71 } };
+}
 
 export const sampleMastery = [
   { concept: "SN2 mechanism", value: 92, trend: "up" as const },
