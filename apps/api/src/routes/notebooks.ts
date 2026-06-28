@@ -29,6 +29,7 @@ import {
 import { requireLearner } from "../hosted-beta/learner-gate.js";
 import { withLearner, withOwnedNotebook } from "../hosted-beta/route-guards.js";
 import { recordFlashcardReview } from "../assessment-artifacts.js";
+import { buildNotebookWorkspaceBootstrap } from "../workspace-bootstrap.js";
 import { loadNotebookStudyState } from "../study-state.js";
 
 export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
@@ -228,6 +229,22 @@ export async function registerNotebookRoutes(app: FastifyInstance, ctx: AppConte
       return reply.send(studyState);
     },
   );
+
+  app.get<{
+    Params: { notebookId: string };
+    Querystring: Record<string, string | string[] | undefined>;
+  }>("/notebooks/:notebookId/workspace", async (request, reply) => {
+    const { notebookId } = request.params;
+    const owned = await requireRouteOwnedNotebook(request, reply, notebookId);
+    if (!owned) return;
+    const bootstrap = await buildNotebookWorkspaceBootstrap(
+      ctx,
+      owned,
+      owned.notebook.ownerId,
+      request.query ?? {},
+    );
+    return reply.send(bootstrap);
+  });
 
   app.get<{ Params: { notebookId: string } }>(
     "/notebooks/:notebookId/artifacts",

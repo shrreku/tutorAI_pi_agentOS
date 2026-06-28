@@ -8,7 +8,9 @@ import {
   type ReactNode,
 } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useLocation, useNavigate } from "@tanstack/react-router";
 import { identifyPostHogUser, initPostHog } from "../analytics/posthog.js";
+import { recordPublicAnalyticsEvent } from "./api.js";
 import { api, fetchMe, fetchReplayPolicy, rootApi, type MeResponse } from "./api.js";
 import {
   isAdminRoute,
@@ -17,8 +19,6 @@ import {
   matchRoute,
   requiresConsent,
 } from "./routes.js";
-
-type NavigateFn = (path: string) => void;
 
 const SessionContext = createContext<{
   session: MeResponse | null;
@@ -82,23 +82,27 @@ function GuardMessage({ title, message }: { title: string; message: string }) {
   );
 }
 
-export function RouteGuard({
-  routePath,
-  navigate,
-  children,
-}: {
-  routePath: string;
-  navigate: NavigateFn;
-  children: ReactNode;
-}) {
+export function RouteGuard({ children }: { children: ReactNode }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const routePath = location.pathname;
   const match = useMemo(() => matchRoute(routePath), [routePath]);
   const { session, isLoading, error } = useSession();
+
+  useEffect(() => {
+    if (match.kind === "public") {
+      recordPublicAnalyticsEvent("visitor_page_view", {
+        path: routePath,
+        page: match.page,
+      });
+    }
+  }, [match, routePath]);
 
   useEffect(() => {
     if (isLoading || !isProtectedRoute(match)) return;
 
     if (!session?.authenticated) {
-      navigate("/login");
+      void navigate({ to: "/login" });
       return;
     }
 
@@ -122,25 +126,25 @@ export function RouteGuard({
 
     if (isEvalRunsRoute(match)) {
       if (!session.entitlements.adminAccess) {
-        navigate("/app");
+        void navigate({ to: "/app" });
       }
       return;
     }
 
     if (isAdminRoute(match)) {
       if (!session.entitlements.adminAccess) {
-        navigate("/app");
+        void navigate({ to: "/app" });
       }
       return;
     }
 
     if (!session.entitlements.studyAccess) {
-      navigate("/login");
+      void navigate({ to: "/login" });
       return;
     }
 
     if (requiresConsent(match) && !session.consentAccepted) {
-      navigate("/app/consent");
+      void navigate({ to: "/app/consent" });
     }
   }, [isLoading, match, navigate, session]);
 

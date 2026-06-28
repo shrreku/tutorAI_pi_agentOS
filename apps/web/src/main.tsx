@@ -1,12 +1,16 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import * as SentryReact from "@sentry/react";
 import { initSentry } from "@studyagent/observability";
 import { App } from "./App.js";
+import { folioQueryClient } from "./app/query-client.js";
 import "katex/dist/katex.min.css";
-import "./study-shell.css";
 import "./tutorbook.css";
+import "./study-shell.css";
+import "./features/folio/theme/folio-tailwind.css";
+import "./features/folio/theme/folio-workspace.css";
+import "./features/folio/theme/folio-tutor-overrides.css";
 
 initSentry(
   import.meta.env.VITE_SENTRY_DSN,
@@ -19,9 +23,8 @@ initSentry(
 );
 
 const root = document.getElementById("root")!;
-const queryClient = new QueryClient();
 const app = (
-  <QueryClientProvider client={queryClient}>
+  <QueryClientProvider client={folioQueryClient}>
     <App />
   </QueryClientProvider>
 );

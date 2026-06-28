@@ -2,6 +2,7 @@
   "files": [],
   "references": [
     { "path": "./packages/schemas" },
+    { "path": "./packages/api-client" },
     { "path": "./packages/eval-runner" },
     { "path": "./packages/db" },
     { "path": "./packages/config" },

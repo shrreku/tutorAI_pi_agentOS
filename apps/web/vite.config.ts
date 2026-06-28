@@ -1,5 +1,6 @@
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
@@ -17,7 +18,14 @@ export default defineConfig({
   envPrefix: ["VITE_"],
   // Tailwind is scoped to the standalone design-lab entry; the main app keeps its
   // own hand-written CSS untouched.
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    tanstackRouter({
+      target: "react",
+      autoCodeSplitting: true,
+    }),
+    react(),
+    tailwindcss(),
+  ],
   build: {
     rollupOptions: {
       input: {
@@ -28,6 +36,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      "@studyagent/api-client": path.join(workspaceRoot, "packages/api-client/src/index.ts"),
       "@studyagent/schemas": path.join(workspaceRoot, "packages/schemas/src/index.ts"),
       "@studyagent/eval-runner": path.join(workspaceRoot, "packages/eval-runner/src/index.ts"),
       "@studyagent/ui": path.join(workspaceRoot, "packages/ui/src/index.ts"),

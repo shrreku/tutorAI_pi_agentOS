@@ -25,7 +25,13 @@ Notebook: the top-level learning container. Owns sources, wiki pages, concepts, 
 
 Public Preview Access: anonymous access to landing pages, demos, and product information without access to real learner workspaces, tutor sessions, saved progress, or source-backed study material. The `/demo` page is copy-only for hosted beta launch.
 
-Hosted Beta Surface: set of public, learner, and admin pages required to run the hosted product test, including landing/demo/contact pages, login, Beta Consent, template onboarding, workspace creation, learner workspace, credits, access-code redemption, feedback/support, data deletion, and admin console.
+Hosted Beta Surface: set of public, learner, and admin pages required to run the hosted product test, including landing/demo/contact pages, login, Beta Consent, template onboarding, workspace creation, learner workspace, credits, access-code redemption, feedback/support, data deletion, and admin console. At launch, anonymous visitors stay on Public Preview Access; authenticated learners enter the real study loop via Study Access.
+
+Landing Page Job: convert anonymous visitors to login so they can accept Beta Consent, choose a Published Study Template, and start a tutor session. Primary CTA is sign-in; secondary CTA is the copy-only demo page.
+
+Public Positioning (Working Brand): lead with **Study OS** in the hero headline — a personal study environment, not generic AI chat. Subcopy explains the **study workspace** (tutor, study map, evidence from real material) and sets honest beta entry: sign in and pick a Published Study Template first; upload is available with Ingestion Access. Avoid "agentic" and lead-with-"AI" in the hero.
+
+Landing Page Structure: hero (headline, subcopy, CTAs, beta trust line) → feature showcase → how you start (sign in → pick topic → study) → Published Study Template strip → final CTA. Deeper product explanation, limitations, and FAQ live on `/demo`.
 
 Working Brand: temporary public-facing name and domain used for the hosted beta before final naming is resolved; the current Working Brand is TutorBook on `tutorbook.me`.
 

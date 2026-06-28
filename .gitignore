@@ -21,9 +21,7 @@ Thumbs.db
 test-results/
 
 # Design scratch / backups — PNG exports in ui-example/ are the git handoff
-*.pen
-untitled_backup.pen
-Screenshot*.png
+
 *.glsl
 
 !NODES_PEN.md

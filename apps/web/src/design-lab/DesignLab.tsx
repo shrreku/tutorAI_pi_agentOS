@@ -3,6 +3,7 @@ import { Segmented } from "./ui/primitives.js";
 import * as Focus from "./directions/focus.js";
 import * as Atlas from "./directions/atlas.js";
 import * as Folio from "./directions/folio.js";
+import { FolioApp } from "./directions/folio-app.js";
 import * as Halo from "./directions/halo.js";
 import * as Sunrise from "./directions/sunrise.js";
 
@@ -47,6 +48,9 @@ function readInitial(): { dir: Direction; surface: Surface } {
   const hash = window.location.hash.replace(/^#/, "");
   const [dir, surface] = hash.split("/");
   const validDir = DIRS.includes(dir as Direction) ? (dir as Direction) : "focus";
+  if (validDir === "folio") {
+    return { dir: "folio", surface: "dashboard" };
+  }
   const validSurface = (["dashboard", "workspace", "nodepack"] as const).includes(
     surface as Surface,
   )
@@ -61,10 +65,12 @@ export function DesignLab() {
   const [surface, setSurface] = useState<Surface>(initial.surface);
 
   useEffect(() => {
+    if (dir === "folio") return;
     window.location.hash = `${dir}/${surface}`;
   }, [dir, surface]);
 
   const mod = registry[dir];
+  const isFolio = dir === "folio";
   const Surface =
     surface === "dashboard"
       ? mod.Dashboard
@@ -72,6 +78,14 @@ export function DesignLab() {
         ? mod.Workspace
         : mod.NodePack;
   const blurb = DIRECTIONS.find((d) => d.value === dir)?.blurb ?? "";
+
+  useEffect(() => {
+    if (!isFolio) return;
+    const hash = window.location.hash.replace(/^#/, "");
+    if (!hash.startsWith("folio/")) {
+      window.location.hash = "folio/dashboard";
+    }
+  }, [isFolio]);
 
   return (
     <div data-direction="focus" className="min-h-dvh bg-[#0e0f13] text-[#e8eaf0]">
@@ -89,16 +103,18 @@ export function DesignLab() {
           options={DIRECTIONS.map((d) => ({ value: d.value, label: d.label }))}
           className="border-white/15 bg-white/5"
         />
-        <Segmented
-          size="sm"
-          value={surface}
-          onChange={(v) => setSurface(v as Surface)}
-          options={SURFACES}
-          className="border-white/15 bg-white/5"
-        />
+        {!isFolio ? (
+          <Segmented
+            size="sm"
+            value={surface}
+            onChange={(v) => setSurface(v as Surface)}
+            options={SURFACES}
+            className="border-white/15 bg-white/5"
+          />
+        ) : null}
         <span className="hidden text-[12px] text-white/45 lg:inline">{blurb}</span>
         <span className="ml-auto text-[11px] text-white/35">
-          chat-first · live /api/v1 · 5 directions
+          {isFolio ? "folio webapp · mock data · no backend" : "chat-first · live /api/v1 · 5 directions"}
         </span>
       </header>
 
@@ -106,7 +122,7 @@ export function DesignLab() {
         data-direction={dir}
         className="flex min-h-[calc(100dvh-49px)] flex-col bg-background text-foreground"
       >
-        <Surface />
+        {isFolio ? <FolioApp /> : <Surface />}
       </div>
     </div>
   );

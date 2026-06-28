@@ -1,5 +1,6 @@
 export * from "./api.js";
 export * from "./artifacts.js";
+export * from "./folio.js";
 export * from "./events.js";
 export * from "./event-payloads.js";
 export * from "./workspace-refresh.js";
@@ -37,4 +38,5 @@ export * from "./tools.js";
 export * from "./wiki.js";
 export * from "./wiki-tools.js";
 export * from "./workspace-read-model.js";
+export * from "./folio.js";
 export * from "./source-readiness-engine.js";

@@ -12,6 +12,7 @@ import {
   shutdownLangfuseTracing,
 } from "@studyagent/observability";
 import { createContext, closeContext, type AppContext } from "./context.js";
+import { registerDashboardRoutes } from "./routes/dashboard.js";
 import { registerNotebookRoutes } from "./routes/notebooks.js";
 import { registerInteractiveLearningRoutes } from "./routes/interactive-learning.js";
 import { registerEvalSourceFixtureRoutes } from "./routes/eval-source-fixtures.js";
@@ -175,6 +176,7 @@ export async function buildServer(): Promise<{
       await registerEvalSourceFixtureRoutes(r, ctx);
       await registerEvalRunRoutes(r, ctx);
       await registerEvalEvidenceSnapshotRoutes(r, ctx);
+      await registerDashboardRoutes(r, ctx);
       await registerNotebookRoutes(r, ctx);
       await registerInteractiveLearningRoutes(r, ctx);
       await registerSourceRoutes(r, ctx);
