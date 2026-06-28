@@ -33,6 +33,8 @@ Public Positioning (Working Brand): lead with **Study OS** in the hero headline 
 
 Landing Page Structure: hero (headline, subcopy, CTAs, beta trust line) → feature showcase → how you start (sign in → pick topic → study) → Published Study Template strip → final CTA. Deeper product explanation, limitations, and FAQ live on `/demo`.
 
+Landing Feature Showcase: five benefit-led cards — (1) know what to study next (Live Plan), (2) guided tutor grounded in material, (3) study map for concept relationships, (4) evidence-backed answers, (5) practice and artifacts. Study Templates appear in the template strip and how-you-start steps, not as a sixth card. Upload/Ingestion Access is mentioned once, low on the page.
+
 Working Brand: temporary public-facing name and domain used for the hosted beta before final naming is resolved; the current Working Brand is TutorBook on `tutorbook.me`.
 
 Study Access: authenticated access that lets a learner study from pre-ingested StudyAgent material without being allowed to upload sources or trigger ingestion.
