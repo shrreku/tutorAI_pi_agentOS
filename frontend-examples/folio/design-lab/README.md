@@ -1,19 +1,27 @@
 # Folio Design Lab
 
-This directory contains the branch's sole visual frontend reference: a portable
-Folio Design Lab derived from commit `e1a5071` on `codex/folio-revamp-foundation`.
+Portable Folio design lab — the branch's only frontend visual reference.
 
-Folio is implemented in
-[`src/design-lab/directions/folio.tsx`](./src/design-lab/directions/folio.tsx),
-with its shared layout, nodes, surfaces, primitives, workspace, and styles beside it.
+Includes the full Folio webapp prototype:
 
-Run it from the repository root:
+- **Landing pages** — hub plus journal, tutor, and library variants (`#folio/landing/…`)
+- **Navigation drawer** — editorial rail, drawer, and forest variants (switcher in the shell)
+- **Learner shell** — dashboard, notebooks, account, workspace, node pack
+
+Run from the repository root:
 
 ```bash
+pnpm install
 pnpm design-lab
 ```
 
-Then open `http://127.0.0.1:4174/#folio/workspace`. The example uses portable sample
-data so an outsourced team can run it without the StudyAgent API. It remains an
-implementation reference, not production code; rebuild data access through
-`@studyagent/api-client` and current shared schemas.
+Then open:
+
+- `http://127.0.0.1:4174/#folio/landing` — landing picker
+- `http://127.0.0.1:4174/#folio/dashboard` — journal dashboard with nav shell
+- `http://127.0.0.1:4174/#folio/notebooks/demo-orgchem` — workspace
+
+Hash routes are rooted at `#folio/…`. All data is portable mock content in
+`src/design-lab/lib/folio-mock-data.ts` — no API required.
+
+`apps/web/` is a clean-room placeholder for future production implementation.
