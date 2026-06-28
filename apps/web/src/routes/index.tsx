@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { PublicLandingRoute } from "./-public-page.js";
+import { FolioLandingRoute } from "../folio/landing-route.js";
 
 export const Route = createFileRoute("/")({
-  component: PublicLandingRoute,
+  component: () => <FolioLandingRoute variant="journal" />,
 });

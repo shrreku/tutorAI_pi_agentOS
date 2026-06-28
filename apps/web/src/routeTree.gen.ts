@@ -16,6 +16,7 @@ import { Route as DemoRouteImport } from './routes/demo'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as LearnerRouteImport } from './routes/_learner'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as LandingVariantRouteImport } from './routes/landing.$variant'
 import { Route as LearnerAppIndexRouteImport } from './routes/_learner/app/index'
 import { Route as LearnerNotebooksNotebookIdRouteImport } from './routes/_learner/notebooks/$notebookId'
 import { Route as LearnerAppSupportRouteImport } from './routes/_learner/app/support'
@@ -60,6 +61,11 @@ const LearnerRoute = LearnerRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LandingVariantRoute = LandingVariantRouteImport.update({
+  id: '/landing/$variant',
+  path: '/landing/$variant',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LearnerAppIndexRoute = LearnerAppIndexRouteImport.update({
@@ -129,6 +135,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
+  '/landing/$variant': typeof LandingVariantRoute
   '/app/access-code': typeof LearnerAppAccessCodeRoute
   '/app/consent': typeof LearnerAppConsentRoute
   '/app/credits': typeof LearnerAppCreditsRoute
@@ -148,6 +155,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
+  '/landing/$variant': typeof LandingVariantRoute
   '/app/access-code': typeof LearnerAppAccessCodeRoute
   '/app/consent': typeof LearnerAppConsentRoute
   '/app/credits': typeof LearnerAppCreditsRoute
@@ -169,6 +177,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
+  '/landing/$variant': typeof LandingVariantRoute
   '/_learner/app/access-code': typeof LearnerAppAccessCodeRoute
   '/_learner/app/consent': typeof LearnerAppConsentRoute
   '/_learner/app/credits': typeof LearnerAppCreditsRoute
@@ -190,6 +199,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/privacy'
     | '/terms'
+    | '/landing/$variant'
     | '/app/access-code'
     | '/app/consent'
     | '/app/credits'
@@ -209,6 +219,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/privacy'
     | '/terms'
+    | '/landing/$variant'
     | '/app/access-code'
     | '/app/consent'
     | '/app/credits'
@@ -229,6 +240,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/privacy'
     | '/terms'
+    | '/landing/$variant'
     | '/_learner/app/access-code'
     | '/_learner/app/consent'
     | '/_learner/app/credits'
@@ -250,6 +262,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   PrivacyRoute: typeof PrivacyRoute
   TermsRoute: typeof TermsRoute
+  LandingVariantRoute: typeof LandingVariantRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -301,6 +314,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/landing/$variant': {
+      id: '/landing/$variant'
+      path: '/landing/$variant'
+      fullPath: '/landing/$variant'
+      preLoaderRoute: typeof LandingVariantRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_learner/app/': {
@@ -422,6 +442,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   PrivacyRoute: PrivacyRoute,
   TermsRoute: TermsRoute,
+  LandingVariantRoute: LandingVariantRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
