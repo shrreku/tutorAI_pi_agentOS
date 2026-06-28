@@ -5,6 +5,7 @@ import * as SentryReact from "@sentry/react";
 import { initSentry } from "@studyagent/observability";
 import { App } from "./App.js";
 import "katex/dist/katex.min.css";
+import "./ui/theme.css";
 import "./study-shell.css";
 import "./tutorbook.css";
 
