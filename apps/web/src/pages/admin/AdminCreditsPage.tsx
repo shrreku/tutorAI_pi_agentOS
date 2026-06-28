@@ -1,6 +1,18 @@
 import { useState } from "react";
+import { Coins, Sparkles, Wallet, AlertOctagon } from "lucide-react";
 import { api } from "../../routing/api.js";
-import { AdminLoadingState, AdminTable, useAdminFetch } from "./adminShared.js";
+import {
+  AdminEmpty,
+  AdminLoadingState,
+  AdminPageHeader,
+  AdminStat,
+  AdminTable,
+  AdminTD,
+  AdminTH,
+  useAdminFetch,
+} from "./adminShared.js";
+import { Badge, Button, Field, Input } from "../../ui/primitives.js";
+import { Reveal } from "../../ui/motion.js";
 
 type UserRow = { id: string; email: string };
 
@@ -24,6 +36,21 @@ type CreditsResponse = {
     createdAt: string;
   }>;
 };
+
+function formatCents(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`;
+}
+
+function entryTone(entryType: string): "success" | "danger" | "neutral" {
+  const lowered = entryType.toLowerCase();
+  if (lowered.includes("debit") || lowered.includes("consume") || lowered.includes("spend")) {
+    return "danger";
+  }
+  if (lowered.includes("credit") || lowered.includes("grant") || lowered.includes("top")) {
+    return "success";
+  }
+  return "neutral";
+}
 
 export function AdminCreditsPage() {
   const {
@@ -72,98 +99,156 @@ export function AdminCreditsPage() {
     }
   }
 
+  const selectClass =
+    "h-10 w-full rounded-lg border border-input bg-elevated px-3 text-sm text-foreground outline-none transition-shadow focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-accent/30";
+
   return (
-    <div className="tb-card">
-      <h1>Credits</h1>
+    <>
+      <AdminPageHeader
+        title="Credits"
+        description="Review credit balances and adjust tutor or ingestion allowances per learner."
+      />
+
       <AdminLoadingState loading={usersLoading} error={usersError} />
+
       {usersData ? (
-        <div className="tb-form">
-          <label>
-            Learner
-            <select
-              className="tb-input"
-              value={userId}
-              onChange={(event) => {
-                setUserId(event.target.value);
-                if (event.target.value) void loadLedger(event.target.value);
-              }}
-            >
-              <option value="">Select user</option>
-              {usersData.users.map((user) => (
-                <option key={user.id} value={user.id}>
-                  {user.email}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Credit type
-            <select
-              className="tb-input"
-              value={creditType}
-              onChange={(event) => setCreditType(event.target.value as "tutor" | "ingestion")}
-            >
-              <option value="tutor">Tutor</option>
-              <option value="ingestion">Ingestion</option>
-            </select>
-          </label>
-          <label>
-            Amount (cents)
-            <input
-              className="tb-input"
-              value={amountCents}
-              onChange={(event) => setAmountCents(event.target.value)}
-            />
-          </label>
-          <label>
-            Reason
-            <input
-              className="tb-input"
-              value={reason}
-              onChange={(event) => setReason(event.target.value)}
-            />
-          </label>
-          <button
-            type="button"
-            className="tb-button tb-button-primary"
-            disabled={busy || !userId}
-            onClick={(event) => void adjustCredits(event)}
+        <Reveal className="mb-6 rounded-xl border border-border bg-card p-5 shadow-soft">
+          <h2 className="font-display text-[17px] font-semibold leading-tight">Adjust credits</h2>
+          <p className="mt-1 text-[13px] text-muted-foreground">
+            Select a learner to load their ledger, then grant or deduct a balance.
+          </p>
+          <form
+            className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
+            onSubmit={(event) => void adjustCredits(event)}
           >
-            Adjust credits
-          </button>
+            <Field label="Learner">
+              <select
+                className={selectClass}
+                value={userId}
+                onChange={(event) => {
+                  setUserId(event.target.value);
+                  if (event.target.value) void loadLedger(event.target.value);
+                }}
+              >
+                <option value="">Select user</option>
+                {usersData.users.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.email}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Credit type">
+              <select
+                className={selectClass}
+                value={creditType}
+                onChange={(event) => setCreditType(event.target.value as "tutor" | "ingestion")}
+              >
+                <option value="tutor">Tutor</option>
+                <option value="ingestion">Ingestion</option>
+              </select>
+            </Field>
+
+            <Field label="Amount (cents)" hint="Use a negative value to deduct.">
+              <Input
+                inputMode="numeric"
+                value={amountCents}
+                onChange={(event) => setAmountCents(event.target.value)}
+              />
+            </Field>
+
+            <Field label="Reason">
+              <Input value={reason} onChange={(event) => setReason(event.target.value)} />
+            </Field>
+
+            <div className="sm:col-span-2 lg:col-span-4">
+              <Button type="submit" variant="primary" disabled={busy || !userId}>
+                {busy ? "Adjusting…" : "Adjust credits"}
+              </Button>
+            </div>
+          </form>
+        </Reveal>
+      ) : null}
+
+      {ledgerError ? (
+        <div className="mb-6 flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-[13.5px] text-destructive">
+          <AlertOctagon className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{ledgerError}</span>
         </div>
       ) : null}
-      {ledgerError ? <p className="tb-error">{ledgerError}</p> : null}
+
       {ledger ? (
-        <>
-          <p>
-            Tutor: {ledger.summary.tutorCreditsCents}¢ · Ingestion:{" "}
-            {ledger.summary.ingestionCreditsCents}¢{ledger.summary.exhausted ? " · Exhausted" : ""}
-          </p>
-          <AdminTable>
-            <thead>
-              <tr>
-                <th>Type</th>
-                <th>Entry</th>
-                <th>Amount</th>
-                <th>Reason</th>
-                <th>When</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ledger.ledger.map((entry) => (
-                <tr key={entry.id}>
-                  <td>{entry.creditType}</td>
-                  <td>{entry.entryType}</td>
-                  <td>{entry.amountCents}</td>
-                  <td>{entry.reason ?? "—"}</td>
-                  <td>{new Date(entry.createdAt).toLocaleString()}</td>
-                </tr>
-              ))}
-            </tbody>
-          </AdminTable>
-        </>
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <AdminStat
+              label="Tutor credits"
+              value={formatCents(ledger.summary.tutorCreditsCents)}
+              hint="Available tutoring balance"
+              icon={<Coins className="h-4 w-4" />}
+            />
+            <AdminStat
+              label="Ingestion credits"
+              value={formatCents(ledger.summary.ingestionCreditsCents)}
+              hint="Available ingestion balance"
+              icon={<Sparkles className="h-4 w-4" />}
+            />
+            <AdminStat
+              label="Status"
+              value={ledger.summary.exhausted ? "Exhausted" : "Active"}
+              hint={ledger.summary.exhausted ? "Balance depleted" : "Credits remaining"}
+              icon={<Wallet className="h-4 w-4" />}
+            />
+          </div>
+
+          {ledger.summary.exhausted ? (
+            <div className="flex items-center gap-2">
+              <Badge tone="danger">Exhausted</Badge>
+              <span className="text-[13px] text-muted-foreground">
+                This learner has no remaining credits.
+              </span>
+            </div>
+          ) : null}
+
+          <section>
+            <h2 className="mb-3 font-display text-[17px] font-semibold leading-tight">
+              Ledger history
+            </h2>
+            {ledger.ledger.length === 0 ? (
+              <AdminEmpty message="No ledger entries for this learner yet." />
+            ) : (
+              <AdminTable>
+                <thead>
+                  <tr>
+                    <AdminTH>Type</AdminTH>
+                    <AdminTH>Entry</AdminTH>
+                    <AdminTH className="text-right">Amount</AdminTH>
+                    <AdminTH>Reason</AdminTH>
+                    <AdminTH>When</AdminTH>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ledger.ledger.map((entry) => (
+                    <tr key={entry.id}>
+                      <AdminTD className="capitalize">{entry.creditType}</AdminTD>
+                      <AdminTD>
+                        <Badge tone={entryTone(entry.entryType)}>{entry.entryType}</Badge>
+                      </AdminTD>
+                      <AdminTD className="text-right font-mono tabular-nums">
+                        {formatCents(entry.amountCents)}
+                      </AdminTD>
+                      <AdminTD className="text-muted-foreground">{entry.reason ?? "—"}</AdminTD>
+                      <AdminTD className="whitespace-nowrap text-muted-foreground">
+                        {new Date(entry.createdAt).toLocaleString()}
+                      </AdminTD>
+                    </tr>
+                  ))}
+                </tbody>
+              </AdminTable>
+            )}
+          </section>
+        </div>
       ) : null}
-    </div>
+    </>
   );
 }
