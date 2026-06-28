@@ -1,17 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { TemplateDetailPage } from "../../../../folio/pages/learner-misc.js";
 
 export const Route = createFileRoute("/_learner/app/templates/$templateId")({
-  component: TemplateDetailPlaceholder,
+  component: TemplateDetailRoute,
 });
 
-function TemplateDetailPlaceholder() {
+function TemplateDetailRoute() {
   const { templateId } = Route.useParams();
-  return (
-    <section>
-      <h1>Template</h1>
-      <div className="folio-placeholder">
-        F03 template detail for <code>{templateId}</code>.
-      </div>
-    </section>
-  );
+  return <TemplateDetailPage templateId={templateId} />;
 }

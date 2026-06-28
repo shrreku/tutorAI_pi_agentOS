@@ -1,14 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { WorkspaceCreatePage } from "../../../../folio/pages/learner-misc.js";
 
 export const Route = createFileRoute("/_learner/app/workspaces/new")({
-  component: WorkspaceCreatePlaceholder,
+  component: WorkspaceCreatePage,
 });
-
-function WorkspaceCreatePlaceholder() {
-  return (
-    <section>
-      <h1>Create workspace</h1>
-      <div className="folio-placeholder">F03 — workspace creation API.</div>
-    </section>
-  );
-}
