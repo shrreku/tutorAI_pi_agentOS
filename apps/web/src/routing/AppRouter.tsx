@@ -3,6 +3,8 @@ import { matchRoute } from "./routes.js";
 import { RouteGuard, SessionProvider } from "./RouteGuards.js";
 import { ErrorBoundary } from "./ErrorBoundary.js";
 import { LandingPage } from "../pages/public/LandingPage.js";
+import { LandingFlow } from "../pages/public/LandingFlow.js";
+import { LandingBold } from "../pages/public/LandingBold.js";
 import { DemoPage } from "../pages/public/DemoPage.js";
 import { ContactPage } from "../pages/public/ContactPage.js";
 import { PrivacyPage } from "../pages/public/PrivacyPage.js";
@@ -67,6 +69,10 @@ export function AppRouter() {
         switch (match.page) {
           case "landing":
             return <LandingPage navigate={navigate} />;
+          case "landing-flow":
+            return <LandingFlow navigate={navigate} />;
+          case "landing-bold":
+            return <LandingBold navigate={navigate} />;
           case "demo":
             return <DemoPage navigate={navigate} />;
           case "contact":

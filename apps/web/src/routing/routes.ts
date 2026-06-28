@@ -1,5 +1,7 @@
 export type PublicPage =
   | "landing"
+  | "landing-flow"
+  | "landing-bold"
   | "demo"
   | "contact"
   | "privacy"
@@ -51,6 +53,8 @@ export function matchRoute(pathname: string): RouteMatch {
   const path = normalizePath(pathname);
 
   if (path === "/") return { kind: "public", page: "landing" };
+  if (path === "/flow") return { kind: "public", page: "landing-flow" };
+  if (path === "/bold") return { kind: "public", page: "landing-bold" };
   if (path === "/demo") return { kind: "public", page: "demo" };
   if (path === "/contact") return { kind: "public", page: "contact" };
   if (path === "/privacy") return { kind: "public", page: "privacy" };
