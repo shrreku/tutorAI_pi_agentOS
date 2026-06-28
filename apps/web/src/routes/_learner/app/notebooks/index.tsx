@@ -1,16 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { NotebooksPage } from "../../../../folio/pages/notebooks.js";
 
 export const Route = createFileRoute("/_learner/app/notebooks/")({
-  component: NotebooksListPlaceholder,
+  component: NotebooksPage,
 });
-
-function NotebooksListPlaceholder() {
-  return (
-    <section>
-      <h1>Notebooks</h1>
-      <div className="folio-placeholder">
-        F03+ lists Personal Learner Workspaces. Study opens at `/notebooks/:notebookId`.
-      </div>
-    </section>
-  );
-}
