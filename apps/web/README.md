@@ -1,33 +1,24 @@
-# StudyAgent Web — Clean Room
+# StudyAgent Web — Folio Clean Room
 
-This directory is the clean frontend implementation surface for the outsourced Folio build.
-The previous frontend remains available in Git history on
-`codex/folio-revamp-foundation` at commit `e1a5071`.
+Production Folio frontend for StudyAgent. Branch: `feat/folio-production-revamp` from `codex/folio-clean-frontend`.
 
-## Internal foundations
+## Foundations
 
-- Use `@studyagent/api-client` for browser HTTP and stream operations.
-- Use `@studyagent/schemas` for runtime-validated contracts.
-- Treat `docs/frontend/` and `docs/contexts/` as product behavior requirements.
-- Treat `frontend-examples/folio/` as visual reference material, not production code.
+- `@studyagent/api-client` — all browser HTTP (no direct `fetch` in features)
+- `@studyagent/schemas` — validated contracts and Workspace URL codec helpers
+- `frontend-examples/folio/design-lab/` — **sole** Folio tokens, primitives, and visual reference
+- `docs/contexts/web-workspace/CONTEXT.md` — architecture decisions and glossary
 
-## Rules
+Production routes are **unstyled scaffolds** until design tokens are promoted from the design lab.
 
-- Do not copy modules from the previous `apps/web` implementation.
-- Do not call `fetch` outside `@studyagent/api-client`.
-- Do not import API, database, worker, graph, tutor-runtime, or eval-runner implementations.
-- Do not introduce sample data paths into production routes.
-- Preserve authentication, entitlement, Beta Consent, Notebook ownership, Evidence,
-  Artifact, Practice, Interactive Learning, and MCP App behavior through validated contracts.
-- Implement the route and state matrix in `docs/frontend/15-folio-end-to-end-implementation-plan.md`.
-
-## Commands
+## Dev
 
 ```bash
+pnpm --filter @studyagent/api dev
 pnpm --filter @studyagent/web dev
-pnpm --filter @studyagent/web check
-pnpm --filter @studyagent/web build
+pnpm design-lab   # visual reference on :4174
 ```
 
-The current application intentionally renders only a clean-room marker. Product routes and
-visual implementation belong to the outsourced frontend program.
+## F01 scaffold
+
+TanStack Router, session guards, route map, placeholder pages. No Folio design tokens in this package.

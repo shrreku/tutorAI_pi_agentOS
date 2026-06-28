@@ -1,0 +1,62 @@
+/* Production shell — no Folio design tokens. Visual reference: frontend-examples/folio/design-lab/ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  line-height: 1.5;
+}
+
+a {
+  color: inherit;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.folio-shell-header,
+.folio-shell-main,
+.folio-shell-aside {
+  border: 1px solid #ccc;
+}
+
+.folio-shell-header {
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.folio-shell-layout {
+  display: flex;
+  min-height: calc(100dvh - 3rem);
+}
+
+.folio-shell-aside {
+  width: 12rem;
+  padding: 1rem;
+  border-right: 1px solid #ccc;
+}
+
+.folio-shell-main {
+  flex: 1;
+  padding: 1.5rem;
+}
+
+.folio-shell-nav a {
+  display: block;
+  padding: 0.35rem 0;
+}
+
+.folio-placeholder {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px dashed #999;
+}

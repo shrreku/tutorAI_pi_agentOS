@@ -6,17 +6,64 @@ The web shell is not the teaching engine. Teaching happens through the tutor run
 
 ## Owned Code
 
-- `apps/web/`: clean-room Folio React application; the outsourced team owns its routes, feature modules, presentation, responsive behavior, and accessibility.
-- `packages/api-client/`: StudyAgent-owned browser transport, runtime validation, error, query-key, and stream interface.
+- `apps/web/`: clean-room Folio React application; routes, feature modules, presentation, responsive behavior, and accessibility.
+- `packages/ui/`: Folio tokens, primitives, and shared low-domain composites.
+- `packages/api-client/`: browser transport, runtime validation, error, query-key, and stream interface.
 - `packages/schemas/`: shared contracts consumed by the browser and Fastify routes.
-- `frontend-contract/`: routing index for product, architecture, behavior, and delivery requirements.
+- `apps/api/`: Folio-facing bounded read models, validation, and commands consumed by the browser client.
 - `frontend-examples/folio/`: visual and interaction references; never a production data path.
 
-Frontend Contract Kit: the StudyAgent-owned set of product language, shared schemas, browser client operations, route/state matrices, acceptance journeys, and visual references supplied to an external frontend implementer. It excludes the legacy frontend implementation.
+Frontend Contract Kit: the in-repo bundle of product language, shared schemas, browser client operations, route/state matrices, acceptance journeys, and visual references that govern the Folio build. Excludes the Provisional UI implementation.
 
 ## Key Concepts
 
-TutorBook App Shell: learner-facing navigation outside the notebook Workspace — dashboard, consent, credits, access codes, support, and account. Distinct from the study-time Workspace shell.
+Program Tracking: F01–F24 tickets stay in `docs/frontend/16-folio-ticket-drafts.md` until F01 lands on the integration branch; GitHub issues publish after the scaffold is runnable. Avoid filing issues before the branch and route map exist.
+
+Folio Release Boundary: the complete F01–F24 Folio program — public shell, learner shell, Notebook Workspace, Dashboard, Admin, Eval, Dev Mode, and Legacy deletion — ships in one cutover to main with no partial mixed-generation runtime. Avoid learner-first cutover, operator-deferred cutover, and vertical MVP releases that leave hosted-beta routes on Provisional UI.
+
+Folio Build Ownership: the StudyAgent team owns the full Folio stack in-repo — `packages/schemas`, `packages/api-client`, `packages/ui`, Folio-facing `apps/api` read models, and `apps/web` — delivered on the Folio Integration Branch. Vertical slices F01–F24 are implemented internally. Avoid outsourced handoff assumptions and external-only ownership of `apps/web`.
+
+Tutor Transport: live tutor streaming uses **TanStack AI** (`@tanstack/ai-react` / `@tanstack/ai-client`) **behind** a StudyAgent-owned adapter — not imported directly by Folio presentation components. The adapter owns send, steer, cancel, session identity, stream event normalization (including custom `SESSION_STARTED` and Runtime Work View events), terminal status, and durable reload. TanStack Query remains the sole server-state cache for post-turn REST reads (trace, study state, artifacts). Avoid coupling Folio UI to `UIMessage` types or `useChat` outside the adapter module.
+
+Folio UI Package Scope: `@studyagent/ui` holds shared non-visual helpers only until Folio tokens and primitives are promoted from `frontend-examples/folio/design-lab/`. Folio semantic tokens, typography, and primitives stay in the design lab example until an explicit promotion slice. Avoid importing design-lab CSS or mock data into `apps/web` or `@studyagent/ui`.
+
+Folio Implementation Baseline: `codex/folio-clean-frontend` is the git and documentation starting point. Create `feat/folio-production-revamp` from that branch; do not start from `feat/ui-preview-themes` or evolve the Provisional UI tree in place. Promote Design Lab visuals through the Design Lab Port Policy; delete Provisional UI on the integration branch as F-slices replace it.
+
+Folio Integration Branch: long-lived source-control isolation branch (`feat/folio-production-revamp`) branched from `codex/folio-clean-frontend`. All implementation PRs target this branch until F24 passes; main receives one final cutover PR. Avoid shipping incomplete Folio routes to main and runtime Legacy/Folio switches.
+
+Learner Home Label: the learner-facing name for the `/app` home surface (sidebar entry and page heading). **Deferred** — ship **Journal** as interim copy in learner chrome until finalized. **Learner Dashboard Summary** remains the API/domain term for the cross-workspace read model. Avoid using "Dashboard" as the primary nav label while the label is open unless docs explicitly mean the read model or Action Targets.
+
+TutorBook App Shell: learner-facing navigation outside the Notebook Workspace — dashboard, notebooks list, consent, and account. Uses a **sidebar**; credits, access codes, support, and data deletion are **Account tabs**, not separate top-level nav items. Distinct from the study-time Workspace shell.
+
+Learner Account: the account area of the TutorBook App Shell. Canonical routes are **path tabs** under `/app/account/$tab` where `$tab` is `overview`, `credits`, `access-code`, `support`, or `data`. Legacy flat routes (`/app/credits`, `/app/access-code`, `/app/support`) redirect to the matching tab and preserve query params (e.g. Stripe `?checkout=success`). Avoid top-level sidebar entries for those flows.
+
+Public Landing: the anonymous `/` marketing page. Product copy and section structure follow product-domain CONTEXT; the visual layout variant (Journal, Tutor, or Library) is **deferred**. Production ships **Journal as interim scaffold** inside a swappable landing layout module until a variant is chosen. Avoid building three production landings or a runtime landing switcher.
+
+Chrome Module: a swappable presentation boundary for deferred visual decisions — learner Nav Chrome Variant, Public Landing layout, and Learner Home Label. Routes, data wiring, and IA stay stable; only the chrome module is replaced when a direction is chosen. **No fixed F-slice deadline** — swaps are allowed any time before cutover as long as feature controllers stay chrome-agnostic. Avoid baking variant-specific markup into feature controllers or route loaders; avoid letting interim scaffolds diverge so far that late swaps become full rewrites.
+
+Operator Surface: Admin, Eval, and other development-only routes use an operator-first layout — dense tables, compact controls, and existing information architecture. They adopt Folio tokens, shared primitives, accessibility, and state language only. Avoid learner editorial composition (journal masthead, spacious marketing cards, serif-led page chrome) on operator routes.
+
+Dev Mode Access: Workspace Dev Mode UI and `devMode: true` API/graph requests are allowed only when `me.entitlements.adminAccess` is true or an explicit local/dev deployment policy is enabled. Learners never see a Dev Mode toggle or diagnostic surfaces. Avoid learner-accessible Dev Mode toggles and raw claim/trace/pipeline copy outside Dev Mode boundaries.
+
+Learner Session Bootstrap: the `_learner` layout route loads and validates `me` once via TanStack Router `beforeLoad` and a shared TanStack Query cache. It owns redirects for unauthenticated, disabled-account, and missing Beta Consent states; child routes consume the cached session context. Avoid per-route session fetches without shared query keys or session providers without route guards.
+
+Evidence Drawer State: open/closed Evidence drawer UI is local component state, not a URL search param. Shareable deep links use Workspace URL Codec fields (`surface`, `intent`, `refType`, `refId`) and the workspace renders Evidence as a consequence of the resolved target. Avoid `evidence=open` URL flags unless a future product requirement needs explicit shareable drawer links.
+
+Learner Onboarding Gate: study-goal and level onboarding runs in **F02** on first entry to any protected learner route when `onboarding.completed` is false — after Beta Consent, independent of the Learner Home Gate (F16). Avoid deferring onboarding to dashboard read-model launch or conflating it with template pick in F03.
+
+Notebook Event Bridge: one workspace-scoped notebook SSE subscriber per open `/notebooks/:notebookId` route. It maps `eventType` to TanStack Query invalidation hints; features own query keys but do not open their own notebook event streams. Events are invalidation hints only — canonical state always refetches from API reads. Avoid per-feature SSE subscriptions and treating the event stream as a client-side database.
+
+Template Discovery Route: Published Study Template gallery and detail live at `/app/templates` and `/app/templates/:templateId`; workspace creation at `/app/workspaces/new`. These routes ship in F03 with real API data and are independent of the Learner Home Gate. The gated `/app` placeholder may link learners to template discovery. Avoid blocking template flows on F16 or hiding templates only on public landing pages.
+
+Learner Home Gate: the `/app` home surface does not render notebook progress, resume actions, due practice, recommendations, recent activity, or study-time sections until the **Learner Dashboard Summary** bounded API read model ships (F16). F02 may ship the learner shell, guards, and account tabs with an honest loading or empty placeholder on `/app` — not assembled dashboard content from multiple client-side joins and not Design Lab sample data. Avoid client-side dashboard joins as a temporary production path.
+
+Notebooks List Route: the learner notebooks index lives at `/app/notebooks`. Opening a Personal Learner Workspace for study routes to `/notebooks/:notebookId`. Avoid a top-level `/notebooks` list index that shares a prefix with the workspace URL unless route ordering is explicit.
+
+Learner Route Tree: production learner URLs follow the hosted-beta tree — learner shell under `/app/*` (home at `/app`, consent at `/app/consent`, account tabs at `/app/account/$tab`), workspace at `/notebooks/:notebookId` with Workspace URL Codec search params, workspace creation at `/app/workspaces/new`. Legacy flat account routes redirect to tabs. Public routes stay at `/`, `/login`, `/demo`, etc. Avoid Design Lab hash paths or dropping the `/app` prefix without updating Stripe returns, docs, and `packages/schemas` href builders.
+
+Deferred Visual Decisions: Nav Chrome Variant, Public Landing variant, and Learner Home Label remain open. Interim scaffolds are Editorial nav, Journal landing, and Journal home label. Final picks are product decisions, not architecture blockers, because Chrome Modules isolate them.
+
+Design Lab Port Policy: the Folio Design Lab stays in `frontend-examples/` as visual reference only. Production promotes through strict layers — Folio tokens and primitives to `@studyagent/ui`, swappable Chrome Modules for deferred nav and landing visuals, feature controllers and product composites in `apps/web/features/`, and all HTTP through `@studyagent/api-client`. Avoid wholesale Design Lab copy into `apps/web`, `folio-mock-data` imports in production routes, and API or Query hooks inside `@studyagent/ui`.
 
 Notebook Workspace: the two-pane study UI shell (tutor + graph/reference surfaces) at `/notebooks/:notebookId`. Hosts study for one Notebook; not the Notebook entity itself. This URL is intentional long-term — aligned with ADR-0001 and notebook-scoped APIs, not a beta-only path.
 
@@ -68,17 +115,25 @@ MCP App Sandbox Policy: restrictive-by-default policy for MCP App Bundles. App b
 
 Evidence: source excerpts and supporting notes shown in the drawer. Avoid learner-facing "provenance" copy unless the context is developer/debug.
 
-Dev Mode: expands hidden graph detail and shows the harness/developer timeline.
+Dev Mode: expands hidden graph detail and shows the harness/developer timeline. Subject to Dev Mode Access — unavailable to standard hosted learners.
 
-Folio Design Lab: the sole visual frontend reference retained at `frontend-examples/folio/design-lab/`. It provides portable Dashboard, Notebook Workspace, and Node Pack examples without defining production data or module architecture.
+Folio Design Lab: the sole visual frontend reference at `frontend-examples/folio/design-lab/`. Portable Dashboard, Notebook Workspace, and Node Pack examples without defining production data or module architecture.
 
-Layout Paradigm: the structural arrangement of tutor chat, workspace canvas, reference surfaces, and Evidence within the Notebook Workspace shell. The retained Folio reference uses an editorial, chat-primary reading column with numbered figure-nodes in a margin rail.
+Folio Workspace Shell: the production Notebook Workspace layout — `FolioWorkspaceFull` chrome (notebook header, source strip, surface tabs, Evidence drawer) plus a classic **35% Tutor / 65% Workspace** desktop default split. Avoid the Design Lab's fixed 1.45 chat-primary ratio as a production default.
+
+Workspace Split: the resizable boundary between Tutor and Workspace panes inside Notebook Workspace. Desktop defaults to 35% Tutor / 65% Workspace; pointer and keyboard adjustment is bounded, versioned, and persisted per Notebook; each pane scrolls independently.
+
+Workspace URL Codec: validated search state on `/notebooks/:notebookId` encoding active surface, action intent, optional `refType` + `refId` (NodeRef), Artifact, Tutor Session, or shareable Evidence/source-open target. NodeRef uses two search params, not a serialized composite. One codec serves Dashboard Action Targets, tutor navigation, Study Map links, and Workspace bootstrap. Invalid or unauthorized targets fall back to the nearest valid surface with a learner-safe message.
+
+URL-Owned Workspace State: shareable Notebook Workspace selection persisted in the router search params via the Workspace URL Codec. Avoid client-only surface selection for production routes. Workspace Split ratio is versioned local storage per Notebook and is not URL-encoded.
+
+Layout Paradigm: the structural arrangement of tutor chat, workspace canvas, reference surfaces, and Evidence within the Notebook Workspace shell. Production uses the Folio Workspace Shell. Avoid margin-only prototypes (`folio-margin`) and canvas-primary dock layouts as the v1 default.
 
 Visual Theme: **Folio** is the sole implementation baseline: editorial ivory, Newsreader-led reading surfaces, Inter UI chrome, JetBrains Mono metadata, and restrained forest/sage accents. No runtime theme switcher or alternative visual direction is part of the frontend contract.
 
-Design North Star Theme: the preferred long-term product aesthetic. **Folio** originated as the design north star and is now also the production implementation baseline. It is documented in [`docs/frontend/13-folio-design-kit.md`](../frontend/13-folio-design-kit.md); completeness and behavioral parity take precedence over aesthetic polish.
+Design North Star Theme: the preferred long-term product aesthetic. **Folio** originated as the design north star and is now also the production implementation baseline. It is documented in [`docs/frontend/13-folio-design-kit.md`](../../frontend/13-folio-design-kit.md); completeness and behavioral parity take precedence over aesthetic polish.
 
-Design Kit: the runnable Folio Design Lab plus `docs/frontend/13-folio-design-kit.md`. It is the visual authority for theming work but does not replace behavioral specifications or StudyAgent contracts.
+Design Kit: the runnable Folio Design Lab plus `docs/frontend/13-folio-design-kit.md`. Visual authority for theming work; does not replace behavioral specifications or StudyAgent contracts.
 
 Provisional UI: the pre-Folio frontend implementation, including its page composition, components, state wiring, handwritten routing, fetch wrappers, chrome, and CSS. It is disposable as code. Its verified product behavior and contract coverage are migration evidence for Folio, not a requirement to reuse its implementation.
 
@@ -96,16 +151,9 @@ Source ingestion: user uploads a source from the top bar or source controls. The
 
 Tutor study loop: user selects `learn`, `practice`, `revise`, `explore`, or `wiki_maintenance`; starts, continues, resumes, pauses, or ends a session based on `/study-state`; then posts chat to `/api/v1/notebooks/:notebookId/tutor/chat` with `activeMode`, `selectedNodeRefs`, optional `sessionId`, and action `prompt`, `steer`, or `followUp`. During a live turn, tutor chat streams Runtime Work View events (thinking, narration, tool steps) before the Learner Response. Resume rehydrates up to 5 prior turns for the same session; new sessions start without prior-session transcript.
 
-Graph-to-tutor context: user selects a graph node. The frontend maps it to a `NodeRef`
-and includes selected refs in the tutor prompt; if an Artifact is open, its Artifact ref
-is included too.
+Graph-to-tutor context: user selects a graph node. `Whiteboard` maps it to a `NodeRef` and passes selected refs upward. `TutorPanel` includes the refs in the tutor prompt; if an artifact is open, its artifact ref is included too.
 
-Study map/reference workflow: the Workspace loads graph data from `POST /graph/query` with
-optional `devMode`. Study Map and Source Wiki responses include `readModel` (emphasis,
-visibility catalog, topic groups, reference-surface targets, projection warnings). User
-toggles Curriculum, Study Map, or Source Wiki. Clicking a node opens its Reference Surface,
-which fetches `/nodes/:nodeId/reference-surface` or source-extracted text. User can return
-to the Workspace, ask the tutor to teach the node, or open Evidence.
+Study map/reference workflow: `Whiteboard` loads graph data from `POST /graph/query` with optional `devMode`. Study Map and Source Wiki responses include `readModel` (emphasis, visibility catalog, topic groups, reference-surface targets, projection warnings). User toggles Curriculum, Study Map, or Source Wiki. Clicking a node opens `FullPanelViewer`, which fetches `/nodes/:nodeId/reference-surface` or source-extracted text. User can return to workspace, ask tutor to teach the node, or open Evidence.
 
 Artifact workflow: tutor may propose artifacts. Artifact lists should exclude internal teaching/planning artifacts. Learner can open, approve, reject, save editable notes, attempt quiz questions, or review flashcards. Quiz/flashcard interactions update learning state and reload study state.
 
@@ -175,10 +223,10 @@ Avoid learner-facing debug language:
 
 ## Tests That Reveal Behavior
 
-- `apps/api/src/routes/events-stream.test.ts`
-- `apps/api/src/routes/tutor-chat.routes.test.ts`
-- `apps/api/src/routes/graph.routes.test.ts`
-- `apps/api/src/reference-surface.test.ts`
-- `apps/api/src/interactive-learning.integration.test.ts`
-- `packages/schemas/src/workspace-refresh.test.ts`
-- `packages/schemas/src/interactive-learning.test.ts`
+- `apps/web/src/app-event-contract.test.ts`
+- `apps/web/src/whiteboard-utils.test.ts`
+- `apps/web/src/whiteboard-node-ref.test.ts`
+- `apps/web/src/whiteboard-verification.test.ts`
+- `apps/web/src/AgentTrace.test.ts`
+- `apps/web/src/FullPanelViewer.test.tsx`
+- `apps/web/src/TutorPanel.test.ts`
