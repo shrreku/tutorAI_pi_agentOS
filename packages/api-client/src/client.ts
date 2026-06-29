@@ -3,6 +3,7 @@ import * as notebooks from "./operations/notebooks.js";
 import * as session from "./operations/session.js";
 import * as sources from "./operations/sources.js";
 import * as tutor from "./operations/tutor.js";
+import * as product from "./operations/product.js";
 import type { ApiRequestFn } from "./request.js";
 
 export type CreateApiClientOptions = {
@@ -51,6 +52,41 @@ export function createApiClient(options: CreateApiClientOptions = {}) {
       sources.retrySourceIngestion(request, sourceId, opts),
     getTutorTrace: (notebookId: string, opts?: tutor.GetTutorTraceOptions) =>
       tutor.getTutorTrace(request, notebookId, opts),
+    listStudyTemplates: (opts?: product.ProductRequestOptions) =>
+      product.listStudyTemplates(request, opts),
+    getStudyTemplate: (templateId: string, opts?: product.ProductRequestOptions) =>
+      product.getStudyTemplate(request, templateId, opts),
+    createWorkspaceFromTemplate: (templateId: string, opts?: product.ProductRequestOptions) =>
+      product.createWorkspaceFromTemplate(request, templateId, opts),
+    createNotebook: (title: string, opts?: product.ProductRequestOptions) =>
+      product.createNotebook(request, title, opts),
+    submitConsent: (opts?: product.ProductRequestOptions) => product.submitConsent(request, opts),
+    redeemAccessCode: (code: string, opts?: product.ProductRequestOptions) =>
+      product.redeemAccessCode(request, code, opts),
+    submitLearningFeedback: (
+      body: Parameters<typeof product.submitLearningFeedback>[1],
+      opts?: product.ProductRequestOptions,
+    ) => product.submitLearningFeedback(request, body, opts),
+    submitAccountDeletionRequest: (notes: string, opts?: product.ProductRequestOptions) =>
+      product.submitAccountDeletionRequest(request, notes, opts),
+    listCreditCheckoutPacks: (opts?: product.ProductRequestOptions) =>
+      product.listCreditCheckoutPacks(request, opts),
+    startCreditCheckout: (packId: string, opts?: product.ProductRequestOptions) =>
+      product.startCreditCheckout(request, packId, opts),
+    getNotebookStudyState: <T = Record<string, unknown>>(
+      notebookId: string,
+      opts?: product.ProductRequestOptions,
+    ) => product.getNotebookStudyState<T>(request, notebookId, opts),
+    listNotebookArtifacts: (notebookId: string, opts?: product.ProductRequestOptions) =>
+      product.listNotebookArtifacts(request, notebookId, opts),
+    getGraphLayout: (notebookId: string, opts?: product.ProductRequestOptions) =>
+      product.getGraphLayout(request, notebookId, opts),
+    saveGraphNodeLayout: (
+      notebookId: string,
+      nodeId: string,
+      input: Parameters<typeof product.saveGraphNodeLayout>[3],
+      opts?: product.ProductRequestOptions,
+    ) => product.saveGraphNodeLayout(request, notebookId, nodeId, input, opts),
   };
 }
 
@@ -87,4 +123,4 @@ function readDevUserId(): string | null {
   return null;
 }
 
-export { dashboard, notebooks, session, sources, tutor };
+export { dashboard, notebooks, product, session, sources, tutor };

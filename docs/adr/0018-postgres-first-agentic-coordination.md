@@ -17,7 +17,7 @@ The original decision made `prepareTutorTurn()` the first tutor caching boundary
 - Keep optional **on-demand retrieval caches** (`tutor_turn.retrieval_plan`, `tutor_turn.retrieval_rows`) inside `wiki.search` only.
 - Dispose Pi sessions on **binding changes only** (refs, mode, prompt fingerprint, session/notebook/user), not on ordinary notebook material updates.
 
-See `docs/architecture/tutor-runtime-bootstrap-and-observability-implementation-plan.md` for the end-to-end implementation plan.
+See `docs/archive/2026-h1/architecture/tutor-runtime-bootstrap-and-observability-implementation-plan.md` for the historical end-to-end implementation plan.
 
 ## Context
 
@@ -64,4 +64,4 @@ Redis/BullMQ remains an optional infrastructure adapter for deployments that nee
 - `docs/adr/0015-synthetic-learner-evals-use-repo-native-runner-first.md`
 - `docs/adr/0019-observability-telemetry-seam.md`
 - `docs/contexts/api-runtime/CONTEXT.md`
-- `docs/architecture/tutor-runtime-bootstrap-and-observability-implementation-plan.md`
+- `docs/archive/2026-h1/architecture/tutor-runtime-bootstrap-and-observability-implementation-plan.md`

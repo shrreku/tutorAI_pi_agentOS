@@ -1,6 +1,15 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CreditCard, KeyRound, LifeBuoy, ShieldCheck, User } from "lucide-react";
+import {
+  listCreditCheckoutPacks,
+  notebooksQueryOptions,
+  redeemAccessCode,
+  sessionQueryKey,
+  startCreditCheckout,
+  submitAccountDeletionRequest,
+} from "@studyagent/api-client";
 import {
   ACCOUNT_TAB_LABELS,
   type AccountTab,
@@ -8,6 +17,7 @@ import {
 import { apiClient } from "../../platform/api-client.js";
 import { creditsPercentOf, displayNameOf, useSession } from "../lib/session.js";
 import { Avatar, Badge, Button, Eyebrow, Meter, Ring } from "../ui/primitives.js";
+import { FolioLearningFeedbackForm } from "./support-form.js";
 
 const TAB_ORDER: AccountTab[] = ["overview", "credits", "access-code", "support", "data"];
 
@@ -68,6 +78,22 @@ function CreditsTab() {
   const { data: session } = useSession();
   const pct = creditsPercentOf(session);
   const exhausted = session?.credits?.exhausted ?? false;
+  const packsQuery = useQuery({
+    queryKey: ["credit-checkout-packs"],
+    queryFn: () => listCreditCheckoutPacks(apiClient.request),
+  });
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+
+  const buyPack = async (packId: string) => {
+    setCheckoutError(null);
+    try {
+      const url = await startCreditCheckout(apiClient.request, packId);
+      window.location.href = url;
+    } catch (err) {
+      setCheckoutError(err instanceof Error ? err.message : "Checkout failed");
+    }
+  };
+
   return (
     <div className="space-y-5">
       <Section eyebrow="Tutor credits" title="Your balance">
@@ -83,11 +109,35 @@ function CreditsTab() {
           </div>
         </div>
       </Section>
+      {packsQuery.data?.length ? (
+        <Section title="Buy credits">
+          <ul className="space-y-2">
+            {packsQuery.data.map((pack) => (
+              <li
+                key={pack.id}
+                className="flex items-center justify-between gap-3 rounded-[var(--radius)] border border-border bg-card px-3 py-2"
+              >
+                <div>
+                  <p className="font-display text-[15px] font-semibold">{pack.label}</p>
+                  <p className="text-[12px] text-muted-foreground">{pack.description}</p>
+                </div>
+                <Button size="sm" onClick={() => void buyPack(pack.id)}>
+                  ${(pack.priceCents / 100).toFixed(2)}
+                </Button>
+              </li>
+            ))}
+          </ul>
+          {checkoutError ? (
+            <p className="mt-2 text-[13px] text-destructive">{checkoutError}</p>
+          ) : null}
+        </Section>
+      ) : null}
     </div>
   );
 }
 
 function AccessCodeTab() {
+  const queryClient = useQueryClient();
   const [code, setCode] = useState("");
   const [status, setStatus] = useState<{ kind: "idle" | "ok" | "error"; message?: string }>({
     kind: "idle",
@@ -99,12 +149,8 @@ function AccessCodeTab() {
     setPending(true);
     setStatus({ kind: "idle" });
     try {
-      const res = await apiClient.request("/access-codes/redeem", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: code.trim() }),
-      });
-      if (!res.ok) throw new Error(`Could not redeem (${res.status})`);
+      await redeemAccessCode(apiClient.request, code.trim());
+      await queryClient.invalidateQueries({ queryKey: sessionQueryKey() });
       setStatus({ kind: "ok", message: "Access code applied." });
       setCode("");
     } catch (err) {
@@ -151,9 +197,12 @@ function SupportTab() {
       <p className="text-[13.5px] text-muted-foreground">
         Questions, bugs, or feedback during the beta? We read every note.
       </p>
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-4">
+        <FolioLearningFeedbackForm />
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2">
         <a href="mailto:support@tutorbook.app">
-          <Button variant="accent">
+          <Button variant="outline">
             <LifeBuoy className="h-4 w-4" /> Email support
           </Button>
         </a>
@@ -167,6 +216,30 @@ function SupportTab() {
 
 function DataTab() {
   const { data: session } = useSession();
+  const notebooksQuery = useQuery(notebooksQueryOptions(apiClient.request));
+  const [notes, setNotes] = useState("");
+  const [status, setStatus] = useState<"idle" | "ok" | "error">("idle");
+  const [pending, setPending] = useState(false);
+
+  const personalNotebooks = (notebooksQuery.data ?? []).filter(
+    (n) => n.workspaceType === "personal_learner",
+  );
+
+  const requestDeletion = async () => {
+    if (!notes.trim()) return;
+    setPending(true);
+    setStatus("idle");
+    try {
+      await submitAccountDeletionRequest(apiClient.request, notes.trim());
+      setStatus("ok");
+      setNotes("");
+    } catch {
+      setStatus("error");
+    } finally {
+      setPending(false);
+    }
+  };
+
   return (
     <div className="space-y-5">
       <Section eyebrow="Privacy" title="Your data">
@@ -184,15 +257,45 @@ function DataTab() {
           </Link>
         </div>
       </Section>
+      <Section title="Your notebooks">
+        {notebooksQuery.isLoading ? (
+          <p className="text-[13px] text-muted-foreground">Loading…</p>
+        ) : (
+          <ul className="space-y-1 text-[14px]">
+            {personalNotebooks.map((nb) => (
+              <li key={nb.id}>{nb.title}</li>
+            ))}
+            {!personalNotebooks.length ? (
+              <li className="text-muted-foreground">No personal notebooks yet.</li>
+            ) : null}
+          </ul>
+        )}
+      </Section>
       <Section title="Delete account">
         <p className="text-[13.5px] text-muted-foreground">
           Request deletion of your account and study data. This is permanent.
         </p>
-        <a href="mailto:support@tutorbook.app?subject=Account%20deletion%20request" className="mt-3 inline-block">
-          <Button variant="outline" className="border-destructive/40 text-destructive hover:bg-destructive/10">
-            Request deletion
-          </Button>
-        </a>
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          rows={3}
+          placeholder="Tell us why you're leaving (optional context for support)"
+          className="mt-3 w-full rounded-[var(--radius)] border border-border bg-elevated px-3 py-2 text-[14px] outline-none focus:border-accent"
+        />
+        <Button
+          variant="outline"
+          className="mt-3 border-destructive/40 text-destructive hover:bg-destructive/10"
+          disabled={pending || !notes.trim()}
+          onClick={() => void requestDeletion()}
+        >
+          {pending ? "Submitting…" : "Request deletion"}
+        </Button>
+        {status === "ok" ? (
+          <p className="mt-2 text-[13px] text-success">Deletion request submitted.</p>
+        ) : null}
+        {status === "error" ? (
+          <p className="mt-2 text-[13px] text-destructive">Could not submit request.</p>
+        ) : null}
       </Section>
     </div>
   );

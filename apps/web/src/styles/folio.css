@@ -1390,3 +1390,91 @@
     animation: none;
   }
 }
+
+[data-direction="folio"] .folio-split-handle {
+  cursor: col-resize;
+  background: color-mix(in oklab, var(--border) 70%, transparent);
+}
+
+[data-direction="folio"] .folio-split-handle:hover {
+  background: var(--accent);
+}
+
+[data-direction="folio"] .folio-study-map .react-flow__controls,
+[data-direction="folio"] .folio-study-map .react-flow__minimap {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow-soft);
+}
+
+[data-direction="folio"] .folio-graph-node {
+  width: 168px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  padding: 10px 12px;
+  text-align: left;
+  box-shadow: var(--shadow-soft);
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+[data-direction="folio"] .folio-graph-node[data-selected="true"] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 35%, transparent);
+}
+
+[data-direction="folio"] .folio-graph-node-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+[data-direction="folio"] .folio-graph-node-type {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+[data-direction="folio"] .folio-graph-node-badge {
+  max-width: 88px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-radius: 999px;
+  background: var(--muted);
+  padding: 1px 6px;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--muted-foreground);
+}
+
+[data-direction="folio"] .folio-graph-node-title {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.25;
+  color: var(--foreground);
+}
+
+[data-direction="folio"] .folio-graph-node-foot {
+  margin-top: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted-foreground);
+}
+
+[data-direction="folio"] .folio-markdown p + p {
+  margin-top: 0.75rem;
+}
+
+[data-direction="folio"] .folio-markdown ul {
+  margin-top: 0.5rem;
+  list-style: disc;
+  padding-left: 1.25rem;
+}

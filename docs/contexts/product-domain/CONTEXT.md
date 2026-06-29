@@ -269,19 +269,54 @@ Interactive Learning Surface: a learner-facing Reference Surface with interactiv
 
 Interactive Learning Signal: a learner action inside an Interactive Learning Surface. Only evaluable performance such as an answer, worked attempt, explanation, misconception choice, or explicit self-report should become Mastery Evidence. Meaningful submitted actions may update tutor context; high-frequency UI behavior should stay local or become aggregated telemetry, artifact/session state, or future Learner Trait Signals.
 
+Interactive Learning Template: a trusted reusable learning interaction selected by semantic purpose and filled with learner-specific content, parameters, prompts, and Evidence. Its executable behavior is reviewed and versioned before release; models configure it with validated instance data rather than authoring raw scene objects, controls, animation programs, or application code in learner flows.
+_Avoid_: Interactive UI template, generated mini-app
+
+Interaction Family: stable semantic category for Interactive Learning Templates: Explain, Explore, Practice, Guided Work, Evidence, Plan and Reflect, or Diagnostic. The family describes the learning role; the template identity describes the specific interaction.
+
+Canonical Interactive Action: compact platform-level learner outcome vocabulary shared across templates, covering response, attempt, observation, review, Evidence open, intent, completion, and tutor help. Template-local events map to these actions through strict payload schemas; a genuinely new durable meaning requires a Platform-Extension Draft.
+
+Learning Interaction Request: structured hosted-Workspace request for an interactive learning experience, containing pedagogical purpose, learning references, Evidence, learner constraints, content, parameters, and an optional template preference. A deterministic Template Resolver turns it into an exact promoted Template Instance or a trusted fallback.
+
+Template Resolver: deterministic policy boundary that selects and pins an exact promoted Interactive Learning Template version for a Learning Interaction Request. It enforces Artifact, Evidence, learner/accessibility, capability, action, and schema constraints rather than accepting executable choices from the tutor model.
+
+Interaction Director Agent: future bounded read-only agent that ranks eligible promoted templates and proposes a Turn Interaction Plan for non-trivial teaching moments. It may propose semantic selection, parameters, narration checkpoints, and placement intent, but the Template Resolver verifies the choice and the Tutor Agent remains the narrative authority.
+
+Tutor Choreography: ordered coordination of tutor narration with semantic presentation cues for Interactive Learning Surfaces. It can request stage, focus, replace, dock, or dismiss behavior, while learner focus, active interaction, pinning, dismissal, auto-stage preference, responsive layout, reduced motion, and accessibility constraints remain authoritative.
+
+Workspace Stage: responsive learner-facing region where Tutor Choreography presents rich Interactive Learning Surfaces. Version 1 has one Primary slot, one optional Companion slot on suitable viewports, and a learner-managed Pinned Tray; mobile presents one active sheet or full-screen surface. It is not a freeform agent-arranged canvas or the tutor transcript.
+
+Surface Anchor: compact tutor-message reference to a choreographed Interactive Learning Surface, showing enough title/status context to focus or reopen it without embedding the full rich View in chat history.
+
+Choreography Snapshot: compact Tutor Session presentation state used to recover the Workspace Stage after reconnect, including the latest cue sequence, current semantic slots, queued cues, and learner overrides. It is not Canonical Learning State or evidence of learning.
+
+Template Instance: immutable configured use of an exact Interactive Learning Template version, containing validated learning content, parameters, prompts, Evidence, and any explicit random seed. It selects reviewed behavior without introducing new executable behavior or resolving a mutable latest version.
+
+Template Model State: deterministic, serializable state of an Interactive Learning Template's interaction or simulation. It is distinct from temporary View presentation and from server-owned Canonical Learning State.
+
+Canonical Learning State: durable learner outcome state owned by StudyAgent, such as attempts, submitted observations, Mastery Evidence, progress, or Artifact state. Interactive Views may receive it and propose validated actions, but they do not own it.
+
 Simulation Template: a trusted reusable Interactive Learning Surface pattern for visualizing or manipulating a concept, such as a function plotter, physics model, algorithm animation, probability sampler, or graph traversal. Learner-facing simulations should use Simulation Templates with tutor-generated parameters and prompts rather than arbitrary generated code.
 
 Simulation Draft: an experimental generated simulation used to explore or test a future Simulation Template. It is not learner-facing product state until it is reviewed and promoted into a trusted Simulation Template.
 
 Trusted Template Mode: the default learner runtime for hosted beta and production. Reference Surfaces may render only promoted Simulation Templates, allowlisted Interactive Learning Block kinds, and globally versioned MCP App Bundles. Block content and parameters may vary per notebook; renderer code and action contracts may not.
 
-Generative Interactive Mode: an environment-gated runtime and authoring lane where unreviewed Simulation Drafts and Interactive Block Kind Drafts may be generated, regenerated, added, or removed for iteration. It is not the same as Workspace Dev Mode. Generative Interactive Mode must remain off in hosted learner environments unless explicitly enabled by deployment configuration and operator entitlements.
+Generative Interactive Mode: a local or isolated promotion-lane environment where unreviewed Simulation Drafts and Interactive Block Kind Drafts may be generated, regenerated, added, or removed for iteration. It is not the same as Workspace Dev Mode and is not enabled in hosted learner Workspaces.
 
 Interactive Block Kind Draft: an experimental generated Interactive Learning Block kind that may introduce a new learning-purpose block type, new Interactive Learning Actions, a new MCP App Bundle, and new durable outcome routing. It is not learner-facing product state in Trusted Template Mode until it passes the Template Promotion Lab and is promoted into the global allowlist.
 
-Template Promotion Lab: operator-facing pipeline and UI for proposing, sandbox-testing, evaluating, and promoting Simulation Drafts and Interactive Block Kind Drafts. It collects promotion data such as checklist results, synthetic learner runs, human review decisions, and the artifacts required to register a trusted template or block kind. It is not part of the ordinary learner study loop.
+Template Promotion Lab: authenticated Admin UI pipeline and review surface for proposing, sandbox-testing, evaluating, and promoting Simulation Drafts and Interactive Block Kind Drafts, including completely new interactive UI. It collects security, protocol, schema, determinism, accessibility, performance, visual, pedagogical, and Synthetic Learner evidence plus reviewer identity and decision notes. Workers and CI may build, test, and reject drafts, but only the Admin UI approval boundary may publish or revoke executable template versions. It is not a visual authoring studio or part of the ordinary learner study loop.
 
-Interactive Learning Block: a model-facing declarative unit inside an Interactive Learning Surface, named for a learning purpose such as a Mastery Check, Quiz, Flashcard Deck, Worked Example, Evidence Map, Simulation, Live Plan, Comparison, or Concept Timeline. Generic UI primitives remain renderer-owned implementation details.
+Template Builder Agent: bounded promotion-lane agent that can author, build, test, preview, and open draft PRs for completely new Interactive Learning Template code in an isolated workspace. It is separate from the Tutor Agent and has no learner data, production credentials, trusted-catalog publication key, merge authority, approval authority, or publication authority.
+
+Generated-Code Execution Boundary: the local or isolated draft executor where generated UI or simulation code may run for iteration, testing, screenshots, preview, and promotion evidence. It is outside hosted learner Workspaces; generated code becomes trusted product behavior only after Template Promotion Lab approval and immutable publication.
+
+Template-Only Draft: proposed executable Interactive Learning Template version that uses already deployed actions, host capabilities, renderer profiles, sandbox policy, and durable outcome paths. It may publish independently after all promotion gates and human approval pass.
+
+Platform-Extension Draft: proposed Interactive Learning Template version that requires new StudyAgent platform behavior such as an action handler, durable outcome type, table, reducer, event, API/persistence contract, host permission, external runtime network origin, renderer adapter, dependency runtime class, or build infrastructure. It remains blocked until the generated platform change completes ordinary review and deployment.
+
+Interactive Learning Block: a model-facing declarative unit inside an Interactive Learning Surface that references an Interaction Family and exact Interactive Learning Template, such as a Mastery Check, Quiz, Flashcard Deck, Worked Example, Evidence Map, Simulation, Live Plan, Comparison, or Concept Timeline. Generic UI primitives remain renderer-owned implementation details.
 
 Page-Embedded Interactive Block: an Interactive Learning Block attached to a Source Wiki, Curriculum, Module, Topic, or Concept Reference Surface; artifact-backed blocks such as Quiz, Flashcard Deck, and Worked Example still require Artifact Lifecycle governance.
 
@@ -389,7 +424,7 @@ Workspace navigation: notebook open flow should derive one obvious next action: 
 
 Study Map session relationships: Session Nodes connect inside the Study Map graph to the modules, objectives, artifacts, concepts, or sources that the real tutor session used or produced.
 
-Future exam preparation mode: exam preparation is currently a learner goal inside the same tutoring system. A future Exam Preparation Mode may add deadlines, target syllabus scope, past-paper style practice, scoring rubrics, timed mock exams, and exam-specific revision overlays while preserving notebook/source grounding, mastery checks, Evidence, and artifact consent. See `docs/future/exam-preparation-mode.md`.
+Future exam preparation mode: exam preparation is currently a learner goal inside the same tutoring system. A future Exam Preparation Mode may add deadlines, target syllabus scope, past-paper style practice, scoring rubrics, timed mock exams, and exam-specific revision overlays while preserving notebook/source grounding, mastery checks, Evidence, and artifact consent. The inactive exploration is archived at `docs/archive/2026-h1/future/exam-preparation-mode.md`.
 
 Evidence and trust: pages and artifacts show citations and source excerpts first. Claims support trust but should not clutter learner maps. User-facing Source Wiki topic pages and concept pages should read like polished source-grounded notes, not raw statistics or debug summaries. If a page is incomplete, weakly supported, or still improving, use simple learner-facing status language rather than confidence scores, claim statuses, extraction stats, or pipeline metadata. Tutoring is strict about source grounding for claims about uploaded material, source-specific explanations, generated notes, and artifacts. The tutor may use general pedagogical knowledge for analogies, prerequisites, hints, transferable examples, and remediation, but should not present those as source claims. Artifacts should distinguish source-specific notes from broader learner-specific tips. Unsupported, candidate, inferred, low-confidence, contradicted, or superseded claims stay hidden unless Dev Mode is enabled.
 
@@ -397,7 +432,7 @@ Mastery visibility: learners should see humane derived progress summaries such a
 
 ## Architectural Intent
 
-Seven deepening modules govern runtime behavior: Tutor Turn, Reference Surface, Source-to-LLM-Wiki Compilation, Workspace Read Model, Artifact Lifecycle, Graph Projection, and Tool Contract. See `CONTEXT-MAP.md` and `docs/architecture/architecture-deepening-implementation-tickets.md`.
+Seven deepening modules govern runtime behavior: Tutor Turn, Reference Surface, Source-to-LLM-Wiki Compilation, Workspace Read Model, Artifact Lifecycle, Graph Projection, and Tool Contract. See `CONTEXT-MAP.md` and `docs/architecture/README.md`.
 
 The architecture is TypeScript-first with one embedded Pi runtime. Pi owns tutoring, session orchestration, crystallization, eval-style judgment, and wiki-steward tasks. Deterministic workers own parsing, chunking, embeddings, indexing, source spans, graph projection, and low-level persistence.
 

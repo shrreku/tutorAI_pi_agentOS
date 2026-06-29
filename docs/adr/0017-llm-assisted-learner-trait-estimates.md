@@ -37,9 +37,9 @@ Learner Trait Estimates may recommend explanation pace, depth, example choice, c
 ## References
 
 - `docs/contexts/product-domain/CONTEXT.md`
-- `docs/architecture/learner-trait-model-archetype-matrix.md`
-- `docs/architecture/real-learner-trait-estimates-prd.md`
-- `docs/architecture/real-learner-trait-estimates-implementation-plan.md`
-- `docs/architecture/real-learner-trait-estimates-implementation-tickets.md`
+- `docs/archive/2026-h1/architecture/learner-trait-model-archetype-matrix.md`
+- `docs/archive/2026-h1/architecture/real-learner-trait-estimates-prd.md`
+- `docs/archive/2026-h1/architecture/real-learner-trait-estimates-implementation-plan.md`
+- `docs/archive/2026-h1/architecture/real-learner-trait-estimates-implementation-tickets.md`
 - `docs/adr/0001-notebook-scoped-learning-workspace.md`
 - `docs/adr/0013-mastery-evaluator-produces-durable-evidence-reducers-apply-learning-state.md`

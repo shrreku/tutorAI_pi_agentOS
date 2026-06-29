@@ -19,3 +19,4 @@ export * from "./operations/dashboard.js";
 export * from "./operations/notebooks.js";
 export * from "./operations/sources.js";
 export * from "./operations/tutor.js";
+export * from "./operations/product.js";

@@ -11,6 +11,9 @@
   "dependencies": {
     "@studyagent/api-client": "workspace:*",
     "@studyagent/schemas": "workspace:*",
+    "@tanstack/ai": "^0.16.0",
+    "@tanstack/ai-client": "^0.9.1",
+    "@tanstack/ai-react": "^0.8.2",
     "@tanstack/react-query": "^5.100.9",
     "@tanstack/react-router": "^1.120.3",
     "@xyflow/react": "^12.3.5",

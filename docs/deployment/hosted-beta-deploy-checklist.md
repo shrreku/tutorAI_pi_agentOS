@@ -5,10 +5,12 @@ Status: draft launch checklist for TutorBook hosted beta.
 Use this with:
 
 - `docs/deployment/hosted-beta-env.md`
-- `docs/architecture/hosted-beta-launch-plan.md`
-- `docs/architecture/hosted-beta-launch-implementation-tickets.md`
+- ADR-0022: Hosted beta access, identity, and entitlements
+- ADR-0023: Product validation observability and analytics
 - ADR-0018: Postgres-first agentic coordination
 - ADR-0024: Free-first on-demand ingestion
+
+The implemented launch plan and local ticket packet are retained under `docs/archive/2026-h1/architecture/` as historical context.
 
 ## Recommended Launch Shape
 

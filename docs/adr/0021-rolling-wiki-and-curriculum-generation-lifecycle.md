@@ -214,4 +214,4 @@ Persist app instances for page-embedded interactive blocks:
 - `docs/contexts/knowledge-graph/CONTEXT.md`
 - `docs/contexts/api-runtime/CONTEXT.md`
 - `docs/contexts/web-workspace/CONTEXT.md`
-- `docs/architecture/rolling-wiki-and-curriculum-generation-implementation-plan.md`
+- `docs/archive/2026-h1/architecture/rolling-wiki-and-curriculum-generation-implementation-plan.md`

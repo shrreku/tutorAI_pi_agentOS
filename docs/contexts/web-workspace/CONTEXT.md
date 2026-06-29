@@ -103,15 +103,23 @@ Reference Surface: full-panel, review-oriented node view. The lesson itself stay
 
 Interactive Learning Surface: a Reference Surface with interactive controls for practice, exploration, review, or Evidence inspection. It is not a separate durable object by default; durable learner outputs remain Artifacts, Mastery Evidence, or learning state. Tutor chat can launch and steer these surfaces while the Workspace hosts the rich interaction.
 
+Workspace Stage: responsive region that presents Tutor Choreography and hosts rich Interactive Learning Surfaces through the Internal MCP App Host. Version 1 provides one Primary slot, one optional Companion slot when the viewport allows it, and a learner-managed Pinned Tray; mobile shows one active sheet or full-screen surface. Agents do not control pixel geometry or override learner focus, active interaction, pinning, dismissal, auto-stage preference, reduced motion, or accessibility constraints.
+
+Surface Anchor: compact tutor-chat representation of a staged Interactive Learning Surface. It preserves transcript context and offers focus/reopen actions without mounting the full MCP App View inside chat history.
+
+Surface Cue Outcome: client acknowledgement that a sequenced Surface Cue was applied, deferred, or rejected, with a bounded reason such as active interaction, learner pin, unsupported slot, stale sequence, or accessibility policy. Duplicate cue IDs/sequences are ignored.
+
 MCP App Renderer: the default rich rendering option for Interactive Learning Blocks such as simulations, quizzes, flashcards, worked examples, Evidence explorers, and Dev Mode dashboards. The learner-facing contract remains the Interactive Learning Block, not the iframe implementation, and native rendering should remain available as a fallback where practical.
 
 MCP App State Boundary: StudyAgent owns canonical interaction state such as attempts, review ratings, completion, Mastery Evidence, artifact lifecycle, Evidence refs, and tutor/session identity. MCP App Renderers may own temporary presentation state such as selected controls, animation playback, card flip state, or local layout.
 
-MCP App Bundle: a globally versioned app resource for a major Interactive Learning Block type or Simulation Template, such as a quiz, flashcard deck, worked example, Evidence explorer, Live Plan view, or function plotter. Notebook-specific learning content is passed as block data; app bundles are not generated per notebook. Bundles should be separate per major learning block type while sharing bridge and design-system code at build time.
+MCP App Bundle: an immutable, content-hashed MCP App resource compiled from one exact reviewed Interactive Learning Template version, such as a quiz, flashcard deck, worked example, Evidence explorer, Live Plan view, or function plotter. Notebook-specific learning content is passed as validated instance data; executable bundles are not generated per notebook. Templates may share host, runtime, and design-system source packages at build time, while the published View remains self-contained.
 
-Internal MCP App Bridge: Workspace-owned bridge that renders MCP App Bundles in sandboxed iframes and passes block data, host context, and Interactive Learning Actions through an MCP-App-compatible message shape. It provides MCP App behavior inside StudyAgent without exposing an external MCP server.
+Internal MCP App Host: Workspace-owned MCP Apps host that renders MCP App Views in sandboxed iframes, supplies Interactive Learning Block data through official MCP tool input/results, and adapts allowlisted app-visible tool calls into Interactive Learning Actions. It uses the official MCP Apps protocol without requiring an externally exposed StudyAgent MCP server.
 
-MCP App Sandbox Policy: restrictive-by-default policy for MCP App Bundles. App bundles should receive StudyAgent data through the Internal MCP App Bridge, emit Interactive Learning Actions back through the bridge, avoid direct notebook API calls, avoid external network access unless explicitly allowlisted, and not rely on iframe-owned durable storage.
+MCP App Sandbox Policy: restrictive-by-default policy for MCP App Bundles. App Views receive StudyAgent data through the Internal MCP App Host, call allowlisted app-visible tools through the host, avoid direct Notebook API calls, avoid external network access unless explicitly allowlisted, and do not rely on iframe-owned durable storage.
+
+Template View State: temporary presentation state inside an MCP App View, such as focus, hover, drag, camera, animation-frame, or local layout. It is not Template Model State or Canonical Learning State and is discarded safely when the View closes.
 
 Evidence: source excerpts and supporting notes shown in the drawer. Avoid learner-facing "provenance" copy unless the context is developer/debug.
 
@@ -180,7 +188,7 @@ The Synthetic Learner Eval Runs dashboard uses this stream to invalidate `eval-r
 
 Tutor chat stream: `POST /api/v1/notebooks/:notebookId/tutor/chat`.
 
-The first stream event is custom `SESSION_STARTED`. AG-UI stream events include `RUN_STARTED`, `TEXT_MESSAGE_START`, `TEXT_MESSAGE_CONTENT`, `TEXT_MESSAGE_END`, `TOOL_CALL_START`, `TOOL_CALL_ARGS`, `TOOL_CALL_END`, `RUN_FINISHED`, and `RUN_ERROR`.
+The first stream event is custom `SESSION_STARTED`. AG-UI stream events include `RUN_STARTED`, `TEXT_MESSAGE_START`, `TEXT_MESSAGE_CONTENT`, `TEXT_MESSAGE_END`, `TOOL_CALL_START`, `TOOL_CALL_ARGS`, `TOOL_CALL_END`, StudyAgent Surface Cues, `RUN_FINISHED`, and `RUN_ERROR`. Surface Cues orchestrate the Workspace Stage; they do not embed executable MCP App content in chat.
 
 Node refs use the shared shape `{ refType, refId }`. Graph node types map to entity refs through `whiteboard-node-ref.ts`; `tutor_session` maps to `session`; unknown graph node types map to `whiteboard_node`.
 

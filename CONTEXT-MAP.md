@@ -19,9 +19,9 @@ StudyAgent is a multi-context TypeScript monorepo. Before changing code, pick th
 - If a change touches ingestion, search, wiki, graph, or worker jobs, read Knowledge Graph and Product Domain.
 - If a change crosses route contracts or shared schemas, read API Runtime plus the consuming context.
 
-## Architecture deepening modules
+## Runtime Modules
 
-The implementation tickets in `docs/architecture/architecture-deepening-implementation-tickets.md` map to these runtime modules:
+The current architecture index maps the main runtime modules:
 
 | Module                         | Primary code                                   |
 | ------------------------------ | ---------------------------------------------- |
@@ -33,16 +33,17 @@ The implementation tickets in `docs/architecture/architecture-deepening-implemen
 | Graph Projection               | `packages/graph/src/graph-projection/`         |
 | Tool Contract                  | `packages/tools/src/index.ts`                  |
 
-Cross-module regression: `apps/api/src/architecture-deepening.integration.test.ts`.
+Cross-module regression: `apps/api/src/architecture-deepening.integration.test.ts`. See `docs/architecture/README.md` for current architecture routing.
 
 ## Interactive Learning Surfaces
 
-The MCP Apps, declarative UI, and generative UI adoption plan is tracked in:
+The current baseline is tracked in:
 
-- `docs/architecture/interactive-learning-surfaces-implementation-plan.md`
-- `docs/architecture/interactive-learning-surfaces-implementation-tickets.md`
+- `docs/adr/0020-interactive-learning-surfaces-and-internal-mcp-app-bridge.md`
+- `docs/frontend/09-interactive-learning-and-mcp-apps.md`
+- `docs/architecture/README.md`
 
-Read these when working on Interactive Learning Surfaces, Interactive Learning Blocks, Internal MCP App Bridge, MCP App Bundles, Interactive Learning Actions, Simulation Templates, or Simulation Drafts.
+Read these when working on Interactive Learning Surfaces, Interactive Learning Blocks, the Internal MCP App Host, MCP App Bundles, Interactive Learning Actions, Simulation Templates, or Simulation Drafts.
 
 ## Folio Production Frontend
 
@@ -59,4 +60,4 @@ Read these before changing the production router, browser API client, Dashboard 
 
 ## Source Documents
 
-The `greenfield-studyagent/` folder is the design record behind these contexts. Treat the context files as the short operational map, and use the greenfield docs for deeper product intent.
+Treat the context files as the short operational map, `PRODUCT.md` as product intent, ADRs as durable decisions, and current code/contracts as implemented truth. Historical design records live under `docs/archive/` and in Git history.

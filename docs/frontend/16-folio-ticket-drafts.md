@@ -429,17 +429,20 @@ F00 — Folio Production Frontend Revamp.
 
 ### What to build
 
-Port the implemented Internal MCP App Bridge, registry, and bundles into the Folio App surface. Render the real sandboxed iframe bundle with Folio host chrome, host context, canonical state updates, validated Interactive Learning Actions, version compatibility, diagnostics, and native fallback. Remove the Design Lab's fake local “MCP app” markup.
+Replace the current private bridge/registry scaffold with an official-protocol Internal MCP App Host and the first real bundle assets. Render each MCP App View through Folio host chrome, supply canonical block state through MCP tool input/results, adapt allowlisted app-visible tools to validated Interactive Learning Actions, and provide protocol compatibility, diagnostics, and native fallback. Remove the Design Lab's fake local “MCP app” markup.
 
 ### Acceptance criteria
 
-- [ ] App surface uses the canonical MCP App Bundle manifest/registry and loads actual bundle assets in a sandboxed iframe.
+- [ ] App surface reads a canonical `ui://` resource with MIME type `text/html;profile=mcp-app` and loads the returned View through the required sandbox proxy.
+- [ ] Build tooling emits immutable self-contained Views and generates the trusted catalog from validated manifests with exact versions, content hashes, schemas, actions/capabilities, renderer profile, sandbox requirements, and fallback metadata.
+- [ ] Durable Template Instances resolve an exact retained resource version; no reload path resolves `latest` or silently upgrades state.
 - [ ] Sandbox disallows parent DOM and auth-cookie/API dependence; network capability follows the restrictive allowlist policy.
-- [ ] Bridge initialization, host context, block input/result, action, state update, error, and teardown messages are validated and versioned.
+- [ ] Capability negotiation, JSON-RPC transport, tool input/result notifications, app-visible `tools/call`, logging, errors, and resource teardown conform to the stable official MCP Apps protocol.
+- [ ] App-visible tools are allowlisted per bundle and adapt to the canonical Interactive Learning Action dispatcher; Views cannot call Notebook APIs directly.
 - [ ] Iframe has an accessible title/focus path and does not trap the learner without host navigation/fallback.
 - [ ] Actions dispatch through the same canonical Interactive Learning Action path as native renderers and survive reload from server state.
 - [ ] Folio host renders loading, ready, saving, completed, version mismatch, sandbox/load/protocol failure, and native fallback states.
-- [ ] Dev Mode can inspect bridge lifecycle/errors without exposing them in learner copy or product analytics content.
+- [ ] Dev Mode can inspect resource, host, tool, and protocol lifecycle/errors without exposing them in learner copy or product analytics content.
 - [ ] Browser tests exercise a real bundle/action/reload path, blocked forbidden behavior, fallback, keyboard access, and mobile sheet/full-surface composition.
 
 ### Blocked by

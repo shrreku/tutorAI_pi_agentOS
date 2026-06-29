@@ -27,7 +27,7 @@ Ad hoc questions are allowed, but the tutor should answer them inside the broade
 - `apps/api/src/routes/tutor.ts` runs Turn Bootstrap (session, run, refs, thin prompt) then delegates to the Pi runtime; notebook facts and `wiki.search` run on demand.
 - `apps/web/src/TutorPanel.tsx` renders tutor modes, Runtime Work View, and session/study-state controls.
 
-Target implementation: `docs/architecture/tutor-runtime-bootstrap-and-observability-implementation-plan.md`.
+Historical implementation record: `docs/archive/2026-h1/architecture/tutor-runtime-bootstrap-and-observability-implementation-plan.md`.
 
 ## References
 

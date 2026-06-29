@@ -591,7 +591,7 @@ Required production signals:
 - Tutor first-event latency, completion/error/cancel/disconnect, and session identity;
 - notebook event connection/reconnect and invalidation lag;
 - graph/reference/Evidence/Practice/Interactive load and action failures;
-- MCP App load, bridge protocol, sandbox, and fallback failures;
+- MCP App resource load, host protocol, sandbox, and fallback failures;
 - Core Web Vitals and route chunk sizes;
 - Study Activity Pulse rejection/coalescing metrics without learner content.
 

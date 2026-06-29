@@ -40,7 +40,7 @@ LLM learner modes are non-CI-gating by default. They persist Eval Runs and issue
 
 - `docs/adr/0014-synthetic-learner-evals-use-black-box-golden-journeys.md`
 - `docs/adr/0015-synthetic-learner-evals-use-repo-native-runner-first.md`
-- `docs/architecture/synthetic-learner-llm-simulator-prd.md`
-- `docs/architecture/synthetic-learner-llm-simulator-implementation-tickets.md`
-- `docs/architecture/synthetic-learner-simulator-usage.md`
+- `docs/archive/2026-h1/architecture/synthetic-learner-llm-simulator-prd.md`
+- `docs/archive/2026-h1/architecture/synthetic-learner-llm-simulator-implementation-tickets.md`
+- `docs/archive/2026-h1/architecture/synthetic-learner-simulator-usage.md`
 - `docs/contexts/product-domain/CONTEXT.md`

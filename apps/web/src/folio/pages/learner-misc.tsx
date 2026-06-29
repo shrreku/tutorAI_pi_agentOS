@@ -1,8 +1,15 @@
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, FileStack, ShieldCheck } from "lucide-react";
-import { sessionQueryKey } from "@studyagent/api-client";
+import {
+  createNotebook,
+  createWorkspaceFromTemplate,
+  sessionQueryKey,
+  studyTemplateQueryOptions,
+  studyTemplatesQueryOptions,
+  submitConsent,
+} from "@studyagent/api-client";
 import { apiClient } from "../../platform/api-client.js";
 import { Badge, Button, Eyebrow } from "../ui/primitives.js";
 
@@ -19,12 +26,7 @@ export function ConsentPage() {
     setPending(true);
     setError(null);
     try {
-      const res = await apiClient.request("/consent", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accepted: true }),
-      });
-      if (!res.ok) throw new Error(`Could not save consent (${res.status})`);
+      await submitConsent(apiClient.request);
       await queryClient.invalidateQueries({ queryKey: sessionQueryKey() });
       void navigate({ to: "/app" });
     } catch (err) {
@@ -83,14 +85,7 @@ export function WorkspaceCreatePage() {
     setPending(true);
     setError(null);
     try {
-      const res = await apiClient.request("/notebooks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: title.trim() }),
-      });
-      if (!res.ok) throw new Error(`Could not create notebook (${res.status})`);
-      const body = (await res.json()) as { notebook?: { id?: string }; id?: string };
-      const id = body.notebook?.id ?? body.id;
+      const id = await createNotebook(apiClient.request, title.trim());
       await queryClient.invalidateQueries();
       if (id) void navigate({ to: "/notebooks/$notebookId", params: { notebookId: id } });
       else void navigate({ to: "/app/notebooks" });
@@ -142,29 +137,81 @@ export function WorkspaceCreatePage() {
 /* -------------------------------------------------------------- Templates */
 export function TemplatesPage() {
   const navigate = useNavigate();
+  const templatesQuery = useQuery(studyTemplatesQueryOptions(apiClient.request));
+
   return (
     <div className="mx-auto w-full max-w-3xl px-6 pb-20 pt-10">
       <Eyebrow>Study templates</Eyebrow>
       <h1 className="mt-2 font-display text-[clamp(1.9rem,4vw,2.5rem)] font-semibold leading-tight tracking-[-0.02em]">
         Published curricula
       </h1>
-      <div className="mt-6 rounded-[var(--radius)] border border-dashed border-border bg-card/40 px-6 py-16 text-center">
-        <FileStack className="mx-auto h-8 w-8 text-accent" />
-        <h2 className="mt-3 font-display text-[20px] font-semibold">Templates are on the way</h2>
-        <p className="mx-auto mt-1.5 max-w-sm text-[14px] text-muted-foreground">
-          Clone a ready-made course into your own workspace. For now, start a fresh notebook and add
-          your sources.
-        </p>
-        <Button className="mt-4" onClick={() => navigate({ to: "/app/workspaces/new" })}>
-          New notebook <ArrowRight className="h-4 w-4" />
-        </Button>
-      </div>
+      {templatesQuery.isLoading ? (
+        <p className="mt-6 text-[14px] text-muted-foreground">Loading templates…</p>
+      ) : null}
+      {templatesQuery.isError ? (
+        <p className="mt-6 text-[14px] text-destructive">Could not load templates.</p>
+      ) : null}
+      <ul className="mt-6 space-y-3">
+        {(templatesQuery.data ?? []).map((template) => (
+          <li key={template.id}>
+            <button
+              type="button"
+              className="w-full rounded-[var(--radius)] border border-border bg-card/60 px-5 py-4 text-left transition-colors hover:border-accent hover:bg-accent/5"
+              onClick={() =>
+                navigate({
+                  to: "/app/templates/$templateId",
+                  params: { templateId: template.id },
+                })
+              }
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="font-display text-[18px] font-semibold">{template.title}</h2>
+                <Badge tone="accent">{template.estimatedMinutes} min</Badge>
+              </div>
+              <p className="mt-1 text-[13.5px] text-muted-foreground">{template.topic}</p>
+              <p className="mt-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                {template.studyMode} · {template.sourceLevel}
+              </p>
+            </button>
+          </li>
+        ))}
+      </ul>
+      {!templatesQuery.isLoading && (templatesQuery.data ?? []).length === 0 ? (
+        <div className="mt-6 rounded-[var(--radius)] border border-dashed border-border bg-card/40 px-6 py-12 text-center">
+          <FileStack className="mx-auto h-8 w-8 text-accent" />
+          <p className="mt-3 text-[14px] text-muted-foreground">No published templates yet.</p>
+          <Button className="mt-4" onClick={() => navigate({ to: "/app/workspaces/new" })}>
+            New notebook <ArrowRight className="h-4 w-4" />
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }
 
 export function TemplateDetailPage({ templateId }: { templateId: string }) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const templateQuery = useQuery(studyTemplateQueryOptions(apiClient.request, templateId));
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const start = async () => {
+    setPending(true);
+    setError(null);
+    try {
+      const notebookId = await createWorkspaceFromTemplate(apiClient.request, templateId);
+      await queryClient.invalidateQueries();
+      void navigate({ to: "/notebooks/$notebookId", params: { notebookId } });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create workspace");
+    } finally {
+      setPending(false);
+    }
+  };
+
+  const template = templateQuery.data;
+
   return (
     <div className="mx-auto w-full max-w-2xl px-6 pb-20 pt-16">
       <button
@@ -174,13 +221,39 @@ export function TemplateDetailPage({ templateId }: { templateId: string }) {
       >
         ← Templates
       </button>
-      <h1 className="mt-2 font-display text-[28px] font-semibold leading-tight">Study template</h1>
-      <p className="mt-2 font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-        {templateId}
-      </p>
-      <p className="mt-4 text-[15px] text-muted-foreground">
-        Template detail and one-click cloning open here.
-      </p>
+      {templateQuery.isLoading ? (
+        <p className="mt-4 text-[14px] text-muted-foreground">Loading…</p>
+      ) : null}
+      {template ? (
+        <>
+          <h1 className="mt-2 font-display text-[28px] font-semibold leading-tight">
+            {template.title}
+          </h1>
+          <p className="mt-2 text-[15px] text-muted-foreground">{template.expectedOutcome}</p>
+          <dl className="mt-6 grid gap-3 sm:grid-cols-2">
+            <div>
+              <dt className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                Topic
+              </dt>
+              <dd className="mt-0.5 text-[14px]">{template.topic}</dd>
+            </div>
+            <div>
+              <dt className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                Level
+              </dt>
+              <dd className="mt-0.5 text-[14px]">{template.sourceLevel}</dd>
+            </div>
+          </dl>
+          {error ? (
+            <p className="mt-4 rounded-[var(--radius)] bg-destructive/12 px-3 py-2 text-[13px] text-destructive">
+              {error}
+            </p>
+          ) : null}
+          <Button className="mt-6" size="lg" disabled={pending} onClick={() => void start()}>
+            {pending ? "Creating…" : "Start from template"} <ArrowRight className="h-4 w-4" />
+          </Button>
+        </>
+      ) : null}
     </div>
   );
 }

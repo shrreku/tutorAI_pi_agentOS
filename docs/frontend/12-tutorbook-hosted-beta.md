@@ -105,6 +105,7 @@ Continue, review, practice, and resume actions deep-link into the relevant noteb
 | `/admin/ingestion`                     | `AdminIngestionPage`                    | Live                                                         |
 | `/admin/analytics`                     | `AdminAnalyticsPage`                    | Live                                                         |
 | `/admin/account-deletion`              | `AdminAccountDeletionPage`              | Live                                                         |
+| `/admin/interactive-templates`         | `TemplatePromotionLabPage`              | Required for Interactive Learning pipeline; not implemented  |
 
 Admin UX is utilitarian: dense tables, compact controls, and minimal chrome. During the coordinated Folio cutover, all public and learner routes receive the complete Folio treatment. Admin keeps its operator-first information architecture while adopting Folio tokens, shared primitives, accessibility rules, and state treatments.
 

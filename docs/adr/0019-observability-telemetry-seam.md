@@ -8,7 +8,7 @@ Date: 2026-06-05
 
 Tutor observability now centers on **Runtime Work View** (thinking stream, narration, tool steps, learner response) and batched durable-event tracing. Turn-prep `host_context.load` and `context.retrieval` spans are removed. Per-token `tutor.message.delta` rows are not traced or durably appended.
 
-See `docs/architecture/tutor-runtime-bootstrap-and-observability-implementation-plan.md`.
+See the historical implementation record at `docs/archive/2026-h1/architecture/tutor-runtime-bootstrap-and-observability-implementation-plan.md`.
 
 ## Context
 
@@ -85,4 +85,4 @@ Metric labels must stay low-cardinality. Do not use notebook IDs, user IDs, sour
 - W3C Trace Context
 - Langfuse Observability SDK
 - Langfuse Prompt Management
-- `docs/architecture/tutor-runtime-bootstrap-and-observability-implementation-plan.md`
+- `docs/archive/2026-h1/architecture/tutor-runtime-bootstrap-and-observability-implementation-plan.md`

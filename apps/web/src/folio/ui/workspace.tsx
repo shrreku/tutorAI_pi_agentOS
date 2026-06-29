@@ -247,7 +247,19 @@ export function AgentMessage({
   );
 }
 
-export function Composer({ context = "SN2 mechanism" }: { context?: string }) {
+export function Composer({
+  context = "Notebook",
+  value = "",
+  onChange,
+  onSend,
+  disabled = false,
+}: {
+  context?: string;
+  value?: string;
+  onChange?: (value: string) => void;
+  onSend?: () => void;
+  disabled?: boolean;
+}) {
   return (
     <div className="rounded-[var(--radius)] border border-border bg-card p-2 shadow-soft">
       <div className="mb-1.5 flex items-center gap-1.5 px-1">
@@ -258,18 +270,33 @@ export function Composer({ context = "SN2 mechanism" }: { context?: string }) {
       </div>
       <textarea
         rows={2}
+        value={value}
+        onChange={(e) => onChange?.(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            onSend?.();
+          }
+        }}
+        disabled={disabled}
         placeholder="Ask a follow-up, or steer the tutor…"
-        className="w-full resize-none bg-transparent px-2 py-1 text-[14px] outline-none placeholder:text-muted-foreground"
+        className="w-full resize-none bg-transparent px-2 py-1 text-[14px] outline-none placeholder:text-muted-foreground disabled:opacity-60"
       />
       <div className="flex items-center gap-1 px-1 pt-1">
-        <button className="grid h-8 w-8 place-items-center rounded-[var(--radius-sm)] text-muted-foreground hover:bg-muted">
+        <button
+          type="button"
+          className="grid h-8 w-8 place-items-center rounded-[var(--radius-sm)] text-muted-foreground hover:bg-muted"
+        >
           <Paperclip className="h-4 w-4" />
         </button>
-        <button className="grid h-8 w-8 place-items-center rounded-[var(--radius-sm)] text-muted-foreground hover:bg-muted">
+        <button
+          type="button"
+          className="grid h-8 w-8 place-items-center rounded-[var(--radius-sm)] text-muted-foreground hover:bg-muted"
+        >
           <SlidersHorizontal className="h-4 w-4" />
         </button>
         <span className="ml-auto text-[11px] text-muted-foreground">↵ send · ⇧↵ newline</span>
-        <Button size="sm" variant="accent">
+        <Button size="sm" variant="accent" disabled={disabled || !value.trim()} onClick={onSend}>
           <Send className="h-3.5 w-3.5" /> Send
         </Button>
       </div>

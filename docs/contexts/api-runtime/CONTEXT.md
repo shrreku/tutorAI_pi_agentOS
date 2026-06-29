@@ -149,6 +149,10 @@ EventEnvelope: append-only notebook event with monotonically increasing `sequenc
 
 RuntimeStreamChunk and AG-UI event: two SSE-facing projections of runtime activity.
 
+Surface Cue: idempotent, monotonic StudyAgent AG-UI event that associates Tutor Choreography with a Tutor Session, run, turn, and optional narration/tool sequence; requests semantic stage, focus, replace, dock, minimize, or dismiss behavior for a resolved Interactive Learning Surface; and carries references and placement intent rather than executable UI or pixel geometry. Clients acknowledge applied, deferred, or rejected with a bounded reason.
+
+Choreography Snapshot: session-scoped recovery projection containing the latest cue sequence, Primary/Companion assignments, queued cues, and learner overrides. AG-UI snapshot/delta delivery can rebuild the Workspace Stage after reconnect without replaying transcript messages. It is not Canonical Learning State.
+
 Deferred Work: non-immediate system work that is triggered by durable notebook events, persisted jobs, tutor actions, or explicit schedules. Deferred Work is not defined by continuous polling; polling is only one possible infrastructure adapter and should not be part of the product language.
 
 Agentic Cache Entry: persisted, version-scoped cached context used by the agentic runtime for optional on-demand search acceleration (`tutor_turn.retrieval_plan`, `tutor_turn.retrieval_rows`). It is not canonical learner state and must be invalidated by source/corpus/search-material changes.
@@ -263,6 +267,6 @@ Session end: if no completed turn exists, complete session without crystallizati
 - `apps/api/src/mastery-curriculum-adaptation.test.ts`
 - `apps/api/src/learner-progress.test.ts`
 - `apps/api/src/tutor-context-selection.test.ts` (scoped retrieval helpers; turn-prep selection removed)
-- `docs/architecture/tutor-runtime-bootstrap-and-observability-implementation-plan.md`
+- `docs/archive/2026-h1/architecture/tutor-runtime-bootstrap-and-observability-implementation-plan.md` (historical implementation record)
 - `apps/api/src/study-state.test.ts`
 - `apps/api/src/tutor-write-provider.test.ts`

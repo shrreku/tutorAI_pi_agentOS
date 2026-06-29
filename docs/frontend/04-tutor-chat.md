@@ -6,6 +6,12 @@ Tutor chat is the teaching spine. It starts lessons, explains, asks checkpoints,
 
 The Workspace is where durable reference, graph, source, artifact, Evidence, and rich interaction live.
 
+During Tutor Choreography, AG-UI may stream ordered Surface Cues alongside narration and tool activity. Rich MCP App Views render in the responsive Workspace Stage, not inside the chat transcript. Chat shows a compact Surface Anchor with title, status, and focus/reopen controls. Genuinely small native controls may remain inline.
+
+Surface Cues must not steal focus, interrupt typing, replace an actively manipulated or learner-pinned surface, or override reduced-motion/accessibility settings. When staging is blocked, show a non-disruptive Surface Anchor and let the learner open it.
+
+Cues are sequenced and idempotent. The client acknowledges applied, deferred, or rejected; reconnect restores Stage presentation from a compact Choreography Snapshot rather than remounting surfaces by replaying chat history.
+
 ## Tutor Panel Structure
 
 Required zones:
